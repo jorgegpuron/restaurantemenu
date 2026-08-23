@@ -22,3 +22,6 @@ server/admin/copias/
 # Vídeo original de la puerta y cualquier fuente pesada que no compile: viven fuera del repo.
 *.mov
 *.mp4
+
+# Los escribe importar.mjs desde carta.mjs. Se dejan fuera solo en los clientes que usan
+# el importador; Tinge mantiene su menu.md a mano, asi que aqui SI se versionan.

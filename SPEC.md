@@ -3154,3 +3154,72 @@ Contra el panel real, con PHP 8.4:
 El segundo caso es el que importa: **antes de este cambio, las dos primeras filas decían lo
 mismo**, porque la firma era el mismo literal en las dos copias. Un premio ganado en un
 restaurante se canjeaba en el de al lado.
+
+## El motor deja de llevar dentro el restaurante (23 Aug 2026)
+
+Después de dar de alta al segundo cliente —Dedos Las Américas— se pudo medir lo que costaba de
+verdad: **176 de 4.752 líneas de `gen.mjs` diferían** entre los dos. El 96% idéntico. Y las que
+cambiaban no eran lógica: la taxonomía, el nombre, la lista de idiomas y dos botones. Ni una línea
+del render, del CSS ni del JavaScript del cliente.
+
+El problema no era que hubiera que copiar un motor. Era que **había datos escritos como código
+dentro de él**, y por eso había que abrirlo.
+
+### Qué se movió a `cliente.mjs`
+
+`TAB_INTRO`, `GROUPS`, `TAB_ICON`, `GROUP_ICON_BY_CAT`, `CATEGORIAS_DUPLICADAS`, la lista de
+idiomas y los seis rótulos —nombre, título, título social, rótulo, descripción y título del
+juego—. Ninguna función. El movimiento es puro traslado.
+
+Los rótulos eran seis y no uno, que es la clase de cosa que se descubre buscando: el `<title>` y
+el `og:title` no dicen lo mismo, y el rótulo pequeño de la portada es una tercera cadena. Con uno
+solo, cualquiera de los otros dos se queda con el nombre del restaurante anterior.
+
+Las banderas de los idiomas **no** se movieron. El restaurante dice qué idiomas quiere; cómo se
+dibuja cada bandera es del motor. `IDIOMAS` se deriva ahora del inglés más lo que declare el
+cliente.
+
+### Medido: los dos motores son el mismo fichero
+
+```
+gen.mjs    IDENTICO
+juego.mjs  IDENTICO
+temas.mjs  IDENTICO
+```
+
+Y las dos cartas compiladas antes y después del traslado son idénticas salvo el sello del build y
+un comentario del CSS que nombraba a Tinge y ahora no nombra a nadie. En el juego de Dedos hay
+además una diferencia que es un arreglo: ya no emite un título en alemán para un idioma que esa
+carta no ofrece — antes estaba escrito a mano con las tres claves.
+
+### `importar.mjs`: la carta como datos
+
+Lo que quedaba caro era el catálogo: 500 claves de diccionario y una tabla de 60 filas escritas a
+mano, donde una sola errata rompe el build con un error que no señala la línea.
+
+Ahora la carta de un restaurante vive en `carta.mjs` —pestañas, categorías y platos, en inglés y
+en español— y `node importar.mjs` escribe `menu.md` y las cinco secciones de catálogo de
+`i18n.es.mjs`. La sección `ui` no se toca: es interfaz y se mantiene a mano.
+
+Tres cosas que hace y que no son adorno:
+
+- **Avisa si el mismo texto lleva dos traducciones distintas.** Un nombre repetido en dos
+  categorías comparte traducción a propósito; dos traducciones distintas para el mismo nombre son
+  un error, y sin esto ganaba la primera en silencio.
+- **Comprueba que `carta.mjs` y `cliente.mjs` digan lo mismo**, y si no, escupe el bloque exacto
+  que hay que pegar. La alternativa era que el build reventara más tarde y peor.
+- **Escribe las líneas de intro también en `ui`.** Salió probando la plantilla con un cliente
+  inventado: la intro de una pestaña vive en `TAB_INTRO` pero el build la traduce por `ui`, así
+  que el importador la escribía en un sitio y no en el otro y el build pedía una cadena que nadie
+  había escrito a mano en ningún lado.
+
+Tinge no usa `carta.mjs`: su `menu.md` es anterior y se mantiene a mano. El importador está en su
+carpeta porque es la que se copia, y con `carta.EJEMPLO.mjs` al lado.
+
+### Probado con un cliente inventado, de principio a fin
+
+Copiar la carpeta, renombrar `carta.EJEMPLO.mjs`, `node importar.mjs`, pegar el bloque que dijo,
+`node gen.mjs`. Compila: 4 platos, 2 pestañas, 3 categorías. **Sin abrir `gen.mjs` ni una vez.**
+
+Y después, las dos cartas de verdad recompiladas y comparadas contra su versión anterior: Tinge
+intacta, Dedos intacta.

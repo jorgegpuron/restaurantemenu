@@ -1,3 +1,6 @@
+import * as ES from './i18n.es.mjs';
+import * as DE from './i18n.de.mjs';
+
 /* Lo que distingue a ESTE restaurante de cualquier otro que use el mismo motor.
  *
  * Nace pequeño a propósito. Hoy sólo lleva las tres cosas que la fase 1 necesita para que dos
@@ -36,9 +39,197 @@ export const CLIENTE = {
    * La de Tinge no se toca por la misma razón que el slug: cambiarla invalida los códigos que
    * alguien pueda tener en el móvil ahora mismo. */
   secreto: 'totm-chilli',
+
+  /* Los rotulos. Cada uno sale en un sitio distinto y no son intercambiables:
+     nombre        el titular grande de la portada
+     titulo        la pestana del navegador y el titulo que ensena Google
+     tituloSocial  el que sale al pegar el enlace en WhatsApp o Facebook
+     rotulo        la linea pequena sobre el titular
+     descripcion   la frase de Google, debajo del titulo
+     tituloJuego   la pestana del navegador en la pagina del juego
+
+     titulo, rotulo y descripcion se traducen: tienen que existir como clave en la
+     seccion ui de cada diccionario de idioma. */
+  nombre: 'Tinge of Turmeric',
+  titulo: 'Tinge of Turmeric — Indian Restaurant Menu',
+  tituloSocial: 'Tinge of Turmeric — South Indian Restaurant Menu',
+  rotulo: 'South Indian Restaurant Menu',
+  descripcion: 'Tinge of Turmeric — Indian restaurant menu.',
+  tituloJuego: 'Chilli Rush — Tinge of Turmeric',
 };
 
 /* Se usa en todas partes como CLAVE('tema'), CLAVE('lang')... Una sola función y ni un literal
    'totm-' suelto en el código: el día que se añada una clave nueva, sale prefijada sin que nadie
    tenga que acordarse. */
 export const CLAVE = (nombre) => CLIENTE.slug + '-' + nombre;
+
+/* Los idiomas de ESTA carta, ademas del ingles, que es el texto del documento y siempre
+   esta. Cada uno trae su diccionario. Anadir uno es anadir una linea aqui y su fichero;
+   quitarlo, borrar la linea. El motor pone las banderas. */
+export const IDIOMAS_CLIENTE = [
+  { code: 'es', label: 'ES', dicts: ES, name: 'Español' },
+  { code: 'de', label: 'DE', dicts: DE, name: 'Deutsch' },
+];
+
+/* ------------------------------------------------------------------ *
+ * La estructura de la carta
+ *
+ * Que pestanas hay, que categorias de menu.md cuelgan de cada una y con que icono. Es lo
+ * unico que hay que escribir a mano para un restaurante nuevo, y son datos: ninguna de
+ * estas lineas es codigo del motor.
+ *
+ * Iconos disponibles, y no hay mas: appetizers, soup, vegetarian, meat, salad, flame,
+ * leaf, lentils, rice, bread, fries, special, kids, bowl, drop.
+ * ------------------------------------------------------------------ */
+/* An optional line under the tab's first heading. Only Vegan has one. */
+export const TAB_INTRO = {
+  'Vegan': 'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk.',
+};
+
+/* ------------------------------------------------------------------ *
+ * 2. Group the 41 categories into 13 tabs
+ *    [tab label, [[md category, subheading label (null = no subheading)], ...]]
+ * ------------------------------------------------------------------ */
+
+
+export const GROUPS = [
+  ['Appetizers & Soups', [
+    ['Appetizers', 'Appetizers'],
+    ['Soups', 'Soups'],
+  ]],
+  ['Starters', [
+    ['Starters - Vegetarian', 'Vegetarian'],
+    ['Starters - Meat & Seafood', 'Meat & Seafood'],
+  ]],
+  ['Salads', [
+    ['Salads', null],
+  ]],
+  ['Sizzlers', [
+    ['Sizzlers', null],
+  ]],
+  /* La carta original repetía los catorce ingredientes: una vez para las salsas clásicas y
+     otra, idénticos en nombre, descripción y precio, para las del sur de la India. Aquí se
+     listan una sola vez y luego se elige salsa de una de las dos familias. No se ha quitado
+     ningún plato: se ha quitado una copia. */
+  ['Curries', [
+    ['Curries - Ingredients', 'Choose Your Ingredient'],
+    ['Curries - Sauces', 'Classic sauces'],
+    ['South Indian Curries - Sauces', 'South Indian sauces'],
+  ]],
+  ['Specialities', [
+    ['House Specialities', null],
+  ]],
+  ['Vegetables & Lentils', [
+    ['Vegetable Dishes', 'Vegetable Dishes'],
+    ['Indian Lentil Dishes', 'Indian Lentil Dishes'],
+  ]],
+  ['Biryani', [
+    ['Classic Biryani', 'Classic Biryani'],
+    ['Butter Masala Biryani', 'Butter Masala Biryani'],
+  ]],
+  ['Breads', [
+    ['Naan Bread', 'Naan Bread'],
+    ['Flat Breads', 'Flat Breads'],
+  ]],
+  ['Rice & Fries', [
+    ['Indian Rice', 'Indian Rice'],
+    ['Fries', 'Fries'],
+  ]],
+  ['Kids', [
+    ['Kids Menu', null],
+  ]],
+  ['Gluten Free', [
+    ['Gluten Free - Soups', 'Soups'],
+    ['Gluten Free - Salads', 'Salads'],
+    ['Gluten Free - Starters', 'Starters'],
+    ['Gluten Free - Curries', 'Curries'],
+    ['Gluten Free - Sizzlers', 'Sizzlers'],
+    ['Gluten Free - Biryani', 'Biryani'],
+    ['Gluten Free - Vegetable & Lentil Dishes', 'Vegetable & Lentil Dishes'],
+    ['Gluten Free - Rice, Fries & Breads', 'Rice, Fries & Breads'],
+    ['Gluten Free - Special Dishes', 'Special Dishes'],
+  ]],
+  ['Vegan', [
+    ['Vegan - Appetizers', 'Appetizers'],
+    ['Vegan - Soups', 'Soups'],
+    ['Vegan - Salads', 'Salads'],
+    ['Vegan - Starters', 'Starters'],
+    ['Vegan - Curries', 'Curries'],
+    ['Vegan - Vegetable Dishes', 'Vegetable Dishes'],
+    ['Vegan - Indian Lentil Dishes', 'Indian Lentil Dishes'],
+    ['Vegan - Special Biryani', 'Special Biryani'],
+    ['Vegan - Butter Masala Biryani', 'Butter Masala Biryani'],
+    ['Vegan - Rice & Fries', 'Rice & Fries'],
+    ['Vegan - Sizzlers', 'Sizzlers'],
+    ['Vegan - Flat Breads', 'Flat Breads'],
+  ]],
+];
+
+/* The index sheet lists tabs, not subcategories, so it needs its own map. Same twelve
+   shapes plus a face for the kids menu — no new family, no new stroke. */
+export const TAB_ICON = {
+  'Appetizers & Soups': 'soup',
+  'Starters': 'appetizers',
+  'Salads': 'salad',
+  'Sizzlers': 'flame',
+  'Curries': 'bowl',
+  'Specialities': 'special',
+  'Vegetables & Lentils': 'leaf',
+  'Biryani': 'rice',
+  'Breads': 'bread',
+  'Rice & Fries': 'fries',
+  'Kids': 'kids',
+  'Gluten Free': 'gf',
+  'Vegan': 'vegetarian',
+};
+
+export const GROUP_ICON_BY_CAT = {
+  'Appetizers': 'appetizers',
+  'Soups': 'soup',
+  'Starters - Vegetarian': 'vegetarian',
+  'Starters - Meat & Seafood': 'meat',
+  'Curries - Ingredients': 'bowl',
+  'Curries - Sauces': 'drop',
+  'South Indian Curries - Ingredients': 'bowl',
+  'South Indian Curries - Sauces': 'drop',
+  'Vegetable Dishes': 'leaf',
+  'Indian Lentil Dishes': 'lentils',
+  'Classic Biryani': 'rice',
+  'Butter Masala Biryani': 'rice',
+  'Naan Bread': 'bread',
+  'Flat Breads': 'bread',
+  'Indian Rice': 'rice',
+  'Fries': 'fries',
+  'Gluten Free - Soups': 'soup',
+  'Gluten Free - Salads': 'salad',
+  'Gluten Free - Starters': 'meat',
+  'Gluten Free - Curries': 'bowl',
+  'Gluten Free - Sizzlers': 'flame',
+  'Gluten Free - Biryani': 'rice',
+  'Gluten Free - Vegetable & Lentil Dishes': 'lentils',
+  'Gluten Free - Rice, Fries & Breads': 'rice',
+  'Gluten Free - Special Dishes': 'special',
+  'Vegan - Appetizers': 'appetizers',
+  'Vegan - Soups': 'soup',
+  'Vegan - Salads': 'salad',
+  'Vegan - Starters': 'vegetarian',
+  'Vegan - Curries': 'bowl',
+  'Vegan - Vegetable Dishes': 'leaf',
+  'Vegan - Indian Lentil Dishes': 'lentils',
+  'Vegan - Special Biryani': 'special',
+  'Vegan - Butter Masala Biryani': 'rice',
+  'Vegan - Rice & Fries': 'rice',
+  'Vegan - Sizzlers': 'flame',
+  'Vegan - Flat Breads': 'bread',
+};
+
+/* Categorías que la carta impresa repite y aquí se muestran una sola vez. La clave es la
+   copia; el valor, el original. No es «quitar platos»: los catorce ingredientes siguen en la
+   carta, listados una vez, y después se elige salsa de una familia o de la otra.
+
+   El build comprueba que la copia sigue siendo idéntica —nombre, descripción y precio— y
+   revienta si deja de serlo. Si algún día el restaurante sube el precio del cordero sólo en
+   una de las dos listas, hay que enterarse aquí y no en la mesa. */
+export const CATEGORIAS_DUPLICADAS = {
+  'South Indian Curries - Ingredients': 'Curries - Ingredients',
+};

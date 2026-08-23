@@ -1,11 +1,14 @@
 import { readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync } from 'node:fs';
-import * as ES from './i18n.es.mjs';
-import * as DE from './i18n.de.mjs';
 import { buildGame } from './juego.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
 } from './temas.mjs';
-import { CLIENTE, CLAVE } from './cliente.mjs';
+/* Todo lo que es de ESTE restaurante. gen.mjs no lleva dentro ni un nombre ni una
+   categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
+import {
+  CLIENTE, CLAVE, IDIOMAS_CLIENTE,
+  TAB_INTRO, GROUPS, TAB_ICON, GROUP_ICON_BY_CAT, CATEGORIAS_DUPLICADAS,
+} from './cliente.mjs';
 
 /* Antes de escribir nada: si un tema deja un texto por debajo de su umbral WCAG, el build
    revienta aquí y no llega a producción. */
@@ -99,11 +102,6 @@ const BANDERA_DE = '<svg class="bandera" viewBox="0 0 24 16" aria-hidden="true">
   + '<rect y="5.34" width="24" height="5.33" fill="#DD0000"/>'
   + '<rect y="10.67" width="24" height="5.33" fill="#FFCE00"/></svg>';
 
-const IDIOMAS = [
-  { code: 'en', name: 'English', flag: BANDERA_GB },
-  { code: 'es', name: 'Español', flag: BANDERA_ES },
-  { code: 'de', name: 'Deutsch', flag: BANDERA_DE },
-];
 
 /* ---- las redes del restaurante ----
  * Hasta cinco iconos debajo de la nota. Salen del panel, no del build: cada negocio tiene las
@@ -135,10 +133,14 @@ const REDES = [
 const BUILD = String(Date.now());
 
 /* English is the document text; every other language rides along in data-<code>. */
-const LANGS = [
-  { code: 'es', label: 'ES', dicts: ES, name: 'Español' },
-  { code: 'de', label: 'DE', dicts: DE, name: 'Deutsch' },
-];
+const LANGS = IDIOMAS_CLIENTE;
+
+/* El ingles es el texto del documento; los demas idiomas los elige el cliente en
+   cliente.mjs. Las banderas son del motor: el restaurante dice que idiomas quiere, no
+   como se dibuja cada una. */
+const BANDERAS = { en: BANDERA_GB, es: BANDERA_ES, de: BANDERA_DE };
+const IDIOMAS = [{ code: 'en', name: 'English', flag: BANDERAS.en }]
+  .concat(LANGS.map((l) => ({ code: l.code, name: l.name, flag: BANDERAS[l.code] })));
 
 /* ------------------------------------------------------------------ *
  * 1. Parse menu.md
@@ -177,103 +179,11 @@ for (const raw of md.split(/\r?\n/)) {
   categories[current].items.push({ id, name, desc, price });
 }
 
-/* ------------------------------------------------------------------ *
- * 2. Group the 41 categories into 13 tabs
- *    [tab label, [[md category, subheading label (null = no subheading)], ...]]
- * ------------------------------------------------------------------ */
-
-/* An optional line under the tab's first heading. Only Vegan has one. */
-const TAB_INTRO = {
-  'Vegan': 'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk.',
-};
-
-const GROUPS = [
-  ['Appetizers & Soups', [
-    ['Appetizers', 'Appetizers'],
-    ['Soups', 'Soups'],
-  ]],
-  ['Starters', [
-    ['Starters - Vegetarian', 'Vegetarian'],
-    ['Starters - Meat & Seafood', 'Meat & Seafood'],
-  ]],
-  ['Salads', [
-    ['Salads', null],
-  ]],
-  ['Sizzlers', [
-    ['Sizzlers', null],
-  ]],
-  /* La carta original repetía los catorce ingredientes: una vez para las salsas clásicas y
-     otra, idénticos en nombre, descripción y precio, para las del sur de la India. Aquí se
-     listan una sola vez y luego se elige salsa de una de las dos familias. No se ha quitado
-     ningún plato: se ha quitado una copia. */
-  ['Curries', [
-    ['Curries - Ingredients', 'Choose Your Ingredient'],
-    ['Curries - Sauces', 'Classic sauces'],
-    ['South Indian Curries - Sauces', 'South Indian sauces'],
-  ]],
-  ['Specialities', [
-    ['House Specialities', null],
-  ]],
-  ['Vegetables & Lentils', [
-    ['Vegetable Dishes', 'Vegetable Dishes'],
-    ['Indian Lentil Dishes', 'Indian Lentil Dishes'],
-  ]],
-  ['Biryani', [
-    ['Classic Biryani', 'Classic Biryani'],
-    ['Butter Masala Biryani', 'Butter Masala Biryani'],
-  ]],
-  ['Breads', [
-    ['Naan Bread', 'Naan Bread'],
-    ['Flat Breads', 'Flat Breads'],
-  ]],
-  ['Rice & Fries', [
-    ['Indian Rice', 'Indian Rice'],
-    ['Fries', 'Fries'],
-  ]],
-  ['Kids', [
-    ['Kids Menu', null],
-  ]],
-  ['Gluten Free', [
-    ['Gluten Free - Soups', 'Soups'],
-    ['Gluten Free - Salads', 'Salads'],
-    ['Gluten Free - Starters', 'Starters'],
-    ['Gluten Free - Curries', 'Curries'],
-    ['Gluten Free - Sizzlers', 'Sizzlers'],
-    ['Gluten Free - Biryani', 'Biryani'],
-    ['Gluten Free - Vegetable & Lentil Dishes', 'Vegetable & Lentil Dishes'],
-    ['Gluten Free - Rice, Fries & Breads', 'Rice, Fries & Breads'],
-    ['Gluten Free - Special Dishes', 'Special Dishes'],
-  ]],
-  ['Vegan', [
-    ['Vegan - Appetizers', 'Appetizers'],
-    ['Vegan - Soups', 'Soups'],
-    ['Vegan - Salads', 'Salads'],
-    ['Vegan - Starters', 'Starters'],
-    ['Vegan - Curries', 'Curries'],
-    ['Vegan - Vegetable Dishes', 'Vegetable Dishes'],
-    ['Vegan - Indian Lentil Dishes', 'Indian Lentil Dishes'],
-    ['Vegan - Special Biryani', 'Special Biryani'],
-    ['Vegan - Butter Masala Biryani', 'Butter Masala Biryani'],
-    ['Vegan - Rice & Fries', 'Rice & Fries'],
-    ['Vegan - Sizzlers', 'Sizzlers'],
-    ['Vegan - Flat Breads', 'Flat Breads'],
-  ]],
-];
 
 // fail loudly instead of silently emitting an empty tab
 const missing = GROUPS.flatMap(([, subs]) => subs.map(([c]) => c)).filter((c) => !categories[c]);
 if (missing.length) throw new Error('categories not found in menu.md: ' + missing.join(' | '));
 
-/* Categorías que la carta impresa repite y aquí se muestran una sola vez. La clave es la
-   copia; el valor, el original. No es «quitar platos»: los catorce ingredientes siguen en la
-   carta, listados una vez, y después se elige salsa de una familia o de la otra.
-
-   El build comprueba que la copia sigue siendo idéntica —nombre, descripción y precio— y
-   revienta si deja de serlo. Si algún día el restaurante sube el precio del cordero sólo en
-   una de las dos listas, hay que enterarse aquí y no en la mesa. */
-const CATEGORIAS_DUPLICADAS = {
-  'South Indian Curries - Ingredients': 'Curries - Ingredients',
-};
 
 for (const [copia, original] of Object.entries(CATEGORIAS_DUPLICADAS)) {
   const a = categories[original];
@@ -465,63 +375,7 @@ const GROUP_ICON = {
   drop: ICON.sauce,
 };
 
-/* The index sheet lists tabs, not subcategories, so it needs its own map. Same twelve
-   shapes plus a face for the kids menu — no new family, no new stroke. */
-const TAB_ICON = {
-  'Appetizers & Soups': 'soup',
-  'Starters': 'appetizers',
-  'Salads': 'salad',
-  'Sizzlers': 'flame',
-  'Curries': 'bowl',
-  'Specialities': 'special',
-  'Vegetables & Lentils': 'leaf',
-  'Biryani': 'rice',
-  'Breads': 'bread',
-  'Rice & Fries': 'fries',
-  'Kids': 'kids',
-  'Gluten Free': 'gf',
-  'Vegan': 'vegetarian',
-};
 
-const GROUP_ICON_BY_CAT = {
-  'Appetizers': 'appetizers',
-  'Soups': 'soup',
-  'Starters - Vegetarian': 'vegetarian',
-  'Starters - Meat & Seafood': 'meat',
-  'Curries - Ingredients': 'bowl',
-  'Curries - Sauces': 'drop',
-  'South Indian Curries - Ingredients': 'bowl',
-  'South Indian Curries - Sauces': 'drop',
-  'Vegetable Dishes': 'leaf',
-  'Indian Lentil Dishes': 'lentils',
-  'Classic Biryani': 'rice',
-  'Butter Masala Biryani': 'rice',
-  'Naan Bread': 'bread',
-  'Flat Breads': 'bread',
-  'Indian Rice': 'rice',
-  'Fries': 'fries',
-  'Gluten Free - Soups': 'soup',
-  'Gluten Free - Salads': 'salad',
-  'Gluten Free - Starters': 'meat',
-  'Gluten Free - Curries': 'bowl',
-  'Gluten Free - Sizzlers': 'flame',
-  'Gluten Free - Biryani': 'rice',
-  'Gluten Free - Vegetable & Lentil Dishes': 'lentils',
-  'Gluten Free - Rice, Fries & Breads': 'rice',
-  'Gluten Free - Special Dishes': 'special',
-  'Vegan - Appetizers': 'appetizers',
-  'Vegan - Soups': 'soup',
-  'Vegan - Salads': 'salad',
-  'Vegan - Starters': 'vegetarian',
-  'Vegan - Curries': 'bowl',
-  'Vegan - Vegetable Dishes': 'leaf',
-  'Vegan - Indian Lentil Dishes': 'lentils',
-  'Vegan - Special Biryani': 'special',
-  'Vegan - Butter Masala Biryani': 'rice',
-  'Vegan - Rice & Fries': 'rice',
-  'Vegan - Sizzlers': 'flame',
-  'Vegan - Flat Breads': 'bread',
-};
 
 const renderItem = (it, showSlot, icon, catName) => {
   // the slot renders as a left column on desktop and as a badge before the name on phones;
@@ -748,14 +602,14 @@ const html = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tinge of Turmeric — Indian Restaurant Menu</title>
-<meta name="description" content="Tinge of Turmeric — Indian restaurant menu."${attrs('Tinge of Turmeric — Indian restaurant menu.', 'ui')}>
+<title>${CLIENTE.titulo}</title>
+<meta name="description" content="${CLIENTE.descripcion}"${attrs(CLIENTE.descripcion, 'ui')}>
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
 <meta name="theme-color" content="${derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink']}">
 <link rel="canonical" href="${CLIENTE.base}">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Tinge of Turmeric — South Indian Restaurant Menu">
-<meta property="og:description" content="Tinge of Turmeric — Indian restaurant menu.">
+<meta property="og:title" content="${CLIENTE.tituloSocial}">
+<meta property="og:description" content="${CLIENTE.descripcion}">
 <meta property="og:url" content="${CLIENTE.base}">
 ${FONTS}
 <style>
@@ -858,7 +712,7 @@ h2,h3,h4,h6,p{margin:0}
   color:var(--ink);
   text-align:center;
   font-family:var(--title-font);
-  /* clamped so "Tinge of Turmeric" stays on one line down to a 320px screen */
+  /* clamped so the restaurant name stays on one line down to a 320px screen */
   font-size:clamp(26px,7.6vw,44px);
   font-weight:800;
   font-optical-sizing:auto;
@@ -2899,8 +2753,8 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
         </figure>
 
         <div class="title-area">
-          <div class="sub-title">${T('South Indian Restaurant Menu', 'ui')}</div>
-          <h2 class="title">Tinge of Turmeric</h2>
+          <div class="sub-title">${T(CLIENTE.rotulo, 'ui')}</div>
+          <h2 class="title">${esc(CLIENTE.nombre)}</h2>
         </div>
 
 
@@ -3027,9 +2881,9 @@ ${panes}
         <button type="button" class="ds-clear" id="ds-clear"${TL('Clear search')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg></button>
       </div>
       <div class="ds-chips" role="group"${TL('Filters')}>
-        <button type="button" class="ds-chip" data-filter="vegan" aria-pressed="false">${T('Vegan', 'tabs')} <span class="n"></span></button>
-        <button type="button" class="ds-chip" data-filter="gf" aria-pressed="false">${T('Gluten Free', 'tabs')} <span class="n"></span></button>
-        <button type="button" class="ds-chip" data-filter="offer" aria-pressed="false">${T('On offer', 'ui')} <span class="n"></span></button>
+${veganNames.size ? `        <button type="button" class="ds-chip" data-filter="vegan" aria-pressed="false">${T('Vegan', 'tabs')} <span class="n"></span></button>
+` : ''}${gfNames.size ? `        <button type="button" class="ds-chip" data-filter="gf" aria-pressed="false">${T('Gluten Free', 'tabs')} <span class="n"></span></button>
+` : ''}        <button type="button" class="ds-chip" data-filter="offer" aria-pressed="false">${T('On offer', 'ui')} <span class="n"></span></button>
       </div>
     </div>
 
@@ -3050,8 +2904,8 @@ ${sheet}
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var nav = document.getElementById('pills-tab');
-  var TITLE = ${JSON.stringify(Object.assign({ en: 'Tinge of Turmeric — Indian Restaurant Menu' },
-      Object.fromEntries(LANGS.map((l) => [l.code, tr('Tinge of Turmeric — Indian Restaurant Menu', 'ui', l)]))))};
+  var TITLE = ${JSON.stringify(Object.assign({ en: CLIENTE.titulo },
+      Object.fromEntries(LANGS.map((l) => [l.code, tr(CLIENTE.titulo, 'ui', l)]))))};
   var sentinel = document.querySelector('.tab-nav-sentinel');
   var navBar = document.querySelector('.tab-nav');
   var content = document.querySelector('.tab-content');
@@ -4590,11 +4444,9 @@ const juego = buildGame({
   T, TL, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), IDIOMAS, CLIENTE, CLAVE,
   TEMAS_SLUGS: [TEMA_POR_DEFECTO].concat(TEMAS.map((t) => t.slug).filter((s) => s !== TEMA_POR_DEFECTO)),
   TEMA_INK: derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink'],
-  titles: {
-    en: 'Chilli Rush — Tinge of Turmeric',
-    es: 'Chilli Rush — Tinge of Turmeric',
-    de: 'Chilli Rush — Tinge of Turmeric',
-  },
+  /* El mismo titulo en los tres idiomas: es el nombre del juego y el del restaurante. */
+  titles: Object.fromEntries(['en'].concat(LANGS.map((l) => l.code))
+    .map((c) => [c, CLIENTE.tituloJuego])),
 });
 writeFileSync(new URL('./juego.html', import.meta.url), juego);
 
