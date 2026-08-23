@@ -2071,6 +2071,13 @@ $CUENTAS = [
   /* Copias de seguridad. Una fila por copia: qué es y de cuándo a la izquierda, los dos
      botones a la derecha. Por debajo de 560 el texto se lleva la fila entera y los botones
      caen debajo, que es lo único que cabe sin partir palabras. */
+  /* Una fila de accion DENTRO de una tarjeta. NO es .bar: esa es la barra fija de abajo y
+     hay exactamente una por pestana. Poner una segunda la superpone a la primera y deja el
+     boton de Guardar debajo, invisible y sin poder pulsarse. */
+  .fila-accion{
+    display:flex;gap:var(--s2);align-items:center;justify-content:space-between;
+    flex-wrap:wrap;margin-top:var(--s3);
+  }
   .copias{margin-top:var(--s3)}
   .copia{
     display:grid;
@@ -3725,7 +3732,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
       <form method="post">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-        <div class="bar">
+        <div class="fila-accion">
           <span class="count">El estado de ahora, para guardarlo fuera del servidor</span>
           <button class="ghost" name="descargar_estado" value="1" type="submit">Descargar</button>
         </div>

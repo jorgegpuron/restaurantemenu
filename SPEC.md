@@ -3223,3 +3223,22 @@ Copiar la carpeta, renombrar `carta.EJEMPLO.mjs`, `node importar.mjs`, pegar el 
 
 Y después, las dos cartas de verdad recompiladas y comparadas contra su versión anterior: Tinge
 intacta, Dedos intacta.
+
+### El botón de Guardar de Marca se quedó debajo de la fila de descarga
+
+`.bar` no es una fila de botones: es **la barra fija del fondo de la pantalla**, y hay
+exactamente una por pestaña. La fila «El estado de ahora · Descargar» de las copias de
+seguridad la reutilizó por parecido visual, y al ir después en el HTML se pintó encima de la
+del formulario de Marca. Resultado: al elegir un tema, el botón que se veía abajo decía
+**Descargar** y el de **Guardar** estaba debajo, invisible y sin poder pulsarse.
+
+Lo encontró el cliente en el servidor, no una prueba. La comprobación que lo habría cazado es
+de una línea y ahora está hecha: contar `.bar` por pestaña y que dé uno.
+
+| pestaña | barras fijas |
+|---|---|
+| agotados · ocultos · ofertas · precios · juego · marca | 1 cada una |
+
+La fila de descarga pasa a `.fila-accion`, que es `position:static` y vive dentro de la tarjeta.
+Medido con `elementFromPoint` sobre el centro del botón de Guardar: devuelve el propio botón, no
+hay nada encima.
