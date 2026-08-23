@@ -632,6 +632,19 @@ html{
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb,var(--surface) 30%,transparent) transparent;
 }
+/* Suave, pero declarado aqui y no pedido desde JavaScript.
+
+   behavior:"smooth" en scrollTo es una sugerencia: hay navegadores y vistas embebidas donde
+   no hace nada de nada —ni animar ni saltar—, y entonces la carta se queda donde estaba. Con
+   scroll-behavior el movimiento ocurre siempre; lo unico que decide el navegador es si lo
+   anima. El JavaScript se limita a decir a donde, que es lo suyo.
+
+   La barra de pestanas NO lleva scroll-behavior: centrar el chip es un ajuste de medio segundo
+   dentro de una barra, y ahi importa que ocurra, no que se vea ocurrir. Se pone scrollLeft y
+   ya esta. */
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+}
 html::-webkit-scrollbar{width:12px}
 html::-webkit-scrollbar-track{background:transparent}
 html::-webkit-scrollbar-thumb{
@@ -2938,13 +2951,23 @@ ${sheet}
       else item.removeAttribute('aria-current');
     });
 
-    // keep the chosen chip visible in the scroller
-    if (btn.scrollIntoView) btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reduce ? 'auto' : 'smooth' });
+    /* Sólo en horizontal, y a mano. scrollIntoView con block:'nearest' tambien mueve la
+       pagina en vertical si la barra esta fuera de vista, y eso competia con el scroll que
+       viene despues: dos desplazamientos suaves a la vez en la misma caja y gana el que
+       quiera el navegador. Aqui se toca scrollLeft de la barra y no se puede mover nada mas. */
+    var caja = nav.getBoundingClientRect();
+    var chip = btn.getBoundingClientRect();
+    var centrado = nav.scrollLeft + (chip.left - caja.left) - (caja.width - chip.width) / 2;
+    var maxL = nav.scrollWidth - nav.clientWidth;
+    var destinoL = Math.max(0, Math.min(centrado, maxL));
+    if (Math.abs(destinoL - nav.scrollLeft) > 1) {
+      nav.scrollLeft = destinoL;   // lo anima el CSS de .nav-pills, si toca
+    }
 
     // a new category always starts at the top of its list, never mid-scroll in the old one
     if (opts && opts.align !== false) {
       var top = sentinel.getBoundingClientRect().top + window.scrollY;
-      if (window.scrollY > top) window.scrollTo({ top: top, behavior: reduce ? 'auto' : 'smooth' });
+      if (window.scrollY > top) window.scrollTo(0, top);   // lo anima el CSS de html
     }
     if (opts && opts.focus) btn.focus();
   }
@@ -3925,6 +3948,61 @@ ${sheet}
 
   var sheetInvocador = null;   // a quién devolver el foco al cerrar: lupa o botón flotante
 
+  /* ---- bloquear el fondo sin perder el sitio ----
+   * Con overflow:hidden en el body, iOS NO congela el scroll: lo deja seguir por debajo y al
+   * soltar recoloca la pagina donde a el le parece. De ahi salian los dos fallos que se veian
+   * al elegir categoria desde la hoja: que no llevaba al principio —el recolocado de iOS
+   * llegaba DESPUES de nuestro scroll y lo deshacia— y que el boton de categorias no
+   * respondia hasta dar un pequeno scroll, que es como iOS resincroniza.
+   *
+   * position:fixed con top negativo si lo congela de verdad, en todos: la pagina se queda
+   * clavada donde estaba y al soltar se devuelve a mano al pixel exacto. */
+  /* El navegador guarda la posicion de scroll de cada entrada del historial y la restaura al
+     volver. La hoja de categorias mete una entrada al abrirse —para que el boton atras del
+     movil la cierre— y la quita al cerrarse con history.back(). Esa vuelta atras restauraba la
+     posicion de ANTES de elegir categoria, y llegaba despues de nuestro salto: la carta se iba
+     al principio y volvia sola a donde estaba. Era el fallo de «no me lleva al inicio».
+
+     Hay que decirlo al cargar y no al abrir la hoja: la entrada se sella con el modo que
+     hubiera en su momento, y cambiarlo despues no toca las que ya existen. */
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+
+  var yBloqueado = 0;
+  /* Pestillo. closeSheet se llama DOS veces al elegir categoria: una desde el clic y otra desde
+     el popstate que dispara su propio history.back(), y la segunda llega dentro de los 400 ms de
+     la animacion de salida, cuando la hoja todavia no esta hidden. Sin este pestillo la segunda
+     llamada soltaba el fondo otra vez, esta vez sin destino, y devolvia la carta a donde estaba.
+     ESE era el fallo de «no me lleva al inicio», y no el scroll suave ni el historial. */
+  var fondoBloqueado = false;
+
+  function bloquearFondo() {
+    if (fondoBloqueado) return;
+    fondoBloqueado = true;
+    yBloqueado = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = (-yBloqueado) + "px";
+    document.body.style.left = "0";
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+  }
+
+  /* destino opcional: si se pasa, se suelta directamente ahi en vez de donde estabamos. */
+  function soltarFondo(destino) {
+    if (!fondoBloqueado) return;
+    fondoBloqueado = false;
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.width = "";
+    document.body.style.overflow = "";
+    /* De golpe y a proposito: esto no es navegar, es devolver la pagina al sitio del que se
+       la habia sacado. Animarlo seria ensenar un viaje que el cliente no ha pedido. */
+    var antes = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, typeof destino === "number" ? destino : yBloqueado);
+    document.documentElement.style.scrollBehavior = antes;
+  }
+
   function openSheet(alBuscador) {
     clearTimeout(closeTimer);
     sheetInvocador = document.activeElement;
@@ -3936,7 +4014,7 @@ ${sheet}
     void sheet.offsetHeight;
     sheet.classList.add('is-open');
     fab.setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
+    bloquearFondo();
     /* Abierta desde la lupa se enfoca el campo, que es a lo que se venia. Abierta desde el
        boton de categorias NO: en un movil eso levanta el teclado y tapa media hoja antes de
        que nadie haya pedido escribir. */
@@ -3949,7 +4027,7 @@ ${sheet}
   var sheetPanel = sheet.querySelector('.sheet-panel');
   var closeTimer;
 
-  function closeSheet(porHistorial) {
+  function closeSheet(porHistorial, destino) {
     if (sheet.hidden) return;
     /* Si el cierre NO viene del botón atrás hay que deshacer la entrada que puso openSheet;
        si viene de él, el navegador ya la ha quitado y volver a llamar retrocedería dos veces
@@ -3959,13 +4037,15 @@ ${sheet}
     }
     sheet.classList.remove('is-open');
     fab.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
+    soltarFondo(destino);
     /* El foco vuelve a quien abrió la hoja — la lupa de la barra o el botón flotante —,
        no siempre al botón flotante: quien navegaba con teclado no debe perder el sitio. */
+    /* preventScroll: devolver el foco a la lupa de la barra arrastraba la pagina hasta ella,
+       justo despues de haberla puesto donde tocaba. */
     if (sheetInvocador && document.contains(sheetInvocador) && sheetInvocador.focus) {
-      sheetInvocador.focus();
+      sheetInvocador.focus({ preventScroll: true });
     } else {
-      fab.focus();
+      fab.focus({ preventScroll: true });
     }
     sheetInvocador = null;
     // the panel leaves the way it came, so it stays mounted until the slide-down finishes
@@ -3992,10 +4072,16 @@ ${sheet}
     if (e.target.closest('[data-close]')) { closeSheet(); return; }
     var item = e.target.closest('.sheet-item');
     if (!item) return;
-    selectTab(item.dataset.target);
-    closeSheet();
-    var top = sentinel.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: top, behavior: reduce ? 'auto' : 'smooth' });
+    /* align:false porque el salto lo da el cierre, de una vez y sin animar. Un recorrido de
+       ochocientos pixeles suavizado justo cuando se cierra una ventana se lee como que la
+       carta se ha quedado pensando; llegar de golpe se lee como «ya estas aqui».
+
+       El destino se mide con la hoja ya cerrada pero antes de soltar el fondo: con el body en
+       position:fixed las coordenadas de la pagina son las de siempre, porque el bloqueo
+       compensa con el top negativo. */
+    selectTab(item.dataset.target, { align: false });
+    var top = sentinel.getBoundingClientRect().top + yBloqueado;
+    closeSheet(false, Math.max(0, Math.round(top)));
   });
 
 

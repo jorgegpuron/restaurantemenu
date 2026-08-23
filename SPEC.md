@@ -3242,3 +3242,56 @@ de una línea y ahora está hecha: contar `.bar` por pestaña y que dé uno.
 La fila de descarga pasa a `.fila-accion`, que es `position:static` y vive dentro de la tarjeta.
 Medido con `elementFromPoint` sobre el centro del botón de Guardar: devuelve el propio botón, no
 hay nada encima.
+
+## Elegir categoría desde la hoja no llevaba al principio (23 Aug 2026)
+
+Dos síntomas, uno solo era el que se veía: al elegir una categoría en la hoja, la carta cambiaba
+de pestaña pero se quedaba a media lista; y el botón de categorías no respondía hasta dar un
+pequeño scroll.
+
+### La causa: `closeSheet` se ejecutaba dos veces
+
+La hoja mete una entrada en el historial al abrirse, para que el botón atrás del móvil la cierre
+en vez de sacar al cliente de la carta. Al cerrarla, `closeSheet` deshace esa entrada con
+`history.back()` — y eso dispara un `popstate` que vuelve a llamar a `closeSheet`.
+
+La segunda llamada llega **dentro de los 400 ms de la animación de salida**, cuando la hoja
+todavía no está `hidden`, así que no la para el `if (sheet.hidden) return`. Y como llega sin
+destino, devolvía la página exactamente a donde estaba antes de abrir la hoja: deshacía el salto
+que se acababa de hacer.
+
+Un pestillo de una línea —`fondoBloqueado`— y se acabó: el fondo se suelta una vez.
+
+Se descartaron por el camino, midiendo, tres sospechosos razonables: el scroll suave, la
+restauración de scroll del historial y el `focus()` al cerrar. Los tres eran problemas reales
+pero ninguno era **el** problema.
+
+### Tres cosas más que sí estaban mal y ahora no
+
+- **`overflow:hidden` en el body no congela el fondo en iOS.** Deja seguir el scroll por debajo y
+  recoloca la página al soltar. Ahora es `position:fixed` con `top` negativo, que sí lo clava, y
+  al soltar se devuelve a mano al píxel exacto. Es también lo que explica el «no responde hasta
+  que hago scroll»: ese pequeño scroll era iOS resincronizando.
+- **`focus()` sin `preventScroll`** arrastraba la página hasta la lupa de la barra, justo después
+  de haberla puesto donde tocaba.
+- **Dos desplazamientos suaves a la vez.** `scrollIntoView` centraba el chip con `block:'nearest'`,
+  que también mueve la página en vertical, y competía con el salto que venía detrás. Ahora el
+  chip se centra tocando `scrollLeft` de la barra, que no puede mover nada más.
+
+### El suave se declara en CSS, no se pide en JavaScript
+
+`behavior:'smooth'` en `scrollTo` es una sugerencia. Hay entornos —esta misma prueba, sin ir más
+lejos— donde **no hace nada en absoluto**: ni anima ni salta, y la carta se queda donde estaba.
+Con `scroll-behavior` en el CSS el movimiento siempre ocurre y lo único que decide el navegador
+es si lo anima.
+
+La barra de pestañas no lo lleva a propósito: centrar el chip es un ajuste dentro de una barra, y
+ahí importa que ocurra, no que se vea ocurrir.
+
+### Comprobado con la carta corriendo, a 375px
+
+Cinco categorías elegidas desde la hoja: las cinco aterrizan en **141**, que es el arranque de la
+lista, con desfase **0**. El chip queda dentro de la barra en las cinco. El botón responde al
+toque siguiente sin necesidad de scroll. El botón atrás cierra la hoja y no saca de la carta. La
+lupa sigue abriendo con el foco en el campo y el buscador sigue encontrando. Y al final no queda
+ni un estilo suelto en el `body`.
