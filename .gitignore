@@ -16,6 +16,7 @@ server/admin/intentos.json
 server/admin/accesos.log
 server/admin/canjes.json
 server/admin/permitir-hash.txt
+server/admin/copias/
 
 # Vídeo original de la puerta y cualquier fuente pesada que no compile: viven fuera del repo.
 *.mov

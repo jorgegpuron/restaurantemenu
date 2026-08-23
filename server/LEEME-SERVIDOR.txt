@@ -34,11 +34,18 @@ Estructura en el servidor (dentro de /tinge_of_turmeric/menu2/):
      intentos.json    contador anti fuerza bruta   (lo crea el panel solo)
      accesos.log      registro de accesos          (lo crea el panel solo)
      canjes.json      códigos del juego ya canjeados (lo crea el panel solo)
+     copias/          historial de estado.json     (la crea el panel solo)
+                      Una copia por día de servicio, 30 días, más anterior.json, que es
+                      cómo estaba justo antes del último guardado. NO SUBIR NADA ENCIMA:
+                      es la vuelta atrás del restaurante y aquí no hay original.
+                      Para bajarte una, el panel tiene botones en Marca > Copias de
+                      seguridad; por HTTP están denegadas a propósito.
 
 PERMISOS
   estado.json debe ser escribible por PHP. En cPanel normalmente basta 644.
   Si el panel da error al guardar, prueba 664 sobre estado.json.
-  La carpeta admin/ debe ser escribible por PHP (clave.php, intentos.json, accesos.log).
+  La carpeta admin/ debe ser escribible por PHP (clave.php, intentos.json, accesos.log,
+  y la carpeta copias/, que el panel crea la primera vez que guarda algo).
   NO pongas 777 en nada.
 
 SUPERADMINISTRADOR — primera vez (lo haces tú, no el restaurante)

@@ -4698,8 +4698,10 @@ const SUELTOS = [
   ['./server/estado.json', 'estado-EJEMPLO.json'],
 ];
 
-/* Carpetas enteras, sólo el primer nivel: assets/hero/ la crea el panel en el servidor con las
-   fotos que sube el restaurante, y aquí no existe ni tiene que existir. */
+/* Carpetas enteras, sólo el primer nivel. Las subcarpetas que hay al otro lado las crea el
+   panel en el servidor y no tienen original aquí: assets/hero/ con las fotos que sube el
+   restaurante, y admin/copias/ con el historial de estado.json. Subir cualquiera de las dos
+   encima de la del hosting borraría trabajo del cliente, así que el build no baja de nivel. */
 const CARPETAS = [
   ['./assets/', 'assets/'],
   ['./server/admin/', 'admin/'],

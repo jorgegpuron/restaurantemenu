@@ -316,6 +316,8 @@ function leer_estado(): array {
    (dos pestañas, la tablet de cocina y el móvil) se pisaban el .tmp entre el write y el
    rename y podía publicarse un archivo a medias. */
 function guardar_estado(array $estado): bool {
+  /* Antes de tocar el disco, la foto de como estaba. Ver copia_de_seguridad(). */
+  copia_de_seguridad();
   $estado['actualizado'] = gmdate('c');
   /* Los canjes del juego viven en su propio archivo privado (ver leer_canjes): si quedaba
      una copia antigua dentro del estado, se retira para no publicarla. Y de review sólo
@@ -331,6 +333,87 @@ function guardar_estado(array $estado): bool {
   if (!@rename($tmp, ESTADO_PATH)) { @unlink($tmp); return false; }
   return true;
 }
+
+/* ---------------------------------------------------------------- copias de seguridad
+ * El panel reconstruye `soldOut` y `prices` enteros en cada guardado y descarta lo que no
+ * valide. Un guardado a destiempo -- o el boton que devuelve los precios a los de la carta --
+ * se llevaba por delante el trabajo de semanas sin preguntar y sin vuelta atras.
+ *
+ * Dos copias, y cada una contesta a una pregunta distinta:
+ *
+ *   anterior.json          Como estaba justo antes del ultimo guardado. Deshace el error de
+ *                          hace un minuto, que es el que de verdad pasa.
+ *   <fecha-servicio>.json  Como estaba al empezar ese servicio. Se escribe una sola vez al
+ *                          dia, en el primer guardado, y se conservan los ultimos COPIAS_DIAS.
+ *
+ * Viven en admin/copias/ y no en la raiz: estado.json es publico porque lo lee la carta, pero
+ * su historial no tiene por que serlo -- diria a que hora se agota cada plato y cada cuanto se
+ * cambian los precios. El .htaccess de admin/ ya deniega todo .json; la carpeta lleva ademas
+ * el suyo, por si algun dia se mueve de sitio y se queda sin el de arriba.
+ */
+function escribir_atomico(string $destino, string $contenido): bool {
+  $tmp = $destino . '.' . bin2hex(random_bytes(6)) . '.tmp';
+  if (@file_put_contents($tmp, $contenido, LOCK_EX) === false) return false;
+  if (!@rename($tmp, $destino)) { @unlink($tmp); return false; }
+  return true;
+}
+
+function copias_dir(): ?string {
+  if (!is_dir(COPIAS_DIR) && !@mkdir(COPIAS_DIR, 0755, true) && !is_dir(COPIAS_DIR)) return null;
+  $guardia = COPIAS_DIR . '/.htaccess';
+  if (!is_file($guardia)) {
+    @file_put_contents($guardia, 'Require all denied' . PHP_EOL . 'Options -Indexes' . PHP_EOL);
+  }
+  return COPIAS_DIR;
+}
+
+/* Solo los nombres que escribe copia_de_seguridad(). Cualquier otra cosa que aparezca en la
+   carpeta -- un .tmp de una escritura cortada, algo subido a mano por FTP -- no se lista, no se
+   descarga y no se restaura. Es lo que permite que el nombre que llega del formulario no
+   necesite mas comprobacion que estar en esta lista: nunca se concatena lo que manda el
+   navegador con una ruta. */
+function copias_listar(): array {
+  if (!is_dir(COPIAS_DIR)) return [];
+  $out = [];
+  foreach ((array) @scandir(COPIAS_DIR) as $f) {
+    $f = (string) $f;
+    if (!preg_match('/^(anterior|[0-9]{4}-[0-9]{2}-[0-9]{2})\.json$/', $f)) continue;
+    $ruta = COPIAS_DIR . '/' . $f;
+    $out[] = ['nombre' => $f, 'bytes' => (int) @filesize($ruta), 'ts' => (int) @filemtime($ruta)];
+  }
+  /* De la mas nueva a la mas vieja, con anterior.json siempre arriba: es la que se usa. */
+  usort($out, function (array $a, array $b): int {
+    $pa = $a['nombre'] === 'anterior.json';
+    $pb = $b['nombre'] === 'anterior.json';
+    if ($pa !== $pb) return $pa ? -1 : 1;
+    return strcmp($b['nombre'], $a['nombre']);
+  });
+  return $out;
+}
+
+function copias_purgar(): void {
+  $fechas = [];
+  foreach (copias_listar() as $c) {
+    if ($c['nombre'] !== 'anterior.json') $fechas[] = $c['nombre'];
+  }
+  foreach (array_slice($fechas, COPIAS_DIAS) as $viejo) @unlink(COPIAS_DIR . '/' . $viejo);
+}
+
+/* Se llama ANTES de escribir, con el estado que todavia esta en disco. Si falla no dice nada y
+   el guardado sigue: no poder copiar es malo, pero impedir que el restaurante marque un plato
+   agotado en plena cena es peor. */
+function copia_de_seguridad(): void {
+  $raw = @file_get_contents(ESTADO_PATH);
+  if ($raw === false || $raw === '') return;      // primer guardado: no hay nada que copiar
+  if (copias_dir() === null) return;
+  escribir_atomico(COPIAS_DIR . '/anterior.json', $raw);
+  $delDia = COPIAS_DIR . '/' . fecha_servicio() . '.json';
+  if (!is_file($delDia)) {
+    escribir_atomico($delDia, $raw);
+    copias_purgar();
+  }
+}
+
 
 /* ---------------------------------------------------------------- canjes del juego
  * Antes viajaban dentro de estado.json, que es público: cualquiera podía listar cuántos
@@ -824,6 +907,62 @@ if ($post_tirado) {
 if ($csrfOk) {
   $estado = leer_estado();
   $hoy = fecha_servicio();
+
+  /* --- copias de seguridad --- */
+  /* Las descargas salen por PHP y no por un enlace directo: admin/copias/ esta denegado por el
+     .htaccess, que es justo lo que queremos, asi que el fichero lo sirve el panel con la sesion
+     ya comprobada. El nombre que llega del formulario no se pega nunca a una ruta: se busca en
+     copias_listar(), y lo que no aparece en esa lista no existe para el panel. */
+  if (isset($_POST['descargar_copia']) || isset($_POST['restaurar_copia'])) {
+    $restaurar  = isset($_POST['restaurar_copia']);
+    $pedido     = (string) ($restaurar ? $_POST['restaurar_copia'] : $_POST['descargar_copia']);
+    $encontrada = null;
+    foreach (copias_listar() as $c) {
+      if ($c['nombre'] === $pedido) $encontrada = $c['nombre'];
+    }
+    $pestana = 'marca';
+
+    if ($encontrada === null) {
+      $error = 'Esa copia ya no esta. Actualiza la pagina para ver la lista de ahora.';
+    } elseif (!$restaurar) {
+      $ruta = COPIAS_DIR . '/' . $encontrada;
+      header('Content-Type: application/json; charset=utf-8');
+      header('Content-Disposition: attachment; filename="estado-' . $encontrada . '"');
+      header('Content-Length: ' . (string) filesize($ruta));
+      readfile($ruta);
+      exit;
+    } else {
+      $raw   = (string) @file_get_contents(COPIAS_DIR . '/' . $encontrada);
+      $vuelta = json_decode($raw, true);
+      if (!is_array($vuelta)) {
+        $error = 'La copia no se puede leer. No se ha cambiado nada.';
+      } else {
+        /* Restaurar pasa por guardar_estado(), asi que lo primero que hace es copiar el estado
+           de AHORA a anterior.json. Deshacer una restauracion es, por tanto, otra restauracion:
+           nadie se queda sin salida por haber pulsado el boton equivocado. */
+        $estado = array_replace(estado_vacio(), $vuelta);
+        if (guardar_estado($estado)) {
+          $aviso = $encontrada === 'anterior.json'
+                 ? 'Deshecho el ultimo guardado. La carta vuelve a como estaba antes de el.'
+                 : 'Restaurada la copia del '
+                 . (new DateTimeImmutable(substr($encontrada, 0, 10)))->format('d/m/y') . '.';
+        } else {
+          $error = 'No se ha podido escribir estado.json. No se ha cambiado nada.';
+        }
+      }
+    }
+  }
+
+  /* El estado de ahora, tal cual esta en disco. Es la copia que hay que bajarse ANTES de una
+     migracion: las de copias/ son de despues. */
+  if (isset($_POST['descargar_estado']) && is_file(ESTADO_PATH)) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="estado-' . fecha_servicio() . '-actual.json"');
+    header('Content-Length: ' . (string) filesize(ESTADO_PATH));
+    readfile(ESTADO_PATH);
+    exit;
+  }
+
 
   /* --- agotados --- */
   /* Las fotos no son un ajuste que se edita y se guarda: subir y quitar son acciones que
@@ -1925,6 +2064,29 @@ $CUENTAS = [
   .count{color:var(--muted);font-family:var(--title-font);font-size:14px;font-variant-numeric:tabular-nums}
   .count.dirty{color:var(--offer);font-weight:600}
   .count.dirty::after{content:" · sin guardar"}
+
+  /* Copias de seguridad. Una fila por copia: qué es y de cuándo a la izquierda, los dos
+     botones a la derecha. Por debajo de 560 el texto se lleva la fila entera y los botones
+     caen debajo, que es lo único que cabe sin partir palabras. */
+  .copias{margin-top:var(--s3)}
+  .copia{
+    display:grid;
+    grid-template-columns:1fr auto auto;
+    align-items:center;
+    gap:var(--s2);
+    padding:var(--s3) 0;
+    border-top:1px solid var(--hairline);
+  }
+  .copia-txt{display:block}
+  .copia-que{display:block;font-family:var(--title-font);font-weight:600}
+  .copia-dato{
+    display:block;color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums;
+  }
+  @media (max-width:560px){
+    .copia{grid-template-columns:1fr 1fr}
+    .copia-txt{grid-column:1 / -1}
+  }
+
   a{color:var(--accent-ink)}
 
   /* ---------- entrar ----------
@@ -3325,8 +3487,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php /* ---------------------------------------------------------------- marca */ ?>
   <section class="pane" data-pane="marca"<?= $pestana === 'marca' ? '' : ' hidden' ?>>
     <p class="hint">
-      El juego de colores de la carta, del juego y de este panel. <strong>Se elige una vez</strong>,
-      el día que se monta el restaurante, y no hay que volver aquí.
+      Las fotos de portada, el juego de colores de la carta y las copias de seguridad. Los
+      colores <strong>se eligen una vez</strong>, el día que se monta el restaurante; a las
+      fotos y a las copias se vuelve cuando haga falta.
     </p>
 
     <?php if (!$temas): ?>
@@ -3538,6 +3701,76 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </div>
       </form>
     <?php endif; ?>
+
+    <h2>Copias de seguridad</h2>
+    <div class="card">
+      <p class="hint">
+        Cada vez que se guarda algo aquí, antes se apunta cómo estaba. Es la vuelta atrás:
+        si alguien devuelve los precios a los de la carta sin querer, o marca medio menú
+        agotado, esto lo deshace. Se guardan los últimos <?= (int) COPIAS_DIAS ?> días.
+      </p>
+
+      <form method="post">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <div class="bar">
+          <span class="count">El estado de ahora, para guardarlo fuera del servidor</span>
+          <button class="ghost" name="descargar_estado" value="1" type="submit">Descargar</button>
+        </div>
+      </form>
+
+      <?php $copias = copias_listar(); ?>
+      <?php if (!$copias): ?>
+        <p class="hint" style="margin:var(--s3) 2px 0">
+          Todavía no hay ninguna. La primera se escribe la próxima vez que guardes algo.
+        </p>
+      <?php else: ?>
+        <div class="copias">
+          <?php foreach ($copias as $c):
+            $es_anterior = $c['nombre'] === 'anterior.json';
+            $kb          = max(1, (int) round($c['bytes'] / 1024));
+            /* La fecha sale del NOMBRE, no de filemtime. La copia del servicio del 22 se
+               escribe en el primer guardado de ese servicio, que puede caer a las 02:30 del
+               23: con la fecha del fichero, esa copia se anunciaba con el día equivocado. */
+            $dia         = $es_anterior ? null : new DateTimeImmutable(substr($c['nombre'], 0, 10));
+            $sello       = (new DateTimeImmutable('@' . $c['ts']))->setTimezone(new DateTimeZone(TZ));
+            $que         = $es_anterior
+                         ? 'Antes del último guardado'
+                         : 'Al empezar el ' . mb_strtolower(dia_semana($dia->format('Y-m-d')), 'UTF-8')
+                           . ' ' . $dia->format('d/m/y');
+            /* De anterior.json interesa la hora — es la de hace un rato. De las del día no:
+               su fecha ya está en el título y la hora en que se escribieron no dice nada. */
+            $dato        = $es_anterior
+                         ? $sello->format('d/m/y H:i') . ' · ' . $kb . ' KB'
+                         : $kb . ' KB';
+            $confirmar   = $es_anterior
+                         ? '¿Deshacer el último guardado? La carta vuelve a como estaba antes de él.'
+                         : '¿Devolver la carta a como estaba el ' . $dia->format('d/m/y') . '?'; ?>
+            <div class="copia">
+              <span class="copia-txt">
+                <span class="copia-que"><?= h($que) ?></span>
+                <span class="copia-dato"><?= h($dato) ?></span>
+              </span>
+              <form method="post" style="display:contents">
+                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                <button class="ghost" name="descargar_copia" value="<?= h($c['nombre']) ?>"
+                        type="submit">Descargar</button>
+              </form>
+              <form method="post" style="display:contents">
+                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                <button class="ghost" name="restaurar_copia" value="<?= h($c['nombre']) ?>"
+                        type="submit"
+                        onclick="return confirm('<?= h($confirmar) ?>')">Restaurar</button>
+              </form>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <p class="hint" style="margin:var(--s3) 2px 0">
+          Restaurar también se puede deshacer: antes de escribir, el panel apunta cómo está
+          ahora. Nunca te quedas sin salida por haber pulsado el botón equivocado.
+        </p>
+      <?php endif; ?>
+    </div>
+
   </section>
 
 

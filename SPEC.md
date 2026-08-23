@@ -2992,3 +2992,92 @@ caracteres ocupan un byte. Contados: **1612 caracteres no ASCII**, de los que 11
 bytes (`á`, `ñ`, `·`) y 418 gastan tres (`—`, `▶`, las comillas tipográficas). 1194 + 418×2 =
 **2030 bytes de exceso**, que es justo la diferencia. No falta nada; son dos unidades distintas
 leídas como si fueran la misma.
+
+## El panel ya tiene vuelta atrás (23 Aug 2026)
+
+Guardar en el panel no modificaba el estado: lo **reconstruía entero**. Los agotados en
+`index.php:1067-1073` y los precios en `:1179-1189` se rehacen desde cero en cada guardado y se
+descarta lo que no valide. Con el botón de «Volver a los precios de la carta» al lado, un clic se
+llevaba por delante semanas de ajustes. No había ninguna copia, ninguna exportación y ninguna
+forma de recuperarlo: en las 8.400 líneas del proyecto no existía la palabra copia.
+
+Con un solo restaurante ya era malo. Con la migración de identidades de platos por delante —el
+primer «Guardar» después de cambiar las claves borra lo que no se haya migrado— era la primera
+cosa que había que arreglar.
+
+### Dos copias, porque son dos preguntas distintas
+
+| Fichero | Qué contesta |
+|---|---|
+| `admin/copias/anterior.json` | Cómo estaba justo antes del último guardado |
+| `admin/copias/<fecha-servicio>.json` | Cómo estaba al empezar ese servicio, 30 días atrás |
+
+La primera es la que se usa de verdad: el error que pasa es el de hace un minuto, no el del mes
+pasado. La segunda se escribe **una sola vez al día**, en el primer guardado, y es la que cubre
+«esto se rompió la semana pasada y nadie dijo nada». La fecha es la de servicio, no la natural:
+un cambio a las 02:00 sigue perteneciendo al servicio de la noche anterior, igual que los
+agotados.
+
+Se escriben desde `copia_de_seguridad()`, llamada como primera instrucción de `guardar_estado()`,
+con el fichero anterior todavía en disco. Si falla no dice nada y el guardado sigue: no poder
+copiar es malo, pero impedir que el restaurante marque un plato agotado en plena cena es peor.
+
+### Restaurar también se deshace
+
+Restaurar pasa por `guardar_estado()`, así que lo primero que hace es copiar el estado de ahora a
+`anterior.json`. Deshacer una restauración es otra restauración. Nadie se queda sin salida por
+haber pulsado el botón equivocado, que es la diferencia entre un botón que se usa y uno que da
+miedo tocar.
+
+### Por qué dentro de admin/ y no en la raíz
+
+`estado.json` es público —lo lee la carta en cada visita— pero su historial no tiene por qué:
+diría a qué hora se agota cada plato y cada cuánto se tocan los precios. `admin/copias/` hereda
+el `.htaccess` de `admin/`, que ya deniega todo `.json`, y además el panel le escribe el suyo
+propio al crear la carpeta, por si algún día se mueve de sitio.
+
+Como están denegadas por HTTP, la descarga la sirve el PHP con la sesión ya comprobada. El nombre
+que llega del formulario **no se concatena nunca con una ruta**: se busca en `copias_listar()`, que
+sólo devuelve lo que casa con `anterior.json` o `AAAA-MM-DD.json`, y lo que no esté en esa lista no
+existe para el panel. Comprobado: `descargar_copia=../config.php` devuelve la página con un error,
+sin cabecera de descarga.
+
+### Medido en el panel real, con PHP 8.4
+
+- Primer guardado: se crea `copias/` con su `.htaccess`, `anterior.json` y el del día. Cero `.tmp`
+  sueltos — se escriben con el mismo temporal + `rename` que el resto del panel.
+- Segundo guardado del mismo día: `anterior.json` pasa a `onice`, el del día **sigue** en `laurel`.
+- Restaurar `anterior.json`: el estado vuelve a `laurel` y `anterior.json` pasa a `onice`. La
+  vuelta atrás de la vuelta atrás funciona.
+- Purga con 35 copias sembradas: quedan **30**, de la más nueva a la más vieja, `anterior.json`
+  intacto.
+- Descarga: `application/json`, `Content-Disposition` con nombre, contenido JSON válido.
+
+La purga sólo corre el día que se crea una copia nueva, así que el historial puede llegar a 31
+ficheros durante unas horas. Es la diferencia entre recorrer la carpeta una vez al día y hacerlo
+en cada guardado de cada servicio; a 30 días de unos pocos KB, el fichero de más no molesta a
+nadie.
+
+### Dónde vive
+
+En **Marca**, debajo de los colores, fuera del `<form>` del tema y fuera del `if` de `temas.json`:
+las copias tienen que estar ahí aunque falte el catálogo de temas, que es justo cuando algo ha ido
+mal. La alternativa era una octava pestaña en una barra que a 375px ya desborda.
+
+El rótulo de la pestaña decía «se elige una vez y no hay que volver aquí», que ya era falso desde
+que las fotos de portada viven ahí. Ahora nombra las tres cosas y dice de cuál de ellas es verdad
+que se toca una sola vez.
+
+### La fecha de una copia sale de su nombre, no de su fecha de fichero
+
+Primera versión: la fila se anunciaba con el `filemtime`. Salió en la prueba con 35 copias
+sembradas —todas escritas el mismo día— y las treinta y cinco decían ser de hoy.
+
+El caso de sembrado es artificial, pero el fallo no lo es: la copia del servicio del 22 se escribe
+en el **primer guardado de ese servicio**, y ese servicio llega hasta las 06:00 del 23. Un
+guardado a las 02:30 le pone al fichero fecha del 23 y la fila habría anunciado el día que no era
+—justo la clase de detalle por el que alguien restaura la copia equivocada—. Ahora la fecha sale
+de los diez primeros caracteres del nombre, que es lo que decidió `fecha_servicio()` al crearla.
+
+De `anterior.json` sí interesa la hora, porque es la de hace un rato y sirve para reconocerla. De
+las del día no: su fecha ya está en el título, y la hora a la que se escribió no dice nada.

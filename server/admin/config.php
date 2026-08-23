@@ -72,6 +72,17 @@ define('LOG_PATH', __DIR__ . '/accesos.log');
 // Dónde vive el estado que lee la carta. Por defecto, la carpeta de arriba.
 define('ESTADO_PATH', __DIR__ . '/../estado.json');
 
+/* Historial del estado. El panel lo reconstruye entero en cada guardado, así que sin esto un
+ * clic devuelve los precios a los de la carta y no hay forma de recuperarlos. Va dentro de
+ * admin/ porque estado.json es público —lo lee la carta— pero su historial no tiene por qué.
+ * La carpeta la crea el panel sola la primera vez que guarda algo. */
+define('COPIAS_DIR', __DIR__ . '/copias');
+
+/* Cuántos días de historial se guardan. Uno por fecha de servicio, más anterior.json, que es
+ * aparte y no caduca. A 30 días, unos 31 ficheros de pocos KB: nada para el hosting y
+ * suficiente para cubrir 'esto se rompió la semana pasada y nadie lo dijo'. */
+define('COPIAS_DIAS', 30);
+
 // Catálogo de platos que genera gen.mjs. Se regenera con la carta; no se edita a mano.
 define('PLATOS_PATH', __DIR__ . '/platos.json');
 
