@@ -1,0 +1,22 @@
+# Lo que escribe gen.mjs en cada compilación. Se rehace solo, y con el index.html dentro cada
+# commit arrastraría 700 KB de ruido que tapan el cambio de verdad, que son tres líneas de CSS.
+index.html
+juego.html
+version.json
+server/admin/tokens.css
+server/admin/fuentes.html
+server/admin/platos.json
+server/admin/temas.json
+
+# Lo que escribe el panel en el servidor. Nunca debe entrar aquí, ni siquiera si un día baja
+# una copia por FTP para depurar algo: son contraseñas, accesos y canjes de un negocio real.
+server/admin/clave.php
+server/admin/superclave.php
+server/admin/intentos.json
+server/admin/accesos.log
+server/admin/canjes.json
+server/admin/permitir-hash.txt
+
+# Vídeo original de la puerta y cualquier fuente pesada que no compile: viven fuera del repo.
+*.mov
+*.mp4

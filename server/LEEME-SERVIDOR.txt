@@ -1,0 +1,75 @@
+AGOTADOS HOY — qué subir y dónde
+=================================
+
+Estructura en el servidor (dentro de /tinge_of_turmeric/menu2/):
+
+  index.html          la carta          (ya la tienes)
+  juego.html          el juego          (ya lo tienes)
+  estado.json         qué está agotado  <-- debe poder escribirlo PHP
+  version.json        marca del build   (lo genera gen.mjs)
+  .htaccess           gzip + caché      <-- NUEVO: antes vivía sólo en el hosting;
+                                            ahora está en el repo y se sube con todo
+  assets/             imágenes          (ya las tienes; assets/hero/ la crea el panel)
+  admin/
+     index.php        el panel
+     config.php       configuración     (SIN contraseñas dentro)
+     platos.json      lista de platos   (lo genera gen.mjs)
+     temas.json       juegos de color   (lo genera gen.mjs)
+     tokens.css       tokens del panel  (lo genera gen.mjs)
+     fuentes.html     fuentes del panel (lo genera gen.mjs)
+     .htaccess        endurecido
+     hash.php         generador de hash del superadmin (cerrado por defecto)
+     acceso-<tema>.jpg  la imagen de la ventana de entrada, UNA POR TEMA:
+                      acceso-laurel.jpg, acceso-onice.jpg, acceso-caoba.jpg,
+                      acceso-mar.jpg y acceso-ciruela.jpg. El panel sirve la del tema
+                      que este puesto en Marca; si falta, la de laurel; si tampoco,
+                      acceso.jpg. Son archivos fijos: no salen de estado.json y el panel
+                      no los escribe ni los borra. Para cambiar una, sube la tuya encima
+                      por FTP con el mismo nombre (3:2; 900x600 va sobrado).
+                      Si las cambias, no vuelvas a subir las del build por encima.
+     clave.php        la escribe el panel: contraseña del restaurante. NO SUBIRLA NUNCA
+                      por encima: pisarla deja al restaurante fuera.
+     superclave.php   hash del superadministrador. Se crea UNA vez (ver abajo) y no
+                      forma parte del build: ninguna subida la pisa.
+     intentos.json    contador anti fuerza bruta   (lo crea el panel solo)
+     accesos.log      registro de accesos          (lo crea el panel solo)
+     canjes.json      códigos del juego ya canjeados (lo crea el panel solo)
+
+PERMISOS
+  estado.json debe ser escribible por PHP. En cPanel normalmente basta 644.
+  Si el panel da error al guardar, prueba 664 sobre estado.json.
+  La carpeta admin/ debe ser escribible por PHP (clave.php, intentos.json, accesos.log).
+  NO pongas 777 en nada.
+
+SUPERADMINISTRADOR — primera vez (lo haces tú, no el restaurante)
+  1. Sube todo.
+  2. Crea por FTP un archivo vacío  admin/permitir-hash.txt
+  3. Abre  https://…/menu2/admin/hash.php  , escribe TU contraseña (mín. 12) y copia el hash.
+  4. Crea  admin/superclave.php  con el contenido que hash.php te enseña
+     (o mete el hash en la variable de entorno SUPERADMIN_PASSWORD_HASH del hosting;
+     la variable manda sobre el archivo).
+  5. BORRA  admin/permitir-hash.txt.
+  Entras en el panel con esa contraseña en la misma casilla que usa el restaurante.
+  Desde tu sesión restableces la contraseña del restaurante: ellos NO pueden cambiarla;
+  si la pierden, la cambias tú y se la das en mano.
+
+CONTRASEÑA DEL RESTAURANTE — primera vez
+  1. Entra en  https://…/menu2/admin/
+  2. La pantalla de primera configuración pide la contraseña de superadministrador
+     (si está configurada) y la nueva del restaurante. El panel escribe clave.php solo.
+  Sin superadministrador configurado, el primero que abra la URL puede poner la
+  contraseña: sube y configura antes de pasar la dirección a nadie.
+
+MODO DEMO
+  config.php sale de fábrica con DEMO_SIN_CLAVE en false. Ponlo en true sólo para
+  enseñar el panel a un prospecto, y sólo mientras dure la demo.
+
+CADA VEZ QUE CAMBIE LA CARTA
+  gen.mjs regenera index.html, version.json, platos.json, temas.json, tokens.css y
+  fuentes.html. Sube todos.
+  estado.json, clave.php y superclave.php NO se tocan: son del servidor, no del build.
+
+CÓMO CADUCA
+  Lo marcado vale para el servicio en curso. A las 06:00 hora canaria del día
+  siguiente deja de mostrarse solo, sin que nadie entre al panel.
+  Un plato marcado a las 23:00 sigue agotado a las 02:00: es el mismo servicio.

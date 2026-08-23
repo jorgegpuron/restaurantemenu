@@ -1,0 +1,40 @@
+{
+ "soldOut": {},
+ "tags": {},
+ "offer": {
+  "on": false,
+  "cats": [],
+  "percent": 20,
+  "from": 600,
+  "to": 720,
+  "days": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "keys": []
+ },
+ "prices": {},
+ "actualizado": null,
+ "game": {
+  "on": false,
+  "target": 25,
+  "minutes": 5,
+  "prize": {
+   "es": "Una bebida gratis",
+   "en": "A free drink",
+   "de": "Ein Getränk gratis"
+  }
+ },
+ "review": {
+  "enabled": true,
+  "provider": "google",
+  "url": "https://g.page/r/CVSJn54poDEsEAE/review",
+  "redirectAfterReward": true
+ },
+ "theme": "laurel"
+}

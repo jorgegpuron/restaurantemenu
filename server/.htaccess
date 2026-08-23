@@ -1,0 +1,27 @@
+# Raíz de la carta (menu2/). Subir junto a index.html.
+#
+# Reproduce lo que el servidor ya sirve en producción (documentado en SPEC.md, «La carta
+# vieja en un movil que ya la tenia»): hasta ahora ese .htaccess vivía sólo en el hosting y
+# una migración lo habría perdido en silencio — sin gzip son 650 KB de HTML por visita.
+Options -Indexes
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_headers.c>
+  # El HTML se guarda pero se pregunta siempre: si no cambió, un 304 de cientos de bytes;
+  # si cambió, se ve al momento. no-store daría la misma frescura pagando 77 KB por visita.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  # Lo que cambia durante el servicio no se guarda nunca. version.json es además la marca
+  # que decide la recarga única por sesión: cachearlo rompería justo lo que resuelve.
+  <FilesMatch "^(estado|version)\.json$">
+    Header set Cache-Control "no-store"
+  </FilesMatch>
+  # Las fotos del panel llevan nombre aleatorio: una foto nueva es una URL nueva. Un mes.
+  <FilesMatch "\.(png|jpe?g|webp|svg|woff2?)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>

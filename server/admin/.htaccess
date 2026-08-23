@@ -1,0 +1,29 @@
+# Copia este archivo dentro de admin/ con el nombre .htaccess
+Options -Indexes
+
+# Aquí se teclea una contraseña: nunca por http. El sitio ya vive en https; esto sólo
+# recoge al que llega por un enlace viejo o escribe la dirección sin la s.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# platos.json, los temporales, el contador de intentos y el registro de accesos no se
+# sirven: sólo los lee PHP desde dentro.
+<FilesMatch "\.(json|tmp|log|log\.1|txt)$">
+  Require all denied
+</FilesMatch>
+
+# clave.php y superclave.php guardan los hashes de las contraseñas. Al ser PHP no se
+# serviría su contenido aunque se pidiera, pero se deniega igual: dos cierres valen más
+# que uno.
+<FilesMatch "^(clave|superclave|config)\.php$">
+  Require all denied
+</FilesMatch>
+
+# fuentes.html lo lee el PHP del disco, no se sirve por HTTP. tokens.css sí: lo pide el
+# navegador con un <link>, así que ese se queda accesible.
+<FilesMatch "^fuentes\.html$">
+  Require all denied
+</FilesMatch>
