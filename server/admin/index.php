@@ -1536,7 +1536,7 @@ $CUENTAS = [
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>La carta de hoy — Tinge of Turmeric</title>
+<title>La carta de hoy — <?= h(CLIENTE_NOMBRE) ?></title>
 <?php /* Las mismas dos tipografías que la carta, escritas por el build. */ ?>
 <?php @include __DIR__ . '/fuentes.html'; ?>
 <link rel="stylesheet" href="tokens.css">
@@ -2489,7 +2489,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <?php endif; ?>
     <div class="login-cuerpo">
       <p class="login-eyebrow">Acceso privado</p>
-      <h1>Tinge of Turmeric</h1>
+      <h1><?= h(CLIENTE_NOMBRE) ?></h1>
       <div class="login-filete"></div>
       <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
       <form method="post">
@@ -2548,7 +2548,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <?php endif; ?>
   </div>
   <header class="head">
-    <p class="head-eyebrow">Tinge of Turmeric</p>
+    <p class="head-eyebrow"><?= h(CLIENTE_NOMBRE) ?></p>
     <h1><span class="dia"><?= h(dia_semana($hoy)) ?>,</span> <?= h(date('d/m/y', strtotime($hoy))) ?></h1>
     <p class="sub">
       Servicio en curso<?php if (!$demo): ?> · la sesión se cierra sola tras

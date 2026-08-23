@@ -4510,6 +4510,7 @@ writeFileSync(
     '/* Generado por gen.mjs desde cliente.mjs. No editar a mano: se sobrescribe en cada build. */',
     "define('CLIENTE_SLUG', " + JSON.stringify(CLIENTE.slug) + ');',
     "define('CR_SECRETO', " + JSON.stringify(CLIENTE.secreto) + ');',
+    "define('CLIENTE_NOMBRE', " + JSON.stringify(CLIENTE.nombre) + ');',
     '',
   ].join(NL),
 );

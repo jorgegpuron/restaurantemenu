@@ -1,6 +1,7 @@
 <?php
 /**
- * Tinge of Turmeric — configuración del panel.
+ * Configuración del panel. El nombre del restaurante no está aquí: sale de
+ * cliente.mjs y lo escribe el build en cliente.php.
  *
  * La contraseña NO vive en este archivo. Vive en clave.php, que el panel escribe solo la
  * primera vez y cada vez que se cambia la contraseña. Por eso config.php se puede volver a
@@ -81,6 +82,9 @@ define('LOG_PATH', __DIR__ . '/accesos.log');
 if (is_file(__DIR__ . '/cliente.php')) require __DIR__ . '/cliente.php';
 if (!defined('CLIENTE_SLUG')) define('CLIENTE_SLUG', '');
 if (!defined('CR_SECRETO'))   define('CR_SECRETO', '');
+/* El nombre que ensena el panel. Si falta cliente.php se pone algo neutro: es un
+ * rotulo, no vale la pena tirar el panel por el. */
+if (!defined('CLIENTE_NOMBRE')) define('CLIENTE_NOMBRE', 'La carta');
 
 // Dónde vive el estado que lee la carta. Por defecto, la carpeta de arriba.
 define('ESTADO_PATH', __DIR__ . '/../estado.json');
