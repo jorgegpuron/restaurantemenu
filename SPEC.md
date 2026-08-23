@@ -3001,9 +3001,8 @@ descarta lo que no valide. Con el botón de «Volver a los precios de la carta»
 llevaba por delante semanas de ajustes. No había ninguna copia, ninguna exportación y ninguna
 forma de recuperarlo: en las 8.400 líneas del proyecto no existía la palabra copia.
 
-Con un solo restaurante ya era malo. Con la migración de identidades de platos por delante —el
-primer «Guardar» después de cambiar las claves borra lo que no se haya migrado— era la primera
-cosa que había que arreglar.
+Con un solo restaurante ya era grave, y con más de uno se multiplica: cada carta tiene su panel y
+su `estado.json`, y el error que borre el trabajo de uno no avisa en los demás.
 
 ### Dos copias, porque son dos preguntas distintas
 
@@ -3084,8 +3083,13 @@ las del día no: su fecha ya está en el título, y la hora a la que se escribi�
 
 ## Lo que es de este restaurante, en un solo archivo (23 Aug 2026)
 
-Primer paso hacia el producto multi-restaurante, y el que decide si dos cartas pueden convivir en
-el mismo dominio. `cliente.mjs` nace con tres campos y nada más:
+Cada restaurante nuevo es una copia entera de esta carpeta: se duplica, se le mete su carta y se
+le cambian los nombres. Es una forma de trabajar deliberada — tocar una copia no puede romper otra,
+que es la garantía más fuerte que hay y ningún motor compartido la da.
+
+Lo que la copia **no** arregla sola es que dos cartas en el mismo dominio se pisan, y por eso
+existe `cliente.mjs`: tres campos al principio del proyecto, en vez de ocho literales repartidos
+por dos ficheros que hay que acordarse de buscar en cada alta.
 
 | Campo | Qué arregla |
 |---|---|
@@ -3147,5 +3151,6 @@ Contra el panel real, con PHP 8.4:
 | Firmado con el de otro restaurante | «Los números no cuadran: el código no lo ha dado el juego» |
 | Propio, pero sin `cliente.php` subido | Rechazado, y el panel avisa de qué archivo falta |
 
-El segundo caso es exactamente el fallo que el peritaje daba por seguro. Antes de este cambio los
-dos primeros habrían dicho lo mismo.
+El segundo caso es el que importa: **antes de este cambio, las dos primeras filas decían lo
+mismo**, porque la firma era el mismo literal en las dos copias. Un premio ganado en un
+restaurante se canjeaba en el de al lado.
