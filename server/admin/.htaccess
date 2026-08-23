@@ -18,7 +18,7 @@ Options -Indexes
 # clave.php y superclave.php guardan los hashes de las contraseñas. Al ser PHP no se
 # serviría su contenido aunque se pidiera, pero se deniega igual: dos cierres valen más
 # que uno.
-<FilesMatch "^(clave|superclave|config)\.php$">
+<FilesMatch "^(clave|superclave|config|cliente)\.php$">
   Require all denied
 </FilesMatch>
 

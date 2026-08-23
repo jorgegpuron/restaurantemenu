@@ -36,7 +36,7 @@ export const GAME_STRINGS = [
 const PEPPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg>';
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
-export function buildGame({ T, TL, TOKENS, FONTS, LANG_CODES, LANGS, IDIOMAS, titles, TEMAS_SLUGS, TEMA_INK }) {
+export function buildGame({ T, TL, TOKENS, FONTS, LANG_CODES, LANGS, IDIOMAS, titles, TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE }) {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   /* El mismo selector que la carta: bandera, nombre y chevron, arriba a la derecha. */
   const langMenu = `<div class="head-tools">
@@ -67,7 +67,7 @@ ${IDIOMAS.map((l) => `        <button type="button" class="lang-opt" role="menui
 <meta name="theme-color" content="${TEMA_INK}">
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
 <title>Chilli Rush — Tinge of Turmeric</title>
-<script>try{var _t=localStorage.getItem('totm-tema');if(_t)document.documentElement.dataset.tema=_t}catch(e){}</script>
+<script>try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t}catch(e){}</script>
 ${FONTS}
 <style>
 ${TOKENS}
@@ -629,7 +629,7 @@ h1{
     });
     document.title = TITLE[lang] || TITLE.en;
     langPintar(lang);
-    try { localStorage.setItem('totm-lang', lang); } catch (e) {}
+    try { localStorage.setItem('${CLAVE('lang')}', lang); } catch (e) {}
     pintarTextosDinamicos();
   }
 
@@ -649,7 +649,7 @@ h1{
     var raiz = document.documentElement;
     if (slug === TEMA_DEF) delete raiz.dataset.tema;
     else raiz.dataset.tema = slug;
-    try { localStorage.setItem('totm-tema', slug); } catch (e) {}
+    try { localStorage.setItem('${CLAVE('tema')}', slug); } catch (e) {}
     var meta = document.querySelector('meta[name="theme-color"]');
     var fondo = getComputedStyle(raiz).getPropertyValue('--base').trim();
     if (meta && fondo) meta.content = fondo;
@@ -734,7 +734,7 @@ h1{
   /* El código que ve el camarero. No es seguridad: cualquiera con la consola abierta puede
      fabricar uno. Sirve para lo que de verdad pasa en una mesa — que alguien enseñe la captura
      de ayer — porque lleva la fecha dentro y el panel lo comprueba contra el día de hoy. */
-  var SECRETO = 'totm-chilli';
+  var SECRETO = '${CLIENTE.secreto}';
 
   function suma(txt) {
     var h = 7;
@@ -758,7 +758,7 @@ h1{
   }
 
   /* ---- mejor marca del día, sólo para picarse consigo mismo ---- */
-  function claveHoy() { return 'totm-cr-' + fechaClave(fechaServicio()); }
+  function claveHoy() { return '${CLAVE('cr')}-' + fechaClave(fechaServicio()); }
   function mejorDeHoy() {
     try { return parseInt(localStorage.getItem(claveHoy()) || '0', 10) || 0; } catch (e) { return 0; }
   }
@@ -781,7 +781,7 @@ h1{
   var REVIEW = { on: false, url: '' };
   var vivoTimer = null;
 
-  function clavePremio() { return 'totm-premio'; }
+  function clavePremio() { return '${CLAVE('premio')}'; }
 
   function leerPremio() {
     try {
@@ -1167,7 +1167,7 @@ h1{
   var saved = null;
   try { saved = new URLSearchParams(location.search).get('lang'); } catch (e) {}
   if (!saved || !soportado(saved)) {
-    try { saved = localStorage.getItem('totm-lang'); } catch (e) {}
+    try { saved = localStorage.getItem('${CLAVE('lang')}'); } catch (e) {}
   }
   if (!saved || !soportado(saved)) {
     var lista = (navigator.languages && navigator.languages.length)

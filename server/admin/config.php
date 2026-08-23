@@ -69,6 +69,19 @@ define('BLOQUEO_MINUTOS', 15);
  * Nunca se apuntan contraseñas ni hashes. El .htaccess tampoco lo sirve. */
 define('LOG_PATH', __DIR__ . '/accesos.log');
 
+/* Lo que distingue a este restaurante de cualquier otro que use el mismo motor: su prefijo y la
+ * sal con la que se firman los códigos del juego. Lo escribe gen.mjs desde cliente.mjs, igual
+ * que tokens.css o platos.json, y por eso no está aquí dentro: este archivo se edita a mano y lo
+ * que genera el build no puede pisar lo que escribe una persona.
+ *
+ * Si falta —una subida a medias—, el secreto se queda vacío y NINGÚN código valida. Es a
+ * propósito: con un secreto por defecto, la carta de un restaurante aceptaría los premios de
+ * otro, que es justo lo que este archivo viene a evitar. Fallar cerrado se ve enseguida y se
+ * arregla subiendo el archivo; fallar abierto no se ve nunca. El panel lo avisa en Juego. */
+if (is_file(__DIR__ . '/cliente.php')) require __DIR__ . '/cliente.php';
+if (!defined('CLIENTE_SLUG')) define('CLIENTE_SLUG', '');
+if (!defined('CR_SECRETO'))   define('CR_SECRETO', '');
+
 // Dónde vive el estado que lee la carta. Por defecto, la carpeta de arriba.
 define('ESTADO_PATH', __DIR__ . '/../estado.json');
 

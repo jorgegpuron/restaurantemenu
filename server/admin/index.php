@@ -478,8 +478,11 @@ function dia_semana(string $fecha): string {
  * Esto NO es seguridad: el secreto viaja en el JavaScript de la página y cualquiera con la
  * consola abierta puede fabricar un código. Sirve para lo que de verdad pasa en una mesa —
  * que alguien enseñe la captura de ayer — porque el código lleva la fecha dentro y aquí se
- * comprueba contra el día de servicio de hoy. El control real es el camarero mirando el móvil. */
-const CR_SECRETO = 'totm-chilli';
+ * comprueba contra el día de servicio de hoy. El control real es el camarero mirando el móvil.
+ *
+ * CR_SECRETO ya no se escribe aquí: viene de admin/cliente.php, que genera el build desde
+ * cliente.mjs. Tenerlo en dos sitios a mano era lo que hacía que un código ganado en un
+ * restaurante se canjease en otro. Ver config.php. */
 
 function cr_suma(string $t): int {
   $h = 7;
@@ -3356,6 +3359,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       mientras espera la comida. Si llega al objetivo gana el premio y le sale un código que
       enseña al camarero. Con el juego apagado, el enlace desaparece de la carta.
     </p>
+
+    <?php if (CR_SECRETO === ''): ?>
+      <div class="msg bad">
+        <strong>Falta <code>admin/cliente.php</code>.</strong> Es el archivo que lleva la firma
+        de los códigos de este restaurante, y lo genera el build junto con la carta. Sin él
+        <strong>ningún código se da por válido</strong>, ni siquiera los buenos: el panel
+        prefiere rechazarlos todos antes que aceptar los de otro restaurante.
+        Súbelo por FTP a <code>admin/</code> y esto desaparece.
+      </div>
+    <?php endif; ?>
 
     <form method="post">
       <input type="hidden" name="csrf" value="<?= h($csrf) ?>">

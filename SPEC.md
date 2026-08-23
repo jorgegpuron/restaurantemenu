@@ -3081,3 +3081,71 @@ de los diez primeros caracteres del nombre, que es lo que decidió `fecha_servic
 
 De `anterior.json` sí interesa la hora, porque es la de hace un rato y sirve para reconocerla. De
 las del día no: su fecha ya está en el título, y la hora a la que se escribió no dice nada.
+
+## Lo que es de este restaurante, en un solo archivo (23 Aug 2026)
+
+Primer paso hacia el producto multi-restaurante, y el que decide si dos cartas pueden convivir en
+el mismo dominio. `cliente.mjs` nace con tres campos y nada más:
+
+| Campo | Qué arregla |
+|---|---|
+| `slug` | Prefija las siete claves que la carta guarda en el navegador |
+| `base` | El `canonical` y el `og:url`, que estaban escritos a mano |
+| `secreto` | La sal con la que se firman los códigos del juego |
+
+Nace pequeño a propósito. El nombre, la carta, los diccionarios y la taxonomía siguen dentro del
+motor: sacarlos ahora, sin los ID estables hechos, sería mover dos veces las mismas 500 líneas.
+
+### `localStorage` es por origen, no por carpeta
+
+Es el detalle que hace falta entender para que lo demás tenga sentido. Dos restaurantes en
+`socialcard.es/uno/` y `socialcard.es/dos/` **comparten almacén**: el navegador no separa por
+carpeta, separa por dominio. Sin prefijo propio, el comensal que entra en los dos se lleva de uno
+a otro el tema, el idioma, el tamaño de letra y el premio del juego, que la carta sólo comprueba
+por fecha.
+
+Siete claves —`cr-`, `empujon`, `escala`, `lang`, `premio`, `recargada`, `tema`— y ni un literal
+suelto: todas pasan por `CLAVE('tema')`, así que la que se añada mañana sale prefijada sin que
+nadie tenga que acordarse.
+
+### El secreto del juego, escrito una vez y leído en dos
+
+`totm-chilli` estaba a mano en `juego.mjs` y otra vez en `index.php`. Con dos restaurantes eso
+significa que **un código ganado en A se canjea en B**, porque la firma es la misma.
+
+Ahora sale de `cliente.mjs`, y el build escribe `admin/cliente.php` con el mismo valor para que lo
+lea el panel. Es el patrón que ya usaban `tokens.css`, `temas.json` y `platos.json`: el build
+escribe, el panel lee, una sola verdad. Va en su archivo y no dentro de `config.php` porque
+`config.php` se edita a mano y lo que genera el build no puede pisar lo que escribe una persona.
+
+**Si `cliente.php` falta, no valida ningún código.** Es a propósito. Un valor por defecto haría que
+la carta de un restaurante aceptase los premios de otro, que es justo lo que este archivo viene a
+evitar. Fallar cerrado se ve el mismo día y se arregla subiendo el archivo; fallar abierto no se ve
+nunca. El panel lo dice en la pestaña Juego, con el nombre del archivo que falta.
+
+### Para Tinge no cambia absolutamente nada, y está medido
+
+`slug` se queda en `totm` y el secreto en `totm-chilli` — literalmente lo que ya había. Ponerle un
+nombre más bonito le habría borrado a cada cliente con la carta abierta su tema, su idioma y, si
+había ganado hoy, su premio sin canjear. No hay ninguna razón para cobrar eso.
+
+Comprobado compilando el commit anterior y el nuevo y comparando los dos `index.html`: **idénticos
+salvo el sello del build**, y `juego.html` idéntico byte a byte. El refactor no toca una coma de lo
+que ve el comensal.
+
+### Y comprobado que sí separa, con un segundo cliente de mentira
+
+Compilando con `slug: 'pizzoni'` y `secreto: 'pizzoni-brasa'`: las siete claves salen
+`pizzoni-*`, el `canonical` y el `og:url` apuntan a su carpeta, y `admin/cliente.php` lleva su
+firma.
+
+Contra el panel real, con PHP 8.4:
+
+| Código | Respuesta del panel |
+|---|---|
+| Firmado con el secreto propio | «Válido y canjeado» |
+| Firmado con el de otro restaurante | «Los números no cuadran: el código no lo ha dado el juego» |
+| Propio, pero sin `cliente.php` subido | Rechazado, y el panel avisa de qué archivo falta |
+
+El segundo caso es exactamente el fallo que el peritaje daba por seguro. Antes de este cambio los
+dos primeros habrían dicho lo mismo.

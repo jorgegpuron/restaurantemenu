@@ -16,6 +16,11 @@ Estructura en el servidor (dentro de /tinge_of_turmeric/menu2/):
      platos.json      lista de platos   (lo genera gen.mjs)
      temas.json       juegos de color   (lo genera gen.mjs)
      tokens.css       tokens del panel  (lo genera gen.mjs)
+     cliente.php      lo propio de este restaurante: su prefijo y la firma de los
+                      códigos del juego  (lo genera gen.mjs desde cliente.mjs)
+                      SI FALTA, el panel no da por válido ningún código del juego,
+                      a propósito: prefiere rechazarlos todos antes que aceptar los
+                      de otro restaurante. El panel lo avisa en la pestaña Juego.
      fuentes.html     fuentes del panel (lo genera gen.mjs)
      .htaccess        endurecido
      hash.php         generador de hash del superadmin (cerrado por defecto)

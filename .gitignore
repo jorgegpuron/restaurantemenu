@@ -7,6 +7,7 @@ server/admin/tokens.css
 server/admin/fuentes.html
 server/admin/platos.json
 server/admin/temas.json
+server/admin/cliente.php
 
 # Lo que escribe el panel en el servidor. Nunca debe entrar aquí, ni siquiera si un día baja
 # una copia por FTP para depurar algo: son contraseñas, accesos y canjes de un negocio real.

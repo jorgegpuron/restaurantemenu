@@ -5,6 +5,7 @@ import { buildGame } from './juego.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
 } from './temas.mjs';
+import { CLIENTE, CLAVE } from './cliente.mjs';
 
 /* Antes de escribir nada: si un tema deja un texto por debajo de su umbral WCAG, el build
    revienta aquí y no llega a producción. */
@@ -743,7 +744,7 @@ const html = `<!DOCTYPE html>
      en cualquier cosa y además pelea con nuestro cambio de idioma: Chrome envuelve los nodos
      en <font> y el siguiente cambio se los come. translate="no" es el estándar; la meta y la
      clase son para los que no lo miran. -->
-<script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('totm-tema');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('totm-escala');if(_e)document.documentElement.style.setProperty('--escala',_e)}catch(e){}</script>
+<script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e)}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -751,11 +752,11 @@ const html = `<!DOCTYPE html>
 <meta name="description" content="Tinge of Turmeric — Indian restaurant menu."${attrs('Tinge of Turmeric — Indian restaurant menu.', 'ui')}>
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
 <meta name="theme-color" content="${derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink']}">
-<link rel="canonical" href="https://socialcard.es/tinge_of_turmeric/menu2/">
+<link rel="canonical" href="${CLIENTE.base}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Tinge of Turmeric — South Indian Restaurant Menu">
 <meta property="og:description" content="Tinge of Turmeric — Indian restaurant menu.">
-<meta property="og:url" content="https://socialcard.es/tinge_of_turmeric/menu2/">
+<meta property="og:url" content="${CLIENTE.base}">
 ${FONTS}
 <style>
 /* Palette. Un bloque por tema, escrito por temas.mjs: el de la casa en :root y los demás
@@ -3149,7 +3150,7 @@ ${sheet}
   function empujon() {
     if (reduce) return;
     if (nav.scrollWidth - nav.clientWidth < 40) return;
-    try { if (sessionStorage.getItem('totm-empujon')) return; sessionStorage.setItem('totm-empujon', '1'); } catch (e) {}
+    try { if (sessionStorage.getItem('${CLAVE('empujon')}')) return; sessionStorage.setItem('${CLAVE('empujon')}', '1'); } catch (e) {}
     var t0 = 0;
     var paso = function (t) {
       if (!t0) t0 = t;
@@ -3746,7 +3747,7 @@ ${sheet}
     var raiz = document.documentElement;
     if (slug === TEMA_DEF) delete raiz.dataset.tema;
     else raiz.dataset.tema = slug;
-    try { localStorage.setItem('totm-tema', slug); } catch (e) {}
+    try { localStorage.setItem('${CLAVE('tema')}', slug); } catch (e) {}
     /* La barra del navegador, del color del fondo de la página: con un valor fijo, al
        cambiar de tema el móvil seguía enmarcando la carta con el color del tema anterior. */
     var meta = document.querySelector('meta[name="theme-color"]');
@@ -3895,7 +3896,7 @@ ${sheet}
      Una sola recarga por sesion. Si el servidor no tuviera las cabeceras puestas, recargar
      devolveria otra vez la version vieja y el movil entraria en bucle; con el tope, en el
      peor caso se queda como estaba. */
-  var RECARGA = 'totm-recargada';
+  var RECARGA = '${CLAVE('recargada')}';
 
   function comprobarVersion() {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
@@ -4020,7 +4021,7 @@ ${sheet}
     document.title = TITLE[lang] || TITLE.en;
     document.dispatchEvent(new CustomEvent('totm:lang'));
     langPintar(lang);
-    try { localStorage.setItem('totm-lang', lang); } catch (e) {}
+    try { localStorage.setItem('${CLAVE('lang')}', lang); } catch (e) {}
 
     // the category names just changed width — remeasure the scroller and re-centre the chip
     syncScroller();
@@ -4060,7 +4061,7 @@ ${sheet}
   }
 
   var saved;
-  try { saved = localStorage.getItem('totm-lang'); } catch (e) {}
+  try { saved = localStorage.getItem('${CLAVE('lang')}'); } catch (e) {}
   if (!saved || !idiomaSoportado(saved)) saved = idiomaDelNavegador();
   setLang(saved);
 
@@ -4516,7 +4517,7 @@ ${sheet}
       botones.forEach(function (b) {
         b.setAttribute('aria-pressed', b.dataset.escala === valor ? 'true' : 'false');
       });
-      if (guardar) { try { localStorage.setItem('totm-escala', valor); } catch (e) {} }
+      if (guardar) { try { localStorage.setItem('${CLAVE('escala')}', valor); } catch (e) {} }
     }
 
     botones.forEach(function (b) {
@@ -4525,7 +4526,7 @@ ${sheet}
 
     /* El botón marcado tiene que coincidir con lo que ya aplicó la cabecera. */
     var guardado = '1';
-    try { guardado = localStorage.getItem('totm-escala') || '1'; } catch (e) {}
+    try { guardado = localStorage.getItem('${CLAVE('escala')}') || '1'; } catch (e) {}
     if (!botones.some(function (b) { return b.dataset.escala === guardado; })) guardado = '1';
     poner(guardado, false);
   })();
@@ -4586,7 +4587,7 @@ writeFileSync(
    aquí para que comparta tokens, tipografías y diccionarios: un solo sitio donde vive el
    diseño y un solo sitio donde viven las traducciones. */
 const juego = buildGame({
-  T, TL, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), IDIOMAS,
+  T, TL, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), IDIOMAS, CLIENTE, CLAVE,
   TEMAS_SLUGS: [TEMA_POR_DEFECTO].concat(TEMAS.map((t) => t.slug).filter((s) => s !== TEMA_POR_DEFECTO)),
   TEMA_INK: derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink'],
   titles: {
@@ -4641,10 +4642,30 @@ writeFileSync(
 /* Directo a server/admin/, como temas.json: el catálogo se sube desde ahí y tenerlo en la
    raíz obligaba a un movimiento a mano que tarde o temprano se olvida. */
 writeFileSync(new URL('./server/admin/platos.json', import.meta.url), JSON.stringify(catalogue, null, 1));
+
+/* El panel comprueba los códigos del juego, así que necesita exactamente la misma sal que usa el
+   JavaScript para firmarlos. Estaba escrita a mano en los dos sitios —juego.mjs y index.php— y
+   con dos restaurantes eso significaba que un código ganado en uno se canjeaba en el otro.
+   Ahora sale de cliente.mjs y el build la escribe aquí; config.php sólo la incluye.
+
+   Va en su propio archivo y no dentro de config.php porque config.php se edita a mano (el modo
+   demo, los minutos de sesión) y lo que genera el build no puede pisar lo que escribe una
+   persona. Es la misma regla que tokens.css, temas.json y platos.json. */
+writeFileSync(
+  new URL('./server/admin/cliente.php', import.meta.url),
+  [
+    '<?php',
+    '/* Generado por gen.mjs desde cliente.mjs. No editar a mano: se sobrescribe en cada build. */',
+    "define('CLIENTE_SLUG', " + JSON.stringify(CLIENTE.slug) + ');',
+    "define('CR_SECRETO', " + JSON.stringify(CLIENTE.secreto) + ');',
+    '',
+  ].join(NL),
+);
 /* Bytes de verdad, no `length`: el HTML va en UTF-8 y ahi una `a` con tilde ocupa dos, una raya
    larga tres. Contando caracteres el log decia 697226 y el fichero pesaba 699256, y esos 2030 de
    diferencia parecen contenido perdido cuando no lo son. */
 console.log(
+  'cliente', CLIENTE.slug, '|',
   'written', Buffer.byteLength(html), 'bytes | juego', Buffer.byteLength(juego), 'bytes |', catalogue.length, 'dishes |',
   GROUPS.length, 'tabs |',
   Object.keys(categories).filter((c) => categories[c].items.length).length, 'categories |',
