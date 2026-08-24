@@ -16,7 +16,7 @@
 
 export const GAME_STRINGS = [
   'Chilli Rush', 'While you wait',
-  'Tap the chillies. Dodge the ice.', 'Play', 'Play again', 'Back to the menu',
+  'Tap the chillies. Dodge the ice and the bomb.', 'Play', 'Play again', 'Back to the menu',
   'Score', 'Time', 'Streak', 'Ready?', 'points',
   'Best today', 'Your score', 'House record', 'New record!', 'Record',
 ];
@@ -27,6 +27,10 @@ export const GAME_STRINGS = [
    El copo de nieve es lo que todo el mundo lee como frío sin que se lo expliquen; el primer
    dibujo que puse parecía un reloj de arena y en un juego de 30 segundos eso confunde. */
 const PEPPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg>';
+/* La bomba. El circulo relleno abajo y la mecha con su chispa arriba: a 36px se lee de un
+   vistazo, que es todo el tiempo que hay para decidir no tocarla. */
+const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="15" r="6.4" fill="currentColor" stroke="none"/><path d="M14.7 10.4l2.3 -2.7"/><path d="M18.4 7.2l.7 -2.4M21.2 8l-2.4 -.6M20.1 10.6l-1.5 -3"/></svg>';
+
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
 export function buildGame({ T, TL, TOKENS, FONTS, LANG_CODES, LANGS, IDIOMAS, titles, TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE }) {
@@ -340,8 +344,36 @@ h1{
 .spot svg{width:34px;height:34px}
 .spot.gold{background:#f2c14e;color:#7a4a06}
 .spot.ice{background:#cfe9f2;color:#0d5b73}
+/* La bomba es un 5% mas grande que cualquier otra ficha: 67,2 contra 64. Que el peligro sea el
+   blanco mas facil de acertar es la gracia — se acierta sin querer.
+
+   Roja maciza con el dibujo en crema, y un aro de crema alrededor. El aro no es adorno: el rojo
+   sobre el tablero de tinta no llega a 3:1 en todos los temas y el circulo se perderia contra el
+   fondo. Con el aro, el borde se lee en los cinco.
+
+   Y el color no decide solo: la forma es una bomba y el tamano es distinto. Nadie tiene que
+   distinguir un rojo de un crema a toda velocidad para no perderlo todo. */
+.spot.bomb{
+  width:67.2px;height:67.2px;margin:-33.6px 0 0 -33.6px;   /* 64 x 1.05, el 5% exacto */
+  background:var(--offer);color:var(--surface);
+  box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--surface) 88%,transparent);
+}
+.spot.bomb svg{width:36px;height:36px}
 .spot:focus-visible{outline:3px solid var(--surface);outline-offset:2px}
 .spot.hit{opacity:0;transition:opacity 120ms var(--ease-out)}
+
+/* El marcador entero parpadea en rojo cuando revienta la bomba. El numero que sube dice cuanto,
+   pero se pierde entre las fichas; esto dice QUE HA PASADO desde el rabillo del ojo. */
+.hud-val.boom{animation:boom 420ms var(--ease-out)}
+@keyframes boom{
+  0%{color:var(--offer);transform:scale(1.25)}
+  60%{color:var(--offer);transform:scale(1)}
+  100%{color:inherit;transform:scale(1)}
+}
+.float.boom{font-size:24px}
+@media (prefers-reduced-motion:reduce){
+  .hud-val.boom{animation:none}
+}
 
 /* el +1 / -2 que sube desde donde se ha tocado */
 .float{
@@ -399,7 +431,7 @@ h1{
   <section class="screen" id="s-intro">
     <div class="mascota" aria-hidden="true">${PEPPER}</div>
     <h1>Chilli <em>Rush</em></h1>
-    <p class="rules">${T('Tap the chillies. Dodge the ice.', 'ui')}</p>
+    <p class="rules">${T('Tap the chillies. Dodge the ice and the bomb.', 'ui')}</p>
     <p class="record" id="intro-record" hidden></p>
     <div class="actions">
       <button class="big-btn" id="btn-play" type="button">${PEPPER}${T('Play', 'ui')}</button>
@@ -702,13 +734,20 @@ h1{
 
   /* Dificultad: el ritmo sube y la vida de cada chile baja a lo largo de los 30 segundos.
      Empieza regalado —el primer toque tiene que ocurrir sin pensar— y acaba apretando. */
-  function intervalo(prog) { return 620 - 300 * prog; }        // 620ms -> 320ms
-  function vida(prog) { return 1500 - 650 * prog; }            // 1.5s  -> 0.85s
+  /* Un 10% mas lento que la primera version: sale mas suelto y aprieta igual al final. Las dos
+     curvas se estiran a la vez — solo el hueco entre fichas dejaria la pantalla llena, y solo la
+     vida las haria salir igual de rapido pero durar mas. */
+  function intervalo(prog) { return 682 - 330 * prog; }        // 682ms -> 352ms
+  function vida(prog) { return 1650 - 715 * prog; }            // 1.65s -> 0.94s
 
   function tipo(prog) {
     var r = Math.random();
-    if (r < 0.08 + 0.05 * prog) return 'gold';                 // raro, y algo menos raro al final
-    if (r < 0.26 + 0.14 * prog) return 'ice';                  // el hielo aparece más según aprieta
+    /* La bomba, primera y con banda propia. Un 5% al principio y un 8% al final: en una partida
+       salen dos o tres. No hace falta mas, porque no es mala suerte — se ve venir, es la ficha
+       mas grande de todas, y tocarla es una decision. */
+    if (r < 0.05 + 0.03 * prog) return 'bomb';
+    if (r < 0.13 + 0.08 * prog) return 'gold';                 // raro, y algo menos raro al final
+    if (r < 0.31 + 0.17 * prog) return 'ice';                  // el hielo aparece más según aprieta
     return 'chilli';
   }
 
@@ -718,10 +757,11 @@ h1{
     var t = tipo(prog);
     var el = document.createElement('button');
     el.type = 'button';
-    el.className = 'spot' + (t === 'gold' ? ' gold' : t === 'ice' ? ' ice' : '');
-    el.innerHTML = ${JSON.stringify(PEPPER)};
-    if (t === 'ice') el.innerHTML = ${JSON.stringify(ICE)};
-    el.setAttribute('aria-label', t === 'ice' ? 'ice' : 'chilli');
+    el.className = 'spot' + (t === 'chilli' ? '' : ' ' + t);
+    el.innerHTML = t === 'ice' ? ${JSON.stringify(ICE)}
+                 : t === 'bomb' ? ${JSON.stringify(BOMB)}
+                 : ${JSON.stringify(PEPPER)};
+    el.setAttribute('aria-label', t === 'chilli' ? 'chilli' : t);
     if (t === 'ice') el.querySelector('svg').setAttribute('stroke-width', '1.6');
 
     /* Un carril al azar. La ficha nace bajo el borde inferior y sube hasta salir por arriba
@@ -766,12 +806,14 @@ h1{
   }
 
   function tocado(o, t, ev) {
-    var delta = t === 'gold' ? 3 : t === 'ice' ? -2 : 1;
+    /* La bomba no resta: vacia. El delta que se ensena es lo que se acaba de perder, que es la
+       unica cifra que importa en ese momento — un '-2' generico no diria nada. */
+    var delta = t === 'bomb' ? -puntos : t === 'gold' ? 3 : t === 'ice' ? -2 : 1;
     puntos = Math.max(0, puntos + delta);
     elScore.textContent = puntos;
-    elScore.classList.remove('pop');
+    elScore.classList.remove('pop', 'boom');
     void elScore.offsetWidth;
-    elScore.classList.add('pop');
+    elScore.classList.add(t === 'bomb' ? 'boom' : 'pop');
 
     racha = delta < 0 ? 0 : racha + 1;
     elRacha.textContent = racha;
@@ -780,8 +822,8 @@ h1{
     /* La ficha está en movimiento: el +1 sale de donde está ahora, no de donde nació. */
     var rb = board.getBoundingClientRect(), re = o.el.getBoundingClientRect();
     var f = document.createElement('span');
-    f.className = 'float' + (delta < 0 ? ' bad' : '');
-    f.textContent = (delta > 0 ? '+' : '') + delta;
+    f.className = 'float' + (delta < 0 ? ' bad' : '') + (t === 'bomb' ? ' boom' : '');
+    f.textContent = t === 'bomb' && delta === 0 ? '0' : (delta > 0 ? '+' : '') + delta;
     f.style.left = (re.left - rb.left + re.width / 2) + 'px';
     f.style.top = (re.top - rb.top + re.height / 2) + 'px';
     board.appendChild(f);
@@ -793,7 +835,11 @@ h1{
     if (i >= 0) vivos.splice(i, 1);
     setTimeout(function () { if (o.el.parentNode) o.el.remove(); }, 140);
 
-    if (navigator.vibrate) { try { navigator.vibrate(delta < 0 ? 30 : 8); } catch (e) {} }
+    /* Tres golpes para la bomba. Es lo unico que se puede sentir sin mirar, y perderlo todo
+       merece enterarse aunque se este mirando otra ficha. */
+    if (navigator.vibrate) {
+      try { navigator.vibrate(t === 'bomb' ? [40, 60, 40] : delta < 0 ? 30 : 8); } catch (e) {}
+    }
   }
 
   function tic() {

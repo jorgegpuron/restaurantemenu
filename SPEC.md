@@ -3464,3 +3464,52 @@ ocho pestañas del panel sin un aviso de PHP.
 
 Y el `<title>` estático del juego aquí siempre estuvo bien — era el de Dedos el que salía con este
 nombre.
+
+## Más lento, y una bomba (24 Aug 2026)
+
+Dos cambios en la partida, pedidos juntos.
+
+### Un 10% más lento
+
+Las dos curvas del ritmo se estiran a la vez:
+
+| | antes | ahora |
+|---|---|---|
+| Hueco entre fichas | 620 → 320 ms | 682 → 352 ms |
+| Vida de cada ficha | 1,50 → 0,85 s | 1,65 → 0,94 s |
+
+Las dos y no una: sólo el hueco dejaría la pantalla llena de fichas viejas, y sólo la vida las
+haría salir igual de rápido pero quedarse más. Estirando ambas, la partida sale más suelta y
+aprieta igual al final, que es la forma que tenía.
+
+### La bomba
+
+Cuarta ficha. Se toca y **el marcador se va a cero** — no resta, vacía. La racha también.
+
+**Un 5% más grande que cualquier otra: 67,2 contra 64.** Que el peligro sea el blanco más fácil de
+acertar es la gracia; se acierta sin querer. Medido en el navegador: chile, dorado y hielo miden
+64, la bomba 67,2, la razón exacta 1,05.
+
+Roja maciza con el dibujo en crema y un aro de crema alrededor. El aro no es adorno: el rojo sobre
+el tablero de tinta no llega a 3:1 en los cinco temas y el círculo se perdería contra el fondo.
+
+Y el color no decide solo — la regla de siempre en este juego. La forma es una bomba, el tamaño es
+distinto, el número que sube dice **−42** en vez de un `−2` genérico, el marcador entero parpadea
+en rojo y el móvil vibra tres veces en vez de una. Nadie tiene que distinguir un rojo de un crema a
+toda velocidad para no perderlo todo.
+
+### Cuántas salen
+
+Un 5% al principio y un 8% al final, en su propia banda del sorteo: dos o tres por partida. No hace
+falta más, porque **no es mala suerte**: se ve venir, es la ficha más grande de todas y tocarla es
+una decisión. Las bandas de dorado y hielo se recolocaron para que su proporción real no cambie al
+meter una cuarta.
+
+### Comprobado jugando
+
+Con 42 puntos y una racha de 30, tocar la bomba deja el marcador en 0, la racha en 0, el número
+flotante en «−42» y la clase `boom` en el marcador. En Tinge, lo mismo en alemán con 6 puntos.
+
+Y la regla de la portada cambia de clave: «Toca los chiles. Esquiva el hielo **y la bomba**». En
+alemán se corrigió el tratamiento — el diccionario del juego trata de usted y la primera versión
+tuteaba.

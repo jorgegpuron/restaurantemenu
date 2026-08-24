@@ -607,7 +607,7 @@ export const ui = {
 
   /* ---- Chilli Rush ---- */
   'Chilli Rush': 'Chilli Rush',
-  'Tap the chillies. Dodge the ice.': 'Toca los chiles. Esquiva el hielo.',
+  'Tap the chillies. Dodge the ice and the bomb.': 'Toca los chiles. Esquiva el hielo y la bomba.',
   'Play': 'Jugar',
   'Play again': 'Otra vez',
   'Back to the menu': 'Volver a la carta',
