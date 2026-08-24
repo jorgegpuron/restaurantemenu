@@ -3295,3 +3295,50 @@ lista, con desfase **0**. El chip queda dentro de la barra en las cinco. El bot�
 toque siguiente sin necesidad de scroll. El botón atrás cierra la hoja y no saca de la carta. La
 lupa sigue abriendo con el foco en el campo y el buscador sigue encontrando. Y al final no queda
 ni un estilo suelto en el `body`.
+
+
+## La analítica llega de Dedos (24 Aug 2026)
+
+Contador de aperturas y pestaña **Analítica**. No se escribió aquí: se portó desde
+`dedos_las_americas`, donde se hizo, se auditó y se arregló. Llega ya con los ocho arreglos de esa
+auditoría, así que Tinge no repite ninguno de ellos.
+
+### Qué cuenta y qué no
+
+Aperturas de la carta, y **una por móvil y día**: el mismo teléfono cuenta una vez aunque abra la
+carta cinco veces, y en una mesa de cuatro donde sólo mira uno, cuenta uno. No guarda IP, ni
+cookie, ni identificador de ninguna clase — por eso la carta no necesita aviso de cookies.
+
+El día es el **natural de Canarias**, de 00:00 a 00:00. No es la fecha de servicio de los agotados,
+que corre el corte a las 6:00: eso vale para la cocina y no para contar gente. Entre medianoche y
+las seis las dos fechas difieren y la pestaña lo dice, sólo en esas horas.
+
+### Cómo está montado
+
+| | |
+|---|---|
+| `admin/datos.php` | Añade **un byte** al fichero del día. Las aperturas son su tamaño |
+| `admin/datos/` | Un `.txt` por día del mes en curso, un `.json` por mes cerrado |
+| El medidor | En la carta: 4 segundos a la vista, marca en `localStorage`, `sendBeacon` |
+| La pestaña | Gráfica de 30 días recorrible + tres cifras con su tira de barras |
+
+Un byte y no un JSON a propósito: con veinte mesas abriendo la carta a la vez, leer un JSON,
+sumarle uno y reescribirlo es corrupción garantizada. Un append con `LOCK_EX` de un byte es
+atómico también en hosting compartido, y entonces no hay nada que corromper.
+
+### Comprobado en el panel de Tinge, no en el de Dedos
+
+Con 40 días de datos de prueba: las siete pestañas sin un aviso de PHP, la gráfica con sus 30
+barras, las tres tiras con 7, 7 y 31, y el aviso del reloj saliendo a la 01:33. El endpoint apunta
+con POST, devuelve 405 a un GET, rechaza a Googlebot y se escribe su propio `.htaccess`.
+
+El medidor de la carta no se pudo disparar aquí —exige la pestaña a la vista y el navegador de
+este entorno no compone fotogramas—, pero el bloque que viaja en el HTML es **idéntico byte a byte**
+al de Dedos, donde sí se vio contar; lo único que cambia es la marca, `totm-contada` en vez de
+`dedos-contada`, que es justo lo que evita que las dos cartas compartan cuenta en un mismo móvil.
+
+### Encendido
+
+`DATOS_ACTIVO` en dos sitios que tienen que decir lo mismo: `gen.mjs` y `admin/config.php`.
+Encendido en uno y apagado en el otro deja a la carta llamando a un 404 en cada visita. Es el mismo
+par que `OCULTOS_ACTIVO`.

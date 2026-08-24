@@ -134,6 +134,30 @@ define('CORTE_HORA', 6);
  * OCULTOS_ACTIVO = true en gen.mjs y regenerar la carta. */
 define('OCULTOS_ACTIVO', false);
 
+/* ------------------------------------------------------------------ CONTADOR DE APERTURAS
+ * Cuenta cuántas veces se abre la carta. No sabe quién la abre: no guarda IP, ni cookie, ni
+ * identificador de ninguna clase, así que la carta no necesita aviso de cookies.
+ *
+ * INTERRUPTOR EN DOS SITIOS, y tienen que decir lo mismo: aquí y DATOS_ACTIVO en gen.mjs.
+ * Encendido aquí y apagado allí no mide nada; al revés deja a la carta llamando a un 404 en
+ * cada visita. Es el mismo par que OCULTOS_ACTIVO. */
+define('DATOS_ACTIVO', true);
+
+/* Los días del mes en curso, un fichero por día, y los meses ya cerrados en un JSON cada uno.
+ * La crea datos.php sola la primera vez. No se sube nunca por encima: estos números no se
+ * reconstruyen de ningún sitio. */
+define('DATOS_DIR', __DIR__ . '/datos');
+
+/* Cuántos meses cerrados se conservan. Lo más viejo lo purga el panel al abrirse.
+ * Doce y no veinticuatro: con doce se compara un agosto con el agosto anterior, que es la
+ * comparación que de verdad se hace en un restaurante de temporada. Más allá de eso el dato
+ * envejece y nadie lo mira. */
+define('DATOS_MESES', 12);
+
+/* Freno de mano, no cuota: nadie abre una carta cien mil veces en una jornada. Si se llega
+ * ahí es que alguien está llamando al script en bucle, y a partir de ese punto no se apunta. */
+define('DATOS_MAX_DIA', 100000);
+
 // Minutos de inactividad tras los que se cierra la sesión del panel.
 // 30 es el equilibrio razonable: no molesta durante un servicio y no deja la tablet
 // de cocina abierta toda la tarde si alguien se olvida de salir.

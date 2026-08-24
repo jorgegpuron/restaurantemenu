@@ -53,6 +53,14 @@ function fecha_servicio(): string {
   return $ahora->format('Y-m-d');
 }
 
+/* El dia del contador NO es el de servicio. El de servicio corre el corte a las 6:00 para que
+   una cena que se alarga siga siendo la de anoche, y eso es lo correcto para los agotados: lo
+   decide la cocina y la cocina no cierra a las doce. Contar gente es otra cosa — se cuenta por
+   dia natural de Canarias, y a las 00:00 empieza otro. */
+function fecha_contador(): string {
+  return (new DateTimeImmutable('now', new DateTimeZone(TZ)))->format('Y-m-d');
+}
+
 /* ---------------------------------------------------------------- catálogo y estado */
 function platos(): array {
   $raw = @file_get_contents(PLATOS_PATH);
@@ -462,6 +470,8 @@ const ETIQUETAS_ES = [
   'Bestseller' => 'Más vendido', 'Most loved' => 'El más querido', 'Signature' => 'De la casa',
   'Popular' => 'Popular', 'Must try' => 'Hay que probarlo', 'Veggie favourite' => 'Favorito veggie',
 ];
+const MESES = [1 => 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DIAS = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
 
 /* PHP escribe los días en inglés salvo que el servidor tenga intl y el locale bien puesto, y
@@ -871,6 +881,125 @@ foreach ($lista as $p) { $catTab[$p['cat']] = $p['tab_en']; }
  * INTERRUPTOR: con OCULTOS_ACTIVO en false (config.php) la pestaña no existe, el guardado se
  * ignora y $visibles es el catálogo entero aunque estado.json traiga cosas en 'hidden'.
  * ======================================================================================== */
+/* ---------------------------------------------------------------- contador de aperturas
+ * Los dias del mes en curso viven en un fichero por dia, y las aperturas son su TAMANO: cada
+ * visita anade un byte (ver datos.php). Los meses ya cerrados se guardan en un JSON cada uno.
+ *
+ * La consolidacion la dispara el panel al abrirse, no la carta al cargarse: el trabajo lo paga
+ * quien mira los numeros una vez al dia, no el cliente sentado en la mesa. Sin ella la carpeta
+ * juntaria 365 archivos al ano, y un listado de mil entradas en un FTP compartido es lento.
+ */
+function datos_hay(): bool {
+  return DATOS_ACTIVO && is_dir(DATOS_DIR);
+}
+
+/* Los d-*.txt de meses ya cerrados pasan a su JSON, y despues se borran.
+   PRIMERO se escribe el mes y SOLO DESPUES se borra el dia: al reves se perderia la cuenta
+   entera por un disco lleno, y estos numeros no se reconstruyen de ningun sitio. */
+function datos_consolidar(string $mesActual): void {
+  $porMes = [];
+  foreach ((array) @glob(DATOS_DIR . "/d-*.txt") as $f) {
+    if (!preg_match("~/d-(\\d{4}-\\d{2})-(\\d{2})\\.txt$~", $f, $m)) continue;
+    if ($m[1] >= $mesActual) continue;              // el mes en curso no se cierra
+    $porMes[$m[1]][$m[2]] = (int) @filesize($f);
+  }
+  foreach ($porMes as $mes => $dias) {
+    $ruta = DATOS_DIR . "/" . $mes . ".json";
+    $ya = is_file($ruta) ? (json_decode((string) @file_get_contents($ruta), true) ?: []) : [];
+    $dias = array_replace(is_array($ya["dias"] ?? null) ? $ya["dias"] : [], $dias);
+    ksort($dias);
+    $json = json_encode(["mes" => $mes, "dias" => $dias, "total" => array_sum($dias)],
+      JSON_UNESCAPED_UNICODE);
+    if ($json === false || !escribir_atomico($ruta, $json)) continue;   // sin JSON no se borra
+    foreach (array_keys($dias) as $dd) @unlink(DATOS_DIR . "/d-" . $mes . "-" . $dd . ".txt");
+  }
+  /* Purga de lo mas viejo. Se cuenta por meses guardados, no por fecha: un restaurante que
+     cierra tres meses no debe perder el historial por no haber abierto. */
+  $viejos = (array) @glob(DATOS_DIR . "/[0-9][0-9][0-9][0-9]-[0-9][0-9].json");
+  sort($viejos);
+  foreach (array_slice($viejos, 0, max(0, count($viejos) - DATOS_MESES)) as $f) @unlink($f);
+}
+
+/* ["Y-m-d" => aperturas] con todo: los meses cerrados de sus JSON y los dias del mes en curso
+   del tamano de su fichero. */
+function datos_serie(): array {
+  $serie = [];
+  foreach ((array) @glob(DATOS_DIR . "/[0-9][0-9][0-9][0-9]-[0-9][0-9].json") as $f) {
+    $j = json_decode((string) @file_get_contents($f), true);
+    if (!is_array($j) || !is_array($j["dias"] ?? null)) continue;
+    foreach ($j["dias"] as $dd => $n) $serie[$j["mes"] . "-" . $dd] = (int) $n;
+  }
+  foreach ((array) @glob(DATOS_DIR . "/d-*.txt") as $f) {
+    if (!preg_match("~/d-(\\d{4}-\\d{2}-\\d{2})\\.txt$~", $f, $m)) continue;
+    $serie[$m[1]] = (int) @filesize($f);
+  }
+  ksort($serie);
+  return $serie;
+}
+
+/* Suma N dias seguidos desde una fecha. Los dias sin fichero valen cero y no rompen: un
+   restaurante cerrado el lunes no tiene archivo del lunes. */
+function datos_rango(array $serie, string $desde, int $dias): int {
+  $d = new DateTimeImmutable($desde);
+  $n = 0;
+  for ($i = 0; $i < $dias; $i++) {
+    $n += (int) ($serie[$d->modify("+" . $i . " day")->format("Y-m-d")] ?? 0);
+  }
+  return $n;
+}
+
+/* Sin periodo anterior no hay porcentaje: se escribe «sin datos todavia». El primer mes de todos
+   no tiene con que compararse, y un -100% ahi es una mentira. */
+/* La variacion en tres caracteres en vez de en una frase. La flecha va como icono y no como signo
+   menos: a 12px un guion no se ve, y una flecha si. Sin nada con que comparar no se escribe «sin
+   datos» sino que es la primera vez, que es lo mismo dicho en positivo. */
+/* Tres estados y no dos. Sin porcentaje pueden pasar dos cosas MUY distintas: que entonces no
+   contabamos —primera vez— o que contabamos y ese periodo fue cero, que es un dato real y de los
+   buenos: el lunes pasado el local cerro. Con un solo estado, un lunes cerrado se leia «1.ª vez»
+   teniendo mil aperturas en el mes. */
+function dt_chip(?int $pct, bool $habia = false): string {
+  if ($pct === null) {
+    return $habia ? '<span class="dt-chip nuevo">antes 0</span>'
+                  : '<span class="dt-chip nuevo">1.ª vez</span>';
+  }
+  $cls = $pct > 0 ? ' sube' : ($pct < 0 ? ' baja' : '');
+  $ico = '';
+  if ($pct !== 0) {
+    $trazo = $pct > 0 ? 'M6 10V2M2.5 5.5 6 2l3.5 3.5' : 'M6 2v8M2.5 6.5 6 10l3.5-3.5';
+    $ico = "<svg viewBox='0 0 12 12' fill='none' stroke='currentColor' stroke-width='2.2'"
+         . " stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>"
+         . "<path d='" . $trazo . "'/></svg>";
+  }
+  return '<span class="dt-chip' . $cls . '">' . $ico . abs($pct) . '%</span>';
+}
+
+/* La tira de barras de una baldosa. Reusa las clases de la grafica grande a proposito: si algun
+   dia cambia el aspecto de una barra, cambia en los cuatro sitios a la vez y no en uno. */
+function dt_tira(array $v, string $izq, string $der, string $etiqueta, ?int $reales = null): string {
+  $reales = $reales ?? count($v);
+  /* max() de una lista vacia es un ValueError en PHP 8, no un aviso. Hoy no llega vacia nunca,
+     pero esto es un ayudante y el que lo llame el ano que viene no va a leer esta linea. */
+  $tope = $v ? max(1, max($v)) : 1;
+  $barras = '';
+  foreach ($v as $i => $n) {
+    /* El 6% de suelo es para que un dia flojo se vea como una barra baja y no como la nada. El
+       dia sin una sola apertura si baja a cero: lo pinta .dt-b.cero con su filete de 2px. */
+    $alto = $n > 0 ? max(6, (int) round($n / $tope * 100)) : 0;
+    /* Un dia que aun no ha llegado no es un dia de cero: el cero lleva su filete y el futuro no
+       lleva nada, para que no se lea «ese dia no vino nadie» cuando todavia no ha pasado. */
+    $cls = $i >= $reales ? ' cero futuro' : ($n > 0 ? '' : ' cero');
+    $barras .= '<span class="dt-b' . $cls . '" style="--i:' . $i . '">'
+             . '<i style="height:' . $alto . '%"></i></span>';
+  }
+  return '<div class="dt-barras chica" role="img" aria-label="' . h($etiqueta) . '">' . $barras . '</div>'
+       . '<div class="dt-eje"><span>' . h($izq) . '</span><span>' . h($der) . '</span></div>';
+}
+
+function datos_pct(int $ahora, int $antes): ?int {
+  if ($antes <= 0) return null;
+  return (int) round((($ahora - $antes) / $antes) * 100);
+}
+
 function ocultos_de(array $estado): array {
   if (!OCULTOS_ACTIVO) return ['tabs' => [], 'cats' => [], 'keys' => []];
   $oc = is_array($estado['hidden'] ?? null) ? $estado['hidden'] : [];
@@ -1516,9 +1645,117 @@ $tema_actual = (string) ($estado['theme'] ?? tema_por_defecto());
 if (!in_array($tema_actual, array_column($temas, 'slug'), true)) $tema_actual = tema_por_defecto();
 
 /* Marca va la última a propósito: se toca una vez y las otras cuatro, cada día. */
+/* ---------------------------------------------------------------- datos, antes de pintar
+ * Se hace venga o no venga pedida la pestana: son cuatro glob y una suma de enteros, y asi el
+ * HTML de mas abajo solo pinta. Lo que si hace falta es sesion —ver la guarda de aqui debajo—,
+ * porque esto tambien escribe. */
+$dt = null;
+/* Con sesion y no siempre. Esto no solo lee: consolida, escribe el JSON del mes y borra los
+   ficheros de dia. Cualquiera que supiera la direccion del panel disparaba esas escrituras sin
+   haber entrado. No se filtraba nada —la pestana no se pinta sin sesion— pero borrar ficheros
+   por una peticion anonima no se sostiene.
+   A cambio, la consolidacion deja de correr si nadie entra al panel en todo un mes. Se asume:
+   se entra a diario para los agotados, y lo peor que pasa son treinta ficheros de mas. */
+if (DATOS_ACTIVO && $dentro) {
+  /* Se mira la carpeta de datos, no la de encima. Si admin/ es escribible y admin/datos/ no,
+     esto decia que todo iba bien mientras datos.php no podia apuntar nada. Cuando todavia no
+     existe se mira la de encima, que es quien tiene que dejar crearla. */
+  $dt = ["escribible" => is_dir(DATOS_DIR) ? is_writable(DATOS_DIR)
+                                           : is_writable(dirname(DATOS_DIR))];
+  /* Aqui manda el dia natural y no $hoy, que es la fecha de servicio del resto del panel. */
+  $hoyC = fecha_contador();
+  $hoyD = new DateTimeImmutable($hoyC);
+  if (datos_hay()) datos_consolidar($hoyD->format("Y-m"));
+  $serie = datos_hay() ? datos_serie() : [];
+  $dt["serie"] = $serie;
+  $dt["desde"] = $serie ? array_key_first($serie) : null;
+
+  /* HOY contra el MISMO DIA de la semana pasada, no contra ayer: el domingo no se parece al
+     sabado ni de lejos, y comparar con ayer daria una catastrofe cada domingo. */
+  $dt["hoy"]      = (int) ($serie[$hoyC] ?? 0);
+  $dt["hoyAntes"] = (int) ($serie[$hoyD->modify("-7 day")->format("Y-m-d")] ?? 0);
+
+  /* SIEMPRE contra el mismo numero de dias. Cuatro dias de esta semana contra los siete de la
+     anterior pintaria un desplome inventado cada lunes, martes y miercoles. */
+  $lunes = $hoyD->modify("monday this week");
+  $dt["diasSemana"] = (int) $lunes->diff($hoyD)->days + 1;
+  $dt["semana"]      = datos_rango($serie, $lunes->format("Y-m-d"), $dt["diasSemana"]);
+  $dt["semanaAntes"] = datos_rango($serie, $lunes->modify("-7 day")->format("Y-m-d"), $dt["diasSemana"]);
+
+  /* Y el mes igual: los mismos N dias del mes anterior. Ojo con que un 31 de marzo no tiene 31
+     de febrero — se compara con lo que el mes anterior de si. */
+  $dt["diaDelMes"] = (int) $hoyD->format("j");
+  $mesAnt = $hoyD->modify("first day of previous month");
+  $dt["mes"]      = datos_rango($serie, $hoyD->format("Y-m-01"), $dt["diaDelMes"]);
+  $dt["mesAntes"] = datos_rango($serie, $mesAnt->format("Y-m-01"),
+                      min($dt["diaDelMes"], (int) $mesAnt->format("t")));
+  $dt["mesNombre"]    = MESES[(int) $hoyD->format("n")];
+
+  /* ¿Ya contabamos cuando empieza el periodo con el que se compara? De eso depende que un cero
+     signifique «cerramos» o «entonces no habia contador». */
+  $desde = $dt["desde"];
+  $yaSe = fn(string $f): bool => $desde !== null && $desde <= $f;
+  $dt["habiaHoy"]    = $yaSe($hoyD->modify("-7 day")->format("Y-m-d"));
+  $dt["habiaSemana"] = $yaSe($lunes->modify("-7 day")->format("Y-m-d"));
+  $dt["habiaMes"]    = $yaSe($mesAnt->format("Y-m-01"));
+
+  /* Treinta dias, no catorce: la grafica es una linea y con catorce puntos no se ve una
+     tendencia, se ve un zigzag. */
+  $dt["dias"] = [];
+  for ($i = 29; $i >= 0; $i--) {
+    $f = $hoyD->modify("-" . $i . " day");
+    $dt["dias"][] = ["fecha" => $f->format("Y-m-d"), "n" => (int) ($serie[$f->format("Y-m-d")] ?? 0)];
+  }
+
+  /* Seis meses, y NO se pintan los anteriores al primer dato: un cero ahi se lee como «ese mes
+     no vino nadie» en vez de como «ese mes todavia no contabamos». */
+  $dt["meses"] = [];
+  for ($i = 5; $i >= 0; $i--) {
+    $m = $hoyD->modify("first day of this month")->modify("-" . $i . " month");
+    $clave = $m->format("Y-m");
+    if ($dt["desde"] !== null && $clave < substr($dt["desde"], 0, 7)) continue;
+    $n = 0;
+    foreach ($serie as $f => $v) if (strncmp($f, $clave, 7) === 0) $n += $v;
+    $dt["meses"][] = ["clave" => $clave, "nombre" => MESES[(int) $m->format("n")] . " " . $m->format("Y"),
+                      "n" => $n, "encurso" => $clave === $hoyD->format("Y-m")];
+  }
+  /* El pico del periodo se marca siempre: es lo primero que se busca —cuando fue el mejor dia—
+     y hacerlo buscar tocando puntos uno a uno seria absurdo. */
+  $dt["pico"] = null;
+  foreach ($dt["dias"] as $i => $x) {
+    if ($dt["pico"] === null || $x["n"] > $dt["dias"][$dt["pico"]]["n"]) $dt["pico"] = $i;
+  }
+  if ($dt["pico"] !== null && $dt["dias"][$dt["pico"]]["n"] <= 0) $dt["pico"] = null;
+  /* Una tira de barras por baldosa, cada una con SU ventana: la de Hoy son los siete ultimos
+     dias —un domingo no se entiende sin ver los domingos de al lado—, la de la semana va de
+     lunes a hoy y la del mes son los dias del mes en curso. */
+  $tira = function (string $desde, int $n) use ($serie) {
+    $d0 = new DateTimeImmutable($desde);
+    $r = [];
+    for ($k = 0; $k < $n; $k++) {
+      $r[] = (int) ($serie[$d0->modify("+" . $k . " day")->format("Y-m-d")] ?? 0);
+    }
+    return $r;
+  };
+  $dt["tiraHoy"]    = $tira($hoyD->modify("-6 day")->format("Y-m-d"), 7);
+  /* La semana y el mes se pintan ENTEROS y los dias que aun no han llegado van en hueco. Un
+     lunes, la semana era una sola barra a todo el ancho de la baldosa: eso no es una grafica,
+     es un bloque. Asi la tira mide siempre lo mismo y se ve cuanto queda por delante. */
+  $dt["diasDelMes"]  = (int) $hoyD->format("t");
+  $dt["tiraSemana"] = $tira($lunes->format("Y-m-d"), 7);
+  $dt["tiraMes"]    = $tira($hoyD->format("Y-m-01"), $dt["diasDelMes"]);
+
+  /* El tope de DATOS_MAX_DIA cortaba el dia en silencio. Sigue cortando —es lo que protege el
+     disco— pero ahora se dice, porque un numero topado no es un numero. */
+  $dt["topado"] = $serie && max($serie) >= DATOS_MAX_DIA;
+  $dt["total"] = array_sum($serie);
+}
+
 $PESTANAS = ['agotados' => 'Agotados hoy', 'ocultos' => 'Ocultos', 'destacados' => 'Destacados',
-             'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego', 'marca' => 'Marca'];
+             'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego',
+             'datos' => 'Analítica', 'marca' => 'Marca'];
 if (!OCULTOS_ACTIVO) unset($PESTANAS['ocultos']);   // apagada de momento: ver config.php
+if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // mismo par que OCULTOS: ver config.php
 if (!isset($PESTANAS[$pestana])) $pestana = 'agotados';
 $CUENTAS = [
   'agotados'   => count($agotados),
@@ -1527,6 +1764,7 @@ $CUENTAS = [
   'ofertas'    => $oferta['on'] ? 1 : 0,
   'precios'    => count($precios),
   'juego'      => $juego['on'] ? 1 : 0,
+  'datos'      => 0,      // el contador no es una cuenta de cosas pendientes
   'marca'      => 0,      // no es una cuenta de nada: no lleva contador
 ];
 ?>
@@ -2078,6 +2316,148 @@ $CUENTAS = [
     display:flex;gap:var(--s2);align-items:center;justify-content:space-between;
     flex-wrap:wrap;margin-top:var(--s3);
   }
+  /* ---- rejilla bento de la pestana Datos ----
+     Portado de un componente de React con Tailwind (MiniChart, 21st.dev). Lo que se trae es la
+     idea, no el codigo: aqui no hay React ni Tailwind ni paso de compilacion, asi que las
+     utilidades se vuelven clases y los foreground/[0.06] se vuelven tokens del tema.
+
+     Lo que se trae tal cual: la baldosa con borde tenue, el numero de la cabecera que cambia al
+     recorrer las barras, y sobre todo el gesto de foco — la barra tocada al maximo, sus vecinas
+     a media luz y el resto apagadas. Eso ultimo es lo que hace que treinta barras se lean. */
+  .dt-bento{display:grid;gap:var(--s2);grid-template-columns:1fr;margin-top:var(--s3)}
+  @media (min-width:720px){.dt-bento{grid-template-columns:repeat(3,1fr)}
+    .dt-baldosa.ancha{grid-column:1 / -1}}
+  .dt-baldosa{
+    position:relative;padding:var(--s3) var(--s3) var(--s2);
+    border-radius:var(--r-card);
+    background:color-mix(in srgb,var(--ink) 3%,var(--surface));
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 9%,transparent);
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .dt-baldosa{transition:background-color 200ms ease-out,box-shadow 200ms ease-out}
+  }
+  .dt-baldosa.tocando{
+    background:color-mix(in srgb,var(--ink) 5%,var(--surface));
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 15%,transparent);
+  }
+  .dt-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
+    min-height:26px;margin-bottom:var(--s3)}
+  .dt-cab .rotulo{display:flex;align-items:center;gap:6px}
+  /* El punto late para decir «esto es de hoy», no por adorno. Es el unico movimiento perpetuo
+     de la carta y del panel, y por eso es de 2px y muy lento. */
+  .dt-vivo{width:7px;height:7px;border-radius:50%;background:var(--accent-ink);flex:0 0 auto}
+  @media (prefers-reduced-motion: no-preference){
+    .dt-vivo{animation:dt-late 2.4s ease-in-out infinite}
+  }
+  @keyframes dt-late{0%,100%{opacity:1}50%{opacity:.35}}
+  /* El numero de la cabecera: apagado en reposo, encendido mientras se recorre. */
+  .dt-lectura{font-family:var(--title-font);font-size:19px;font-weight:700;
+    font-variant-numeric:tabular-nums;color:var(--muted);opacity:.55;white-space:nowrap}
+  .dt-lectura em{font-style:normal;font-size:12px;font-weight:600;margin-left:4px;opacity:.75}
+  .dt-baldosa.tocando .dt-lectura{color:var(--ink);opacity:1}
+  @media (prefers-reduced-motion: no-preference){
+    .dt-lectura{transition:color 200ms ease-out,opacity 200ms ease-out}
+  }
+
+  /* ---- las barras ---- */
+  .dt-barras{display:flex;align-items:flex-end;gap:2px;height:96px;touch-action:pan-y}
+  .dt-b{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+    height:100%;min-width:0}
+  .dt-b i{display:block;width:100%;border-radius:var(--r-pill);transform-origin:bottom;
+    background:color-mix(in srgb,var(--accent-ink) 26%,transparent)}
+  /* El gesto que se trae del componente: la tocada entera, las de al lado a media luz y las
+     demas apagadas. Sin esto, treinta barras del mismo color son una textura, no un dato. */
+  .dt-barras.tocando .dt-b i{background:color-mix(in srgb,var(--accent-ink) 11%,transparent)}
+  .dt-barras.tocando .dt-b.vecina i{background:color-mix(in srgb,var(--accent-ink) 34%,transparent)}
+  .dt-barras.tocando .dt-b.viva i{background:var(--ink)}
+  .dt-b.cero i{min-height:2px;background:color-mix(in srgb,var(--ink) 12%,transparent)}
+  @media (prefers-reduced-motion: no-preference){
+    .dt-b i{transition:background-color 200ms ease-out}
+    .dt-b{animation:dt-sube 260ms cubic-bezier(.16,1,.3,1) backwards;
+      animation-delay:calc(var(--i) * 6ms)}
+  }
+  @keyframes dt-sube{from{transform:scaleY(0);transform-origin:bottom}}
+  /* El globo va sobre la barra, no sobre el dedo: en un movil el dedo tapa la barra y el globo
+     encima seria lo unico que se ve. */
+  .dt-globo{
+    position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+    padding:5px 9px;border-radius:var(--r-pill);
+    background:var(--ink);color:var(--surface);
+    font-family:var(--title-font);font-size:12px;font-weight:600;line-height:1.2;
+    white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none;
+    opacity:0;visibility:hidden;
+  }
+  .dt-b.viva .dt-globo{opacity:1;visibility:visible}
+  /* En los tres primeros y los tres ultimos dias el globo va anclado al borde en vez de
+     centrado. Centrado se salia: mide unos 100px y las barras de los extremos estan a menos de
+     50 del borde. Ahora mismo lo salva el relleno de la tarjeta, pero eso es suerte, no
+     diseno: en una pantalla mas estrecha o con menos relleno quedaria cortado. */
+  .dt-b:nth-child(-n+3) .dt-globo{left:0;transform:none}
+  .dt-b:nth-last-child(-n+3) .dt-globo{left:auto;right:0;transform:none}
+  @media (prefers-reduced-motion: no-preference){
+    .dt-globo{transition:opacity 160ms ease-out,visibility 160ms}
+  }
+  /* ---- la tira pequena de cada baldosa ----
+     Hereda todo de .dt-barras: mismo hueco, mismo redondeo, mismo color, misma entrada. Aqui
+     solo baja la altura y se apaga el gesto del dedo — treinta barras piden un globo con el
+     valor, siete de 30px de alto no piden nada. */
+  .dt-barras.chica{height:32px;margin-top:var(--s2);touch-action:auto}
+  .dt-barras.chica .dt-b{pointer-events:none}
+  .dt-b.futuro i{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+  .dt-barras.chica + .dt-eje{margin-top:6px;font-size:10px;letter-spacing:.06em;
+    text-transform:uppercase}
+
+  /* ---- el chip de variacion ----
+     Ocupa el hueco que dejaba la frase, en la cabecera y no debajo del numero: leido de arriba
+     abajo queda «Hoy, un 10% menos, 54», que es el orden en que se pregunta. */
+  .dt-chip{
+    display:inline-flex;align-items:center;gap:3px;
+    padding:2px 7px 2px 5px;border-radius:var(--r-pill);
+    background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted);
+    font-family:var(--title-font);font-size:12px;font-weight:700;
+    font-variant-numeric:tabular-nums;letter-spacing:0;text-transform:none;
+  }
+  .dt-chip.sube{color:var(--ink);background:color-mix(in srgb,var(--ink) 12%,transparent)}
+  .dt-chip.baja{color:var(--offer);background:color-mix(in srgb,var(--offer) 10%,transparent)}
+  .dt-chip.nuevo{font-size:11px;letter-spacing:.06em;padding:2px 8px}
+  .dt-chip svg{width:10px;height:10px;flex:0 0 auto}
+
+  .dt-eje{display:flex;justify-content:space-between;margin-top:var(--s2);
+    color:var(--muted);font-size:11px;font-family:var(--title-font)}
+
+  /* ---- la nota que explica la rejilla ----
+     Era un parrafo de dos frases largas debajo de las baldosas, y se leia como si fuera un dato
+     mas. No lo es: es la letra que explica los datos, y tiene que verse que lo es antes de
+     leerla. Sin relleno de fondo y con el filete de puntos se lee como una nota; con el mismo
+     fondo que las baldosas se leia como una baldosa de texto.
+
+     Y va partida en dos avisos con su entradilla en negrita, no corrida: cada uno responde una
+     pregunta distinta —que cuenta y que no guarda— y juntas en un parrafo no se distinguian. */
+  .dt-nota{
+    margin-top:var(--s3);padding:var(--s3);
+    border-radius:var(--r-card);
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 12%,transparent);
+  }
+  .dt-nota-cab{display:flex;align-items:center;gap:7px;margin-bottom:var(--s3);color:var(--muted)}
+  .dt-nota-cab svg{width:15px;height:15px;flex:0 0 auto}
+  .dt-nota-lista{display:grid;gap:var(--s3)}
+  /* A todo el ancho y sin medida acotada. Con dos avisos en dos columnas la medida era la
+     comoda de leer; con uno solo, acotarlo dejaba media nota vacia al lado. Y el texto que
+     queda son ciento cincuenta caracteres: a todo el ancho son dos lineas, no un parrafo. */
+  .dt-nota-lista p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+  .dt-nota-lista b{color:var(--ink);font-family:var(--title-font);font-weight:600}
+  .dt-nota-pie{
+    display:flex;flex-wrap:wrap;gap:4px var(--s3);
+    margin-top:var(--s3);padding-top:var(--s3);
+    border-top:1px dotted color-mix(in srgb,var(--ink) 22%,transparent);
+    color:var(--muted);font-family:var(--title-font);font-size:12px;
+    font-variant-numeric:tabular-nums;
+  }
+  /* ---- las baldosas de cifra ---- */
+  .dt-cifra-n{font-family:var(--title-font);font-size:30px;font-weight:700;line-height:1.05;
+    font-variant-numeric:tabular-nums;color:var(--ink);margin:2px 0 4px}
+  .dt-contra{color:var(--muted);font-size:13px;line-height:1.4}
+  .dt-pct{font-family:var(--title-font);font-weight:700;white-space:nowrap;color:var(--ink)}
   .copias{margin-top:var(--s3)}
   .copia{
     display:grid;
@@ -3504,6 +3884,129 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
   </section>
 
+  <?php /* ---------------------------------------------------------------- datos */ ?>
+  <?php if (DATOS_ACTIVO): ?>
+  <section class="pane" data-pane="datos"<?= $pestana === 'datos' ? '' : ' hidden' ?>>
+
+    <?php /* Sin parrafo de cabecera: manda la rejilla. Lo que hay que explicar esta abajo.
+         Los avisos de estado SI van arriba: si no se esta contando nada, eso no puede leerse
+         al final. */ ?>
+    <?php if ($dt["topado"]): ?>
+      <div class="msg bad">
+        <strong>Hay un día que ha llegado al tope.</strong> El contador para en
+        <?= number_format(DATOS_MAX_DIA, 0, ",", ".") ?> aperturas al día para no llenar el
+        disco, y ese día hubo más de las que se apuntaron. Sube <code>DATOS_MAX_DIA</code> en
+        <code>admin/config.php</code> si se repite.
+      </div>
+    <?php endif; ?>
+
+    <?php /* Entre las 00:00 y las 6:00 la cabecera del panel y esta pestana dicen dias
+             distintos, y las dos tienen razon: arriba manda el servicio —una cena larga sigue
+             siendo la de anoche— y aqui manda el reloj. El aviso sale solo en esas horas, que es
+             cuando puede confundir; el resto del dia sobra y no se pinta. */ ?>
+    <?php if ($hoy !== $hoyC): ?>
+      <div class="msg">
+        Son las <?= h((new DateTimeImmutable("now", new DateTimeZone(TZ)))->format("H:i")) ?>
+        en Canarias, así que aquí ya cuenta el
+        <strong><?= h(mb_strtolower(dia_semana($hoyC), "UTF-8")) ?>
+        <?= h((new DateTimeImmutable($hoyC))->format("d/m")) ?></strong>, aunque arriba siga el
+        servicio del <?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?>. Aquí el día va de
+        00:00 a 00:00; los agotados van por servicio y cambian a las <?= (int) CORTE_HORA ?>:00.
+      </div>
+    <?php endif; ?>
+
+    <?php if (!$dt["escribible"]): ?>
+      <div class="msg bad">
+        <strong>No se está contando nada.</strong> La carpeta <code>admin/</code> no es
+        escribible por PHP, así que no se puede apuntar ninguna apertura. En cPanel suele
+        arreglarse poniéndole 755 a <code>admin/</code>.
+      </div>
+    <?php elseif (!$dt["serie"]): ?>
+      <div class="msg">
+        Todavía no hay ningún dato. El contador empieza <strong>la próxima vez que alguien abra
+        la carta</strong> y la tenga delante cuatro segundos.
+      </div>
+    <?php else: ?>
+
+      <?php
+        $ptos = $dt["dias"];
+        $topeG = max(1, max(array_column($ptos, "n")));
+        $ult = count($ptos) - 1;
+      ?>
+
+      <div class="dt-bento">
+
+        <div class="dt-baldosa ancha" id="dt-tile">
+          <div class="dt-cab">
+            <span class="rotulo"><span class="dt-vivo" aria-hidden="true"></span>Últimos 30 días</span>
+            <span class="dt-lectura" id="dt-lectura" role="status" aria-live="polite"
+                  data-reposo="<?= number_format($dt["hoy"], 0, ",", ".") ?>">
+              <?= number_format($dt["hoy"], 0, ",", ".") ?><em>hoy</em></span>
+          </div>
+          <div class="dt-barras" id="dt-barras" role="img"
+               aria-label="Aperturas de los últimos 30 días. Los totales, en las tarjetas de abajo.">
+            <?php foreach ($ptos as $i => $x):
+                 $alto = $x["n"] > 0 ? max(4, round(($x["n"] / $topeG) * 100)) : 0;
+                 $f = new DateTimeImmutable($x["fecha"]); ?>
+              <span class="dt-b<?= $x["n"] > 0 ? "" : " cero" ?>" data-i="<?= $i ?>"
+                    style="--i:<?= $i ?>">
+                <span class="dt-globo"><?= number_format($x["n"], 0, ",", ".") ?>
+                  · <?= h(mb_substr(dia_semana($x["fecha"]), 0, 3, "UTF-8")) ?> <?= h($f->format("d/m")) ?></span>
+                <i style="height:<?= $alto ?>%"></i>
+              </span>
+            <?php endforeach; ?>
+          </div>
+          <div class="dt-eje">
+            <span><?= h((new DateTimeImmutable($ptos[0]["fecha"]))->format("d/m")) ?></span>
+            <?php if ($dt["pico"] !== null): ?>
+              <span>máx. <?= number_format($ptos[$dt["pico"]]["n"], 0, ",", ".") ?>
+                el <?= h((new DateTimeImmutable($ptos[$dt["pico"]]["fecha"]))->format("d/m")) ?></span>
+            <?php endif; ?>
+            <span>hoy</span>
+          </div>
+        </div>
+
+        <div class="dt-baldosa">
+          <div class="dt-cab"><span class="rotulo">Hoy</span>
+            <?= dt_chip(datos_pct($dt["hoy"], $dt["hoyAntes"]), $dt["habiaHoy"]) ?></div>
+          <div class="dt-cifra-n"><?= number_format($dt["hoy"], 0, ",", ".") ?></div>
+          <?= dt_tira($dt["tiraHoy"], "hace 7 días", "hoy", "Los siete últimos días. Hoy es la última barra.") ?>
+        </div>
+        <div class="dt-baldosa">
+          <div class="dt-cab"><span class="rotulo">Esta semana</span>
+            <?= dt_chip(datos_pct($dt["semana"], $dt["semanaAntes"]), $dt["habiaSemana"]) ?></div>
+          <div class="dt-cifra-n"><?= number_format($dt["semana"], 0, ",", ".") ?></div>
+          <?= dt_tira($dt["tiraSemana"], "lun", "dom", "La semana entera; los días que faltan van en hueco.", $dt["diasSemana"]) ?>
+        </div>
+        <div class="dt-baldosa">
+          <div class="dt-cab"><span class="rotulo"><?= h($dt["mesNombre"]) ?></span>
+            <?= dt_chip(datos_pct($dt["mes"], $dt["mesAntes"]), $dt["habiaMes"]) ?></div>
+          <div class="dt-cifra-n"><?= number_format($dt["mes"], 0, ",", ".") ?></div>
+          <?= dt_tira($dt["tiraMes"], "día 1", "día " . $dt["diasDelMes"], "El mes entero; los días que faltan van en hueco.", $dt["diaDelMes"]) ?>
+        </div>
+      </div>
+
+      <div class="dt-nota">
+        <div class="dt-nota-cab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>
+          <span class="rotulo">Cómo leer esto</span>
+        </div>
+        <div class="dt-nota-lista">
+          <p><b>Son móviles, no clientes.</b>
+            El mismo móvil cuenta una vez al día, aunque abra la carta tres veces. Y en una mesa
+            de cuatro donde sólo uno mira, cuenta uno.</p>
+        </div>
+        <p class="dt-nota-pie">
+          <span>Desde el <?= h((new DateTimeImmutable($dt["desde"]))->format("d/m/Y")) ?></span>
+          <span><?= number_format($dt["total"], 0, ",", ".") ?>
+            <?= $dt["total"] == 1 ? "apertura" : "aperturas" ?> en total</span>
+          <span>Se guardan <?= (int) DATOS_MESES ?> meses</span>
+        </p>
+      </div>
+    <?php endif; ?>
+  </section>
+  <?php endif; ?>
+
   <?php /* ---------------------------------------------------------------- marca */ ?>
   <section class="pane" data-pane="marca"<?= $pestana === 'marca' ? '' : ' hidden' ?>>
     <p class="hint">
@@ -4025,5 +4528,88 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 <?php endif; ?>
 
 </div>
+  <?php if (DATOS_ACTIVO): ?>
+  <script>
+  /* Recorrer las barras.
+   *
+   * Portado de MiniChart (React + Tailwind). Lo que se trae es el gesto: la barra tocada al
+   * maximo, sus dos vecinas a media luz y las demas apagadas. Con treinta barras del mismo color
+   * lo que se ve es una textura; con el apagado, se ve UN dia.
+   *
+   * Dos cosas que el original NO hace y aqui son obligatorias:
+   *
+   * 1. Punteros en vez de onMouseEnter. Este panel se abre en la tablet de la cocina y en un
+   *    movil; con solo hover, alli no pasa nada al tocar. pointerdown/pointermove cubre dedo y
+   *    raton por el mismo camino.
+   * 2. Enganche a la barra mas cercana, no a la de debajo del dedo. Treinta barras en 330px son
+   *    once pixeles cada una y un dedo mide cuarenta y cinco: sin enganche, la mitad de los
+   *    toques caen en el hueco entre dos y no pasa nada.
+   */
+  (function () {
+    var caja = document.getElementById("dt-barras");
+    var tile = document.getElementById("dt-tile");
+    var lectura = document.getElementById("dt-lectura");
+    if (!caja || !tile || !lectura) return;
+
+    var barras = [].slice.call(caja.querySelectorAll(".dt-b"));
+    if (!barras.length) return;
+    var reposo = lectura.getAttribute("data-reposo") || "";
+    var actual = -1;
+
+    function marca(i) {
+      if (i === actual) return;
+      actual = i;
+      for (var j = 0; j < barras.length; j++) {
+        barras[j].classList.toggle("viva", j === i);
+        barras[j].classList.toggle("vecina", j === i - 1 || j === i + 1);
+      }
+      var g = barras[i].querySelector(".dt-globo");
+      var txt = g ? g.textContent.trim() : "";
+      var corte = txt.indexOf("\u00b7");
+      lectura.innerHTML = corte > 0
+        ? txt.slice(0, corte).trim() + "<em>" + txt.slice(corte + 1).trim() + "</em>"
+        : txt;
+    }
+
+    function suelta() {
+      actual = -1;
+      caja.classList.remove("tocando");
+      tile.classList.remove("tocando");
+      for (var j = 0; j < barras.length; j++) barras[j].classList.remove("viva", "vecina");
+      lectura.innerHTML = reposo + "<em>hoy</em>";
+    }
+
+    function cerca(clienteX) {
+      var mejor = 0, dist = Infinity;
+      for (var i = 0; i < barras.length; i++) {
+        var r = barras[i].getBoundingClientRect();
+        var d = Math.abs((r.left + r.width / 2) - clienteX);
+        if (d < dist) { dist = d; mejor = i; }
+      }
+      return mejor;
+    }
+
+    function agarra(e) {
+      caja.classList.add("tocando");
+      tile.classList.add("tocando");
+      marca(cerca(e.clientX));
+    }
+
+    caja.addEventListener("pointerdown", function (e) {
+      agarra(e);
+      /* Capturar el puntero: el dedo puede salirse de la caja arrastrando y se sigue leyendo,
+         que es lo que uno hace para recorrer la quincena. */
+      if (caja.setPointerCapture) { try { caja.setPointerCapture(e.pointerId); } catch (x) {} }
+    });
+    caja.addEventListener("pointermove", function (e) {
+      if (e.pointerType === "mouse" && e.buttons === 0) { agarra(e); return; }   // raton: basta pasar
+      if (caja.classList.contains("tocando")) marca(cerca(e.clientX));
+    });
+    caja.addEventListener("pointerup", suelta);
+    caja.addEventListener("pointercancel", suelta);
+    caja.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") suelta(); });
+  })();
+  </script>
+  <?php endif; ?>
 </body>
 </html>

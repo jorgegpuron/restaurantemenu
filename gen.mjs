@@ -483,6 +483,19 @@ const AVISOS_AL_FINAL = [
    encenderla: true aquí y OCULTOS_ACTIVO en server/admin/config.php, y regenerar. */
 const OCULTOS_ACTIVO = false;
 
+/* ---- contador de aperturas ----
+ * Cuenta cuantas veces se abre la carta, nada mas. No guarda IP, ni cookie, ni identificador
+ * de ninguna clase: el endpoint es incapaz de distinguir dos visitas.
+ *
+ * INTERRUPTOR EN DOS SITIOS, y tienen que decir lo mismo: aqui y DATOS_ACTIVO en
+ * server/admin/config.php. Encendido aqui y apagado alli deja a la carta llamando a un 404 en
+ * cada visita. Es el mismo par que OCULTOS_ACTIVO, justo arriba.
+ *
+ * Apagado significa apagado: la carta sale SIN UNA SOLA LINEA de medicion, no con el bloque
+ * envuelto en un if(false). Codigo muerto viajando en el HTML de cada cliente es peso que
+ * paga el movil del comensal para nada. */
+const DATOS_ACTIVO = true;
+
 const renderSub = (catName, label, showSlot) => {
   const cat = categories[catName];
   const half = Math.ceil(cat.items.length / 2);
@@ -3081,6 +3094,14 @@ ${sheet}
     } catch (e) { return null; }
   }
 
+  /* El dia del contador: el natural de Canarias, de medianoche a medianoche. Va aparte de
+     serviceDate() porque contestan cosas distintas — aquel dice a que servicio pertenece una
+     comanda y este dice en que dia se cuenta una apertura. */
+  function naturalDate() {
+    var p = canaryParts();
+    return p ? p.year + "-" + p.month + "-" + p.day : null;
+  }
+
   function serviceDate() {
     var p = canaryParts();
     if (!p) return null;
@@ -3647,6 +3668,58 @@ ${sheet}
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) cargarEstado();
   });
+
+/* El medidor de aperturas va APARTE de cargarEstado(). Colgarlo de la misma peticion seria mas
+   elegante —una llamada que sirve el estado y mide de paso— y dejaria al cliente sentado en la
+   mesa sin ver los agotados el dia que el hosting hipe. Esto es una estadistica, no un pedido:
+   si falla se pierde ese numero y no pasa nada mas.
+
+   Cuatro segundos A LA VISTA, no al cargar: un rastreador pide la pagina y se va, y la precarga
+   de un enlace pegado en un grupo de WhatsApp ni llega a verse. Cuatro segundos seguidos delante
+   es lo mas barato que se parece a una persona.
+
+   La marca vive en localStorage con la fecha de servicio como VALOR, no como parte de la clave:
+   asi no se acumula una entrada por dia en el almacen del movil, que acabaria con trescientas al
+   ano. Y la fecha es la misma que usa datos.php —corte a las 6:00, hora de Canarias—, asi que
+   mediodia y cena son el mismo servicio y cuentan uno.
+
+   Una vez por DISPOSITIVO Y DIA, no por carga ni por visita: la carta se recarga sola al
+   detectar un build nuevo, y quien la cierra y la vuelve a abrir a los postres sumaria dos. La
+   marca vive en localStorage con la fecha de servicio dentro, la misma que usa datos.php.
+
+   sendBeacon o nada: no bloquea, no espera respuesta y sobrevive al cierre de la pestana. Un
+   fetch a medio camino en el cierre es lo que se queda colgado en un movil viejo.
+
+   Y el comentario que viaja al HTML es corto a proposito: lo descarga cada comensal. */
+${DATOS_ACTIVO ? `
+  /* Cuenta este movil: 4 s a la vista, una vez por dia de servicio. El porque, en gen.mjs. */
+  if (navigator.sendBeacon) (function () {
+    var MARCA = '${CLAVE('contada')}';
+    var reloj = null, hecho = false;
+
+    /* El dia se decide AQUI y no al cargar. Congelado al cargar, una carta abierta a las 23:59
+       marcaba el dia viejo mientras el servidor apuntaba en el nuevo, y ese movil volvia a contar
+       por la manana. Son cuatro segundos de ventana al dia, pero es el tipo de fallo que ya no se
+       encuentra despues. */
+    function contar() {
+      if (hecho || document.visibilityState !== 'visible') return;
+      var dia = naturalDate() || new Date().toISOString().slice(0, 10);
+      try { if (localStorage.getItem(MARCA) === dia) return; } catch (e) {}
+      hecho = true;
+      try { localStorage.setItem(MARCA, dia); } catch (e) {}
+      try { navigator.sendBeacon('admin/datos.php'); } catch (e) {}
+    }
+    function armar() {
+      if (hecho || reloj || document.visibilityState !== 'visible') return;
+      reloj = setTimeout(contar, 4000);
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { clearTimeout(reloj); reloj = null; }
+      else armar();
+    });
+    armar();
+  })();
+` : ''}
 
   /* ------------------------------------------------------------------ *
    * Carrusel de cabecera
