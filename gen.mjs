@@ -881,6 +881,12 @@ html:not(.js) .lang-menu{position:static;display:block}
   align-items:center;
   gap:var(--s2);
   margin-top:var(--s3);
+  /* Se sale de la calle del contenido para medir lo mismo que la foto de portada. Vive dentro
+     de la columna de texto, asi que la unica forma es tirar de ella hacia fuera lo que mide esa
+     calle y devolverle los 8 que deja la portada por los lados. Al leer --gutter cuadra sola en
+     los cuatro breakpoints. Es el mismo recurso que ya usa .legend-allergens. */
+  margin-left:calc(var(--s1) - var(--gutter));
+  margin-right:calc(var(--s1) - var(--gutter));
   padding:var(--s3);
   border-radius:var(--r-sheet);
   background:var(--ink);

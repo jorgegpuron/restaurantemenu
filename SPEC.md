@@ -3513,3 +3513,31 @@ flotante en «−42» y la clase `boom` en el marcador. En Tinge, lo mismo en al
 Y la regla de la portada cambia de clave: «Toca los chiles. Esquiva el hielo **y la bomba**». En
 alemán se corrigió el tratamiento — el diccionario del juego trata de usted y la primera versión
 tuteaba.
+
+### La tarjeta del juego, al ancho de la portada (24 Aug 2026)
+
+Se veía metida hacia dentro respecto a la foto de cabecera. El motivo: vive dentro de
+`.food-menu-tab`, que es quien da la calle del contenido con `padding:0 var(--gutter)`, y la
+portada no — está un nivel más arriba a propósito, «pegada al borde tiene más presencia que metida
+en la columna de texto».
+
+Se saca de la calle con el mismo recurso que ya usaba `.legend-allergens`, y por la misma razón:
+
+```css
+margin-left:calc(var(--s1) - var(--gutter));
+margin-right:calc(var(--s1) - var(--gutter));
+```
+
+Tirar hacia fuera lo que mide la calle y devolverle los 8 que la portada deja por los lados. Al
+leer `--gutter` cuadra sola en los cuatro breakpoints, sin una sola media query nueva.
+
+Medido contra `.hero-frame`, que es la caja que se ve:
+
+| ancho | portada | tarjeta |
+|---|---|---|
+| 1270 | 1228 (21 → 1249) | 1228 (21 → 1249) |
+| 375 | 333 (21 → 354) | 333 (21 → 354) |
+| 320 | 278 (21 → 299) | 278 (21 → 299) |
+
+A 320 no cambia nada porque allí la calle ya medía 8 y la resta da cero: el desajuste sólo se veía
+de tablet para arriba, que es donde se vio.
