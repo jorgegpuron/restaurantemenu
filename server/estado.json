@@ -21,20 +21,10 @@
  "prices": {},
  "actualizado": null,
  "game": {
-  "on": false,
-  "target": 25,
-  "minutes": 5,
-  "prize": {
-   "es": "Una bebida gratis",
-   "en": "A free drink",
-   "de": "Ein Getränk gratis"
-  }
+  "on": true
  },
  "review": {
-  "enabled": true,
-  "provider": "google",
-  "url": "https://g.page/r/CVSJn54poDEsEAE/review",
-  "redirectAfterReward": true
+  "url": "https://g.page/r/CVSJn54poDEsEAE/review"
  },
  "theme": "laurel"
 }

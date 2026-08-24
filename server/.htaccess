@@ -17,7 +17,7 @@ Options -Indexes
   </FilesMatch>
   # Lo que cambia durante el servicio no se guarda nunca. version.json es además la marca
   # que decide la recarga única por sesión: cachearlo rompería justo lo que resuelve.
-  <FilesMatch "^(estado|version)\.json$">
+  <FilesMatch "^(estado|version|record)\.json$">
     Header set Cache-Control "no-store"
   </FilesMatch>
   # Las fotos del panel llevan nombre aleatorio: una foto nueva es una URL nueva. Un mes.

@@ -56,10 +56,6 @@ if (is_string($__sh) && $__sh !== '') {
 if (!defined('SUPERADMIN_HASH')) define('SUPERADMIN_HASH', '');
 unset($__sh);
 
-/* Los códigos del juego ya canjeados hoy. Antes iban dentro de estado.json, que es público:
- * cualquiera podía listar cuántos premios se dan y a qué hora. Aquí no los sirve nadie. */
-define('CANJES_PATH', __DIR__ . '/canjes.json');
-
 /* Fuerza bruta: tras MAX_FALLOS contraseñas mal seguidas desde una misma IP, esa IP espera
  * BLOQUEO_MINUTOS. El registro vive en un JSON que el .htaccess no sirve. */
 define('INTENTOS_PATH', __DIR__ . '/intentos.json');
@@ -70,18 +66,16 @@ define('BLOQUEO_MINUTOS', 15);
  * Nunca se apuntan contraseñas ni hashes. El .htaccess tampoco lo sirve. */
 define('LOG_PATH', __DIR__ . '/accesos.log');
 
-/* Lo que distingue a este restaurante de cualquier otro que use el mismo motor: su prefijo y la
- * sal con la que se firman los códigos del juego. Lo escribe gen.mjs desde cliente.mjs, igual
- * que tokens.css o platos.json, y por eso no está aquí dentro: este archivo se edita a mano y lo
- * que genera el build no puede pisar lo que escribe una persona.
+/* Lo que distingue a este restaurante de cualquier otro que use el mismo motor: su prefijo y su
+ * nombre. Lo escribe gen.mjs desde cliente.mjs, igual que tokens.css o platos.json, y por eso no
+ * está aquí dentro: este archivo se edita a mano y lo que genera el build no puede pisar lo que
+ * escribe una persona.
  *
- * Si falta —una subida a medias—, el secreto se queda vacío y NINGÚN código valida. Es a
- * propósito: con un secreto por defecto, la carta de un restaurante aceptaría los premios de
- * otro, que es justo lo que este archivo viene a evitar. Fallar cerrado se ve enseguida y se
- * arregla subiendo el archivo; fallar abierto no se ve nunca. El panel lo avisa en Juego. */
+ * Si falta —una subida a medias— el panel sigue en pie con valores neutros: son rótulos, no
+ * seguridad. Aquí ya no vive ningún secreto; el que firmaba los códigos del juego se fue con los
+ * premios. */
 if (is_file(__DIR__ . '/cliente.php')) require __DIR__ . '/cliente.php';
 if (!defined('CLIENTE_SLUG')) define('CLIENTE_SLUG', '');
-if (!defined('CR_SECRETO'))   define('CR_SECRETO', '');
 /* El nombre que ensena el panel. Si falta cliente.php se pone algo neutro: es un
  * rotulo, no vale la pena tirar el panel por el. */
 if (!defined('CLIENTE_NOMBRE')) define('CLIENTE_NOMBRE', 'La carta');
@@ -157,6 +151,16 @@ define('DATOS_MESES', 12);
 /* Freno de mano, no cuota: nadie abre una carta cien mil veces en una jornada. Si se llega
  * ahí es que alguien está llamando al script en bucle, y a partir de ese punto no se apunta. */
 define('DATOS_MAX_DIA', 100000);
+
+/* ------------------------------------------------------------------------------ EL RÉCORD
+ * La puntuación más alta que se ha hecho en este restaurante. Vive en la RAÍZ y no en admin/
+ * porque el .htaccess de aquí deniega todo .json y el juego tiene que poder leerlo.
+ * Lo crea record.php solo la primera vez que alguien juega. */
+define('RECORD_PATH', __DIR__ . '/../record.json');
+
+/* Tope de cordura, no cuota. En 30 segundos caben unas 64 fichas y, si todas fueran doradas,
+ * 192 puntos. Por encima de esto la partida no ha existido y no se apunta. */
+define('RECORD_MAX', 300);
 
 // Minutos de inactividad tras los que se cierra la sesión del panel.
 // 30 es el equilibrio razonable: no molesta durante un servicio y no deja la tablet

@@ -17,15 +17,8 @@
 export const GAME_STRINGS = [
   'Chilli Rush', 'While you wait',
   'Tap the chillies. Dodge the ice.', 'Play', 'Play again', 'Back to the menu',
-  'Score', 'Target', 'Time', 'Streak', 'of', 'Ready?', 'You win',
-  'Show this screen to your waiter', 'Only valid today', 'So close',
-  'You needed {n} points', 'Best today',
-  'No prize running today — play for the fun of it', 'A free drink',
-  'Activate prize', 'Activate it when you order', 'Prize active', 'Prize finished',
-  'You have already played today',
-  'points', "Today's prize",
-  'I have it, thanks', 'The prize stays valid until the clock runs out',
-  'Thank you!', 'Enjoyed your experience?', "We'd love to hear your feedback.",
+  'Score', 'Time', 'Streak', 'Ready?', 'points',
+  'Best today', 'Your score', 'House record', 'New record!', 'Record',
 ];
 
 /* Los tres iconos del juego. Tabler (MIT), el mismo trazo 1.75 del resto del proyecto.
@@ -66,7 +59,7 @@ ${IDIOMAS.map((l) => `        <button type="button" class="lang-opt" role="menui
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="${TEMA_INK}">
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
-<title>Chilli Rush — Tinge of Turmeric</title>
+<title>${CLIENTE.tituloJuego}</title>
 <script>try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t}catch(e){}</script>
 ${FONTS}
 <style>
@@ -200,10 +193,10 @@ h1{
 .rules{margin:0;max-width:30ch;font-size:clamp(16px,4.4vw,19px);line-height:1.4}
 
 /* ---------- portada «Arcade» ----------
-   Elegida entre tres direcciones prototipadas (Sereno / Cartel / Arcade). El premio vende la
-   partida antes del primer toque: mascota con entrada «pop», «Rush» en el rojo de aviso
-   inclinado, y un ticket con el objetivo y el premio de hoy leídos del estado. El rojo pasa a
-   ser aquí también personalidad, no sólo aviso — decisión consciente, sólo en esta pantalla. */
+   Elegida entre tres direcciones prototipadas (Sereno / Cartel / Arcade). Vende la partida
+   antes del primer toque: mascota con entrada «pop», «Rush» en el rojo de aviso inclinado, y
+   debajo el récord de la casa, que es contra quien se juega. El rojo pasa a ser aquí también
+   personalidad, no sólo aviso — decisión consciente, sólo en esta pantalla. */
 .mascota{
   width:104px;height:104px;
   display:flex;align-items:center;justify-content:center;
@@ -216,20 +209,18 @@ h1{
 @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 /* ---- el aire de la portada ----
    Los huecos salían de sumar el gap de .screen (21) con márgenes sueltos de cada bloque, y
-   medían 29 · 21 · 21 · 29 · 42: cinco separaciones distintas sin que ninguna dijera nada. Y el
-   eyebrow del premio, vacío cuando no hay premio, seguía gastando su hueco: entre la frase y el
-   ticket había 50px repartidos en dos gaps alrededor de algo invisible.
+   medían 29 · 21 · 21 · 29 · 42: cinco separaciones distintas sin que ninguna dijera nada.
 
    Aquí el gap se apaga y cada separación se declara, con la escala y con un motivo:
      mascota → título   21   se tocan pero no se pegan
      título  → frase    13   son un bloque, el nombre y lo que promete
-     frase   → ticket   34   cambia de objeto: eso ya es una tarjeta
-     ticket  → botones  34   el mismo salto antes de la zona de acción */
+     frase   → récord   21   la referencia, pegada a lo que promete
+     récord  → botones  34   el salto antes de la zona de acción */
 #s-intro{gap:0}
 #s-intro h1{margin-top:var(--s3);font-size:clamp(44px,13vw,72px);line-height:.9}
 #s-intro .rules{margin-top:var(--s2)}
 #s-intro .eyebrow{margin-top:var(--s2)}
-/* Sin premio el eyebrow se queda vacío: fuera del flujo, o deja un hueco por nada. */
+/* Un eyebrow vacío se sale del flujo, o gastaría su hueco por nada. */
 #s-intro .eyebrow:empty{display:none}
 #s-intro h1 em{
   font-style:normal;display:inline-block;
@@ -237,33 +228,13 @@ h1{
   color:var(--surface);background:var(--offer);
   padding:0 .18em;border-radius:.14em;
 }
-.ticket{
-  display:flex;align-items:center;gap:var(--s2);
-  margin-top:var(--s4);padding:10px 14px 10px 10px;
-  border-radius:var(--r-sheet);
-  background:var(--surface);color:var(--ink);
-  box-shadow:var(--lift-card);
-  text-align:left;
-  animation:sube 240ms var(--ease-out) 120ms both;
-}
-.ticket[hidden]{display:none}
-.ticket .n{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-width:52px;height:52px;border-radius:12px;
-  background:var(--offer);color:var(--surface);
-  font-family:var(--title-font);font-weight:800;font-size:22px;line-height:1;
-}
-.ticket .n small{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.9}
-.ticket strong{display:block;font-family:var(--title-font);font-size:16px;font-weight:700}
-.ticket span{font-size:13px;color:var(--muted)}
-.ticket .n span{font:inherit;color:inherit}   /* el número hereda del recuadro rojo, no del pie */
 @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #s-intro .actions{margin-top:var(--s4)}
 /* Flex de verdad: sin él el gap no existe y el SVG cae a la línea base del texto. */
 #btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--offer)}
 #btn-play svg{width:21px;height:21px;flex:0 0 auto}
 #btn-play .i18n{line-height:1}
-@media (prefers-reduced-motion:reduce){ .mascota,.ticket{animation:none} }
+@media (prefers-reduced-motion:reduce){ .mascota,.record,.eyebrow-record{animation:none} }
 /* Botones a medida de app: la acción principal llena 320px (o el ancho que haya), 56px de
    alto; la secundaria debajo, misma anchura, sin relleno y con borde — se lee como opción,
    no como acción. Entre bloque de texto y botones, un escalón más de aire que entre líneas. */
@@ -309,7 +280,6 @@ h1{
 .hud-item.der{align-items:flex-end}
 .hud-item.centro{align-items:center;gap:0}
 .hud-item.centro .hud-val{font-size:56px;letter-spacing:-.03em}
-.hud-meta{font-family:var(--title-font);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
 .hud-lbl{font-family:var(--title-font);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
 .hud-val{font-family:var(--title-font);font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .hud-val.pop{animation:pop var(--t-press) var(--ease-out)}
@@ -394,37 +364,19 @@ h1{
 }
 
 /* ---------- resultado ---------- */
-.prize{
-  width:100%;max-width:340px;
-  padding:var(--s4) var(--s3);
-  border-radius:var(--r-card);
-  background:var(--surface);color:var(--ink);
-}
-.prize-what{margin:0;font-family:var(--title-font);font-size:clamp(22px,6vw,28px);font-weight:800;line-height:1.15}
-.code{
+/* El récord de la casa: la referencia contra la que se juega. */
+.record{
   margin:var(--s3) 0 0;
-  font-family:var(--title-font);font-size:30px;font-weight:800;letter-spacing:.06em;
+  font-family:var(--title-font);font-size:15px;font-weight:600;
+  color:var(--surface);opacity:.8;
   font-variant-numeric:tabular-nums;
-  color:var(--accent);
 }
-.prize-note{margin:var(--s1) 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+.record[hidden]{display:none}
+.record b{font-weight:800;opacity:1}
+/* Batir el récord: lo único que celebra, y no da nada. */
+.eyebrow-record{color:var(--offer);animation:sube 240ms var(--ease-out) both}
 .tally{margin:0;font-family:var(--title-font);font-size:clamp(30px,9vw,44px);font-weight:800;line-height:1}
 .tally small{display:block;margin-top:6px;font-family:var(--body-font);font-size:15px;font-weight:400;opacity:.85}
-
-/* ---------- premio activo ---------- */
-.eyebrow-vivo{color:var(--offer)}
-.reloj{
-  margin:var(--s2) 0 0;
-  font-family:var(--title-font);
-  font-size:clamp(52px,17vw,76px);
-  font-weight:800;
-  line-height:1;
-  letter-spacing:-0.02em;
-  font-variant-numeric:tabular-nums;
-  color:var(--ink);
-}
-.reloj.poco{color:var(--offer)}
-.prize .code{font-size:24px;margin-top:var(--s2)}
 
 /* ---------- cuenta atrás ---------- */
 .count{font-family:var(--title-font);font-size:clamp(64px,26vw,120px);font-weight:800;line-height:1}
@@ -448,12 +400,7 @@ h1{
     <div class="mascota" aria-hidden="true">${PEPPER}</div>
     <h1>Chilli <em>Rush</em></h1>
     <p class="rules">${T('Tap the chillies. Dodge the ice.', 'ui')}</p>
-    <p class="eyebrow" id="intro-prize"></p>
-    <!-- el ticket sólo existe con premio encendido; lo rellena pintarTextosDinamicos() -->
-    <div class="ticket" id="intro-ticket" hidden>
-      <div class="n"><span id="ticket-n">25</span><small>${T('points', 'ui')}</small></div>
-      <div><strong id="ticket-que"></strong><span>${T("Today's prize", 'ui')} · ${T('Only valid today', 'ui')}</span></div>
-    </div>
+    <p class="record" id="intro-record" hidden></p>
     <div class="actions">
       <button class="big-btn" id="btn-play" type="button">${PEPPER}${T('Play', 'ui')}</button>
       <a class="ghost-btn" href="./index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>${T('Back to the menu', 'ui')}</a>
@@ -475,7 +422,6 @@ h1{
       </div>
       <div class="hud-item centro">
         <span class="hud-val" id="score">0</span>
-        <span class="hud-meta">${T('of', 'ui')} <span id="target">0</span></span>
       </div>
       <div class="hud-item der">
         <span class="hud-lbl">${T('Streak', 'ui')}</span>
@@ -486,47 +432,11 @@ h1{
     <div class="board" id="board" style="width:100%"><span class="linea" aria-hidden="true"></span></div>
   </section>
 
-  <!-- 4b. premio activo: el contador que ve el camarero -->
-  <section class="screen" id="s-premio" hidden>
-    <p class="eyebrow eyebrow-vivo">${T('Prize active', 'ui')}</p>
-    <div class="prize">
-      <p class="prize-what" id="vivo-que"></p>
-      <p class="reloj" id="vivo-reloj">05:00</p>
-      <p class="code" id="vivo-code"></p>
-      <p class="prize-note">${T('Show this screen to your waiter', 'ui')}</p>
-    </div>
-    <button class="big-btn" id="btn-servido" type="button">${T('I have it, thanks', 'ui')}</button>
-    <p class="eyebrow" style="opacity:.75;max-width:30ch">${T('The prize stays valid until the clock runs out', 'ui')}</p>
-  </section>
-
-  <!-- 4c. premio terminado -->
-  <section class="screen" id="s-fin" hidden>
-    <p class="eyebrow">${T('Prize finished', 'ui')}</p>
-    <div class="actions"><a class="ghost-btn" href="./index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>${T('Back to the menu', 'ui')}</a></div>
-  </section>
-
-  <!-- 4d. el gracias, justo antes de ir a las reseñas -->
-  <section class="screen" id="s-gracias" hidden>
-    <h1 style="font-size:clamp(30px,9vw,46px)">${T('Thank you!', 'ui')}</h1>
-    <p class="rules">${T('Enjoyed your experience?', 'ui')}</p>
-    <p class="rules">${T("We'd love to hear your feedback.", 'ui')}</p>
-  </section>
-
   <!-- 4. resultado -->
   <section class="screen" id="s-end" hidden>
-    <div id="end-win" hidden>
-      <p class="eyebrow">${T('You win', 'ui')}</p>
-      <div class="prize">
-        <p class="prize-what" id="prize-what"></p>
-        <p class="prize-note" id="prize-cuando"></p>
-      </div>
-      <button class="big-btn" id="btn-activar" type="button" style="margin-top:var(--s3)">${T('Activate prize', 'ui')}</button>
-    </div>
-    <div id="end-lose" hidden>
-      <p class="eyebrow">${T('So close', 'ui')}</p>
-      <p class="tally"><span id="end-score">0</span><small id="end-gap"></small></p>
-    </div>
-    <p class="eyebrow" id="end-best"></p>
+    <p class="eyebrow" id="end-eyebrow"></p>
+    <p class="tally"><span id="end-score">0</span><small id="end-best"></small></p>
+    <p class="record" id="end-record" hidden></p>
     <div class="actions">
       <button class="big-btn" id="btn-again" type="button">${T('Play again', 'ui')}</button>
       <a class="ghost-btn" href="./index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>${T('Back to the menu', 'ui')}</a>
@@ -634,9 +544,10 @@ h1{
   }
 
   /* ---- estado del restaurante ----
-     El mismo estado.json que la carta. Si no está, o el juego está apagado, se puede jugar
-     igual pero sin premio: entretener al que espera no depende de que haya promoción. */
-  var CFG = { on: false, target: 25, prize: null };
+     El mismo estado.json que la carta, y aparte el récord de la casa, que vive en su propio
+     record.json. Si no llega ninguno de los dos se juega igual: entretener al que espera no
+     depende de que el servidor conteste. */
+  var CFG = { on: false, record: 0 };
 
   /* El mismo tema de marca que la carta, por la misma vía y con el mismo respaldo en el
      móvil para no parpadear. La barra del navegador se pinta del color del fondo del juego,
@@ -660,41 +571,41 @@ h1{
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (s) {
       if (s && s.theme) aplicarTema(s.theme);
-      var g = s && s.game;
-      if (g) {
-        CFG.on = !!g.on;
-        CFG.target = (+g.target > 0) ? Math.round(+g.target) : 25;
-        CFG.prize = g.prize || null;
-        if (+g.minutes > 0) PREMIO_MIN = Math.min(60, Math.round(+g.minutes));
-      }
-      var r = s && s.review;
-      if (r) { REVIEW.on = !!r.enabled; REVIEW.url = r.url || ''; }
+      if (s && s.game) CFG.on = !!s.game.on;
       pintarTextosDinamicos();
-      retomarPremio();
     })
-    .catch(function () {
-      pintarTextosDinamicos();
-      /* Sin red no puede llegar la configuración, pero un premio ya ganado vive en el
-         móvil: la pantalla-justificante del cliente no se pierde por un corte de wifi. */
-      retomarPremio();
-    });
+    .catch(function () { pintarTextosDinamicos(); });
 
-  function premio() {
-    var l = document.documentElement.lang || 'en';
-    if (CFG.prize && (CFG.prize[l] || CFG.prize.es || CFG.prize.en)) {
-      return (CFG.prize[l] || CFG.prize.es || CFG.prize.en).trim();
-    }
-    return tr('A free drink');
+  /* El récord va en su propia petición y no dentro de estado.json: ahí están los agotados y
+     los precios, y el endpoint público que escribe el récord no puede tocar eso ni por
+     accidente. Cuesta una petición de cuarenta bytes. */
+  fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) { if (j && +j.puntos > 0) CFG.record = +j.puntos; })
+    .catch(function () {})
+    .then(function () { pintarRecord(); });
+
+  /* El récord de la casa, en la portada y en el resultado. Sin récord todavía no se escribe
+     «Récord: 0», que se lee como un fallo: sencillamente no aparece la línea. */
+  /* Cuando se acaba de batir, la línea de «Récord de la casa» sobra en el resultado: el número
+     grande de arriba YA es el récord, y repetirlo debajo se lee como si fueran dos cosas. Hace
+     falta la bandera porque mandarRecord() contesta tarde y volvía a pintar la línea encima. */
+  var recordRecien = false;
+
+  function pintarRecord() {
+    var txt = CFG.record > 0
+      ? tr('House record') + ': <b>' + CFG.record + '</b> ' + tr('points')
+      : '';
+    ['intro-record', 'end-record'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = txt;
+      el.hidden = !txt || (id === 'end-record' && recordRecien);
+    });
   }
 
   function pintarTextosDinamicos() {
-    document.getElementById('target').textContent = CFG.target;
-    var ticket = document.getElementById('intro-ticket');
-    ticket.hidden = !CFG.on;
-    document.getElementById('ticket-n').textContent = CFG.target;
-    document.getElementById('ticket-que').textContent = premio();
-    document.getElementById('intro-prize').textContent =
-      CFG.on ? '' : tr('No prize running today — play for the fun of it');
+    pintarRecord();
     var best = mejorDeHoy();
     document.getElementById('end-best').textContent =
       best > 0 ? tr('Best today') + ': ' + best : '';
@@ -702,9 +613,8 @@ h1{
   }
 
   /* ---- el reloj del restaurante ----
-     El mismo criterio que el resto del proyecto: manda la hora de Canarias, no la del móvil,
-     y el día "de servicio" empieza a las 06:00. Así el código de un premio ganado a las 23:00
-     sigue valiendo a la 01:00, que es la misma noche. */
+     Manda la hora de Canarias, no la del móvil. El día "de servicio" empieza a las 06:00, así
+     que la mejor marca de una cena que se alarga sigue siendo la de esa noche a la 01:00. */
   function fechaServicio() {
     try {
       var f = new Intl.DateTimeFormat('en-CA', {
@@ -724,41 +634,14 @@ h1{
     return dd + mm;
   }
 
-  /* Para las claves de localStorage y la fecha guardada del premio: con el año. DDMM a
-     secas hacía «resucitar» la mejor marca — y un premio ganado sin activar — exactamente
-     un año después. El código CR sigue con DDMM: al camarero le basta el día. */
+  /* La clave de localStorage lleva el año. Con DDMM a secas, la mejor marca «resucitaba»
+     exactamente un año después. */
   function fechaClave(d) {
     return d.getUTCFullYear() + ddmm(d);
   }
 
-  /* El código que ve el camarero. No es seguridad: cualquiera con la consola abierta puede
-     fabricar uno. Sirve para lo que de verdad pasa en una mesa — que alguien enseñe la captura
-     de ayer — porque lleva la fecha dentro y el panel lo comprueba contra el día de hoy. */
-  var SECRETO = '${CLIENTE.secreto}';
-
-  function suma(txt) {
-    var h = 7;
-    for (var i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) % 100000;
-    return h % 1000;
-  }
-
-  /* Dos letras al azar por victoria. Sin ellas el código era determinista —fecha, puntos,
-     secreto— y dos ganadores con la misma puntuación el mismo día recibían EL MISMO código:
-     al segundo, honesto, el panel le decía «ya se canjeó». Con las puntuaciones ganadoras
-     apiñadas en ~25-35, esa colisión era cuestión de días, no de mala suerte. */
-  function azar2() {
-    var abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    return abc[Math.floor(Math.random() * abc.length)] + abc[Math.floor(Math.random() * abc.length)];
-  }
-
-  function codigo(p, r) {
-    var f = ddmm(fechaServicio());
-    var n = ('00' + suma(f + '|' + p + '|' + r + '|' + SECRETO)).slice(-3);
-    return 'CR-' + f + '-' + p + '-' + r + '-' + n;
-  }
-
   /* ---- mejor marca del día, sólo para picarse consigo mismo ---- */
-  function claveHoy() { return '${CLAVE('cr')}-' + fechaClave(fechaServicio()); }
+  function claveHoy() { return '${CLAVE('mejor')}-' + fechaClave(fechaServicio()); }
   function mejorDeHoy() {
     try { return parseInt(localStorage.getItem(claveHoy()) || '0', 10) || 0; } catch (e) { return 0; }
   }
@@ -766,182 +649,23 @@ h1{
     try { if (p > mejorDeHoy()) localStorage.setItem(claveHoy(), String(p)); } catch (e) {}
   }
 
-  /* ---- el premio, después de ganarlo ----
-     Ganar y usar el premio son dos cosas distintas. Se gana jugando y se activa al pedir, y
-     entre las dos puede pasar un rato: nadie quiere que el contador corra mientras el cliente
-     sigue jugando. Por eso hay un botón.
-
-     El contador se guarda como una HORA DE FIN absoluta, no como «quedan N segundos». Con
-     segundos restantes, recargar la página o abrirla en otra pestaña regalaría tiempo nuevo;
-     con una hora de fin, todas las pestañas leen el mismo instante y ninguna puede recuperar
-     validez. Recargar no reinicia nada y un premio ya terminado sigue terminado.
-
-     Se guarda también la fecha de servicio: un premio de anoche no aparece hoy. */
-  var PREMIO_MIN = 5;            // lo sobreescribe estado.json si el panel dice otra cosa
-  var REVIEW = { on: false, url: '' };
-  var vivoTimer = null;
-
-  function clavePremio() { return '${CLAVE('premio')}'; }
-
-  function leerPremio() {
+  /* ---- el récord de la casa ----
+     Se manda al acabar y sólo si hay algo que mandar. Decide el servidor: valida el tope y
+     escribe únicamente si supera lo que había. Devuelve el récord que queda en pie, que puede
+     no ser el nuestro si otra mesa lo ha batido mientras jugábamos. */
+  function mandarRecord(p) {
+    if (!CFG.on || !(p > 0)) return;
     try {
-      var raw = localStorage.getItem(clavePremio());
-      if (!raw) return null;
-      var p = JSON.parse(raw);
-      if (!p || p.fecha !== fechaClave(fechaServicio())) return null;   // no es de este servicio
-      return p;
-    } catch (e) { return null; }
+      var fd = new FormData();
+      fd.append('puntos', String(p));
+      fetch('admin/record.php', { method: 'POST', body: fd, cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (j && +j.puntos > 0) { CFG.record = +j.puntos; pintarRecord(); }
+        })
+        .catch(function () {});
+    } catch (e) {}
   }
-
-  function guardarPremio(p) {
-    try { localStorage.setItem(clavePremio(), JSON.stringify(p)); } catch (e) {}
-  }
-
-  function mmss(ms) {
-    var t = Math.max(0, Math.ceil(ms / 1000));
-    var m = Math.floor(t / 60), s = t % 60;
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-  }
-
-  /* La URL de reseñas sale del panel, nunca del código: este juego lo va a usar una pizzería
-     y un kebab, y ninguno de los dos comparte la ficha de Google con este restaurante.
-     Sólo se navega a https, y sólo si el panel lo ha encendido. */
-  function urlResenas() {
-    if (!REVIEW.on) return '';
-    var u = (REVIEW.url || '').trim();
-    // sin expresión regular: este archivo se emite dentro de un template literal y las barras
-    // invertidas de /^https:\/\// desaparecen por el camino, dejando una regex rota
-    return u.slice(0, 8).toLowerCase() === 'https://' ? u : '';
-  }
-
-  /* Se apunta al GANAR, no al activar. Un premio por móvil y día: si el día ya está marcado,
-     no hay «otra vez». Antes se podía seguir jugando hasta que saliera bien y activar cuando
-     conviniera, porque «Activar premio» y «Otra vez» estaban uno al lado del otro.
-
-     Esto no cierra el incógnito ni un segundo móvil, y no pretende: para eso habría que
-     identificar al cliente, y no se le va a pedir el teléfono por una bebida. Quita la
-     tentación fácil, que es lo que pasa de verdad en una mesa. */
-  function apuntarGanado() {
-    if (leerPremio()) return;                 // ya hay uno de hoy: no se pisa
-    guardarPremio({
-      fecha: fechaClave(fechaServicio()),
-      code: codigo(puntos, azar2()),
-      que: premio(),
-      fin: null,                              // todavía sin activar
-      usado: false,
-    });
-  }
-
-  function activarPremio() {
-    var p = leerPremio();
-    if (!p) { apuntarGanado(); p = leerPremio(); }
-    if (!p || p.fin) return;                  // ya estaba activado
-    p.fin = Date.now() + PREMIO_MIN * 60 * 1000;
-    guardarPremio(p);
-    mostrarVivo(p);
-  }
-
-  function mostrarVivo(p) {
-    document.getElementById('vivo-que').textContent = p.que;
-    document.getElementById('vivo-code').textContent = p.code;
-    // sin reseñas configuradas el botón no lleva a ningún sitio, así que no se enseña
-    var hayResenas = !!urlResenas() && !p.resena;
-    document.getElementById('btn-servido').hidden = !hayResenas;
-    document.getElementById('btn-servido').nextElementSibling.hidden = !hayResenas;
-    pantalla('s-premio');
-    clearInterval(vivoTimer);
-    tickPremio(p);
-    vivoTimer = setInterval(function () { tickPremio(p); }, 250);
-  }
-
-  function tickPremio(p) {
-    var queda = p.fin - Date.now();
-    var reloj = document.getElementById('vivo-reloj');
-    reloj.textContent = mmss(queda);
-    reloj.classList.toggle('poco', queda <= 60000);
-    if (queda > 0) return;
-
-    // 00:00 — se marca terminado una sola vez y no se vuelve a tocar
-    clearInterval(vivoTimer);
-    vivoTimer = null;
-    p.usado = true;
-    guardarPremio(p);
-    terminarPremio();
-  }
-
-  /* Se llega aquí por dos caminos: porque el reloj llegó a cero, o porque el cliente ha dicho
-     que ya le han servido. El segundo es el que importa de verdad — el contador existe para que
-     el camarero vea que el premio se acaba de activar, no para que el cliente se quede mirándolo
-     tres minutos. Cuando le traen la bebida es cuando tiene sentido pedirle la opinión.
-
-     La reseña se pide UNA vez por premio: si ya se pidió al servir, cuando el reloj llegue a
-     cero sólo se ve «premio finalizado». Nadie quiere que le pregunten dos veces. */
-  function terminarPremio() {
-    var p = leerPremio();
-    var url = urlResenas();
-    if (!url || (p && p.resena)) { pantalla('s-fin'); return; }
-    if (p) { p.resena = true; guardarPremio(p); }
-    pantalla('s-gracias');
-    setTimeout(function () { window.location.assign(url); }, 3200);
-  }
-
-  /* «Ya me lo han dado» no consume el premio: sólo lleva a la reseña. Si alguien lo toca antes
-     de que le sirvan, el código sigue vivo con su tiempo — volver al juego lo enseña otra vez.
-     Un botón que quita un premio ya ganado por un toque de más no merece la pena. */
-  function servido() {
-    if (!urlResenas()) return;
-    var p = leerPremio();
-    if (p) { p.resena = true; guardarPremio(p); }
-    pantalla('s-gracias');
-    setTimeout(function () { window.location.assign(urlResenas()); }, 3200);
-  }
-
-  /* Al abrir la página: si hay un premio de este servicio, se retoma donde estaba. Si ya se
-     había agotado con la pestaña cerrada, se enseña «finalizado» y no se navega a ningún
-     sitio — llevar a Google a alguien que vuelve tres horas después sería secuestrarle la
-     visita, no pedirle una opinión. */
-  function retomarPremio() {
-    var p = leerPremio();
-    if (!p) return false;
-    if (!p.fin) {                             // ganado y sin activar: se retoma ahí
-      mostrarGanado(p);
-      return true;
-    }
-    if (p.usado || p.fin <= Date.now()) {
-      if (!p.usado) { p.usado = true; guardarPremio(p); }
-      pantalla('s-fin');
-      return true;
-    }
-    mostrarVivo(p);
-    return true;
-  }
-
-  /* La pantalla de premio ganado sin activar. Sin «otra vez»: el día ya está jugado. */
-  function mostrarGanado(p) {
-    document.getElementById('end-win').hidden = false;
-    document.getElementById('end-lose').hidden = true;
-    document.getElementById('prize-what').textContent = p.que;
-    document.getElementById('prize-cuando').textContent =
-      tr('Activate it when you order') + ' · ' + tr('Only valid today');
-    document.getElementById('btn-again').hidden = true;
-    document.getElementById('end-best').textContent = tr('You have already played today');
-    pantalla('s-end');
-  }
-
-  /* Otra pestaña ha activado o agotado el premio: esta se entera y se pone al día. */
-  window.addEventListener('storage', function (e) {
-    if (e.key !== clavePremio()) return;
-    var p = leerPremio();
-    if (!p) return;
-    if (p.usado || p.fin <= Date.now()) {
-      clearInterval(vivoTimer);
-      vivoTimer = null;
-      if (!document.getElementById('s-gracias').hidden) return;   // ya va camino de la reseña
-      pantalla('s-fin');
-    } else if (document.getElementById('s-premio').hidden) {
-      mostrarVivo(p);
-    }
-  });
 
   /* ---- la partida ---- */
   var DURACION = 30;                 // segundos
@@ -958,7 +682,7 @@ h1{
   var vivos = [];
 
   function pantalla(id) {
-    ['s-intro', 's-count', 's-play', 's-end', 's-premio', 's-fin', 's-gracias'].forEach(function (s) {
+    ['s-intro', 's-count', 's-play', 's-end'].forEach(function (s) {
       document.getElementById(s).hidden = (s !== id);
     });
     /* El idioma se elige en la portada y ya no se toca: fuera de ella el selector sobra, y
@@ -1106,29 +830,26 @@ h1{
     limpiarTablero();
     guardarMejor(puntos);
 
-    var gana = CFG.on && puntos >= CFG.target;
-    document.getElementById('end-win').hidden = !gana;
-    document.getElementById('end-lose').hidden = gana;
+    /* Se compara ANTES de mandar: mandarRecord() actualiza CFG.record con lo que conteste el
+       servidor, y entonces ya no habria forma de saber si acabamos de batirlo. */
+    var nuevoRecord = puntos > 0 && puntos > CFG.record;
+    recordRecien = nuevoRecord;
+    mandarRecord(puntos);
 
-    if (gana) {
-      apuntarGanado();
-      document.getElementById('prize-what').textContent = premio();
-      document.getElementById('prize-cuando').textContent =
-        tr('Activate it when you order') + ' · ' + tr('Only valid today');
-    } else {
-      document.getElementById('end-score').textContent = puntos;
-      document.getElementById('end-gap').textContent =
-        CFG.on ? fill(tr('You needed {n} points'), { n: Math.max(1, CFG.target - puntos) }) : '';
-    }
+    var ceja = document.getElementById('end-eyebrow');
+    ceja.textContent = nuevoRecord ? tr('New record!') : tr('Your score');
+    ceja.classList.toggle('eyebrow-record', nuevoRecord);
+    document.getElementById('end-score').textContent = puntos;
+
+    /* Si se acaba de batir, la linea de abajo ya no aporta: el numero grande ES el record.
+       Y si no, dice contra que se juega la proxima. */
+    if (nuevoRecord) CFG.record = puntos;
     pintarTextosDinamicos();
-    // ganar cierra el día: sin premio se puede reintentar todo lo que se quiera
-    var otra = document.getElementById('btn-again');
-    otra.hidden = !!leerPremio();
-    if (otra.hidden) document.getElementById('end-best').textContent = tr('You have already played today');
+
     pantalla('s-end');
   }
-
   function cuentaAtras() {
+    recordRecien = false;
     pantalla('s-count');
     var el = document.getElementById('count');
     var n = 3;
@@ -1144,8 +865,6 @@ h1{
     }, 700);
   }
 
-  document.getElementById('btn-activar').addEventListener('click', activarPremio);
-  document.getElementById('btn-servido').addEventListener('click', servido);
   document.getElementById('btn-play').addEventListener('click', cuentaAtras);
   document.getElementById('btn-again').addEventListener('click', cuentaAtras);
 

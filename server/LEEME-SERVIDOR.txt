@@ -38,7 +38,18 @@ Estructura en el servidor (dentro de /tinge_of_turmeric/menu2/):
                       forma parte del build: ninguna subida la pisa.
      intentos.json    contador anti fuerza bruta   (lo crea el panel solo)
      accesos.log      registro de accesos          (lo crea el panel solo)
-     canjes.json      códigos del juego ya canjeados (lo crea el panel solo)
+     datos.php        cuenta las aperturas de la carta   <-- NUEVO, va al FTP
+                      Uno de los dos archivos de admin/ a los que llama la pagina
+                      publica, asi que tiene que quedar accesible por HTTP. No lo
+                      metas en el FilesMatch que cierra config.php y cliente.php.
+     record.php       apunta el récord del juego         <-- NUEVO, va al FTP
+                      El otro. Mismo trato que datos.php.
+     datos/           las aperturas contadas       (la crea el panel solo)
+                      Un fichero por dia del mes en curso y un JSON por mes cerrado.
+                      NO SUBIR NADA ENCIMA: estos numeros no se reconstruyen de
+                      ningun sitio. Se guardan 12 meses y lo viejo se borra solo.
+     record.json      el récord del juego, en la RAIZ  (lo crea record.php solo)
+                      NO SUBIR NADA ENCIMA: se perderia la mejor marca de la casa.
      copias/          historial de estado.json     (la crea el panel solo)
                       Una copia por día de servicio, 30 días, más anterior.json, que es
                       cómo estaba justo antes del último guardado. NO SUBIR NADA ENCIMA:

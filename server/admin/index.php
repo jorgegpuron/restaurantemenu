@@ -128,11 +128,12 @@ function estado_vacio(): array {
        direccion la monta la carta. Guardar el enlace entero seria guardar dos veces el mismo
        dato y dejar que se separen. */
     'social'  => ['whatsapp' => '', 'instagram' => '', 'facebook' => '', 'tripadvisor' => ''],
-    'game'    => ['on' => false, 'target' => 25, 'minutes' => 5, 'prize' => ['es' => '', 'en' => '', 'de' => '']],
-    /* La reseña es una petición posterior e independiente: el premio ya está ganado y no
-       depende de ella. Va aparte del juego a propósito, porque es configuración del
-       restaurante y no una regla del juego. */
-    'review'  => ['enabled' => false, 'url' => ''],
+    /* El juego se entrega ENCENDIDO. Venía apagado porque encenderlo comprometía al
+       restaurante a pagar un premio; sin premio no compromete a nada. */
+    'game'    => ['on' => true],
+    /* El enlace de reseñas. Es configuración del restaurante y se edita en Marca; la carta lo
+       usa al pie. El juego ya no lo toca: se fue con los premios. */
+    'review'  => ['url' => ''],
     'actualizado' => null,
   ];
 }
@@ -327,12 +328,12 @@ function guardar_estado(array $estado): bool {
   /* Antes de tocar el disco, la foto de como estaba. Ver copia_de_seguridad(). */
   copia_de_seguridad();
   $estado['actualizado'] = gmdate('c');
-  /* Los canjes del juego viven en su propio archivo privado (ver leer_canjes): si quedaba
-     una copia antigua dentro del estado, se retira para no publicarla. Y de review sólo
-     existen ya dos campos; los muertos de versiones anteriores se caen al guardar. */
+  /* Los canjes de premios se fueron con los premios, pero un estado.json viejo puede seguir
+     trayendo la lista dentro: se retira para no publicarla. De review sólo queda el enlace;
+     los campos muertos de versiones anteriores se caen aquí al guardar. */
   unset($estado['redeemed']);
   if (is_array($estado['review'] ?? null)) {
-    $estado['review'] = array_intersect_key($estado['review'], ['enabled' => 1, 'url' => 1]);
+    $estado['review'] = array_intersect_key($estado['review'], ['url' => 1]);
   }
   $json = json_encode($estado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
   if ($json === false) return false;
@@ -423,28 +424,6 @@ function copia_de_seguridad(): void {
 }
 
 
-/* ---------------------------------------------------------------- canjes del juego
- * Antes viajaban dentro de estado.json, que es público: cualquiera podía listar cuántos
- * premios se dan y a qué hora. Ahora viven en admin/canjes.json, que el .htaccess no sirve.
- * Se conserva una migración de lectura: si un estado antiguo aún trae 'redeemed', se cuenta. */
-function leer_canjes(): array {
-  $raw = @file_get_contents(CANJES_PATH);
-  $d = $raw === false ? [] : (json_decode($raw, true) ?: []);
-  if (!is_array($d)) $d = [];
-  // migración: canjes que quedaran en el estado público de una versión anterior
-  $raw2 = @file_get_contents(ESTADO_PATH);
-  $e = $raw2 === false ? [] : (json_decode($raw2, true) ?: []);
-  if (is_array($e['redeemed'] ?? null)) $d += $e['redeemed'];
-  return $d;
-}
-
-function guardar_canjes(array $d): bool {
-  $tmp = CANJES_PATH . '.' . bin2hex(random_bytes(6)) . '.tmp';
-  if (@file_put_contents($tmp, json_encode($d, JSON_PRETTY_PRINT), LOCK_EX) === false) return false;
-  if (!@rename($tmp, CANJES_PATH)) { @unlink($tmp); return false; }
-  return true;
-}
-
 function h(?string $s): string { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
 /* Los precios de un restaurante acaban en cifras redondas. Un +5% sobre 4,50 da 4,725, y
@@ -481,61 +460,26 @@ function dia_semana(string $fecha): string {
   return DIAS[$n] ?? '';
 }
 
-/* ---------------------------------------------------------------- Chilli Rush
- * El código que el cliente enseña al camarero: CR-DDMM-PUNTOS-XXX. La suma tiene que dar
- * exactamente lo mismo que la del juego, que hace la misma cuenta en JavaScript.
- *
- * Esto NO es seguridad: el secreto viaja en el JavaScript de la página y cualquiera con la
- * consola abierta puede fabricar un código. Sirve para lo que de verdad pasa en una mesa —
- * que alguien enseñe la captura de ayer — porque el código lleva la fecha dentro y aquí se
- * comprueba contra el día de servicio de hoy. El control real es el camarero mirando el móvil.
- *
- * CR_SECRETO ya no se escribe aquí: viene de admin/cliente.php, que genera el build desde
- * cliente.mjs. Tenerlo en dos sitios a mano era lo que hacía que un código ganado en un
- * restaurante se canjease en otro. Ver config.php. */
-
-function cr_suma(string $t): int {
-  $h = 7;
-  $n = strlen($t);
-  for ($i = 0; $i < $n; $i++) $h = ($h * 31 + ord($t[$i])) % 100000;
-  return $h % 1000;
+/* ---------------------------------------------------------------- el récord del juego
+ * La puntuación más alta que se ha hecho aquí. La escribe record.php cuando alguien la supera
+ * y este panel sólo la lee y la pone a cero. Vive en la raíz y no en admin/ porque el juego,
+ * que es público, tiene que poder leerla — y el .htaccess de aquí deniega todo .json. */
+function record_leer(): array {
+  $raw = @file_get_contents(RECORD_PATH);
+  $r = $raw === false ? null : json_decode($raw, true);
+  if (!is_array($r)) return ['puntos' => 0, 'fecha' => ''];
+  return [
+    'puntos' => max(0, (int) ($r['puntos'] ?? 0)),
+    'fecha'  => (string) ($r['fecha'] ?? ''),
+  ];
 }
 
-function cr_ddmm_hoy(): string {
-  $ahora = new DateTimeImmutable('now', new DateTimeZone(TZ));
-  if ((int) $ahora->format('G') < CORTE_HORA) $ahora = $ahora->modify('-1 day');
-  return $ahora->format('dm');
+/* Poner a cero es BORRAR el fichero, no escribir un cero: un record.json con puntos:0 y una
+   fecha diría que alguien hizo cero puntos ese día. Sin fichero, la casa no tiene récord. */
+function record_a_cero(): bool {
+  return !is_file(RECORD_PATH) || @unlink(RECORD_PATH);
 }
 
-/** @return array{ok:bool,motivo:string,puntos:int} */
-function cr_verificar(string $codigo): array {
-  $c = strtoupper(trim($codigo));
-  /* Forma nueva CR-DDMM-PTS-RR-SSS: las dos letras RR son azar por victoria, para que dos
-     ganadores con los mismos puntos el mismo día no compartan código (al segundo se le
-     acusaba de reutilizar). La forma vieja de tres tramos se acepta durante la transición
-     —un premio vive un día— y se puede retirar en la siguiente subida. */
-  if (preg_match('/^CR-(\d{4})-(\d{1,4})-([A-Z2-9]{2})-(\d{3})$/', $c, $m)) {
-    [, $ddmm, $pts, $rr, $sum] = $m;
-    $texto = $ddmm . '|' . ((int) $pts) . '|' . $rr . '|' . CR_SECRETO;
-  } elseif (preg_match('/^CR-(\d{4})-(\d{1,4})-(\d{3})$/', $c, $m)) {
-    [, $ddmm, $pts, $sum] = $m;
-    $texto = $ddmm . '|' . ((int) $pts) . '|' . CR_SECRETO;
-  } else {
-    return ['ok' => false, 'motivo' => 'Ese código no tiene la forma CR-0000-00-XX-000.', 'puntos' => 0];
-  }
-  if ($ddmm !== cr_ddmm_hoy()) {
-    return ['ok' => false, 'motivo' => 'Ese código es de otro día (' . substr($ddmm, 0, 2) . '/' . substr($ddmm, 2, 2) . ').', 'puntos' => 0];
-  }
-  if ((int) $sum !== cr_suma($texto)) {
-    return ['ok' => false, 'motivo' => 'Los números no cuadran: el código no lo ha dado el juego.', 'puntos' => 0];
-  }
-  return ['ok' => true, 'motivo' => '', 'puntos' => (int) $pts];
-}
-
-/* ---------------------------------------------------------------- la contraseña
- * El hash vive en clave.php, no en config.php, por una razón práctica: config.php se vuelve
- * a subir cada vez que se actualiza la carta, y si el hash estuviera dentro esa subida
- * cerraría el acceso. clave.php no forma parte del build, así que nadie lo pisa. */
 function guardar_clave(string $hash): bool {
   $f   = __DIR__ . '/clave.php';
   $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
@@ -1269,8 +1213,7 @@ if ($csrfOk) {
       $estado['theme'] = $elegido;
       $estado['reviews'] = ['on' => $op_on, 'rating' => $op_not, 'count' => $op_num];
       $estado['social'] = $redes;
-      /* El enlace es de aquí. Lo demás de review —si se pide o no al acabar el premio— lo
-         manda la pestaña Juego y no se toca desde esta pantalla. */
+      /* El enlace es de aquí, y ya es lo único que queda en review. */
       $estado['review'] = array_replace(
         estado_vacio()['review'],
         is_array($estado['review'] ?? null) ? $estado['review'] : [],
@@ -1467,59 +1410,29 @@ if ($csrfOk) {
     }
   }
 
-  /* --- juego y reseñas ---
-     Van en el mismo guardado porque van en la misma pantalla. Se validan los dos antes de
-     escribir nada: o entran los dos o no entra ninguno, que es lo que espera quien ha tocado
-     las dos cosas y pulsa un botón. */
+  /* --- el juego ---
+     Antes esta pantalla configuraba el premio: objetivo, texto, minutos y si se pedía reseña al
+     acabarse. Ya no hay premio, así que queda un interruptor. */
   if (isset($_POST['guardar_juego'])) {
     $pestana = 'juego';
-    $on  = !empty($_POST['juego_on']);
-    $obj = (int) ($_POST['objetivo'] ?? 0);
-    $min = (int) ($_POST['minutos'] ?? 5);
-    $rOn = !empty($_POST['resena_on']);
-    /* El enlace ya no se edita aquí: vive en Marca, porque es la ficha del restaurante y la
-       usan dos sitios distintos —el final de la carta y el premio del juego—. Aquí sólo se
-       lee para poder avisar si se pide reseña sin tener a dónde llevar a nadie. */
-    $rUrl = trim((string) (($estado['review']['url'] ?? '')));
-
-    if ($obj < 5 || $obj > 200) {
-      $error = 'El objetivo tiene que estar entre 5 y 200 puntos.';
-    } elseif ($min < 1 || $min > 60) {
-      $error = 'Los minutos de premio activo tienen que estar entre 1 y 60.';
-    } elseif ($rOn && $rUrl === '') {
-      $error = 'Para pedir reseñas hace falta el enlace, y está vacío. Ponlo en la pestaña Marca '
-             . 'o deja apagado este interruptor.';
+    $estado['game'] = ['on' => !empty($_POST['juego_on'])];
+    if (!guardar_estado($estado)) {
+      $error = 'No se ha podido escribir estado.json.';
+    } elseif ($estado['game']['on']) {
+      $aviso = 'Guardado. El juego sale en la carta.';
     } else {
-      $estado['game'] = [
-        'on' => $on,
-        'target' => $obj,
-        'minutes' => $min,
-        'prize' => [
-          'es' => mb_substr(trim((string) ($_POST['premio_es'] ?? '')), 0, 60),
-          'en' => mb_substr(trim((string) ($_POST['premio_en'] ?? '')), 0, 60),
-          'de' => mb_substr(trim((string) ($_POST['premio_de'] ?? '')), 0, 60),
-        ],
-      ];
-      /* Se conserva el enlace tal cual está: esta pantalla no lo toca. */
-      $estado['review'] = array_replace(
-        estado_vacio()['review'],
-        is_array($estado['review'] ?? null) ? $estado['review'] : [],
-        ['enabled' => $rOn]
-      );
-      if (guardar_estado($estado)) {
-        $resenasTxt = $rOn
-          ? 'Al acabarse el premio se lleva al cliente al enlace de reseñas.'
-          : 'Sin reseñas: al acabarse el premio sólo se ve «Premio finalizado».';
-        if ($on) {
-          $aviso = 'Guardado. Se gana con ' . $obj . ' puntos o más y el premio dura '
-                 . $min . ' min. ' . $resenasTxt;
-        } else {
-          $error = 'GUARDADO, PERO EL JUEGO ESTÁ APAGADO: el enlace no sale en la carta. '
-                 . 'Enciende el interruptor de arriba y vuelve a guardar.';
-        }
-      } else {
-        $error = 'No se ha podido escribir estado.json.';
-      }
+      $aviso = 'Guardado. El juego no sale en la carta.';
+    }
+  }
+
+  /* Poner el récord a cero. Va en su propio botón y no en el Guardar de la pestaña: es una
+     acción destructiva y no se pulsa por inercia al lado de un interruptor. */
+  if (isset($_POST['reiniciar_record'])) {
+    $pestana = 'juego';
+    if (record_a_cero()) {
+      $aviso = 'Récord a cero. La próxima partida que puntúe pone el nuevo.';
+    } else {
+      $error = 'No he podido borrar record.json.';
     }
   }
 
@@ -1528,60 +1441,6 @@ if ($csrfOk) {
     $estado['prices'] = [];
     if (guardar_estado($estado)) $aviso = 'Precios devueltos a los de la carta.';
     else $error = 'No se ha podido escribir estado.json.';
-  }
-}
-
-/* Comprobar un código es canjearlo. Un código válido sólo sirve una vez: la segunda dice
-   cuándo se usó. Se hace en el mismo gesto porque el camarero lo comprueba justo cuando va a
-   dar la bebida, y pedirle dos toques en el mostrador es pedirle que no lo use. */
-$cr_check = null;
-if ($dentro && $esPost && $csrfOk && isset($_POST['comprobar_codigo'])) {
-  $pestana = 'juego';
-  $codigo = strtoupper(trim((string) ($_POST['codigo'] ?? '')));
-  $cr_check = cr_verificar($codigo);
-  $cr_check['codigo'] = $codigo;
-  $cr_check['ya'] = null;
-
-  if ($cr_check['ok']) {
-    $estado = leer_estado();
-    /* La suma es falsificable (secreto en JS público, aceptado en SPEC), así que las señales
-       de sentido común pesan más que ella: con el juego apagado hoy no ha podido salir ningún
-       código, y con menos puntos que el objetivo no se gana nada que canjear. */
-    $j_on  = !empty($estado['game']['on']);
-    $j_obj = (int) ($estado['game']['target'] ?? 25);
-    if (!$j_on) {
-      $cr_check['ok'] = false;
-      $cr_check['motivo'] = 'El juego está apagado: hoy no se ha podido ganar ningún premio.';
-    } elseif ($cr_check['puntos'] < $j_obj) {
-      $cr_check['ok'] = false;
-      $cr_check['motivo'] = 'Con ' . (int) $cr_check['puntos'] . ' puntos no se gana: el objetivo de hoy es ' . $j_obj . '.';
-    }
-  }
-
-  if ($cr_check['ok']) {
-    $canjeados = leer_canjes();
-
-    // fuera los de días anteriores: el código lleva el día dentro
-    $hoyDdmm = cr_ddmm_hoy();
-    foreach ($canjeados as $c => $cuando) {
-      if (substr($c, 3, 4) !== $hoyDdmm) unset($canjeados[$c]);
-    }
-
-    if (isset($canjeados[$codigo])) {
-      $cr_check['ok'] = false;
-      $cr_check['ya'] = $canjeados[$codigo];
-      /* Sin h() aquí: el motivo se escapa una sola vez, al pintarlo. */
-      $cr_check['motivo'] = 'Este código YA SE CANJEÓ hoy a las ' . $canjeados[$codigo] . '.';
-    } else {
-      $canjeados[$codigo] = (new DateTimeImmutable('now', new DateTimeZone(TZ)))->format('H:i');
-      if (!guardar_canjes($canjeados)) {
-        $cr_check['ok'] = false;
-        $cr_check['motivo'] = 'El código es bueno, pero no se ha podido anotar el canje. Revisa los permisos de la carpeta admin/.';
-      } elseif (is_array($estado['redeemed'] ?? null)) {
-        // migración: la copia pública antigua se retira en el primer canje
-        guardar_estado($estado);
-      }
-    }
   }
 }
 
@@ -1624,15 +1483,10 @@ $nOcultos = count($ocultosCfg['tabs']) + count(array_filter($ocultosCfg['keys'],
   return isset($porKey[$k]) && !in_array($porKey[$k]['tab_en'], $ocultosCfg['tabs'], true);
 }));
 $juego    = is_array($estado['game']) ? array_replace(estado_vacio()['game'], $estado['game']) : estado_vacio()['game'];
+$record   = record_leer();
+/* El enlace de resenas lo pinta Marca. No era del premio y no se va con el. */
 $resena   = is_array($estado['review'] ?? null) ? array_replace(estado_vacio()['review'], $estado['review']) : estado_vacio()['review'];
-if (!is_array($juego['prize'])) $juego['prize'] = ['es' => '', 'en' => '', 'de' => ''];
 $csrf     = (string) ($_SESSION['csrf'] ?? '');
-$canjeados_hoy = [];
-$hoyDdmm = cr_ddmm_hoy();
-foreach (leer_canjes() as $c => $cuando) {
-  if (substr((string) $c, 3, 4) === $hoyDdmm) $canjeados_hoy[$c] = $cuando;
-}
-
 $temas    = temas();
 $opinion  = is_array($estado['reviews'] ?? null)
   ? array_replace(estado_vacio()['reviews'], $estado['reviews'])
@@ -2246,6 +2100,14 @@ $CUENTAS = [
   @media (hover:hover) and (pointer:fine){
     .pct:hover{background:var(--accent);color:var(--surface)}
   }
+
+  /* El récord, en grande. Es un solo número y es lo único que hay que mirar en esta pestaña. */
+  .record-n{
+    margin:0 0 var(--s2);
+    font-family:var(--title-font);font-size:44px;font-weight:700;line-height:1;
+    font-variant-numeric:tabular-nums;color:var(--ink);
+  }
+  .record-n small{font-size:15px;font-weight:600;color:var(--muted);margin-left:6px}
 
   /* ---------- precios ---------- */
   .prow{
@@ -3740,148 +3602,67 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php /* ===================================================== JUEGO ============== */ ?>
   </section>
 
-  <section class="pane" data-pane="juego"<?= $pestana === 'juego' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="juego"<?= $pestana === "juego" ? "" : " hidden" ?>>
     <p class="hint">
-      <strong>Chilli Rush.</strong> 30 segundos tocando chiles, para entretener al cliente
-      mientras espera la comida. Si llega al objetivo gana el premio y le sale un código que
-      enseña al camarero. Con el juego apagado, el enlace desaparece de la carta.
+      Un minijuego de 30 segundos para quien ya ha pedido y está esperando. Se abre desde la
+      carta y no necesita nada de la cocina: <strong>no hay premio que dar ni código que
+      comprobar</strong>. Sólo se guarda la puntuación más alta que se ha hecho aquí.
     </p>
-
-    <?php if (CR_SECRETO === ''): ?>
-      <div class="msg bad">
-        <strong>Falta <code>admin/cliente.php</code>.</strong> Es el archivo que lleva la firma
-        de los códigos de este restaurante, y lo genera el build junto con la carta. Sin él
-        <strong>ningún código se da por válido</strong>, ni siquiera los buenos: el panel
-        prefiere rechazarlos todos antes que aceptar los de otro restaurante.
-        Súbelo por FTP a <code>admin/</code> y esto desaparece.
-      </div>
-    <?php endif; ?>
 
     <form method="post">
       <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
       <div class="card">
-<label class="switch">
-          <input type="checkbox" name="juego_on" value="1"<?= $juego['on'] ? ' checked' : '' ?>>
-          <span class="switch-pista" aria-hidden="true"><span class="switch-bola"></span></span>
-          <span class="switch-txt">
-            <span class="switch-on">El juego está ENCENDIDO</span>
-            <span class="switch-off">El juego está APAGADO</span>
-          </span>
-        </label>
-        <div class="grid2">
-          <label class="fld">Puntos para ganar
-            <input type="number" name="objetivo" min="5" max="200" step="1" value="<?= (int) $juego['target'] ?>" required>
-          </label>
-          <label class="fld">Minutos de premio activo
-            <input type="number" name="minutos" min="1" max="60" step="1" value="<?= (int) ($juego['minutes'] ?? 5) ?>" required>
-          </label>
-        </div>
-        <p class="hint" style="margin:0 2px">
-          Un chile suma 1, el dorado 3 y el hielo resta 2. Una partida normal ronda los 20-30
-          puntos: con 25 gana más o menos uno de cada tres. Súbelo si se gana demasiado.
-        </p>
-      </div>
-
-      <h2>El premio</h2>
-      <div class="card">
-        <p class="hint" style="margin-bottom:var(--s3)">
-          Lo que lee el cliente al ganar. Si dejas el castellano en blanco se muestra
-          «Una bebida gratis». Inglés y alemán son opcionales: si los dejas vacíos, el juego
-          enseña el castellano.
-        </p>
-        <label class="fld">Castellano
-          <input name="premio_es" maxlength="60" value="<?= h($juego['prize']['es'] ?? '') ?>" placeholder="Una bebida gratis">
-        </label>
-        <label class="fld">English <span class="opt">(opcional)</span>
-          <input name="premio_en" maxlength="60" value="<?= h($juego['prize']['en'] ?? '') ?>" placeholder="A free drink">
-        </label>
-        <label class="fld">Deutsch <span class="opt">(opcional)</span>
-          <input name="premio_de" maxlength="60" value="<?= h($juego['prize']['de'] ?? '') ?>" placeholder="Ein Getränk gratis">
-        </label>
-      </div>
-
-      <h2>Reseñas</h2>
-      <div class="card">
-        <p class="hint">
-          Cuando se acaba el tiempo del premio, se lleva al cliente al enlace de reseñas.
-          <strong>La reseña no condiciona el premio</strong>: ese ya está ganado y usado. Es
-          una petición aparte, y por eso se hace al final y no antes.
-        </p>
         <label class="switch">
-          <input type="checkbox" name="resena_on" value="1"<?= $resena['enabled'] ? ' checked' : '' ?>>
-          <span class="switch-pista" aria-hidden="true"><span class="switch-bola"></span></span>
+          <input type="checkbox" name="juego_on" value="1"<?= !empty($juego["on"]) ? " checked" : "" ?>>
+          <span class="switch-pista"><span class="switch-bola"></span></span>
           <span class="switch-txt">
-            <span class="switch-on">Se pide reseña al acabar el premio</span>
-            <span class="switch-off">No se pide reseña</span>
+            <span class="switch-on">El juego sale en la carta</span>
+            <span class="switch-off">El juego NO sale en la carta</span>
           </span>
         </label>
-        <?php if (trim((string) ($resena['url'] ?? '')) === ''): ?>
-          <div class="msg bad" style="margin:var(--s3) 0 0">
-            <strong>No hay enlace de reseñas puesto.</strong> Con el interruptor encendido y sin
-            enlace, al acabarse el premio sólo se ve «Premio finalizado».
-            Ponlo en la pestaña <strong>Marca</strong>.
-          </div>
-        <?php else: ?>
-          <p class="hint" style="margin:var(--s3) 2px 0">
-            Va a: <code style="word-break:break-all"><?= h($resena['url']) ?></code>
-            <br>
-            El enlace se cambia en la pestaña <strong>Marca</strong>, que es donde vive la ficha
-            del restaurante: lo comparten esta pantalla y el bloque de la nota al final de la
-            carta, y tenerlo en dos sitios sería tenerlo mal en uno de los dos tarde o temprano.
-          </p>
-        <?php endif; ?>
+        <p class="hint" style="margin:var(--s3) 2px 0">
+          Apagado, la tarjeta de Chilli Rush desaparece de la carta y no se apunta ningún récord.
+          La página del juego sigue existiendo para quien tenga el enlace guardado.
+        </p>
       </div>
-
-      <!-- Un solo botón para toda la pestaña. Antes el juego y las reseñas eran dos
-           formularios con dos botones: cambiabas las dos cosas, guardabas una, y la otra se
-           perdía sin decir nada. -->
       <div class="bar">
-        <span class="count"><?= $juego['on'] ? 'Encendido' : 'Apagado' ?> · <?= $resena['enabled'] ? 'con reseñas' : 'sin reseñas' ?></span>
+        <span class="count"><?= !empty($juego["on"]) ? "En la carta" : "Fuera de la carta" ?></span>
         <button class="save" name="guardar_juego" value="1" type="submit">Guardar</button>
       </div>
     </form>
 
-    <h2>Comprobar un código</h2>
+    <h2>El récord de la casa</h2>
     <div class="card">
-      <p class="hint" style="margin-bottom:var(--s3)">
-        Escribe el código cuando vayas a dar el premio. Dice si es de hoy y si lo ha dado el
-        juego, y <strong>lo marca como canjeado</strong>: la segunda vez que se intente, avisa.
-        <br><strong>No es una caja fuerte</strong>: alguien con conocimientos puede fabricar uno.
-        Sirve para lo que pasa de verdad — una captura de ayer o el mismo código dos veces.
-      </p>
-      <form method="post">
-        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-        <label class="fld" style="max-width:260px">Código
-          <input name="codigo" placeholder="CR-2108-27-KF-431" autocomplete="off"
-                 value="<?= h($cr_check['codigo'] ?? '') ?>" required>
-        </label>
-        <button class="save" name="comprobar_codigo" value="1" type="submit">Comprobar</button>
-      </form>
-      <?php if ($cr_check !== null): ?>
-        <div class="msg <?= $cr_check['ok'] ? 'ok' : 'bad' ?>" style="margin:var(--s3) 0 0">
-          <?php if ($cr_check['ok']): ?>
-            <strong>Válido y canjeado.</strong> Es de hoy, lo ha dado el juego
-            (<?= (int) $cr_check['puntos'] ?> puntos) y ya no vale otra vez.
-          <?php else: ?>
-            <?= h($cr_check['motivo']) ?>
+      <?php if ($record["puntos"] > 0): ?>
+        <p class="record-n"><?= number_format($record["puntos"], 0, ",", ".") ?>
+          <small>puntos</small></p>
+        <p class="hint" style="margin:0 2px">
+          <?php if ($record["fecha"] !== ""): ?>
+            Se hizo el
+            <strong><?= h((new DateTimeImmutable($record["fecha"]))->format("d/m/Y")) ?></strong>.
           <?php endif; ?>
-        </div>
-      <?php endif; ?>
-
-      <?php if ($canjeados_hoy): ?>
-        <h2 style="margin-top:var(--s4)">Canjeados hoy (<?= count($canjeados_hoy) ?>)</h2>
-        <?php foreach (array_reverse($canjeados_hoy, true) as $c => $cuando): ?>
-          <div class="prow" style="grid-template-columns:1fr auto">
-            <span class="nm" style="font-variant-numeric:tabular-nums"><?= h($c) ?></span>
-            <span class="pviejo" style="text-decoration:none"><?= h($cuando) ?></span>
-          </div>
-        <?php endforeach; ?>
-        <p class="hint" style="margin-top:var(--s2)">
-          Se borra solo mañana a las <?= (int) CORTE_HORA ?>:00.
+          Sale en la tarjeta del juego dentro de la carta y en el propio juego, y quien lo supere
+          lo cambia solo.
+        </p>
+      <?php else: ?>
+        <p class="hint" style="margin:0 2px">
+          <strong>Todavía no hay récord.</strong> Lo pone la primera partida que puntúe.
         </p>
       <?php endif; ?>
-    </div>
 
+      <?php if ($record["puntos"] > 0): ?>
+      <?php /* En su propio formulario y no en el Guardar de arriba: borra algo que no se
+               recupera, y no se pulsa por inercia al lado de un interruptor. */ ?>
+      <div class="fila-accion">
+        <span class="hint" style="margin:0">Empieza de cero. No se puede deshacer.</span>
+        <form method="post" style="margin:0">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+          <button class="ghost" name="reiniciar_record" value="1" type="submit">
+            Poner el récord a cero</button>
+        </form>
+      </div>
+      <?php endif; ?>
+    </div>
   </section>
 
   <?php /* ---------------------------------------------------------------- datos */ ?>
@@ -4166,9 +3947,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                    placeholder="https://g.page/r/XXXXXXXXXXXX/review">
           </label>
           <p class="hint" style="margin:0 2px">
-            Este enlace se usa en <strong>dos sitios</strong>: al tocar la nota al final de la
-            carta, y al acabarse el premio del juego si lo tienes encendido en la pestaña Juego.
-            Se cambia aquí y cambia en los dos.
+            Se usa al tocar la nota al final de la carta. El juego ya no lleva a ningún sitio:
+            se juega y se vuelve a la carta, sin pedir nada a nadie.
             <br>
             No tiene que ser de Google. Vale cualquier dirección donde se deje opinión —Google,
             TripAdvisor, El Tenedor, la que use el negocio— y el bloque del final de la carta

@@ -296,6 +296,10 @@ const HIGHLIGHTS = ['Bestseller', 'Most loved', 'Signature', 'Popular', 'Must tr
 /* Cadenas que el runtime necesita en los tres idiomas. T() sirve para el HTML, pero un texto
    que se compone en JS (un porcentaje, una hora) necesita el diccionario en crudo. */
 const RUNTIME_STRINGS = HIGHLIGHTS.concat([
+  /* La tarjeta del juego pinta el récord desde JS, así que sus dos palabras van aquí: lo que
+     no está en esta lista sale en inglés en la carta y nadie se entera. */
+  'Record',
+  'points',
   '{pct}% off',
   'Today we make it easy! Enjoy {pct}% off selected dishes.',
   'Hi, I would like a digital menu like this one for my restaurant.',
@@ -896,8 +900,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    El nombre encoge con la pantalla —de 22 a 34— para que la llamada quepa detrás en un móvil
    estrecho sin dejar de ser grande donde hay sitio. */
 
+/* El nombre y el récord, apilados, ocupando el hueco que quede a la izquierda del botón.
+   El récord NO puede ir en la misma línea que el nombre: a 320px el nombre y el botón ya se
+   reparten el ancho con 13px de holgura, y el nombre no puede partirse. Va debajo, y la
+   tarjeta crece de 90 a unos 112. */
+.game-card-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:0 1 auto}
 .game-card-title{
-  flex:0 1 auto;
   min-width:0;
   font-family:var(--title-font);
   /* Crece con la pantalla y no se parte nunca. El suelo son 21: con el nombre a 24 y la
@@ -906,6 +914,16 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-size:clamp(21px,6.4vw,34px);font-weight:800;line-height:1.05;letter-spacing:-0.02em;
   white-space:nowrap;
 }
+/* El récord, en pequeño y a media luz: es la referencia, no el titular. Si no hay récord
+   todavía la línea no existe — un «Récord: 0» se lee como una avería. */
+.game-card-record{
+  font-family:var(--title-font);font-size:13px;font-weight:600;
+  letter-spacing:.01em;opacity:.72;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.game-card-record[hidden]{display:none}
+
 /* La firma del juego, la misma inclinación y el mismo rojo que en su portada. */
 .game-card-title em{
   font-style:normal;
@@ -2845,7 +2863,10 @@ ${panes}
                pedir, no mientras se elige. El enlace se oculta si el restaurante apaga el
                juego desde el panel. -->
           <a class="game-card" id="game-card" href="juego.html" hidden>
-            <span class="game-card-title">Chilli <em>Rush</em></span>
+            <span class="game-card-txt">
+              <span class="game-card-title">Chilli <em>Rush</em></span>
+              <span class="game-card-record" id="game-card-record" hidden></span>
+            </span>
             <span class="game-card-cta">
               ${T('Play', 'ui')}
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg>
@@ -3273,9 +3294,8 @@ ${sheet}
     document.getElementById('reviews-text').textContent =
       fill(tr('+{count} positive reviews on Google'), { count: cuantas });
 
-    /* El mismo enlace que usa el juego, pero NO la misma condicion. El campo enabled significa "se
-       pide resena al acabar el premio", que es una regla del juego; aqui basta con que haya
-       enlace. Si no lo hay, esto deja de ser un enlace en vez de ser un enlace roto. */
+    /* Basta con que haya enlace. Si no lo hay, esto deja de ser un enlace en vez de quedarse
+       como un enlace roto. */
     var url = (estado.review && estado.review.url) || '';
     if (url && url.slice(0, 8).toLowerCase() === 'https://') {
       bloque.setAttribute('href', url);
@@ -3588,6 +3608,7 @@ ${sheet}
     // el juego se enseña sólo si el restaurante lo tiene encendido
     var juego = document.getElementById('game-card');
     if (juego) juego.hidden = !(estado && estado.game && estado.game.on);
+    if (juego && !juego.hidden) pintarRecord();
 
 
     pintarOpiniones();
@@ -3652,6 +3673,32 @@ ${sheet}
     var fondo = getComputedStyle(raiz).getPropertyValue('--ink').trim();
     if (meta && fondo) meta.content = fondo;
   }
+
+  /* El récord del juego, en su propia petición y en su propio fichero. No va dentro de
+     estado.json porque quien lo escribe es un endpoint público —el del juego— y ahí están los
+     agotados y los precios: el trabajo de verdad del restaurante no se toca desde fuera.
+
+     No se pide cada minuto como el estado: un récord cambia cuando alguien juega, y quien
+     acaba de jugar vuelve a la carta, que es cuando se refresca. */
+  var RECORD = 0;
+
+  function pintarRecord() {
+    var el = document.getElementById('game-card-record');
+    if (!el) return;
+    el.textContent = RECORD > 0 ? tr('Record') + ': ' + RECORD + ' ' + tr('points') : '';
+    el.hidden = !(RECORD > 0);
+  }
+
+  function cargarRecord() {
+    fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && +j.puntos > 0) { RECORD = +j.puntos; pintarRecord(); } })
+      .catch(function () {});
+  }
+  cargarRecord();
+  /* Al volver del juego. pageshow y no load: si el móvil sirve la carta desde la caché de
+     atrás, load no se dispara y el récord recién batido no aparecería. */
+  window.addEventListener('pageshow', function (e) { if (e.persisted) cargarRecord(); });
 
   function cargarEstado() {
     return fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })
@@ -4667,8 +4714,7 @@ writeFileSync(
   [
     '<?php',
     '/* Generado por gen.mjs desde cliente.mjs. No editar a mano: se sobrescribe en cada build. */',
-    "define('CLIENTE_SLUG', " + JSON.stringify(CLIENTE.slug) + ');',
-    "define('CR_SECRETO', " + JSON.stringify(CLIENTE.secreto) + ');',
+    "define('CLIENTE_SLUG',   " + JSON.stringify(CLIENTE.slug) + ');',
     "define('CLIENTE_NOMBRE', " + JSON.stringify(CLIENTE.nombre) + ');',
     '',
   ].join(NL),

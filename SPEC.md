@@ -3342,3 +3342,125 @@ al de Dedos, donde sí se vio contar; lo único que cambia es la marca, `totm-co
 `DATOS_ACTIVO` en dos sitios que tienen que decir lo mismo: `gen.mjs` y `admin/config.php`.
 Encendido en uno y apagado en el otro deja a la carta llamando a un 404 en cada visita. Es el mismo
 par que `OCULTOS_ACTIVO`.
+
+## Fuera los premios, dentro los récords (24 Aug 2026)
+
+El premio obligaba al restaurante a validar un código y entregar algo. Eso rompe el producto: el
+juego tiene que funcionar solo. Se ha quitado entero —objetivo, texto del premio, minutos, el
+código `CR-DDMM-…`, la pantalla del camarero, el reloj, los canjes y el salto a la reseña— y en su
+lugar queda **el récord de la casa**.
+
+### Lo que ya estaba hecho
+
+Medio encargo no había que construirlo. **El botón de «Jugar otra vez» ya existía**: se escondía
+en dos sitios porque «ganar cerraba el día». Quitado el premio, se ve siempre. Y ya había una
+mejor marca personal en `localStorage`, que se queda: es el pique consigo mismo y no compite con
+el récord de la casa.
+
+### El récord vive en su propio fichero
+
+`record.json`, en la raíz, con dos campos: puntos y fecha. **No dentro de `estado.json`**, donde
+están los agotados, los precios, el tema y las fotos: quien escribe el récord es un endpoint
+público, y un endpoint público no toca el trabajo del restaurante. Es la misma decisión que ya se
+tomó con el contador de aperturas.
+
+Va en la raíz y no en `admin/` por obligación: el `.htaccess` de `admin/` deniega todo `.json` y el
+juego, que es público, tiene que leerlo. Y se añadió al `no-store` de la raíz, con `estado.json` y
+`version.json`, o se serviría cacheado.
+
+### La validación, y hasta dónde llega
+
+En 30 segundos, con el ritmo de 620 a 320 ms, caben unas 64 fichas; si todas fueran doradas (+3) y
+no fallara ninguna, 192. El tope se puso en **300**. Comprobado contra el endpoint: `250` y `300`
+entran, `301`, `9999`, `-5`, `abc` y `0` se rechazan con 400, un GET da 405 y Googlebot se queda
+en 204. Con el juego apagado devuelve 204 y no escribe.
+
+**Y sólo se escribe si supera.** Eso no es sólo lógica de récord: es lo que limita la frecuencia
+de escritura sin tener que contar peticiones de nadie.
+
+Lo que esto NO impide: alguien con la consola abierta puede mandar un 250. Sin sesiones ni
+seguimiento no hay forma, y este proyecto no los quiere. Es un marcador de bar, no una liga.
+
+### Un fallo de producción que apareció de paso
+
+`juego.mjs` llevaba el título escrito a mano — `<title>Chilli Rush — Tinge of Turmeric</title>` —
+y el fichero es idéntico en los dos proyectos, así que **el juego de Dedos se publicaba con el
+nombre de Tinge**. Sólo se corregía por JavaScript al cargar, de modo que el primer pintado, el
+HTML estático y lo que ve un rastreador llevaban el restaurante equivocado. Ahora sale de
+`CLIENTE.tituloJuego`.
+
+### Dos cosas que casi se cuelan
+
+**`CLIENTE_SLUG` se fue con el secreto.** La línea que escribía `CR_SECRETO` en `admin/cliente.php`
+tenía el slug justo encima, y la limpieza se llevó las dos. El panel habría arrancado con el
+prefijo vacío. Se vio mirando el fichero generado, no el código.
+
+**El diccionario de runtime de la carta no llevaba las palabras nuevas.** La tarjeta del juego
+pinta el récord desde JavaScript con `tr()`, y lo que no está en `RUNTIME_STRINGS` sale en inglés
+sin que nada avise. Añadidas `Record` y `points`; el build ya tenía un control que revienta si una
+cadena del runtime no está traducida, y ahora las cubre.
+
+### La tarjeta de la carta creció menos de lo temido
+
+El récord no puede ir en la misma línea que el nombre: a 320px el nombre y el botón se reparten el
+ancho con 13px de holgura y el nombre no puede partirse. Va debajo, en una columna. Medido con el
+viewport de verdad y no falseando el ancho del `body` —el `clamp` del nombre usa `vw`, así que
+cambiar el body no cambia nada—:
+
+| ancho | alto de la tarjeta | nombre | holgura |
+|---|---|---|---|
+| 320 | 94 | 21px | 13 |
+| 375 | 97 | 24px | 31 |
+
+Se temían 112px y son 94. Sin desbordes en ninguno.
+
+### La pestaña Juego, en tres cosas
+
+Interruptor, el récord con su fecha, y un botón de poner a cero. Fuera los campos de objetivo y
+minutos, la tarjeta del premio, la de reseñas, «Comprobar un código» y «Canjeados hoy»: de 143
+líneas a 62.
+
+Poner a cero **borra** `record.json` en vez de escribir un cero: un fichero con `puntos: 0` y una
+fecha diría que alguien hizo cero puntos ese día. Y va en su propio formulario, no en el Guardar
+de la pestaña, porque borra algo que no se recupera.
+
+### El juego se entrega encendido
+
+Venía apagado porque encenderlo comprometía al restaurante a pagar un premio. Sin premio no
+compromete a nada. El interruptor se queda para quien no quiera juego.
+
+### Comprobado jugando, no leyendo
+
+Partida completa tocando fichas por JavaScript: 69 puntos contra un récord de 34 → ceja «¡Nuevo
+récord!», `record.json` en 69, y la línea de «Récord de la casa» **oculta** en esa pantalla porque
+el número grande ya es el récord. Segunda partida de 2 puntos → «Tu puntuación», el récord intacto
+y la línea visible. «Jugar otra vez» reinicia sin recargar (`navigation.startTime` sin cambiar).
+La carta enseña «Récord: 69 puntos». Las ocho pestañas del panel sin un aviso de PHP.
+
+Un detalle que sólo se ve corriendo: la línea del récord se repintaba encima al volver la
+respuesta del servidor, que llega después de pintar la pantalla. Hizo falta una bandera.
+
+### Lo propio de Tinge
+
+`juego.mjs` era **byte a byte idéntico** al de Dedos, así que el trabajo se hizo allí, se verificó
+jugando, y aquí se copió el fichero entero. El panel y el build llevaron el mismo parche; sólo dos
+trozos hubo que poner a mano, y los dos por divergencias que no eran del juego: `admin/cliente.php`
+aquí no escribe las etiquetas de destacado, y el `LEEME-SERVIDOR.txt` todavía no mencionaba
+`datos.php` ni la carpeta `datos/` —se quedó fuera al portar la analítica— así que se añadieron las
+dos cosas de una vez.
+
+**Tres idiomas y no uno.** Las cuatro cadenas nuevas van en `i18n.es.mjs` y en `i18n.de.mjs`; el
+inglés es la propia clave. Comprobado en el juego cambiando de idioma en caliente:
+
+| | |
+|---|---|
+| es | Récord de la casa: 51 puntos |
+| en | House record: 51 points |
+| de | Hausrekord: 51 Punkte |
+
+Partida completa en alemán: 42 puntos contra un récord de 51 → «Dein Ergebnis», el récord intacto.
+La tarjeta de la carta a 320px mide 94 de alto con 13 de holgura y «Rekord: 51 Punkte» cabe. Las
+ocho pestañas del panel sin un aviso de PHP.
+
+Y el `<title>` estático del juego aquí siempre estuvo bien — era el de Dedos el que salía con este
+nombre.
