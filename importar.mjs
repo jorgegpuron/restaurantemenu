@@ -242,7 +242,28 @@ const esperado = [
 ].join(NL + NL);
 
 const cli = readFileSync(aqui('cliente.mjs'), 'utf8').replace(/\r\n/g, NL);
-const falta = esperado.split(NL).filter((l) => l.trim() && !cli.includes(l.trim()));
+/* La comprobación mira el ORDEN, no sólo la presencia.
+ *
+ * Antes preguntaba «¿está esta línea en cliente.mjs?», una por una. Eso deja pasar el caso
+ * que más duele: cambiar de sitio una pestaña en carta.mjs. Todas las líneas siguen estando,
+ * así que decía «cuadra» — y el build salía con las pestañas en el orden viejo de GROUPS y
+ * los números de plato en el orden nuevo de menu.md. Dos ordenaciones distintas en la misma
+ * carta, y ningún aviso.
+ *
+ * Ahora recorre las líneas esperadas de arriba abajo exigiendo que aparezcan en cliente.mjs
+ * en ese mismo orden. Una línea que existe pero está antes de donde debería cuenta como que
+ * no cuadra, que es justo lo que es. Se permiten comentarios y líneas sueltas en medio: se
+ * comprueba el orden relativo, no que el bloque sea idéntico carácter a carácter. */
+const lineasCli = cli.split(NL).map((l) => l.trim());
+const falta = [];
+let desde = 0;
+for (const linea of esperado.split(NL)) {
+  const buscada = linea.trim();
+  if (!buscada) continue;
+  const donde = lineasCli.indexOf(buscada, desde);
+  if (donde === -1) falta.push(buscada);
+  else desde = donde + 1;
+}
 
 console.log('menu.md    ' + n + ' platos en ' + cats.length + ' categorías'
   + (sinNumero ? ' · ' + sinNumero + ' sin número, como en la carta impresa' : ''));

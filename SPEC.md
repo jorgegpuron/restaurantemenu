@@ -3623,3 +3623,56 @@ Se compara diccionario por diccionario, clave por clave, contra el de antes.
 | `tabs` | 13 | 13, valores idénticos |
 | `groups` | 25 | 25, valores idénticos |
 | `ui` | 92 | 92, intacta — el importador no la toca |
+
+## La guardia del alta (25 Aug 2026)
+
+`NUEVO-CLIENTE.md` prometía que `node gen.mjs` recién copiada la carpeta «revienta y te dice qué
+queda del restaurante anterior». **No reventaba.** Se copiaba, se borraba lo que manda el
+procedimiento, se compilaba, y salía la carta entera del restaurante de origen —con su nombre, su
+dirección y su `og:title`— sin un solo aviso.
+
+El paso de seguridad era el que engañaba. Ahora existe, y comprueba tres cosas antes de leer nada:
+
+| | Qué caza |
+|---|---|
+| `menu.md` huérfano | `gen.mjs` no lee `carta.mjs`: lee `menu.md`. Borrar la fuente no quita el menú viejo, lo deja listo para publicarse |
+| Los rótulos | `titulo`, `tituloSocial`, `tituloJuego` y `descripcion` tienen que mencionar a **este** restaurante |
+| La dirección | `base` tiene que contener el nombre de esta carpeta |
+
+### Por qué la guardia de traducciones no bastaba
+
+Se creía que `titulo` y `descripcion` estaban protegidos porque se traducen. **Es al revés.** Esa
+guardia comprueba que la cadena *tenga* traducción, no que sea de este restaurante — y una cadena
+heredada del anterior viene traducida, así que pasa limpia. Sólo salta si la cambias a medias.
+
+Medido montando un «Restaurante Cubano» desde Dedos: con la descripción sin tocar, el build
+compilaba y publicaba «Dedos Las Américas — grill, burgers and sharing plates in Tenerife» dentro
+de la carta del cubano.
+
+`rotulo` se queda fuera de la regla a propósito: es sólo la especialidad —«American Grill &
+Burgers»— y no lleva el nombre en ninguno de los tres clientes. Exigírselo sería un aviso falso
+cada vez.
+
+### Comprobado, en los dos sentidos
+
+Que salta: copia de Dedos + la lista de borrado del §2 → «Hay un menu.md pero no hay carta.mjs».
+Cambiando sólo el nombre → «tituloSocial no menciona a "Restaurante Cubano"». Y con la descripción
+heredada → la caza también.
+
+Que **no** salta cuando no debe: los tres clientes compilan igual que antes, y el alta correcta del
+cubano llega hasta el final. Cada mensaje lleva su línea de «Cómo se arregla».
+
+### Y la comprobación de orden, que aquí faltaba
+
+`importar.mjs` preguntaba «¿está esta línea en `cliente.mjs`?», una por una, sin mirar dónde. Mover
+una pestaña de sitio no daba error: el importador decía «cuadra», los números de plato se corrían y
+la carta salía con las categorías en otro orden.
+
+Se trae la versión que ya tenían los otros dos: recorre las líneas esperadas de arriba abajo
+exigiendo que aparezcan **en ese orden**. Es la misma función haciendo más comprobación por el
+mismo precio.
+
+Aquí es donde más duele que faltara: 13 pestañas, 40 categorías y 149 platos con número impreso que
+el comensal usa para pedir. Probado moviendo la última pestaña de `GROUPS` al principio en una copia
+desechable — antes callaba, ahora avisa. Y comprobado que sigue siendo idempotente: `menu.md` e
+`i18n.es.mjs` no cambian al volver a pasarlo.

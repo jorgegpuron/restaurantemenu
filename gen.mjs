@@ -1,4 +1,6 @@
-import { readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync } from 'node:fs';
+import {
+  readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync, existsSync,
+} from 'node:fs';
 import { buildGame } from './juego.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
@@ -145,6 +147,77 @@ const IDIOMAS = [{ code: 'en', name: 'English', flag: BANDERAS.en }]
 /* ------------------------------------------------------------------ *
  * 1. Parse menu.md
  * ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ restos del restaurante
+   anterior
+
+   Al dar de alta un cliente se copia la carpeta de otro. El procedimiento prometia que
+   `node gen.mjs` recien copiada «revienta y te dice que queda del anterior», y no era verdad:
+   compilaba la carta entera del restaurante de origen, con su nombre y su direccion, sin un
+   solo aviso. Compilar contento es justo lo peor que puede hacer aqui.
+
+   Estas tres comprobaciones son lo unico que separa «he copiado una carpeta» de «he publicado
+   el menu de otro restaurante». Van antes de leer nada. */
+const S = String.fromCharCode(10);   // NL se define mucho mas abajo
+function abortar(queja, arreglo) {
+  throw new Error(
+    S + S + queja + S + S + "  Como se arregla:  " + arreglo + S);
+}
+
+/* 1. El menu que hay, ¿es de este restaurante o del anterior?
+
+   gen.mjs no lee carta.mjs: lee menu.md, que escribe importar.mjs. Asi que borrar carta.mjs
+   —que es lo que manda el procedimiento— no quita el menu viejo: lo deja huerfano y listo para
+   publicarse. Si falta la fuente y sobra lo generado, lo generado es del anterior. */
+if (!existsSync(new URL('./carta.mjs', import.meta.url))
+    && existsSync(new URL('./menu.md', import.meta.url))) {
+  abortar(
+    "Hay un menu.md pero no hay carta.mjs: ese menu es del restaurante anterior.",
+    "copia carta.EJEMPLO.mjs a carta.mjs, escribe la carta nueva y ejecuta: node importar.mjs");
+}
+
+/* 2. Los rotulos que nadie mira.
+
+   titulo, rotulo y descripcion se traducen, asi que si te los dejas el control de traducciones
+   te para. tituloSocial y tituloJuego NO se traducen y por eso no los miraba nadie: se han
+   publicado cartas con el og:title del restaurante anterior, que es lo que ve el cliente al
+   pegar su enlace en WhatsApp. Se descubre cuando lo descubre el.
+
+   titulo y descripcion SI se traducen, y aun asi entran aqui: la guardia de traducciones
+   comprueba que la cadena tenga traduccion, no que sea de este restaurante. Heredada del
+   anterior VIENE traducida, asi que pasa limpia. Es al reves de lo que hace falta.
+
+   rotulo se queda fuera: es solo la especialidad —«American Grill & Burgers»— y no lleva el
+   nombre en ninguno de los clientes que existen. Exigirselo seria un aviso falso cada vez.
+
+   La regla es floja a proposito: basta con que el nombre este dentro. */
+for (const [campo, valor] of [
+  ['titulo', CLIENTE.titulo],
+  ['tituloSocial', CLIENTE.tituloSocial],
+  ['tituloJuego', CLIENTE.tituloJuego],
+  ['descripcion', CLIENTE.descripcion],
+]) {
+  if (!String(valor || '').includes(CLIENTE.nombre)) {
+    abortar(
+      "cliente.mjs: " + campo + " no menciona a " + JSON.stringify(CLIENTE.nombre)
+      + " — dice " + JSON.stringify(valor) + ".",
+      "escribe " + campo + " con el nombre de ESTE restaurante, en cliente.mjs");
+  }
+}
+
+/* 3. La direccion publica.
+
+   Si se queda la del anterior, el canonical y las direcciones de la carta apuntan a otro sitio
+   y Google indexa una carta que no es. Se compara con el nombre de la carpeta, que es lo unico
+   que este fichero sabe de si mismo sin mirar fuera. */
+const carpetaCliente = new URL('../', import.meta.url).pathname
+  .replace(/\/+$/, '').split('/').pop();
+if (!String(CLIENTE.base || '').includes(carpetaCliente)) {
+  abortar(
+    "cliente.mjs: base no contiene " + JSON.stringify(carpetaCliente)
+    + " — dice " + JSON.stringify(CLIENTE.base) + ".",
+    "pon la direccion publica de ESTE restaurante en cliente.mjs");
+}
 
 const md = readFileSync(new URL('./menu.md', import.meta.url), 'utf8');
 
