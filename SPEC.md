@@ -3676,3 +3676,68 @@ Aquí es donde más duele que faltara: 13 pestañas, 40 categorías y 149 platos
 el comensal usa para pedir. Probado moviendo la última pestaña de `GROUPS` al principio en una copia
 desechable — antes callaba, ahora avisa. Y comprobado que sigue siendo idempotente: `menu.md` e
 `i18n.es.mjs` no cambian al volver a pasarlo.
+
+## Nada vacío, y fuera «Ocultos» (25 Aug 2026)
+
+Tres cosas que el motor emitía sin que hubiera nada detrás.
+
+### La leyenda de vegano y sin gluten, sólo si hay marcas
+
+La carta decía «Hay versión vegana · Hay versión sin gluten» y explicaba unas marcas que **no
+existían en ninguna página**. Le pedía al comensal que buscara un símbolo que no está.
+
+Ahora se calcula: `hayMarcasDieta` mira si el restaurante tiene alguna categoría Vegan o Gluten
+Free con platos dentro. Sin ellas, la leyenda no se emite.
+
+### La leyenda de alérgenos, sólo si nadie los declara
+
+La otra mitad, por la regla contraria: con platos declarados cada uno lleva sus iconos y repetir
+«pregunte por los 14» debajo es ruido; sin ninguno, esa frase es lo único que la carta dice sobre
+alergias.
+
+Las dos mitades se arman **fuera de la plantilla del HTML** y entran con un `${leyenda}`. Dentro
+habría que anidar plantillas dentro de ternarios dentro de la plantilla, y ahí es donde se cuelan
+los errores que no se ven hasta que Node se queja — pasó al escribirlo.
+
+### Ningún rótulo sobre una lista vacía
+
+`sheetGroup` emitía siempre su `<p class="sheet-label">`, tuviera entradas o no. Un restaurante sin
+cartas especiales terminaba la hoja de categorías con «CARTAS ESPECIALES» y debajo nada. Ahora
+devuelve cadena vacía si no hay entradas.
+
+### Y «Ocultos», fuera entera
+
+Estaba apagada desde siempre y **viajaba igual**: `aplicarOcultos()` son 84 líneas que empiezan por
+`if (!OCULTOS_ACTIVO) return;` y no hacen nada nunca. El comentario del contador, dos bloques más
+arriba, dice literalmente lo contrario:
+
+> «Apagado significa apagado: la carta sale SIN UNA SOLA LINEA de medicion, no con el bloque
+> envuelto en un if(false). Codigo muerto viajando en el HTML de cada cliente es peso que paga el
+> movil del comensal para nada.»
+
+El contador cumplía esa regla; Ocultos no. Se quita del build, del panel y de `config.php`: la
+constante, la función, el manejador de guardado, la pestaña entera, el bloque `hidden` de
+`estado.json` y el CSS de sus filas. `$visibles` pasa a ser `$lista`, que es lo que era con la
+función apagada — dejar un alias habría sido la línea por gusto que se venía a quitar.
+
+Si algún día hace falta, se vuelve a poner. Está en el historial.
+
+### Lo que pesa menos
+
+| | index.html | index.php del panel |
+|---|---|---|
+| Tinge | −5.055 bytes | 4.400 → 4.016 líneas |
+| Dedos | −5.054 bytes | 4.400 → 4.015 |
+| Regina | −6.967 bytes | 4.400 → 4.016 |
+
+Regina pierde más porque además se va la leyenda vegana y el rótulo vacío.
+
+### Comprobado
+
+El panel de Regina levantado: siete pestañas, ninguna «Ocultos», los siete paneles en el HTML, los
+60 platos listándose en Agotados —o sea que `$lista` sustituye bien a `$visibles`— y ni un aviso de
+PHP en las nueve direcciones probadas, incluida `?t=ocultos`, que ya no existe y no rompe.
+
+En las cartas, el diff contra la referencia recompilada desde git no trae nada más que lo dicho:
+`aplicarOcultos`, la var `OCULTOS_ACTIVO`, y en Regina la leyenda y el rótulo. Tinge conserva sus
+dos leyendas y sus dos rótulos; Dedos, sus dos rótulos y ninguna leyenda.

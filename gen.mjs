@@ -408,6 +408,18 @@ for (const [cat, data] of Object.entries(categories)) {
 }
 const isSpecialCat = (cat) => /^Gluten Free|^Vegan/.test(cat);
 
+/* ¿Este restaurante tiene carta vegana o sin gluten?
+
+   De esto depende que salga la leyenda que explica las dos marcas. Sin una sola carta especial
+   no hay ni una marca que explicar, y la leyenda le decia al comensal que buscara un simbolo que
+   no existe en ninguna pagina de la carta. */
+const hayMarcasDieta = veganNames.size > 0 || gfNames.size > 0;
+/* ¿Ha declarado alguien sus alergenos plato a plato? Con platos declarados la leyenda del pie
+   sobra —cada plato lleva sus iconos—; sin ninguno, la leyenda es lo unico que la carta dice
+   sobre alergias y no puede faltar. */
+const hayAlergenosDeclarados = Object.values(categories)
+  .some((c) => c.items.some((it) => (it.alergenos || []).length > 0));
+
 const DIET_ICON = {
   vegan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21c.5 -4.5 2.5 -8 7 -10"/><path d="M9 18c6.218 0 10.5 -3.288 11 -12v-2h-4.014c-9 0 -11.986 4 -12 9c0 1 0 3 2 5h3l.014 0"/></svg>',
   gf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M12 21.5v-3.75"/><path d="M5.916 9.49l-.43 1.604c-.712 2.659 .866 5.392 3.524 6.104c.997 .268 1.994 .535 2.99 .802v-3.44c-.164 -2.105 -1.637 -3.879 -3.677 -4.426l-2.407 -.644"/><path d="M10.249 4.251c.007 -.007 .014 -.014 .021 -.021l1.73 -1.73"/><path d="M10.27 11.15c-.589 -.589 -1.017 -1.318 -1.246 -2.118"/><path d="M14.988 8.988c.229 -.834 .234 -1.713 .013 -2.549c-.221 -.836 -.659 -1.598 -1.271 -2.209l-1.73 -1.73"/><path d="M16.038 10.037l2.046 -.547l.431 1.604c.142 .53 .193 1.063 .162 1.583"/><path d="M16.506 16.505c-.45 .307 -.959 .544 -1.516 .694c-.997 .268 -1.994 .535 -2.99 .801v-3.44c.055 -.708 .259 -1.379 .582 -1.978"/></svg>',
@@ -555,18 +567,12 @@ const AVISOS_AL_FINAL = [
   'All naans are egg-free.',
 ];
 
-/* Función Ocultos (platos, grupos y pestañas que desaparecen de la carta desde el panel).
-   APAGADA de momento por decisión del cliente hasta que la lógica esté madura. Para
-   encenderla: true aquí y OCULTOS_ACTIVO en server/admin/config.php, y regenerar. */
-const OCULTOS_ACTIVO = false;
-
 /* ---- contador de aperturas ----
  * Cuenta cuantas veces se abre la carta, nada mas. No guarda IP, ni cookie, ni identificador
  * de ninguna clase: el endpoint es incapaz de distinguir dos visitas.
  *
  * INTERRUPTOR EN DOS SITIOS, y tienen que decir lo mismo: aqui y DATOS_ACTIVO en
  * server/admin/config.php. Encendido aqui y apagado alli deja a la carta llamando a un 404 en
- * cada visita. Es el mismo par que OCULTOS_ACTIVO, justo arriba.
  *
  * Apagado significa apagado: la carta sale SIN UNA SOLA LINEA de medicion, no con el bloque
  * envuelto en un if(false). Codigo muerto viajando en el HTML de cada cliente es peso que
@@ -644,7 +650,11 @@ const nav = GROUPS.map(([label], i) => {
               </li>`;
 }).join('\n');
 
-const sheetGroup = (title, entries) => `      <p class="sheet-label">${T(title, 'ui')}</p>
+/* Un rotulo sobre una lista vacia. La hoja de categorias de un restaurante sin cartas especiales
+   terminaba con «CARTAS ESPECIALES» y debajo nada. Se arregla donde se genera: lo que no tiene
+   contenido no se emite. */
+const sheetGroup = (title, entries) => !entries.length ? '' :
+  `      <p class="sheet-label">${T(title, 'ui')}</p>
       <ul class="sheet-list">
 ${entries.map(([label, subs], i) => {
   const id = 'pills-' + slug(label);
@@ -661,7 +671,41 @@ ${entries.map(([label, subs], i) => {
 const sheet = [
   sheetGroup('Menu', GROUPS.filter(([l]) => !SPECIAL.has(l))),
   sheetGroup('Special menus', GROUPS.filter(([l]) => SPECIAL.has(l))),
-].join('\n');
+].filter(Boolean).join('\n');
+
+/* ---- la leyenda del pie, sus dos mitades por separado ----
+   Cada una sale sólo si tiene algo que explicar, y si no sale ninguna no se emite ni el envoltorio.
+   Se arma aqui y no dentro de la plantilla del HTML: alli habria que anidar plantillas dentro de
+   ternarios dentro de la plantilla, y eso es donde se cuelan los errores que no se ven. */
+const leyendaMarcas = !hayMarcasDieta ? '' : `            <p class="legend-marks">
+              <span class="legend-item"><span class="diet diet-vegan" aria-hidden="true">${DIET_ICON.vegan}</span>${T('Available vegan', 'ui')}</span>
+              <span class="legend-item"><span class="diet diet-gf" aria-hidden="true">${DIET_ICON.gf}</span>${T('Available gluten free', 'ui')}</span>
+              <span class="legend-caveat">${T('These marks point to a version of the dish on our vegan or gluten-free menu.', 'ui')}</span>
+            </p>`;
+
+const leyendaAlergenos = hayAlergenosDeclarados ? '' : `            <p class="legend-allergens">
+              <span class="allergen-head">
+                <strong>${T('Allergens', 'ui')}</strong>
+                <span class="allergen-icons">
+                  <span class="allergen">${ALERGENO.wheat}<span class="a11y">${T('Gluten', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.milk}<span class="a11y">${T('Dairy', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.nut}<span class="a11y">${T('Nuts', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.fish}<span class="a11y">${T('Fish', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.egg}<span class="a11y">${T('Egg', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.sesame}<span class="a11y">${T('Sesame', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.mustard}<span class="a11y">${T('Mustard', 'ui')}</span></span>
+                  <span class="allergen">${ALERGENO.sulphites}<span class="a11y">${T('Sulphites', 'ui')}</span></span>
+                </span>
+              </span>
+              <span class="allergen-text"><strong class="allergen-lead">${T('Allergies or intolerances?', 'ui')}</strong> ${T('Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.', 'ui')}</span>
+            </p>`;
+
+/* Empieza por salto y NO acaba en salto; la plantilla pone el resto. Asi la carta de quien ya
+   tenia leyenda no se mueve ni una linea, y la de quien no la tenia tampoco. */
+const leyenda = !(leyendaMarcas || leyendaAlergenos) ? '' :
+  String.fromCharCode(10) + '          <div class="menu-legend">' + String.fromCharCode(10)
+  + [leyendaMarcas, leyendaAlergenos].filter(Boolean).join(String.fromCharCode(10))
+  + String.fromCharCode(10) + '          </div>';
 
 const panes = GROUPS.map(([label, subs], i) => {
   const id = 'pills-' + slug(label);
@@ -2913,30 +2957,7 @@ ${nav}
           <div class="tab-content">
 ${panes}
           </div>
-
-          <div class="menu-legend">
-            <p class="legend-marks">
-              <span class="legend-item"><span class="diet diet-vegan" aria-hidden="true">${DIET_ICON.vegan}</span>${T('Available vegan', 'ui')}</span>
-              <span class="legend-item"><span class="diet diet-gf" aria-hidden="true">${DIET_ICON.gf}</span>${T('Available gluten free', 'ui')}</span>
-              <span class="legend-caveat">${T('These marks point to a version of the dish on our vegan or gluten-free menu.', 'ui')}</span>
-            </p>
-            <p class="legend-allergens">
-              <span class="allergen-head">
-                <strong>${T('Allergens', 'ui')}</strong>
-                <span class="allergen-icons">
-                  <span class="allergen">${ALERGENO.wheat}<span class="a11y">${T('Gluten', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.milk}<span class="a11y">${T('Dairy', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.nut}<span class="a11y">${T('Nuts', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.fish}<span class="a11y">${T('Fish', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.egg}<span class="a11y">${T('Egg', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.sesame}<span class="a11y">${T('Sesame', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.mustard}<span class="a11y">${T('Mustard', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.sulphites}<span class="a11y">${T('Sulphites', 'ui')}</span></span>
-                </span>
-              </span>
-              <span class="allergen-text"><strong class="allergen-lead">${T('Allergies or intolerances?', 'ui')}</strong> ${T('Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.', 'ui')}</span>
-            </p>
-          </div>
+${leyenda}
 
           <!-- La entrada al juego va al final a propósito: el momento de jugar es después de
                pedir, no mientras se elige. El enlace se oculta si el restaurante apaga el
@@ -3499,92 +3520,7 @@ ${sheet}
   /* ---- el render ----
      Una sola pasada por las 326 filas. Cada fila se recalcula entera desde el estado, sin
      acumular: así llamar a render() dos veces da el mismo resultado que llamarlo una. */
-  /* ================================================================ OCULTOS ================
-     QUÉ ES: una lista, en estado.json, de cosas que el restaurante NO quiere que existan en la
-     carta hasta nuevo aviso. Tiene tres cajones:
-        hidden.tabs  → pestañas enteras, por su nombre inglés de build ("Kids", "Biryani")
-        hidden.cats  → grupos enteros, por su clave de categoría ("Butter Masala Biryani")
-        hidden.keys  → platos sueltos, por su clave ("Appetizers :: Papadum")
-     A diferencia de «Agotados hoy», NO caduca: sólo vuelve cuando el panel lo desmarca.
-
-     QUÉ HACE ESTA FUNCIÓN, en orden, en cada pasada de render():
-        1. Recorre cada pestaña (.tab-pane, que lleva data-tab con su nombre inglés).
-        2. Dentro, cada grupo (.menu-group, con data-cat) y cada fila de plato (data-key).
-           Una fila se esconde si su pestaña está en tabs, o su grupo en cats, o su clave en
-           keys. Un grupo sin filas visibles se esconde entero; una pestaña sin filas visibles
-           se esconde en la barra (.nav-item) y en la hoja de categorías (.sheet-item), y su
-           contador de platos pasa a ser el de filas visibles.
-        3. Los rótulos de la hoja («Carta», «Cartas especiales») y el separador de la barra se
-           van si ya no tienen nada debajo.
-        4. Si la pestaña que estaba abierta se ha quedado vacía, se abre la primera visible.
-        5. Se vuelve a medir la barra (flechas y fundidos) porque ha cambiado de ancho.
-     El buscador y los chips (dsPintar / dsCuentas) miran row.hidden y no cuentan lo oculto;
-     la banda de oferta sólo sale si queda algún plato rebajado visible; las flechas del
-     teclado saltan las pestañas ocultas; selectTab() no abre una pestaña vacía.
-
-     INTERRUPTOR: con OCULTOS_ACTIVO en false (gen.mjs, arriba) esta función no hace nada y
-     todo se ve, aunque estado.json traiga cosas en hidden. Está apagado hasta que la función
-     esté madura y clara; el panel tiene su propio interruptor (OCULTOS_ACTIVO en config.php).
-     ======================================================================================= */
-  function aplicarOcultos() {
-    if (!OCULTOS_ACTIVO) return;
-    var oc = (estado && estado.hidden) || {};
-    var hTabs = Array.isArray(oc.tabs) ? oc.tabs : [];
-    var hCats = Array.isArray(oc.cats) ? oc.cats : [];
-    var hKeys = Array.isArray(oc.keys) ? oc.keys : [];
-    var panes = [].slice.call(document.querySelectorAll('.tab-pane'));
-    panes.forEach(function (pane) {
-      var tabOculta = hTabs.indexOf(pane.dataset.tab) !== -1;
-      var visiblesPane = 0;
-      pane.querySelectorAll('.menu-group').forEach(function (g) {
-        var catOculta = tabOculta || hCats.indexOf(g.dataset.cat) !== -1;
-        var visiblesGrupo = 0;
-        g.querySelectorAll('.single-menu-items').forEach(function (row) {
-          var fuera = catOculta || hKeys.indexOf(row.dataset.key) !== -1;
-          row.hidden = fuera;
-          if (!fuera) visiblesGrupo++;
-        });
-        g.hidden = visiblesGrupo === 0;
-        visiblesPane += visiblesGrupo;
-      });
-      pane.dataset.visibles = String(visiblesPane);
-      var li = document.querySelector('.nav-item[data-tab="' + pane.dataset.tab.replace(/"/g, '\\"') + '"]');
-      if (li) li.hidden = visiblesPane === 0;
-      var hoja = document.querySelector('.sheet-item[data-target="' + pane.id + '"]');
-      if (hoja) {
-        if (hoja.parentElement) hoja.parentElement.hidden = visiblesPane === 0;
-        var cuenta = hoja.querySelector('.sheet-item-count');
-        if (cuenta) cuenta.textContent = visiblesPane;
-      }
-    });
-    /* Los rótulos de la hoja («Carta», «Menús especiales») se van con sus listas si se
-       quedan sin entradas visibles. */
-    document.querySelectorAll('.sheet-list').forEach(function (ul) {
-      var alguna = false;
-      for (var k = 0; k < ul.children.length; k++) if (!ul.children[k].hidden) { alguna = true; break; }
-      ul.hidden = !alguna;
-      var rotulo = ul.previousElementSibling;
-      if (rotulo && rotulo.classList.contains('sheet-label')) rotulo.hidden = !alguna;
-    });
-    /* El separador «Menús especiales» sobra si no queda ninguna especial visible. */
-    var divisor = document.querySelector('.nav-divider');
-    if (divisor) {
-      var li2 = divisor.nextElementSibling, alguna = false;
-      while (li2) { if (!li2.hidden) { alguna = true; break; } li2 = li2.nextElementSibling; }
-      divisor.hidden = !alguna;
-    }
-    var activa = document.querySelector('.tab-pane.active');
-    if (activa && activa.dataset.visibles === '0') {
-      for (var i = 0; i < panes.length; i++) {
-        if (panes[i].dataset.visibles !== '0') { selectTab(panes[i].id, { force: true }); break; }
-      }
-    }
-    /* La barra cambia de ancho al quitar o poner pestañas: flechas y fundidos se recalculan. */
-    syncScroller();
-  }
-
   function render() {
-    aplicarOcultos();
     var hayOfertaVisible = false;
     var hoy = serviceDate();
     var out = (estado && estado.soldOut) || {};
@@ -3735,8 +3671,6 @@ ${sheet}
      pone antes de pintar. Este de aquí solo corrige si el panel lo ha cambiado desde la
      última visita. La primera visita de todas sí ve el tema de la casa un instante: es la
      única forma de evitarlo del todo, y sería reescribir el HTML en cada cambio. */
-  /* Ocultos apagado de momento: ver el comentario largo sobre aplicarOcultos(). */
-  var OCULTOS_ACTIVO = ${JSON.stringify(OCULTOS_ACTIVO)};
   var TEMAS_OK = ${JSON.stringify(TEMAS.map((t) => t.slug))};
   var TEMA_DEF = ${JSON.stringify(TEMA_POR_DEFECTO)};
 

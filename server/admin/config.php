@@ -120,21 +120,13 @@ define('TZ', 'Atlantic/Canary');
 // Hora a la que se limpian los agotados del día anterior.
 define('CORTE_HORA', 6);
 
-/* ------------------------------------------------------------------- OCULTOS
- * Función «Ocultos»: pestañas enteras y platos sueltos que desaparecen de la carta y del
- * panel hasta que se desmarcan (no caducan, a diferencia de «Agotados hoy»). Está escrita y
- * probada, pero APAGADA de momento por decisión del cliente hasta tenerla clara. Con false:
- * la pestaña no aparece, su guardado se ignora y nada se filtra. Para encenderla: true aquí,
- * OCULTOS_ACTIVO = true en gen.mjs y regenerar la carta. */
-define('OCULTOS_ACTIVO', false);
-
 /* ------------------------------------------------------------------ CONTADOR DE APERTURAS
  * Cuenta cuántas veces se abre la carta. No sabe quién la abre: no guarda IP, ni cookie, ni
  * identificador de ninguna clase, así que la carta no necesita aviso de cookies.
  *
  * INTERRUPTOR EN DOS SITIOS, y tienen que decir lo mismo: aquí y DATOS_ACTIVO en gen.mjs.
  * Encendido aquí y apagado allí no mide nada; al revés deja a la carta llamando a un 404 en
- * cada visita. Es el mismo par que OCULTOS_ACTIVO. */
+ * cada visita. */
 define('DATOS_ACTIVO', true);
 
 /* Los días del mes en curso, un fichero por día, y los meses ya cerrados en un JSON cada uno.

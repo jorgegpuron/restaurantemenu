@@ -12,7 +12,6 @@ error_reporting(E_ALL);
    el panel se caeria entero por una pestana. Una subida a medias no puede dejar sin carta a
    nadie: se define aqui el mismo valor por defecto y listo. */
 if (!defined('TEMAS_PATH')) define('TEMAS_PATH', __DIR__ . '/temas.json');
-if (!defined('OCULTOS_ACTIVO')) define('OCULTOS_ACTIVO', false);   // ver config.php
 
 // El panel no tiene por qué salir en Google, y menos aún con el modo demo abierto.
 header('X-Robots-Tag: noindex, nofollow');
@@ -112,9 +111,6 @@ function estado_vacio(): array {
     'tags'    => [],
     'offer'   => ['on' => false, 'cats' => [], 'keys' => [], 'percent' => 20, 'from' => 600, 'to' => 720, 'days' => [1,2,3,4,5,6,7]],
     'prices'  => [],
-    /* Ocultos: pestañas, grupos y platos que no existen en la carta hasta que el panel los
-       desmarque. No caduca, a diferencia de los agotados. */
-    'hidden'  => ['tabs' => [], 'cats' => [], 'keys' => []],
     /* El juego de color de la marca. Es lo único del estado que no cambia a diario: se
        elige el día que se monta el restaurante y no se vuelve a tocar. */
     'theme'   => tema_por_defecto(),
@@ -803,28 +799,6 @@ foreach ($lista as $p) { $tabsEn[$p['tab_en']] = $p['tab']; }
 $catTab = [];    // clave de grupo -> clave inglesa de su pestaña
 foreach ($lista as $p) { $catTab[$p['cat']] = $p['tab_en']; }
 
-/* ================================================================== OCULTOS ==============
- * QUÉ ES: una lista en estado.json, bajo 'hidden', de lo que el restaurante no quiere que
- * exista en la carta hasta nuevo aviso. Tres cajones: 'tabs' (pestañas enteras, por su nombre
- * inglés de build: "Kids"), 'cats' (grupos, por clave de categoría; el panel ya no los ofrece
- * pero la carta los sigue entendiendo) y 'keys' (platos sueltos, por su clave). NO caduca.
- *
- * CÓMO SE USA AQUÍ:
- *   - ocultos_de($estado)   → normaliza ese bloque (siempre tres listas de cadenas).
- *   - oculto_plato($p, $oc) → dice si un plato del catálogo cae en alguno de los tres cajones.
- *   - $visibles             → el catálogo sin lo oculto. TODAS las pestañas del panel menos
- *                             «Ocultos» pintan y proponen sobre $visibles (Agotados hoy,
- *                             Destacados y su buscador, Ofertas y sus categorías, Precios).
- *   - guardar_ocultos       → escribe 'hidden' validando contra el catálogo, y poda la oferta
- *                             de lo que ya no se ve (si se queda vacía, la apaga y lo dice).
- *   - Al guardar agotados o precios, lo de los platos ocultos se conserva: no viaja en el
- *                             formulario, pero no debe perderse.
- *   - $nOcultos             → contador de la pestaña: pestañas + platos que no estén ya dentro
- *                             de una pestaña oculta.
- *
- * INTERRUPTOR: con OCULTOS_ACTIVO en false (config.php) la pestaña no existe, el guardado se
- * ignora y $visibles es el catálogo entero aunque estado.json traiga cosas en 'hidden'.
- * ======================================================================================== */
 /* ---------------------------------------------------------------- contador de aperturas
  * Los dias del mes en curso viven en un fichero por dia, y las aperturas son su TAMANO: cada
  * visita anade un byte (ver datos.php). Los meses ya cerrados se guardan en un JSON cada uno.
@@ -943,23 +917,6 @@ function datos_pct(int $ahora, int $antes): ?int {
   if ($antes <= 0) return null;
   return (int) round((($ahora - $antes) / $antes) * 100);
 }
-
-function ocultos_de(array $estado): array {
-  if (!OCULTOS_ACTIVO) return ['tabs' => [], 'cats' => [], 'keys' => []];
-  $oc = is_array($estado['hidden'] ?? null) ? $estado['hidden'] : [];
-  return [
-    'tabs' => array_values(array_filter((array) ($oc['tabs'] ?? []), 'is_string')),
-    'cats' => array_values(array_filter((array) ($oc['cats'] ?? []), 'is_string')),
-    'keys' => array_values(array_filter((array) ($oc['keys'] ?? []), 'is_string')),
-  ];
-}
-function oculto_plato(array $p, array $oc): bool {
-  return in_array($p['tab_en'], $oc['tabs'], true)
-      || in_array($p['cat'], $oc['cats'], true)
-      || in_array($p['key'], $oc['keys'], true);
-}
-$ocultosCfg = ocultos_de(leer_estado());
-$visibles = array_values(array_filter($lista, function ($p) use ($ocultosCfg) { return !oculto_plato($p, $ocultosCfg); }));
 
 $pestana  = (string) ($_GET['t'] ?? 'agotados');
 $previsua = null;   // paso 2 de los precios: propuesta calculada y sin publicar
@@ -1229,58 +1186,9 @@ if ($csrfOk) {
     }
   }
 
-  if (OCULTOS_ACTIVO && isset($_POST['guardar_ocultos'])) {
-    $pestana = 'ocultos';
-    $tabsOk = array_values(array_filter(array_unique((array) ($_POST['oculto_tab'] ?? [])), function ($t) use ($tabsEn) {
-      return is_string($t) && isset($tabsEn[$t]);
-    }));
-    /* Sólo pestañas enteras y platos sueltos. Los grupos se quitaron del panel por decisión
-       del cliente; el runtime de la carta sigue entendiendo 'cats' por si algún día vuelven. */
-    $catsOk = [];
-    $keysOk = array_values(array_filter(array_unique((array) ($_POST['oculto_plato'] ?? [])), function ($k) use ($validas) {
-      return is_string($k) && in_array($k, $validas, true);
-    }));
-    $ocNuevo = ['tabs' => $tabsOk, 'cats' => $catsOk, 'keys' => $keysOk];
-    $estado['hidden'] = $ocNuevo;
-    /* La oferta no puede seguir apuntando a lo que ya no existe: se le quitan las categorías
-       de pestañas ocultas y los platos ocultos. Si se queda sin nada, se apaga y se dice —
-       callarlo dejaría el panel diciendo «corriendo» sobre una carta sin ningún descuento. */
-    $extra = '';
-    $of = is_array($estado['offer'] ?? null) ? $estado['offer'] : [];
-    $antes = count((array) ($of['cats'] ?? [])) + count((array) ($of['keys'] ?? []));
-    $of['cats'] = array_values(array_filter((array) ($of['cats'] ?? []), function ($c) use ($catTab, $tabsOk) {
-      return is_string($c) && isset($catTab[$c]) && !in_array($catTab[$c], $tabsOk, true);
-    }));
-    $of['keys'] = array_values(array_filter((array) ($of['keys'] ?? []), function ($k) use ($porKey, $ocNuevo) {
-      return is_string($k) && isset($porKey[$k]) && !oculto_plato($porKey[$k], $ocNuevo);
-    }));
-    if (!empty($of['on']) && !$of['cats'] && !$of['keys']) {
-      $of['on'] = false;
-      $extra = ' La oferta se ha APAGADO: todo lo que rebajaba queda oculto.';
-    } elseif ($antes !== count($of['cats']) + count($of['keys'])) {
-      $extra = ' La oferta deja de incluir lo oculto.';
-    }
-    $estado['offer'] = $of;
-    if (guardar_estado($estado)) {
-      $nVis = count(array_filter($keysOk, function ($k) use ($porKey, $tabsOk) {
-        return isset($porKey[$k]) && !in_array($porKey[$k]['tab_en'], $tabsOk, true);
-      }));
-      $n = count($tabsOk) + $nVis;
-      $aviso = ($n === 0
-        ? 'Guardado: todo visible en la carta.'
-        : 'Guardado: ' . $n . ' oculto(s). No caduca: siguen fuera hasta que los desmarques.') . $extra;
-    } else {
-      $error = 'No se ha podido escribir estado.json. Revisa los permisos de la carpeta.';
-    }
-  }
-
   if (isset($_POST['guardar_agotados'])) {
     $pestana = 'agotados';
     $nuevo = [];
-    /* Los platos ocultos no están en el formulario: su marca de hoy se conserva tal cual. */
-    foreach ((array) ($estado['soldOut'] ?? []) as $k => $d) {
-      if ($d === $hoy && is_string($k) && isset($porKey[$k]) && oculto_plato($porKey[$k], $ocultosCfg)) $nuevo[$k] = $d;
-    }
     foreach (array_unique((array) ($_POST['agotado'] ?? [])) as $k) {
       if (is_string($k) && in_array($k, $validas, true)) $nuevo[$k] = $hoy;
     }
@@ -1373,7 +1281,7 @@ if ($csrfOk) {
       $error = 'La subida tiene que estar entre 0 y 50%.';
     } else {
       $previsua = ['pct' => $pct, 'filas' => []];
-      foreach ($visibles as $p) {
+      foreach ($lista as $p) {
         if ($p['price'] === '') continue;                   // "Incluido" no tiene precio que subir
         $actual = (string) ($estado['prices'][$p['key']] ?? $p['price']);
         $previsua['filas'][] = [
@@ -1389,10 +1297,6 @@ if ($csrfOk) {
   if (isset($_POST['precios_publicar'])) {
     $pestana = 'precios';
     $nuevos = [];
-    /* Los platos ocultos no viajan en la propuesta: sus precios corregidos se mantienen. */
-    foreach ((array) ($estado['prices'] ?? []) as $k => $v) {
-      if (is_string($k) && isset($porKey[$k]) && oculto_plato($porKey[$k], $ocultosCfg)) $nuevos[$k] = (string) $v;
-    }
     foreach ((array) ($_POST['precio'] ?? []) as $k => $v) {
       if (!isset($porKey[$k]) || $porKey[$k]['price'] === '') continue;
       $v = str_replace(',', '.', trim((string) $v));
@@ -1466,22 +1370,15 @@ $oferta_corriendo = $oferta['on']
   && $min_ahora >= (int) $oferta['from']
   && $min_ahora < (int) $oferta['to'];
 $precios  = is_array($estado['prices']) ? $estado['prices'] : [];
-$ocultosCfg = ocultos_de($estado);
-$visibles = array_values(array_filter($lista, function ($p) use ($ocultosCfg) { return !oculto_plato($p, $ocultosCfg); }));
 $catsVisibles = [];
-foreach ($visibles as $p) { $catsVisibles[$p['cat']] = ($catsVisibles[$p['cat']] ?? 0) + 1; }
-$visiblesKeys = array_flip(array_column($visibles, 'key'));
-$agotados = array_intersect_key($agotados, $visiblesKeys);
+foreach ($lista as $p) { $catsVisibles[$p['cat']] = ($catsVisibles[$p['cat']] ?? 0) + 1; }
+$listaKeys = array_flip(array_column($lista, 'key'));
+$agotados = array_intersect_key($agotados, $listaKeys);
 /* «Corriendo ahora mismo» sólo si la oferta rebaja algo que se vea. */
 $oferta_corriendo = $oferta_corriendo && (
   array_intersect((array) $oferta['cats'], array_keys($catsVisibles))
-  || array_intersect((array) $oferta['keys'], array_keys($visiblesKeys))
+  || array_intersect((array) $oferta['keys'], array_keys($listaKeys))
 );
-/* El contador de ocultos: pestañas + platos sueltos que no estén ya dentro de una pestaña
-   oculta (esos van implícitos y el formulario los conserva sin contarlos dos veces). */
-$nOcultos = count($ocultosCfg['tabs']) + count(array_filter($ocultosCfg['keys'], function ($k) use ($porKey, $ocultosCfg) {
-  return isset($porKey[$k]) && !in_array($porKey[$k]['tab_en'], $ocultosCfg['tabs'], true);
-}));
 $juego    = is_array($estado['game']) ? array_replace(estado_vacio()['game'], $estado['game']) : estado_vacio()['game'];
 $record   = record_leer();
 /* El enlace de resenas lo pinta Marca. No era del premio y no se va con el. */
@@ -1605,15 +1502,13 @@ if (DATOS_ACTIVO && $dentro) {
   $dt["total"] = array_sum($serie);
 }
 
-$PESTANAS = ['agotados' => 'Agotados hoy', 'ocultos' => 'Ocultos', 'destacados' => 'Destacados',
+$PESTANAS = ['agotados' => 'Agotados hoy', 'destacados' => 'Destacados',
              'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego',
              'datos' => 'Analítica', 'marca' => 'Marca'];
-if (!OCULTOS_ACTIVO) unset($PESTANAS['ocultos']);   // apagada de momento: ver config.php
-if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // mismo par que OCULTOS: ver config.php
+if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // el par de gen.mjs: ver config.php
 if (!isset($PESTANAS[$pestana])) $pestana = 'agotados';
 $CUENTAS = [
   'agotados'   => count($agotados),
-  'ocultos'    => $nOcultos,
   'destacados' => count($tags),
   'ofertas'    => $oferta['on'] ? 1 : 0,
   'precios'    => count($precios),
@@ -2457,7 +2352,6 @@ $CUENTAS = [
   .orow.is-oferta .nm{color:var(--accent-ink)}
   /* Ya dentro por su categoría, o sin precio que rebajar: se ven, pero no se tocan. */
   .orow.por-categoria,.orow.sin-precio{opacity:.5}
-  .hrow.is-oculto .nm{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
   .hrow.por-categoria{opacity:.5}
   .hrow.por-categoria .tick{cursor:default;pointer-events:none}
   .cats label.por-categoria{opacity:.5}
@@ -2915,7 +2809,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         mañana a las <?= (int) CORTE_HORA ?>:00.
       </p>
 
-      <?php $tabActual = null; foreach ($visibles as $p):
+      <?php $tabActual = null; foreach ($lista as $p):
         if ($p['tab'] !== $tabActual):
           if ($tabActual !== null) echo '</div>';
           $tabActual = $p['tab'];
@@ -3020,165 +2914,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php /* ================================================ DESTACADOS ============== */ ?>
   </section>
 
-  <?php /* =================================================== OCULTOS ============== */ ?>
-  <?php if (OCULTOS_ACTIVO): ?>
-  <section class="pane" data-pane="ocultos"<?= $pestana === 'ocultos' ? '' : ' hidden' ?>>
-    <form method="post" id="fh">
-      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-      <input type="hidden" name="guardar_ocultos" value="1">
-
-      <div class="card resumen">
-        <div class="res-line">
-          <span class="res-lbl">Ocultos</span>
-          <span class="res-val"><span id="hn"><?= (int) $nOcultos ?></span></span>
-          <button type="button" class="ghost" id="h-clear"<?= $nOcultos === 0 ? ' hidden' : '' ?>>Mostrar todos</button>
-        </div>
-      </div>
-
-      <p class="hint">
-        Lo que marques aquí <strong>desaparece de la carta y del resto del panel</strong>: ni en
-        la carta, ni en el buscador, ni en Ofertas o Precios. <strong>No caduca</strong>: sigue
-        oculto hasta que lo desmarques y guardes. Para un plato que se ha acabado hoy, usa
-        «Agotados hoy».
-      </p>
-
-      <h2>Pestañas enteras</h2>
-      <div class="card">
-        <div class="cats">
-          <?php foreach ($tabsEn as $t => $nombre): $nT = 0; foreach ($lista as $p) if ($p['tab_en'] === $t) $nT++; ?>
-            <label>
-              <input type="checkbox" name="oculto_tab[]" value="<?= h($t) ?>" data-htab="<?= h($t) ?>"<?= in_array($t, $ocultosCfg['tabs'], true) ? ' checked' : '' ?>>
-              <span><?= h($nombre) ?><em><?= (int) $nT ?> plato<?= $nT === 1 ? '' : 's' ?></em></span>
-            </label>
-          <?php endforeach; ?>
-        </div>
-      </div>
-
-      <h2>Platos sueltos</h2>
-      <div class="tools">
-        <input class="search" id="hq" type="search" placeholder="Buscar plato o número…" autocomplete="off"
-               aria-label="Buscar plato o número">
-        <div class="chips" role="group" aria-label="Filtro">
-          <button type="button" class="chip is-on" data-hfiltro="todos" aria-pressed="true">Todos</button>
-          <button type="button" class="chip" data-hfiltro="marcados" aria-pressed="false">Sólo ocultos</button>
-        </div>
-      </div>
-      <p class="hint">
-        Los platos de una pestaña marcada arriba salen atenuados: ya están ocultos con ella y no
-        hace falta tocarlos.
-      </p>
-
-      <?php $tabActual = null; foreach ($lista as $p):
-        if ($p['tab'] !== $tabActual):
-          if ($tabActual !== null) echo '</div>';
-          $tabActual = $p['tab'];
-          echo '<h2 class="sec hsec">' . h($tabActual) . '</h2><div class="sec-body hsec-body">';
-        endif;
-        $porCat = in_array($p['cat'], $ocultosCfg['cats'], true) || in_array($p['tab_en'], $ocultosCfg['tabs'], true);
-        $suelto = in_array($p['key'], $ocultosCfg['keys'], true); ?>
-        <div class="row hrow<?= $porCat ? ' por-categoria' : '' ?><?= $suelto ? ' is-oculto' : '' ?>"
-             data-cat="<?= h($p['cat']) ?>" data-tab="<?= h($p['tab_en']) ?>"
-             data-name="<?= h(mb_strtolower($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
-          <label class="tick">
-            <input type="checkbox" name="oculto_plato[]" value="<?= h($p['key']) ?>"<?= $suelto ? ' checked' : '' ?>>
-            <span class="sr">Oculto: <?= h($p['name']) ?></span>
-          </label>
-          <span class="num"><?= h($p['id']) ?></span>
-          <span class="nm"><?= h($p['name']) ?><br><small><?= h($p['sub']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?></small></span>
-        </div>
-      <?php endforeach; if ($tabActual !== null) echo '</div>'; ?>
-
-      <p class="hint" id="hvacio" hidden>Ningún plato coincide con la búsqueda.</p>
-
-      <div class="bar">
-        <span class="count" id="hcount"><?= (int) $nOcultos ?> oculto(s)</span>
-        <button class="save" type="submit">Guardar</button>
-      </div>
-    </form>
-
-    <script>
-      (function () {
-        var form = document.getElementById('fh');
-        if (!form) return;
-        var q = document.getElementById('hq'), vacio = document.getElementById('hvacio');
-        var cuenta = document.getElementById('hcount'), n = document.getElementById('hn'), limpiar = document.getElementById('h-clear');
-        var filtro = 'todos', sucio = false;
-
-        function marcados() {
-          var n = form.querySelectorAll('input[name="oculto_tab[]"]:checked').length;
-          form.querySelectorAll('input[name="oculto_plato[]"]:checked').forEach(function (cb) {
-            if (!cb.closest('.hrow').classList.contains('por-categoria')) n++;
-          });
-          return n;
-        }
-        function refrescar() {
-          var m = marcados();
-          n.textContent = m;
-          cuenta.textContent = m + ' oculto(s)';
-          cuenta.classList.toggle('dirty', sucio);
-          limpiar.hidden = m === 0;
-        }
-        function aplicar() {
-          var t = q.value.trim().toLowerCase(), total = 0;
-          document.querySelectorAll('.hsec-body').forEach(function (body) {
-            var vis = 0;
-            body.querySelectorAll('.hrow').forEach(function (row) {
-              var marcado = row.classList.contains('is-oculto') || row.classList.contains('por-categoria');
-              var hit = (!t || row.dataset.name.indexOf(t) !== -1) && (filtro === 'todos' || marcado);
-              row.classList.toggle('hidden', !hit);
-              if (hit) vis++;
-            });
-            body.classList.toggle('hidden', vis === 0);
-            var h2 = body.previousElementSibling;
-            if (h2 && h2.classList.contains('hsec')) h2.classList.toggle('hidden', vis === 0);
-            total += vis;
-          });
-          vacio.hidden = total > 0;
-        }
-        /* Una pestaña marcada atenúa y bloquea sus platos: ya están dentro. La casilla NO se
-           deshabilita —una casilla deshabilitada no viaja en el envío y la marca individual
-           se perdía al guardar—: se bloquea el toque y se conserva lo que hubiera. */
-        function bloquear() {
-          var tabs = {};
-          form.querySelectorAll('input[name="oculto_tab[]"]:checked').forEach(function (i) { tabs[i.value] = true; });
-          document.querySelectorAll('.hrow').forEach(function (row) {
-            var dentro = !!tabs[row.dataset.tab];
-            row.classList.toggle('por-categoria', dentro);
-            var cb = row.querySelector('input[name="oculto_plato[]"]');
-            if (cb) cb.setAttribute('aria-disabled', String(dentro));
-          });
-        }
-        q.addEventListener('input', aplicar);
-        document.querySelectorAll('[data-hfiltro]').forEach(function (chip) {
-          chip.addEventListener('click', function () {
-            filtro = chip.dataset.hfiltro;
-            document.querySelectorAll('[data-hfiltro]').forEach(function (c) {
-              var on = c === chip; c.classList.toggle('is-on', on); c.setAttribute('aria-pressed', String(on));
-            });
-            aplicar();
-          });
-        });
-        form.addEventListener('change', function (e) {
-          if (e.target.name === 'oculto_plato[]') e.target.closest('.hrow').classList.toggle('is-oculto', e.target.checked);
-          if (e.target.name === 'oculto_tab[]' || e.target.name === 'oculto_cat[]') bloquear();
-          sucio = true;
-          refrescar();
-        });
-        limpiar.addEventListener('click', function () {
-          if (!window.confirm('¿Volver a mostrar todo en la carta?')) return;
-          form.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) { cb.checked = false; });
-          document.querySelectorAll('.hrow.is-oculto').forEach(function (r) { r.classList.remove('is-oculto'); });
-          bloquear(); sucio = true; refrescar(); aplicar();
-          q.focus();
-        });
-        window.addEventListener('beforeunload', function (e) { if (!sucio) return; e.preventDefault(); e.returnValue = ''; });
-        form.addEventListener('submit', function () { sucio = false; });
-        bloquear();
-      })();
-    </script>
-  </section>
-  <?php endif; ?>
-
   <section class="pane" data-pane="destacados"<?= $pestana === 'destacados' ? '' : ' hidden' ?>>
     <p class="hint">
       Las etiquetas que salen al lado del número del plato. El vocabulario es cerrado a
@@ -3190,7 +2925,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php if (!$tags): ?>
         <p class="hint" style="margin:6px 2px">Ahora mismo no hay ninguno.</p>
       <?php else: ?>
-        <?php foreach ($tags as $k => $et): $p = $porKey[$k] ?? null; if (!$p || oculto_plato($p, $ocultosCfg)) continue; ?>
+        <?php foreach ($tags as $k => $et): $p = $porKey[$k] ?? null; if (!$p) continue; ?>
           <div class="row">
             <span class="num"><?= h($p['id']) ?></span>
             <span class="nm"><?= h($p['name']) ?><br>
@@ -3225,7 +2960,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            y si ya está destacado. ~20 KB que sólo carga quien abre el panel. */
         var PLATOS = <?= json_encode(array_map(function ($p) use ($tags) {
           return ['k' => $p['key'], 'id' => (string) $p['id'], 'es' => $p['name'], 'en' => $p['name_en'], 'g' => $p['sub'], 'd' => isset($tags[$p['key']])];
-        }, $visibles), JSON_UNESCAPED_UNICODE) ?>;
+        }, $lista), JSON_UNESCAPED_UNICODE) ?>;
         (function () {
           var q = document.getElementById('hl-q'), key = document.getElementById('hl-key'), lista = document.getElementById('hl-lista');
           var activo = -1, visibles = [];
@@ -3418,7 +3153,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         falta tocarlos.
       </p>
 
-      <?php $tabActual = null; foreach ($visibles as $p):
+      <?php $tabActual = null; foreach ($lista as $p):
         if ($p['tab'] !== $tabActual):
           if ($tabActual !== null) echo '</div>';
           $tabActual = $p['tab'];
@@ -3581,7 +3316,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php if ($precios): ?>
         <h2>Precios distintos de la carta (<?= count($precios) ?>)</h2>
         <div class="card">
-          <?php foreach ($precios as $k => $v): $p = $porKey[$k] ?? null; if (!$p || oculto_plato($p, $ocultosCfg)) continue; ?>
+          <?php foreach ($precios as $k => $v): $p = $porKey[$k] ?? null; if (!$p) continue; ?>
             <div class="prow">
               <span class="num"><?= h($p['id']) ?></span>
               <span class="nm"><?= h($p['name']) ?></span>
