@@ -3541,3 +3541,85 @@ Medido contra `.hero-frame`, que es la caja que se ve:
 
 A 320 no cambia nada porque allí la calle ya medía 8 y la resta da cero: el desajuste sólo se veía
 de tablet para arriba, que es donde se vio.
+
+## La carta de Tinge deja de escribirse a mano (25 Aug 2026)
+
+Tinge era el último cliente con `menu.md` a mano. Los otros dos escriben `carta.mjs` y dejan que
+`node importar.mjs` genere `menu.md` y los diccionarios. Se ha migrado.
+
+**La carta publicada no cambia.** El `2-subir` regenerado es idéntico byte a byte al que estaba en
+producción salvo el sello del build, que cambia en cada compilación por diseño. Se comprobó
+recompilando el proyecto de antes y el de después y comparando los 29 ficheros: sólo difieren
+`version.json` y la línea de `index.html` que lleva ese mismo sello.
+
+### Lo que había que resolver antes de poder migrar
+
+El importador que traían Dedos y Regina no valía tal cual para Tinge. Tres cosas:
+
+**Los idiomas.** El importador sólo sabía escribir `i18n.es.mjs`. Tinge tiene alemán además de
+español, así que el alemán se habría quedado fuera del flujo: la carta se generaría desde
+`carta.mjs` y el diccionario alemán seguiría a mano, desincronizándose al primer plato nuevo.
+Ahora los idiomas salen de `IDIOMAS_CLIENTE` en `cliente.mjs` y se escribe un fichero por idioma.
+Con un solo idioma se comporta exactamente igual que antes, así que Dedos y Regina no se enteran.
+
+**El número del plato.** El importador numeraba solo: 01, 02, 03. Los números de Tinge no son
+correlativos y no se pueden deducir de nada.
+
+| | |
+|---|---|
+| platos en la carta | 312 |
+| con número impreso | 149 |
+| sin número | 163 (salsas, ingredientes, y las pestañas Sin gluten y Vegano enteras) |
+| saltos | del 67 al 69 |
+| desdobles | 24a · 24b · 24c |
+| último número | 148, con 149 filas numeradas |
+
+El número se imprime a la izquierda del plato y el buscador busca por él, así que inventarlo
+cambiaba lo que ve el comensal. Va escrito en `carta.mjs`, en la última columna de cada fila, y el
+importador lo copia tal cual. Un plato sin número lleva la cadena vacía, que es un valor y no un
+olvido. Si la columna no está, se cae al contador de antes.
+
+**Las notas de categoría.** La frase que vale para todo un grupo —«Todos los naan se elaboran sin
+huevo»— ya la sabía pintar `gen.mjs`, pero el importador la dejaba siempre vacía. Tinge tiene
+nueve. La solución ya existía en Café Regina y se ha traído.
+
+### Lo que se quitó: la categoría duplicada
+
+`South Indian Curries - Ingredients` era una copia literal de `Curries - Ingredients` —catorce
+platos idénticos en nombre, descripción y precio— que la carta impresa repetía y que aquí no
+colgaba de ninguna pestaña: **no se enseñaba**. Existía porque `menu.md` se escribía a mano y
+`CATEGORIAS_DUPLICADAS` comparaba las dos listas para reventar el build si alguien subía el precio
+del cordero en una sola.
+
+Con `carta.mjs` no hay segunda lista que pueda desviarse: los catorce ingredientes están escritos
+una vez. Mantener la copia habría sido reintroducir a mano el problema que la comprobación
+vigilaba. Así que la copia sale de la carta y `CATEGORIAS_DUPLICADAS` se queda vacío, con el
+comentario que explica cuándo volvería a hacer falta.
+
+Efecto medido en la salida: ninguno. El único rastro es una clave menos en `notes` —la nota de esa
+categoría, que nadie leía porque la categoría no se pintaba— y el contador del build, que ahora
+dice 40 categorías y 312 filas en vez de 41 y 326.
+
+### Un fallo que el build no habría cazado
+
+La primera versión guardaba en el diccionario sólo las traducciones, sin el inglés, y el índice
+del idioma se desplazaba en uno: **`i18n.es.mjs` se escribió con el texto alemán y `i18n.de.mjs`
+con `undefined`**. El build compiló sin una sola queja, porque las claves estaban todas ahí y
+`tr()` sólo protesta cuando falta una clave, no cuando el valor está en otro idioma.
+
+Lo cazó comparar `platos.json` contra el anterior: 262 pestañas y 241 nombres «en español» que
+decían *Kleinigkeiten & Suppen*. De ahí la regla que ahora está escrita en el importador: el mapa
+guarda la fila entera con el inglés en la posición 0, para que el índice de un idioma sea el mismo
+en el diccionario que en `carta.mjs`.
+
+Y de ahí también la comprobación que se hace ahora al migrar: no basta con que el build pase.
+Se compara diccionario por diccionario, clave por clave, contra el de antes.
+
+| | antes | ahora |
+|---|---|---|
+| `names` | 187 | 187, valores idénticos en es y de |
+| `descriptions` | 271 | 272, valores idénticos · la de más es la cadena vacía |
+| `notes` | 8 | 7 · la que falta es la de la categoría que no se pintaba |
+| `tabs` | 13 | 13, valores idénticos |
+| `groups` | 25 | 25, valores idénticos |
+| `ui` | 92 | 92, intacta — el importador no la toca |

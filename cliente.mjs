@@ -224,12 +224,17 @@ export const GROUP_ICON_BY_CAT = {
 };
 
 /* Categorías que la carta impresa repite y aquí se muestran una sola vez. La clave es la
-   copia; el valor, el original. No es «quitar platos»: los catorce ingredientes siguen en la
-   carta, listados una vez, y después se elige salsa de una familia o de la otra.
+   copia; el valor, el original.
 
-   El build comprueba que la copia sigue siendo idéntica —nombre, descripción y precio— y
-   revienta si deja de serlo. Si algún día el restaurante sube el precio del cordero sólo en
-   una de las dos listas, hay que enterarse aquí y no en la mesa. */
-export const CATEGORIAS_DUPLICADAS = {
-  'South Indian Curries - Ingredients': 'Curries - Ingredients',
-};
+   Vacío desde que la carta se escribe en carta.mjs. Antes hacía falta: menu.md se mantenía a
+   mano y llevaba dos veces los catorce ingredientes de los currys —una para las salsas
+   clásicas y otra para las del sur de la India—, así que el build comparaba las dos listas y
+   reventaba si alguien subía el precio del cordero en una sola. Ahora los catorce
+   ingredientes están escritos UNA vez en carta.mjs, no hay segunda lista que pueda
+   desviarse, y la comprobación se quedó sin nada que comparar.
+
+   Lo que ve el comensal no cambió: la copia nunca se enseñaba, porque no colgaba de ninguna
+   pestaña. Se sigue eligiendo salsa de una familia o de la otra.
+
+   Si algún día vuelve a haber dos categorías que deban ser idénticas, se declaran aquí. */
+export const CATEGORIAS_DUPLICADAS = {};

@@ -1,19 +1,7 @@
-/* Spanish copy for the menu.
- *
- * Translated by intent, not word for word:
- *   - Indian culinary proper nouns stay as they are — Papadum, Pakora, Biryani, Naan,
- *     Tikka, Korma, Paneer, Kathal, Kheema. Translating them would make the dish
- *     unrecognisable to a customer who already knows it, and unorderable at the table.
- *   - Generic English is translated: Chicken → Pollo, Prawns → Gambas, Fries → Patatas.
- *   - Spain's kitchen vocabulary, not a literal gloss: "chips" → patatas fritas,
- *     "king prawns" → langostinos, "aubergine" → berenjena, "chilli" → guindilla,
- *     "sizzler" → a la plancha.
- *
- * Keys are the English strings exactly as they appear in menu.md. gen.mjs throws if a
- * string reaches the page without an entry here, so a missing translation is a build
- * error rather than an English word sitting in the Spanish menu.
- */
+/* Catálogo en Español. Lo escribe importar.mjs desde carta.mjs: no editar a mano,
+   se sobrescribe. La sección ui de abajo sí es a mano — es interfaz, no carta. */
 
+/* Los nombres de los platos. */
 export const names = {
   'Papadum': 'Papadum',
   'Spicy Papadum': 'Papadum especiado',
@@ -160,6 +148,13 @@ export const names = {
   'Special Rice (Prawns with Vegetables)': 'Arroz especial (gambas y verduras)',
   'French Fries': 'Patatas fritas',
   'Masala Fries': 'Patatas fritas Masala',
+  'French Omelette and Chips': 'Tortilla francesa con patatas',
+  'Chicken Nuggets and Chips': 'Nuggets de pollo con patatas',
+  'Chicken Tikka with Chips or Rice': 'Pollo Tikka con patatas o arroz',
+  'Chicken Korma with Chips or Rice': 'Pollo Korma con patatas o arroz',
+  'Chicken Tikka Masala with Chips or Rice': 'Pollo Tikka Masala con patatas o arroz',
+  'Chicken Curry with Chips or Rice': 'Pollo al curry con patatas o arroz',
+  'Paneer Tikka Masala with Chips or Rice': 'Paneer Tikka Masala con patatas o arroz',
   'Sprouts Salad': 'Ensalada de brotes',
   'Tandoori Paneer Salad': 'Ensalada de paneer Tandoori',
   'Tandoori Prawns Salad': 'Ensalada de gambas Tandoori',
@@ -195,16 +190,11 @@ export const names = {
   'Peshwari Tandoori Roti': 'Roti Tandoori Peshwari',
   'Vegan Butter Chapati': 'Chapati con mantequilla vegana',
   'Aloo Paratha (Stuffed with Potatoes)': 'Aloo Paratha (relleno de patata)',
-  'French Omelette and Chips': 'Tortilla francesa con patatas',
-  'Chicken Nuggets and Chips': 'Nuggets de pollo con patatas',
-  'Chicken Tikka with Chips or Rice': 'Pollo Tikka con patatas o arroz',
-  'Chicken Korma with Chips or Rice': 'Pollo Korma con patatas o arroz',
-  'Chicken Tikka Masala with Chips or Rice': 'Pollo Tikka Masala con patatas o arroz',
-  'Chicken Curry with Chips or Rice': 'Pollo al curry con patatas o arroz',
-  'Paneer Tikka Masala with Chips or Rice': 'Paneer Tikka Masala con patatas o arroz',
 };
 
+/* Las descripciones. La cadena vacía es para los platos sin ella. */
 export const descriptions = {
+  '': '',
   'Crisp lentil wafer.': 'Oblea crujiente de lenteja.',
   'Crisp lentil wafer seasoned with spices.': 'Oblea crujiente de lenteja con especias.',
   'Selection of chutneys, pickles and onions.': 'Selección de chutneys, encurtidos y cebolla.',
@@ -354,6 +344,13 @@ export const descriptions = {
   'Basmati rice with prawns and vegetables.': 'Arroz basmati con gambas y verduras.',
   'Classic fries.': 'Patatas fritas clásicas.',
   'Fries seasoned with masala spices.': 'Patatas fritas con especias masala.',
+  'French omelette served with chips.': 'Tortilla francesa con patatas fritas.',
+  'Chicken nuggets served with chips.': 'Nuggets de pollo con patatas fritas.',
+  'Diced chicken tikka with chips or rice.': 'Pollo Tikka en dados con patatas fritas o arroz.',
+  'Mild creamy chicken korma with chips or rice.': 'Pollo Korma suave y cremoso con patatas fritas o arroz.',
+  'Mild chicken tikka masala with chips or rice.': 'Pollo Tikka Masala suave con patatas fritas o arroz.',
+  'Mild chicken curry with chips or rice.': 'Pollo al curry suave con patatas fritas o arroz.',
+  'Mild paneer tikka masala with chips or rice.': 'Paneer Tikka Masala suave con patatas fritas o arroz.',
   'Gluten-free lentil soup.': 'Sopa de lentejas sin gluten.',
   'Gluten-free tomato soup.': 'Crema de tomate sin gluten.',
   'Gluten-free chicken soup.': 'Sopa de pollo sin gluten.',
@@ -469,33 +466,20 @@ export const descriptions = {
   'Chapati with vegan butter.': 'Chapati con mantequilla vegana.',
   'Vegan garlic chapati.': 'Chapati vegano al ajo.',
   'Vegan paratha stuffed with potatoes.': 'Paratha vegano relleno de patata.',
-  'French omelette served with chips.': 'Tortilla francesa con patatas fritas.',
-  'Chicken nuggets served with chips.': 'Nuggets de pollo con patatas fritas.',
-  'Diced chicken tikka with chips or rice.': 'Pollo Tikka en dados con patatas fritas o arroz.',
-  'Mild creamy chicken korma with chips or rice.': 'Pollo Korma suave y cremoso con patatas fritas o arroz.',
-  'Mild chicken tikka masala with chips or rice.': 'Pollo Tikka Masala suave con patatas fritas o arroz.',
-  'Mild chicken curry with chips or rice.': 'Pollo al curry suave con patatas fritas o arroz.',
-  'Mild paneer tikka masala with chips or rice.': 'Paneer Tikka Masala suave con patatas fritas o arroz.',
 };
 
+/* Notas de categoría: la frase que vale para todo un grupo de platos. */
 export const notes = {
-  'Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall. Select one sauce from the next section.':
-    'Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall. Elige después una salsa de la lista siguiente.',
-  'Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall. Select one South Indian sauce from the next section.':
-    'Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall. Elige después una salsa del sur de la India de la lista siguiente.',
-  'Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.':
-    'Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall.',
+  'Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall. Select one sauce from the next section.': 'Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall. Elige después una salsa de la lista siguiente.',
+  'Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.': 'Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall.',
   'All naans are egg-free.': 'Todos los naan se elaboran sin huevo.',
   'All rice dishes use Indian basmati rice.': 'Todos los arroces se preparan con basmati indio.',
-  'Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo.':
-    'Salsas clásicas: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag y Kashmiri Rogan Josh. Salsas del sur de la India: Kadai, Madras, ajo y guindilla, Hyderabadi Handi, Chettinad, Malabar y Vindaloo de Goa.',
-  'Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo. Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.':
-    'Salsas clásicas: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag y Kashmiri Rogan Josh. Salsas del sur de la India: Kadai, Madras, ajo y guindilla, Hyderabadi Handi, Chettinad, Malabar y Vindaloo de Goa. Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall.',
   'Only served for children under 9 years.': 'Solo para menores de 9 años.',
+  'Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo.': 'Salsas clásicas: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag y Kashmiri Rogan Josh. Salsas del sur de la India: Kadai, Madras, ajo y guindilla, Hyderabadi Handi, Chettinad, Malabar y Vindaloo de Goa.',
+  'Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo. Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.': 'Salsas clásicas: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag y Kashmiri Rogan Josh. Salsas del sur de la India: Kadai, Madras, ajo y guindilla, Hyderabadi Handi, Chettinad, Malabar y Vindaloo de Goa. Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall.',
 };
 
-/* Tab labels. "Sizzlers" becomes "A la plancha" because a Spanish diner reads the serving
-   style, not the English noun; "Kids" becomes "Niños", the wording every menu here uses. */
+/* Las pestañas. */
 export const tabs = {
   'Appetizers & Soups': 'Aperitivos y sopas',
   'Starters': 'Entrantes',
@@ -512,6 +496,7 @@ export const tabs = {
   'Vegan': 'Vegano',
 };
 
+/* Los subtítulos dentro de una pestaña. */
 export const groups = {
   'Appetizers': 'Aperitivos',
   'Soups': 'Sopas',

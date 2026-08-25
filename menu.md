@@ -1,8 +1,7 @@
-# Tinge of Turmeric - Food Menu
+# Carta — generada por importar.mjs desde carta.mjs
 
-> Source: official Tinge of Turmeric menu page, extracted 2026-08-20.
-> Currency: EUR. Prices use decimal points for easier import.
-> Descriptions are short, newly written summaries for web import; they are not copied verbatim from the source.
+> NO SE EDITA A MANO: cada `node importar.mjs` la reescribe entera.
+> Los platos se cambian en carta.mjs.
 
 ## Data format
 
@@ -132,27 +131,6 @@ Each category contains a Markdown table with: `id`, `name`, `description`, `pric
 |  | Kashmiri | Creamy coconut-and-nut curry with aromatic spices. | included |
 |  | Dopiaza | Onion-rich curry using onions at two stages. | included |
 |  | Kashmiri Rogan Josh | Slow-cooked onion, fennel and Kashmiri chilli curry. | included |
-
-## South Indian Curries - Ingredients
-
-> Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall. Select one South Indian sauce from the next section.
-
-| id | name | description | price |
-|---|---|---|---:|
-|  | Chicken | Choose a spice level and curry sauce. | 12.95 |
-|  | Lamb | Choose a spice level and curry sauce. | 14.95 |
-|  | Lamb Tikka | Choose a spice level and curry sauce. | 15.95 |
-|  | Fish | Choose a spice level and curry sauce. | 13.95 |
-|  | Prawns | Choose a spice level and curry sauce. | 14.95 |
-|  | King Prawns | Choose a spice level and curry sauce. | 16.95 |
-|  | Mixed Special (Chicken, Lamb & Prawns) | Choose a spice level and curry sauce. | 18.95 |
-|  | Mixed Vegetables | Choose a spice level and curry sauce. | 11.95 |
-|  | Mushrooms | Choose a spice level and curry sauce. | 11.95 |
-|  | Paneer (Indian Cottage Cheese) | Choose a spice level and curry sauce. | 13.95 |
-|  | Tofu (Prepared from Soymilk) | Choose a spice level and curry sauce. | 14.95 |
-|  | Kathal (Raw Jackfruit) | Choose a spice level and curry sauce. | 14.95 |
-|  | Soy (Processed Soy Bean) | Choose a spice level and curry sauce. | 14.95 |
-|  | Vegan Meat (Soy Based) | Choose a spice level and curry sauce. | 15.95 |
 
 ## South Indian Curries - Sauces
 
@@ -288,6 +266,20 @@ Each category contains a Markdown table with: `id`, `name`, `description`, `pric
 |---|---|---|---:|
 | 140 | French Fries | Classic fries. | 3.50 |
 | 141 | Masala Fries | Fries seasoned with masala spices. | 4.50 |
+
+## Kids Menu
+
+> Only served for children under 9 years.
+
+| id | name | description | price |
+|---|---|---|---:|
+| 142 | French Omelette and Chips | French omelette served with chips. | 6.00 |
+| 143 | Chicken Nuggets and Chips | Chicken nuggets served with chips. | 6.00 |
+| 144 | Chicken Tikka with Chips or Rice | Diced chicken tikka with chips or rice. | 8.00 |
+| 145 | Chicken Korma with Chips or Rice | Mild creamy chicken korma with chips or rice. | 8.50 |
+| 146 | Chicken Tikka Masala with Chips or Rice | Mild chicken tikka masala with chips or rice. | 8.50 |
+| 147 | Chicken Curry with Chips or Rice | Mild chicken curry with chips or rice. | 8.50 |
+| 148 | Paneer Tikka Masala with Chips or Rice | Mild paneer tikka masala with chips or rice. | 8.50 |
 
 ## Gluten Free - Soups
 
@@ -543,16 +535,3 @@ Each category contains a Markdown table with: `id`, `name`, `description`, `pric
 |  | Garlic Chapati | Vegan garlic chapati. | 3.95 |
 |  | Aloo Paratha (Stuffed with Potatoes) | Vegan paratha stuffed with potatoes. | 5.50 |
 
-## Kids Menu
-
-> Only served for children under 9 years.
-
-| id | name | description | price |
-|---|---|---|---:|
-| 142 | French Omelette and Chips | French omelette served with chips. | 6.00 |
-| 143 | Chicken Nuggets and Chips | Chicken nuggets served with chips. | 6.00 |
-| 144 | Chicken Tikka with Chips or Rice | Diced chicken tikka with chips or rice. | 8.00 |
-| 145 | Chicken Korma with Chips or Rice | Mild creamy chicken korma with chips or rice. | 8.50 |
-| 146 | Chicken Tikka Masala with Chips or Rice | Mild chicken tikka masala with chips or rice. | 8.50 |
-| 147 | Chicken Curry with Chips or Rice | Mild chicken curry with chips or rice. | 8.50 |
-| 148 | Paneer Tikka Masala with Chips or Rice | Mild paneer tikka masala with chips or rice. | 8.50 |
