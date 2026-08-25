@@ -1,4 +1,10 @@
-# Getting You Hungry — clone spec
+# Tinge of Turmeric — carta de restaurante indio
+
+Registro de decisiones de diseño de **esta** carta, con sus medidas. Se lee antes de tocar nada
+visual: casi todo lo que hay aquí se decidió midiendo, y volver a decidirlo a ojo suele deshacerlo.
+
+El diseño partió de una plantilla («Getting You Hungry»), y de ahí salen las tres primeras
+secciones. Lo demás es de aquí.
 
 Source: https://fresheat-react.vercel.app/home3 (SPA route; direct URL 404s on Vercel, reachable only via in-app nav)
 Target node: `section.food-menu-section > .food-menu-wrapper.style3 > .container > .food-menu-tab-wrapper.style3`
