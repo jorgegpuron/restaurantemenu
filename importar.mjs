@@ -76,7 +76,39 @@ const texto = (v, donde) => {
 };
 
 /* ---- recorrer la carta una vez y sacar todo lo que hace falta ---- */
+/* Lo que va DESPUÉS del precio, que es donde chocaban las dos cartas que existen: una escribe
+   ahí el número de plato y la otra la lista de alérgenos.
+
+   Se distingue por forma, no por posición: un array son los alérgenos, y lo que aparezca antes
+   es el número. Detrás de los alérgenos van el premio y la medalla. Así conviven las dos y una
+   carta nueva puede llevar las cuatro cosas o ninguna.
+
+     [.., precio]                              nada más: el número lo pone el contador
+     [.., precio, "07"]                        con número escrito a mano
+     [.., precio, ["trigo"], "", ""]           con alérgenos
+     [.., precio, "07", ["trigo"], "1ª", "oro"]  con las cuatro */
+const MEDALLAS = ['oro', 'bronce'];
+
+function extras(resto, donde) {
+  let id;
+  let i = 0;
+  if (resto.length && !Array.isArray(resto[0])) { id = String(resto[0]); i = 1; }
+  const alergenos = Array.isArray(resto[i]) ? resto[i] : [];
+  const premio = resto[i + 1] === undefined ? '' : String(resto[i + 1]);
+  const medalla = resto[i + 2] === undefined ? '' : String(resto[i + 2]);
+  if (medalla && !MEDALLAS.includes(medalla)) {
+    throw new Error(donde + ': la medalla ' + JSON.stringify(medalla) + ' no existe.'
+      + ' Las validas son: ' + MEDALLAS.join(', '));
+  }
+  return { id, alergenos, premio, medalla };
+}
+
 const platos = [];        // { cat, nombre[], desc[], precio, id }
+/* Los alergenos que el motor sabe pintar. Un nombre mal escrito no se pinta y no avisa, asi que
+   se para aqui: es el unico sitio donde alguien lo esta mirando. */
+const CONOCIDOS = ['trigo', 'leche', 'huevo', 'soja', 'mostaza', 'apio', 'sulfitos',
+                   'sesamo', 'frutos_secos', 'pescado', 'crustaceos'];
+
 const cats = [];          // { tab, icono, cat, sub[], iconoSub, nota[] }
 for (const t of CARTA) {
   const pestana = texto(t.pestana, 'pestaña');
@@ -94,7 +126,8 @@ for (const t of CARTA) {
     for (const fila of g.platos) {
       const nombre = texto(fila.slice(0, COLS), 'plato en ' + catEn);
       const desc = texto(fila.slice(COLS, COLS * 2), 'descripción en ' + catEn);
-      platos.push({ cat: catEn, nombre, desc, precio: fila[COLS * 2], id: fila[COLS * 2 + 1] });
+      platos.push({ cat: catEn, nombre, desc, precio: fila[COLS * 2],
+                    ...extras(fila.slice(COLS * 2 + 1), catEn) });
     }
   }
 }
@@ -134,6 +167,17 @@ if (choques.length) {
 }
 
 /* ---- menu.md ---- */
+/* ¿Usa alguien las columnas de mas? De eso depende que menu.md salga con cuatro columnas o con
+   siete. Una carta que no declara nada sale exactamente igual que antes de que existieran. */
+const hayExtras = platos.some((p) => p.alergenos.length || p.premio || p.medalla);
+
+const raros = [...new Set(platos.flatMap((p) => p.alergenos)
+  .filter((a) => !CONOCIDOS.includes(a)))];
+if (raros.length) {
+  throw new Error('alergenos que no existen en carta.mjs: ' + raros.join(', ') + NL
+    + '  los validos son: ' + CONOCIDOS.join(', '));
+}
+
 const md = ['# Carta — generada por importar.mjs desde carta.mjs', '',
   '> NO SE EDITA A MANO: cada `node importar.mjs` la reescribe entera.',
   '> Los platos se cambian en carta.mjs.', '',
@@ -145,7 +189,12 @@ for (const c of cats) {
   md.push('## ' + c.cat, '');
   /* La nota va como cita justo debajo del título: es el formato que gen.mjs ya parsea. */
   if (c.nota) md.push('> ' + c.nota[0], '');
-  md.push('| id | name | description | price |', '|---|---|---|---:|');
+  /* Las columnas de mas se escriben solo si alguien las usa. gen.mjs las lee si estan y las
+     ignora si no, asi que una carta sin alergenos sigue saliendo con cuatro columnas. */
+  md.push(hayExtras
+    ? '| id | name | description | price | allergens | award | medal |'
+    : '| id | name | description | price |',
+    hayExtras ? '|---|---|---|---:|---|---|---|' : '|---|---|---|---:|');
   for (const p of platos.filter((x) => x.cat === c.cat)) {
     n += 1;
     /* El número que trae el plato manda. Sin él, el contador de siempre. Y la cadena vacía
@@ -153,7 +202,10 @@ for (const c of cats) {
        las listas de salsas y en las pestañas Sin gluten y Vegano. */
     const id = p.id === undefined ? String(n).padStart(2, '0') : p.id;
     if (id === '') sinNumero += 1;
-    md.push('| ' + id + ' | ' + p.nombre[0] + ' | ' + p.desc[0] + ' | ' + p.precio + ' |');
+    const fila = '| ' + id + ' | ' + p.nombre[0] + ' | ' + p.desc[0] + ' | ' + p.precio + ' |';
+    md.push(hayExtras
+      ? fila + ' ' + p.alergenos.join(' ') + ' | ' + p.premio + ' | ' + p.medalla + ' |'
+      : fila);
   }
   md.push('');
 }

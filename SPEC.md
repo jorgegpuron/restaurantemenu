@@ -3741,3 +3741,50 @@ PHP en las nueve direcciones probadas, incluida `?t=ocultos`, que ya no existe y
 En las cartas, el diff contra la referencia recompilada desde git no trae nada más que lo dicho:
 `aplicarOcultos`, la var `OCULTOS_ACTIVO`, y en Regina la leyenda y el rótulo. Tinge conserva sus
 dos leyendas y sus dos rótulos; Dedos, sus dos rótulos y ninguna leyenda.
+
+## Un solo importador para los tres (25 Aug 2026)
+
+Había tres `importar.mjs` distintos con cinco mejoras repartidas, y ninguno las tenía todas:
+
+| | Tinge | Dedos | Regina |
+|---|:--:|:--:|:--:|
+| Comprueba el orden de pestañas y categorías | ✅ | ✅ | ✅ |
+| Multiidioma: un `i18n.<código>.mjs` por idioma | ✅ | ❌ | ❌ |
+| Número de plato escrito en `carta.mjs` | ✅ | ❌ | ❌ |
+| Notas de categoría | ✅ | ❌ | ✅ |
+| Alérgenos, premio y medalla por plato | ❌ | ✅ | ❌ |
+
+Copiar Dedos daba un cliente que no podía escribir notas de categoría; copiar Tinge, uno que no
+podía declarar alérgenos. Ahora es **el mismo fichero en los tres**, con las cinco.
+
+### El choque estaba después del precio
+
+Tinge escribe ahí el número de plato y Dedos la lista de alérgenos. La misma posición, dos cosas.
+
+Se resuelve **por forma y no por posición**: un array son los alérgenos, y lo que aparezca antes es
+el número. Detrás de los alérgenos van el premio y la medalla.
+
+```
+[.., precio]                                 el número lo pone el contador
+[.., precio, '07']                           con número escrito a mano
+[.., precio, ['trigo'], '', '']              con alérgenos
+[.., precio, '07', ['trigo'], '1ª', 'oro']   con las cuatro cosas
+```
+
+Ninguna de las tres cartas que existen cambia una coma, y una nueva puede llevar lo que quiera.
+
+### Y `menu.md` sale con cuatro columnas o con siete
+
+Según haya algo que escribir. Una carta que no declara nada sale exactamente igual que antes de que
+las columnas existieran, y `gen.mjs` las lee si están y las ignora si no.
+
+### Comprobado
+
+`node importar.mjs` en los tres: `menu.md` **idéntico byte a byte** en los tres, y las cartas
+compiladas sin una línea de diferencia. En los `i18n` sólo cambian dos comentarios de cabecera —el
+del idioma, que ahora sale con mayúscula, y el de las notas de categoría en Dedos, que pasa de «hoy
+no hay ninguna» a la frase genérica porque ahora sí puede haberlas.
+
+Una lección de paso: la lista de alérgenos válidos me la inventé en vez de copiarla, y el importador
+de Dedos paró en seco con «alergenos que no existen: frutos_secos». La validación que Dedos ya
+tenía se cazó a sí misma.
