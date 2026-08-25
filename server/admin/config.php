@@ -150,6 +150,11 @@ define('DATOS_MAX_DIA', 100000);
  * Lo crea record.php solo la primera vez que alguien juega. */
 define('RECORD_PATH', __DIR__ . '/../record.json');
 
+/* El mismo marcador, pero con los identificadores de cada marca. Va en admin/, que el .htaccess
+ * no sirve: el de la raiz lo lee cualquiera, y con el identificador dentro cualquiera podria
+ * renombrar la marca de otro. El publico se escribe desde este y nunca al reves. */
+define('MARCADOR_PATH', __DIR__ . '/marcador.json');
+
 /* Tope de cordura, no cuota. En 30 segundos caben unas 64 fichas y, si todas fueran doradas,
  * 192 puntos. Por encima de esto la partida no ha existido y no se apunta. */
 define('RECORD_MAX', 300);

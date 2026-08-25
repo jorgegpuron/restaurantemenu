@@ -3420,6 +3420,9 @@ cambiar el body no cambia nada—:
 
 Se temían 112px y son 94. Sin desbordes en ninguno.
 
+> Esta medida es de cuando el récord era un número suelto. Con nombre y bandera la línea ya no
+> cabe al lado y la tarjeta pasa a rejilla: 121px. Ver «Un podio de tres», al final.
+
 ### La pestaña Juego, en tres cosas
 
 Interruptor, el récord con su fecha, y un botón de poner a cero. Fuera los campos de objetivo y
@@ -3794,3 +3797,85 @@ no hay ninguna» a la frase genérica porque ahora sí puede haberlas.
 Una lección de paso: la lista de alérgenos válidos me la inventé en vez de copiarla, y el importador
 de Dedos paró en seco con «alergenos que no existen: frutos_secos». La validación que Dedos ya
 tenía se cazó a sí misma.
+
+## Un podio de tres, con nombre y bandera (26 Aug 2026)
+
+El récord dejaba un número suelto y nada más. Ahora guarda **los tres mejores**, y quien entra
+puede firmar con un nombre de hasta doce letras y un país de una lista cerrada. En la carta sale el
+primero; al acabar una partida, los tres.
+
+### Dos llamadas y no una
+
+Al acabar, el juego manda **la puntuación sola**. Si ha entrado en el podio, la respuesta trae un
+`id` y una segunda llamada le pone nombre y país. Con una sola llamada, el que cierra la pestaña
+mientras piensa cómo se llama pierde la marca.
+
+El empate **no** desbanca: quien ya está lo hizo antes.
+
+### Dos ficheros, y el que manda no se sirve
+
+| fichero | quién lo lee | qué lleva |
+|---|---|---|
+| `admin/marcador.json` | sólo el servidor | los tres, **con su `id`** |
+| `record.json` (raíz) | la carta y el juego | los tres, sin `id` |
+
+El primero es el que manda y se escribe primero; el segundo es una copia suya. El `.htaccess` de
+`admin/` deniega todo `.json`, así que el privado no se sirve.
+
+**Por qué separados:** con el `id` dentro del fichero público, cualquiera podía leerlo y renombrar la
+marca de otro. El `id` es lo único que autoriza a firmar una puntuación, y no puede estar a la vista.
+
+### El nombre lo escribe un desconocido
+
+Cuatro filtros en `record.php`: fuera los caracteres de control y los ángulos, fuera lo que parezca
+un enlace, una lista de palabrotas con los cambios de letra por número deshechos, y doce caracteres.
+
+El orden importa: **se filtra entero y se recorta al final**. Recortando primero, `gil1poll4s`
+quedaba en `gil1po` y colaba, porque la palabra desaparecía con el recorte.
+
+La lista nunca está completa, y por eso el panel tiene **Quitar nombre** por fila: borra el nombre
+y el país y deja la puntuación donde estaba. La lista quita el 90%; el botón es lo que protege.
+
+### Las banderas: de dibujarlas a usarlas
+
+Había tres SVG dibujados a mano aquí dentro para el selector de idioma, y la de España era
+rojo-amarillo-rojo sin escudo. Ahora las 36 salen de [flag-icons](https://flagicons.lipis.dev/)
+(MIT), rasterizadas a WebP de 60×45 en `assets/banderas/`: **34,7 KB las 36**, y la de España pasa de
+80.958 bytes en SVG a 1.014 en WebP. `banderas.mjs` es la única lista, y de ahí salen el selector de
+idioma, el del juego, el podio del panel y `admin/paises.php`, que es lo que valida el endpoint.
+
+La caja pasa de 21×14 a **20×15**: el fichero es 4:3 y con la 3:2 de antes salía aplastado.
+
+### La tarjeta de la carta, en rejilla
+
+La línea del récord no cabe al lado del nombre: a 390 pedía 200px y tenía 185, y se cortaba con
+puntos suspensivos en casi cualquier móvil. La tarjeta pasa a `grid` de dos columnas y el récord
+ocupa una fila entera debajo.
+
+| ancho | alto | la línea del récord |
+|---|---|---|
+| 320 | 121 | 236 disponibles, cabe |
+| 390 | 121 | 306 disponibles, cabe |
+
+Y **la bandera va delante del nombre**. Detrás, en el caso extremo (nombre de doce y cuatro
+cifras, que se pasa por 11px a 320) los puntos suspensivos se comen la bandera y queda media
+imagen cortada. Delante, lo que se recorta es el nombre, que es lo correcto.
+
+### Lo que se arregló de paso
+
+Los `aria-label` del juego **nunca** cambiaban de idioma: `setLang()` traducía `textContent` y no
+los atributos. Ahora también, y el `placeholder` del nombre se reescribe al cambiar de idioma
+(un `placeholder` no admite ni `span` ni atributo traducible).
+
+### Comprobado en los tres, corriendo
+
+Endpoint: `GET` — 405, `puntos=9999` — 400, `-5` — 400, un robot — 204. Cuatro marcas seguidas se
+ordenan solas y la quinta, peor que la tercera, se rechaza sin `id`. Filtro: `M4r14 gil1poll4s`
+· `<script>alert(1)</script>` — vacío o sin ángulos; `Jean-Luc` intacto; `XX` como país — vacío.
+Panel: las tres filas con su bandera, **Quitar nombre** deja la puntuación y borra el nombre en los
+dos ficheros, **Vaciar** borra los dos. Las siete pestañas sin un aviso de PHP.
+
+La tarjeta de la carta mide 278 de ancho a 320px de pantalla, izquierda en 21: **el mismo ancho y
+la misma izquierda que `.hero-frame`**, que es lo que se pedía.
+
+Las cadenas nuevas del formulario están en los 2 catálogos de este restaurante.

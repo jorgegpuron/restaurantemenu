@@ -15,10 +15,11 @@
  * ------------------------------------------------------------------ */
 
 export const GAME_STRINGS = [
-  'Chilli Rush', 'While you wait',
+  'Chilli Rush',
   'Tap the chillies. Dodge the ice and the bomb.', 'Play', 'Play again', 'Back to the menu',
   'Score', 'Time', 'Streak', 'Ready?', 'points',
-  'Best today', 'Your score', 'House record', 'New record!', 'Record',
+  'Best today', 'Your score', 'Top scores', 'New record!', 'Record',
+  'Your name', 'Where are you from?', 'Other', 'Save', 'Skip', 'No one has played yet',
 ];
 
 /* Los tres iconos del juego. Tabler (MIT), el mismo trazo 1.75 del resto del proyecto.
@@ -33,7 +34,8 @@ const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
-export function buildGame({ T, TL, TOKENS, FONTS, LANG_CODES, LANGS, IDIOMAS, titles, TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE }) {
+export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, IDIOMAS, titles,
+  TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES, imgBandera }) {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   /* El mismo selector que la carta: bandera, nombre y chevron, arriba a la derecha. */
   const langMenu = `<div class="head-tools">
@@ -53,6 +55,20 @@ ${IDIOMAS.map((l) => `        <button type="button" class="lang-opt" role="menui
       </div>
     </div>
   </div>`;
+
+  /* Las opciones del selector de pais.
+
+     Un <option> NO admite un <span> dentro: el navegador se lo come y el texto se queda en
+     ingles para siempre. Asi que traducen como traduce el resto del proyecto pero sin envoltura,
+     por atributo data-<idioma> sobre el propio <option>, que es lo que el conmutador ya busca.
+
+     PAISES trae [codigo, es, en, de] y aqui se reparte por el codigo de cada idioma. */
+  const IDX_PAIS = { es: 1, en: 2, de: 3 };
+  const nombrePais = (fila, code) => fila[IDX_PAIS[code] === undefined ? 2 : IDX_PAIS[code]];
+  const opcionesPais = [['', 'Otro', 'Other', 'Andere']].concat(PAISES).map((fila) => {
+    const datos = LANGS.map((l) => ` data-${l.code}="${nombrePais(fila, l.code)}"`).join('');
+    return `<option value="${fila[0]}"${datos}>${fila[2]}</option>`;
+  }).join('');
 
   return `<!doctype html>
 <html lang="en" translate="no" class="notranslate">
@@ -135,7 +151,11 @@ body{
 .lang-trigger:active{transform:scale(.96)}
 .lang-trigger:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 .lang-flag{display:inline-flex;flex:0 0 auto}
-.bandera{width:21px;height:14px;border-radius:3px;box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent)}
+/* Una sola regla para todas las banderas —el selector de idioma y el podio—, porque desde que
+   salen de assets/banderas/ son el mismo fichero. 20x15 es su proporcion; con la 3:2 de antes
+   salian aplastadas. */
+.bandera{width:20px;height:15px;border-radius:2px;flex:0 0 auto;
+  box-shadow:0 0 0 1px rgba(0,0,0,.22)}
 .lang-chevron{width:15px;height:15px;color:var(--muted);transition:transform var(--t-fast) var(--ease-out)}
 .lang-trigger[aria-expanded="true"] .lang-chevron{transform:rotate(180deg)}
 .lang-menu{
@@ -396,6 +416,41 @@ h1{
 }
 
 /* ---------- resultado ---------- */
+/* El podio. Tres filas y ya: es un marcador de bar, no una liga. */
+.podio{width:100%;max-width:340px;margin:var(--s3) 0 0;display:grid;gap:4px;text-align:left}
+.podio[hidden]{display:none}
+.fila{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 11px;border-radius:var(--r-pill);
+  background:color-mix(in srgb,var(--surface) 10%,transparent);
+  font-family:var(--title-font);font-size:15px;
+}
+/* El puesto en curso, marcado. Sin esto, en una pantalla con tres filas iguales hay que leer
+   los numeros para saber cual es la tuya. */
+.fila.tuya{background:var(--offer);color:var(--surface)}
+.fila .pos{width:1.1em;opacity:.55;font-weight:600;font-variant-numeric:tabular-nums}
+.fila .pts{font-weight:800;font-variant-numeric:tabular-nums;min-width:2.4em}
+.fila .quien{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:600}
+.fila .quien.anon{opacity:.5;font-weight:400}
+
+/* El formulario de quien acaba de entrar en el podio. */
+.fichar{width:100%;max-width:340px;margin:var(--s3) 0 0;display:grid;gap:var(--s2)}
+.fichar[hidden]{display:none}
+.fichar input,.fichar select{
+  width:100%;min-height:48px;padding:0 14px;
+  border-radius:var(--r-pill);border:0;
+  background:var(--surface);color:var(--ink);
+  font-family:var(--title-font);font-size:16px;font-weight:600;
+}
+.fichar select{appearance:none;padding-right:38px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6l6 -6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;background-size:17px}
+.fichar .par{display:flex;gap:var(--s2)}
+.fichar .par button{flex:1}
+.saltar{background:none;border:0;color:var(--surface);opacity:.6;
+  font-family:var(--title-font);font-size:15px;font-weight:600;min-height:48px;cursor:pointer}
+
 /* El récord de la casa: la referencia contra la que se juega. */
 .record{
   margin:var(--s3) 0 0;
@@ -468,7 +523,23 @@ h1{
   <section class="screen" id="s-end" hidden>
     <p class="eyebrow" id="end-eyebrow"></p>
     <p class="tally"><span id="end-score">0</span><small id="end-best"></small></p>
-    <p class="record" id="end-record" hidden></p>
+
+    <!-- quien acaba de entrar en el podio se pone nombre. Sale ya con la marca guardada:
+         si cierra la pestana sin rellenarlo, la marca esta y sale sin nombre. -->
+    <form class="fichar" id="fichar" hidden>
+      <input id="f-nombre" type="text" maxlength="12" autocomplete="off"
+             placeholder="${TL_TXT('Your name')}"${TL('Your name')}>
+      <select id="f-pais"${TL('Where are you from?')}>
+        ${opcionesPais}
+      </select>
+      <div class="par">
+        <button class="big-btn" type="submit">${T('Save', 'ui')}</button>
+        <button class="saltar" id="f-saltar" type="button">${T('Skip', 'ui')}</button>
+      </div>
+    </form>
+
+    <div class="podio" id="podio" hidden></div>
+
     <div class="actions">
       <button class="big-btn" id="btn-again" type="button">${T('Play again', 'ui')}</button>
       <a class="ghost-btn" href="./index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>${T('Back to the menu', 'ui')}</a>
@@ -569,6 +640,16 @@ h1{
       if (el.dataset.en === undefined) el.dataset.en = el.textContent;
       el.textContent = el.dataset[lang] !== undefined ? el.dataset[lang] : el.dataset.en;
     });
+    /* Los aria-label tambien viajan. TL() deja el ingles en el atributo y las traducciones en
+       data-<idioma>-label; sin esto, quien juega en aleman con lector de pantalla oye las
+       etiquetas del formulario en ingles. */
+    document.querySelectorAll('[data-es-label]').forEach(function (el) {
+      if (el.dataset.enLabel === undefined) {
+        el.dataset.enLabel = el.getAttribute('aria-label') || '';
+      }
+      var v = el.dataset[lang + 'Label'];
+      el.setAttribute('aria-label', v !== undefined ? v : el.dataset.enLabel);
+    });
     document.title = TITLE[lang] || TITLE.en;
     langPintar(lang);
     try { localStorage.setItem('${CLAVE('lang')}', lang); } catch (e) {}
@@ -579,7 +660,7 @@ h1{
      El mismo estado.json que la carta, y aparte el récord de la casa, que vive en su propio
      record.json. Si no llega ninguno de los dos se juega igual: entretener al que espera no
      depende de que el servidor conteste. */
-  var CFG = { on: false, record: 0 };
+  var CFG = { on: false, top: [] };   // top: [{puntos, nombre, pais}], ya ordenado
 
   /* El mismo tema de marca que la carta, por la misma vía y con el mismo respaldo en el
      móvil para no parpadear. La barra del navegador se pinta del color del fondo del juego,
@@ -613,31 +694,78 @@ h1{
      accidente. Cuesta una petición de cuarenta bytes. */
   fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) { if (j && +j.puntos > 0) CFG.record = +j.puntos; })
+    .then(function (j) { CFG.top = leerTop(j); })
     .catch(function () {})
     .then(function () { pintarRecord(); });
 
   /* El récord de la casa, en la portada y en el resultado. Sin récord todavía no se escribe
      «Récord: 0», que se lee como un fallo: sencillamente no aparece la línea. */
-  /* Cuando se acaba de batir, la línea de «Récord de la casa» sobra en el resultado: el número
-     grande de arriba YA es el récord, y repetirlo debajo se lee como si fueran dos cosas. Hace
-     falta la bandera porque mandarRecord() contesta tarde y volvía a pintar la línea encima. */
-  var recordRecien = false;
+  /* El marcador que viene del servidor. Un record.json de la version de un solo record se lee
+     como un podio de uno, asi que el restaurante que ya tenia marca no la pierde. */
+  function leerTop(j) {
+    if (!j) return [];
+    if (+j.puntos > 0) return [{ puntos: +j.puntos, nombre: '', pais: '' }];
+    return (j.top || []).filter(function (x) { return x && +x.puntos > 0; })
+      .map(function (x) {
+        return { puntos: +x.puntos, nombre: String(x.nombre || ''),
+                 pais: String(x.pais || '') };
+      }).slice(0, 3);
+  }
 
+  /* La linea de la portada: solo el numero uno. En la portada no cabe un podio y tampoco hace
+     falta — lo que se quiere saber antes de jugar es contra cuanto se juega. */
   function pintarRecord() {
-    var txt = CFG.record > 0
-      ? tr('House record') + ': <b>' + CFG.record + '</b> ' + tr('points')
-      : '';
-    ['intro-record', 'end-record'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.innerHTML = txt;
-      el.hidden = !txt || (id === 'end-record' && recordRecien);
-    });
+    var el = document.getElementById('intro-record');
+    if (!el) return;
+    var uno = CFG.top[0];
+    if (!uno) { el.hidden = true; el.textContent = ''; return; }
+    el.innerHTML = tr('Record') + ': <b>' + uno.puntos + '</b> ' + tr('points')
+      + (uno.nombre ? ' · ' + escapar(uno.nombre) : '')
+      + bandera(uno.pais);
+    el.hidden = false;
+  }
+
+  /* Un nombre lo escribe un desconocido: aqui se pinta como TEXTO y nunca como HTML. El
+     servidor ya lo limpia, pero el que pinta es el ultimo que puede evitar un <script>. */
+  function escapar(t) {
+    var d = document.createElement('span');
+    d.textContent = t;
+    return d.innerHTML;
+  }
+
+  function bandera(cod) {
+    if (!cod) return '';
+    return ' <img class="bandera" src="assets/banderas/' + encodeURIComponent(cod)
+      + '.webp" width="20" height="15" alt="" decoding="async">';
+  }
+
+  /* El podio de la pantalla de fin. «mio» es el puesto que acaba de hacer quien esta mirando,
+     o -1: sin eso, tres filas iguales obligan a leer los numeros para encontrarse. */
+  function pintarPodio(mio) {
+    var caja = document.getElementById('podio');
+    if (!caja) return;
+    if (!CFG.top.length) {
+      caja.hidden = true;
+      return;
+    }
+    caja.innerHTML = CFG.top.map(function (x, i) {
+      var quien = x.nombre
+        ? '<span class="quien">' + escapar(x.nombre) + '</span>'
+        : '<span class="quien anon">—</span>';
+      return '<div class="fila' + (i === mio ? ' tuya' : '') + '">'
+        + '<span class="pos">' + (i + 1) + '</span>'
+        + '<span class="pts">' + x.puntos + '</span>'
+        + quien + bandera(x.pais) + '</div>';
+    }).join('');
+    caja.hidden = false;
   }
 
   function pintarTextosDinamicos() {
     pintarRecord();
+    /* El placeholder no admite ni span ni atributo traducible, asi que se reescribe aqui. El
+       HTML estatico lo lleva en el idioma de la casa, que es lo que ve quien no tiene JS. */
+    var inNombre = document.getElementById('f-nombre');
+    if (inNombre) inNombre.placeholder = tr('Your name');
     var best = mejorDeHoy();
     document.getElementById('end-best').textContent =
       best > 0 ? tr('Best today') + ': ' + best : '';
@@ -681,22 +809,51 @@ h1{
     try { if (p > mejorDeHoy()) localStorage.setItem(claveHoy(), String(p)); } catch (e) {}
   }
 
-  /* ---- el récord de la casa ----
-     Se manda al acabar y sólo si hay algo que mandar. Decide el servidor: valida el tope y
-     escribe únicamente si supera lo que había. Devuelve el récord que queda en pie, que puede
-     no ser el nuestro si otra mesa lo ha batido mientras jugábamos. */
-  function mandarRecord(p) {
-    if (!CFG.on || !(p > 0)) return;
-    try {
-      var fd = new FormData();
-      fd.append('puntos', String(p));
-      fetch('admin/record.php', { method: 'POST', body: fd, cache: 'no-store' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) {
-          if (j && +j.puntos > 0) { CFG.record = +j.puntos; pintarRecord(); }
-        })
-        .catch(function () {});
-    } catch (e) {}
+  /* ---- el marcador de la casa ----
+
+     Se manda al acabar y SIN nombre: si el jugador cierra la pestana mientras piensa como se
+     llama, la marca ya esta guardada. Si ha entrado en el podio, la respuesta trae un «id» y
+     con el se le pone nombre despues, en una segunda llamada.
+
+     Con una sola llamada al pulsar «Guardar», el que cierra la pestana pierde el record. */
+  var miId = '';
+
+  function mandarMarca(p) {
+    if (!CFG.on || !(p > 0)) return Promise.resolve(-1);
+    var fd = new FormData();
+    fd.append('puntos', String(p));
+    return fetch('admin/record.php', { method: 'POST', body: fd,
+                                          cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return -1;
+        CFG.top = leerTop(j);
+        miId = j.id || '';
+        pintarRecord();
+        /* El puesto se busca por puntuacion y no se guarda del envio: si otra mesa ha entrado
+           entre medias, el servidor manda el podio bueno y el puesto puede no ser el esperado. */
+        if (!miId) return -1;
+        for (var i = 0; i < CFG.top.length; i++) {
+          if (CFG.top[i].puntos === p && !CFG.top[i].nombre) return i;
+        }
+        return -1;
+      })
+      .catch(function () { return -1; });
+  }
+
+  /* La segunda llamada, la del nombre. Si falla no se avisa: la marca ya esta puesta y lo unico
+     que se pierde es el nombre, que no vale una pantalla de error en mitad de un juego. */
+  function fichar(nombre, pais) {
+    if (!miId) return Promise.resolve();
+    var fd = new FormData();
+    fd.append('id', miId);
+    fd.append('nombre', nombre);
+    fd.append('pais', pais);
+    return fetch('admin/record.php', { method: 'POST', body: fd,
+                                          cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) { CFG.top = leerTop(j); pintarRecord(); } })
+      .catch(function () {});
   }
 
   /* ---- la partida ---- */
@@ -876,26 +1033,31 @@ h1{
     limpiarTablero();
     guardarMejor(puntos);
 
-    /* Se compara ANTES de mandar: mandarRecord() actualiza CFG.record con lo que conteste el
-       servidor, y entonces ya no habria forma de saber si acabamos de batirlo. */
-    var nuevoRecord = puntos > 0 && puntos > CFG.record;
-    recordRecien = nuevoRecord;
-    mandarRecord(puntos);
-
     var ceja = document.getElementById('end-eyebrow');
-    ceja.textContent = nuevoRecord ? tr('New record!') : tr('Your score');
-    ceja.classList.toggle('eyebrow-record', nuevoRecord);
+    var form = document.getElementById('fichar');
+    ceja.textContent = tr('Your score');
+    ceja.classList.remove('eyebrow-record');
     document.getElementById('end-score').textContent = puntos;
-
-    /* Si se acaba de batir, la linea de abajo ya no aporta: el numero grande ES el record.
-       Y si no, dice contra que se juega la proxima. */
-    if (nuevoRecord) CFG.record = puntos;
+    form.hidden = true;
+    miId = '';
     pintarTextosDinamicos();
-
+    pintarPodio(-1);
     pantalla('s-end');
+
+    /* La pantalla ya esta puesta y la marca viaja despues: primero se ve la puntuacion y luego,
+       si toca, aparece el formulario. Al reves el jugador espera al servidor mirando el tablero
+       vacio. */
+    mandarMarca(puntos).then(function (puesto) {
+      if (seEstaJugando) return;                 // ya ha empezado otra: no se pisa la pantalla
+      pintarPodio(puesto);
+      if (puesto < 0) return;
+      ceja.textContent = tr('New record!');
+      ceja.classList.add('eyebrow-record');
+      form.hidden = false;
+      document.getElementById('f-nombre').focus({ preventScroll: true });
+    });
   }
   function cuentaAtras() {
-    recordRecien = false;
     pantalla('s-count');
     var el = document.getElementById('count');
     var n = 3;
@@ -912,6 +1074,27 @@ h1{
   }
 
   document.getElementById('btn-play').addEventListener('click', cuentaAtras);
+
+  /* El formulario del podio. Guardar y Saltar hacen lo mismo con la pantalla —esconderla— y
+     solo se diferencian en si mandan el nombre. */
+  function cerrarFichar() {
+    document.getElementById('fichar').hidden = true;
+  }
+  document.getElementById('fichar').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = document.getElementById('f-nombre').value;
+    var c = document.getElementById('f-pais').value;
+    cerrarFichar();
+    fichar(n, c).then(function () {
+      /* Se repinta buscando el nombre recien puesto: el puesto pudo cambiar mientras escribia. */
+      var mio = -1;
+      for (var i = 0; i < CFG.top.length; i++) {
+        if (CFG.top[i].nombre === n.trim() && CFG.top[i].puntos === puntos) mio = i;
+      }
+      pintarPodio(mio);
+    });
+  });
+  document.getElementById('f-saltar').addEventListener('click', cerrarFichar);
   document.getElementById('btn-again').addEventListener('click', cuentaAtras);
 
   // salir de la pestaña a mitad de partida no debe dejar el marcador corriendo solo

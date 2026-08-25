@@ -2,6 +2,7 @@ import {
   readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync, existsSync,
 } from 'node:fs';
 import { buildGame } from './juego.mjs';
+import { PAISES, CODIGOS, BANDERA_IDIOMA, imgBandera } from './banderas.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
 } from './temas.mjs';
@@ -88,21 +89,6 @@ export const TOKENS = cssTemas() + `:root{
  * ayuda a encontrarlo de un vistazo. Inglés lleva la del Reino Unido: en una terraza de
  * Canarias, el turista que lee inglés es británico casi siempre.
  */
-const BANDERA_GB = '<svg class="bandera" viewBox="0 0 24 16" aria-hidden="true">'
-  + '<rect width="24" height="16" fill="#012169"/>'
-  + '<path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="3.2"/>'
-  + '<path d="M0 0l24 16M24 0L0 16" stroke="#C8102E" stroke-width="1.9"/>'
-  + '<path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.3"/>'
-  + '<path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3.2"/></svg>';
-
-const BANDERA_ES = '<svg class="bandera" viewBox="0 0 24 16" aria-hidden="true">'
-  + '<rect width="24" height="16" fill="#AA151B"/>'
-  + '<rect y="4" width="24" height="8" fill="#F1BF00"/></svg>';
-
-const BANDERA_DE = '<svg class="bandera" viewBox="0 0 24 16" aria-hidden="true">'
-  + '<rect width="24" height="16" fill="#000"/>'
-  + '<rect y="5.34" width="24" height="5.33" fill="#DD0000"/>'
-  + '<rect y="10.67" width="24" height="5.33" fill="#FFCE00"/></svg>';
 
 
 /* ---- las redes del restaurante ----
@@ -137,10 +123,10 @@ const BUILD = String(Date.now());
 /* English is the document text; every other language rides along in data-<code>. */
 const LANGS = IDIOMAS_CLIENTE;
 
-/* El ingles es el texto del documento; los demas idiomas los elige el cliente en
-   cliente.mjs. Las banderas son del motor: el restaurante dice que idiomas quiere, no
-   como se dibuja cada una. */
-const BANDERAS = { en: BANDERA_GB, es: BANDERA_ES, de: BANDERA_DE };
+/* Las mismas banderas que el marcador, del mismo sitio: flag-icons, en assets/banderas/. Antes
+   habia tres dibujadas a mano aqui, y la de Espana era rojo-amarillo-rojo sin escudo. */
+const BANDERAS = Object.fromEntries(
+  Object.entries(BANDERA_IDIOMA).map(([code, pais]) => [code, imgBandera(pais, 'bandera')]));
 const IDIOMAS = [{ code: 'en', name: 'English', flag: BANDERAS.en }]
   .concat(LANGS.map((l) => ({ code: l.code, name: l.name, flag: BANDERAS[l.code] })));
 
@@ -310,6 +296,10 @@ const T = (en, group, cls) =>
   `<span class="i18n${cls ? ' ' + cls : ''}"${attrs(en, group)}>${esc(en)}</span>`;
 // a translatable attribute
 const TL = (en) => ` aria-label="${esc(en)}"${attrs(en, 'ui', '-label')}`;
+/* El texto pelado, sin envoltura. Lo pide el placeholder de un input: ahi no cabe ni un span
+   ni un atributo suelto, solo caracteres. Se queda en el idioma de la casa y no se traduce al
+   vuelo, que un placeholder no es contenido sino una pista, y el aria-label de al lado si viaja. */
+const TL_TXT = (en) => esc(LANGS[0] ? tr(en, 'ui', LANGS[0]) : en);
 
 /* ---- the number slot ----
  * Sauce and ingredient lists are choosers, not numbered dishes, so where the source has
@@ -912,9 +902,11 @@ h2,h3,h4,h6,p{margin:0}
 .lang-flag{display:inline-flex;flex:0 0 auto}
 /* El borde no es decoracion: las banderas con blanco en el canto —la del Reino Unido— se
    derraman sobre la crema sin el. */
+/* 20x15, que es la proporcion 4:3 del fichero. Con la 3:2 de antes, cuando la bandera era un
+   SVG dibujado aqui, la imagen salia aplastada. */
 .bandera{
-  width:21px;
-  height:14px;
+  width:20px;
+  height:15px;
   border-radius:3px;
   box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent);
 }
@@ -993,10 +985,14 @@ html:not(.js) .lang-menu{position:static;display:block}
    normal. Así que el rojo sólo se usa en el medallón y en la caja de «Rush» —24px en negrita,
    texto grande— y el premio va en una píldora crema con tinta, que da 9,6:1. Un bloque entero
    rojo habría dejado el pie y la línea de encima por debajo del mínimo legible. */
+/* Dos columnas y dos filas: arriba el nombre y la llamada, abajo el record de lado a lado. En
+   una sola fila no cabe: a 390 la linea del record pedia 200px y tenia 185, y se cortaba con
+   puntos suspensivos en casi cualquier movil. */
 .game-card{
-  display:flex;
+  display:grid;
+  grid-template-columns:1fr auto;
   align-items:center;
-  gap:var(--s2);
+  column-gap:var(--s2);
   margin-top:var(--s3);
   /* Se sale de la calle del contenido para medir lo mismo que la foto de portada. Vive dentro
      de la columna de texto, asi que la unica forma es tirar de ella hacia fuera lo que mide esa
@@ -1026,8 +1022,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* El nombre y el récord, apilados, ocupando el hueco que quede a la izquierda del botón.
    El récord NO puede ir en la misma línea que el nombre: a 320px el nombre y el botón ya se
    reparten el ancho con 13px de holgura, y el nombre no puede partirse. Va debajo, y la
-   tarjeta crece de 90 a unos 112. */
-.game-card-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:0 1 auto}
+   tarjeta crece de 90 a 121. */
 .game-card-title{
   min-width:0;
   font-family:var(--title-font);
@@ -1040,12 +1035,17 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* El récord, en pequeño y a media luz: es la referencia, no el titular. Si no hay récord
    todavía la línea no existe — un «Récord: 0» se lee como una avería. */
 .game-card-record{
+  grid-column:1 / -1;margin-top:3px;
   font-family:var(--title-font);font-size:13px;font-weight:600;
   letter-spacing:.01em;opacity:.72;
   font-variant-numeric:tabular-nums;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .game-card-record[hidden]{display:none}
+.game-card-flag{
+  display:inline-block;vertical-align:-2px;margin-right:2px;
+  border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.22);
+}
 
 /* La firma del juego, la misma inclinación y el mismo rojo que en su portada. */
 .game-card-title em{
@@ -2963,14 +2963,12 @@ ${leyenda}
                pedir, no mientras se elige. El enlace se oculta si el restaurante apaga el
                juego desde el panel. -->
           <a class="game-card" id="game-card" href="juego.html" hidden>
-            <span class="game-card-txt">
-              <span class="game-card-title">Chilli <em>Rush</em></span>
-              <span class="game-card-record" id="game-card-record" hidden></span>
-            </span>
+            <span class="game-card-title">Chilli <em>Rush</em></span>
             <span class="game-card-cta">
               ${T('Play', 'ui')}
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg>
             </span>
+            <span class="game-card-record" id="game-card-record" hidden></span>
           </a>
 
           <!-- La nota de Google. Los números y los nombres salen de estado.json, nunca del
@@ -3693,19 +3691,44 @@ ${sheet}
 
      No se pide cada minuto como el estado: un récord cambia cuando alguien juega, y quien
      acaba de jugar vuelve a la carta, que es cuando se refresca. */
-  var RECORD = 0;
+  var RECORD = null;                 // {puntos, nombre, pais} o null
+
+  /* Un nombre lo escribe un desconocido: se pinta como TEXTO y nunca como HTML. El servidor ya
+     lo limpia, pero el que pinta es el ultimo que puede evitar un <script>. */
+  function escaparTxt(t) {
+    var d = document.createElement('span');
+    d.textContent = t;
+    return d.innerHTML;
+  }
 
   function pintarRecord() {
     var el = document.getElementById('game-card-record');
     if (!el) return;
-    el.textContent = RECORD > 0 ? tr('Record') + ': ' + RECORD + ' ' + tr('points') : '';
-    el.hidden = !(RECORD > 0);
+    if (!RECORD) { el.textContent = ''; el.hidden = true; return; }
+    /* La bandera va DELANTE del nombre. Detras, cuando la linea no cabe (a 320 con un nombre de
+       doce y cuatro cifras se pasa por 11px) los puntos suspensivos se comen la bandera y queda
+       media imagen cortada. Delante, lo que se recorta es el nombre, que es lo correcto. */
+    el.innerHTML = tr('Record') + ': ' + RECORD.puntos + ' ' + tr('points')
+      + (RECORD.pais
+          ? ' · <img class="game-card-flag" src="assets/banderas/'
+            + encodeURIComponent(RECORD.pais)
+            + '.webp" width="20" height="15" alt="" decoding="async">'
+          : (RECORD.nombre ? ' ·' : ''))
+      + (RECORD.nombre ? ' ' + escaparTxt(RECORD.nombre) : '');
+    el.hidden = false;
   }
 
   function cargarRecord() {
     fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j && +j.puntos > 0) { RECORD = +j.puntos; pintarRecord(); } })
+      .then(function (j) {
+        if (!j) return;
+        /* Se acepta el record.json viejo, de un solo record: asi el restaurante que ya tenia
+           marca no la pierde el dia que se actualiza el motor. */
+        if (+j.puntos > 0) RECORD = { puntos: +j.puntos, nombre: '', pais: '' };
+        else if (j.top && j.top[0]) RECORD = j.top[0];
+        pintarRecord();
+      })
       .catch(function () {});
   }
   cargarRecord();
@@ -4660,7 +4683,10 @@ writeFileSync(
    aquí para que comparta tokens, tipografías y diccionarios: un solo sitio donde vive el
    diseño y un solo sitio donde viven las traducciones. */
 const juego = buildGame({
-  T, TL, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), IDIOMAS, CLIENTE, CLAVE,
+  /* Los paises del marcador, desde banderas.mjs: el juego pinta el selector y las banderas
+     con la misma lista que valida el endpoint. */
+  PAISES, imgBandera,
+  T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), IDIOMAS, CLIENTE, CLAVE,
   TEMAS_SLUGS: [TEMA_POR_DEFECTO].concat(TEMAS.map((t) => t.slug).filter((s) => s !== TEMA_POR_DEFECTO)),
   TEMA_INK: derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink'],
   /* El mismo titulo en los tres idiomas: es el nombre del juego y el del restaurante. */
@@ -4722,6 +4748,21 @@ writeFileSync(new URL('./server/admin/platos.json', import.meta.url), JSON.strin
    Va en su propio archivo y no dentro de config.php porque config.php se edita a mano (el modo
    demo, los minutos de sesión) y lo que genera el build no puede pisar lo que escribe una
    persona. Es la misma regla que tokens.css, temas.json y platos.json. */
+/* La lista de paises tambien en PHP: la valida record.php y la pinta el panel. Se escribe
+   desde banderas.mjs para que no haya dos listas que se separen al anadir un pais. */
+writeFileSync(
+  new URL('./server/admin/paises.php', import.meta.url),
+  [
+    '<?php',
+    '/* Generado por gen.mjs desde banderas.mjs. No editar a mano: se sobrescribe. */',
+    "define('PAISES_CODIGOS', " + JSON.stringify(CODIGOS) + ');',
+    "define('PAISES_NOMBRE', ["
+      + PAISES.map(([c, es]) => JSON.stringify(c) + ' => ' + JSON.stringify(es)).join(', ')
+      + ']);',
+    '',
+  ].join(NL),
+);
+
 writeFileSync(
   new URL('./server/admin/cliente.php', import.meta.url),
   [
@@ -4797,6 +4838,10 @@ const SUELTOS = [
 const CARPETAS = [
   ['./assets/', 'assets/'],
   ['./server/admin/', 'admin/'],
+  /* Las banderas SI viajan, al reves que assets/hero/. La diferencia es de quien son: el
+     hero lo sube el restaurante desde el panel y pisarlo le borraria su trabajo; las
+     banderas son del motor y aqui esta el original. */
+  ['./assets/banderas/', 'assets/banderas/'],
 ];
 
 rmSync(SUBIR, { recursive: true, force: true });

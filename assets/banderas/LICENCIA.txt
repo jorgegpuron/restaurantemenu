@@ -1,0 +1,9 @@
+Banderas: flag-icons de Panayiotis Lipiridis — https://github.com/lipis/flag-icons
+Licencia MIT. La misma via que los iconos de Tabler que ya usa el proyecto.
+
+Los originales son SVG y pesan 198 KB entre las 36, con Espana en 81 KB y Mexico en 85: sus
+escudos son ilustraciones detalladas que a 20 pixeles no se ven. Aqui van rasterizadas a 60x45
+en WebP, que es tres veces el tamano al que se pintan, y las 36 juntas pesan 35 KB.
+
+Para anadir un pais: se baja su SVG de flag-icons, se rasteriza a 60x45 y se guarda aqui con su
+codigo ISO en minuscula. Y se anade a PAISES en banderas.mjs, que es quien decide cuales salen.

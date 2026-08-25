@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/config.php';
+require __DIR__ . '/paises.php';   // lo escribe el build desde banderas.mjs
 
 /* Los avisos de PHP van al registro del servidor, nunca a la pantalla: un warning pintado en
    el navegador enseña rutas internas del hosting a quien no debe verlas. */
@@ -460,20 +461,53 @@ function dia_semana(string $fecha): string {
  * La puntuación más alta que se ha hecho aquí. La escribe record.php cuando alguien la supera
  * y este panel sólo la lee y la pone a cero. Vive en la raíz y no en admin/ porque el juego,
  * que es público, tiene que poder leerla — y el .htaccess de aquí deniega todo .json. */
+/* Los tres mejores. Se lee el fichero PRIVADO, que es el que manda y el que lleva el
+   identificador de cada marca; el publico de la raiz es una copia sin el. */
 function record_leer(): array {
-  $raw = @file_get_contents(RECORD_PATH);
+  $raw = @file_get_contents(MARCADOR_PATH);
   $r = $raw === false ? null : json_decode($raw, true);
-  if (!is_array($r)) return ['puntos' => 0, 'fecha' => ''];
-  return [
-    'puntos' => max(0, (int) ($r['puntos'] ?? 0)),
-    'fecha'  => (string) ($r['fecha'] ?? ''),
-  ];
+  /* Sin privado se mira el publico: es lo que pasa la primera vez despues de actualizar. */
+  if (!is_array($r)) {
+    $raw = @file_get_contents(RECORD_PATH);
+    $r = $raw === false ? null : json_decode($raw, true);
+  }
+  if (!is_array($r)) return [];
+  if (isset($r['puntos'])) {                       // el formato viejo, de un solo record
+    return [['id' => '', 'puntos' => (int) $r['puntos'], 'nombre' => '', 'pais' => '',
+             'fecha' => (string) ($r['fecha'] ?? '')]];
+  }
+  $top = [];
+  foreach ((array) ($r['top'] ?? []) as $x) {
+    if (!is_array($x) || (int) ($x['puntos'] ?? 0) < 1) continue;
+    $top[] = [
+      'id'     => (string) ($x['id'] ?? ''),
+      'puntos' => (int) $x['puntos'],
+      'nombre' => (string) ($x['nombre'] ?? ''),
+      'pais'   => (string) ($x['pais'] ?? ''),
+      'fecha'  => (string) ($x['fecha'] ?? ''),
+    ];
+  }
+  return $top;
+}
+
+/* Escribe los dos, el privado y su copia publica sin identificadores. Misma regla que
+   record.php: primero el que manda. */
+function record_guardar(array $top): bool {
+  $uno = static fn(string $ruta, array $datos) => escribir_atomico(
+    $ruta, (string) json_encode($datos, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+  if (!$uno(MARCADOR_PATH, ['top' => array_values($top)])) return false;
+  $uno(RECORD_PATH, ['top' => array_values(array_map(
+    static fn(array $x) => ['puntos' => $x['puntos'], 'nombre' => $x['nombre'],
+                            'pais' => $x['pais'], 'fecha' => $x['fecha']], $top))]);
+  return true;
 }
 
 /* Poner a cero es BORRAR el fichero, no escribir un cero: un record.json con puntos:0 y una
    fecha diría que alguien hizo cero puntos ese día. Sin fichero, la casa no tiene récord. */
 function record_a_cero(): bool {
-  return !is_file(RECORD_PATH) || @unlink(RECORD_PATH);
+  $a = !is_file(MARCADOR_PATH) || @unlink(MARCADOR_PATH);
+  $b = !is_file(RECORD_PATH) || @unlink(RECORD_PATH);
+  return $a && $b;
 }
 
 function guardar_clave(string $hash): bool {
@@ -1331,6 +1365,29 @@ if ($csrfOk) {
 
   /* Poner el récord a cero. Va en su propio botón y no en el Guardar de la pestaña: es una
      acción destructiva y no se pulsa por inercia al lado de un interruptor. */
+  /* Borrar el nombre de una marca sin borrar la marca. Es lo que se usa cuando alguien escribe
+     algo feo: la lista de palabrotas de record.php quita el 90% y esto es lo que de verdad
+     protege, porque una lista nunca esta completa. */
+  if (isset($_POST['borrar_nombre'])) {
+    $pestana = 'juego';
+    $cual = (string) $_POST['borrar_nombre'];
+    $top = record_leer();
+    $tocado = false;
+    foreach ($top as $i => $x) {
+      if ((string) $i !== $cual) continue;
+      $top[$i]['nombre'] = '';
+      $top[$i]['pais'] = '';
+      $tocado = true;
+    }
+    if (!$tocado) {
+      $error = 'Esa marca ya no está.';
+    } elseif (record_guardar($top)) {
+      $aviso = 'Nombre borrado. La puntuación se queda.';
+    } else {
+      $error = 'No he podido escribir el marcador.';
+    }
+  }
+
   if (isset($_POST['reiniciar_record'])) {
     $pestana = 'juego';
     if (record_a_cero()) {
@@ -1997,12 +2054,28 @@ $CUENTAS = [
   }
 
   /* El récord, en grande. Es un solo número y es lo único que hay que mirar en esta pestaña. */
-  .record-n{
-    margin:0 0 var(--s2);
-    font-family:var(--title-font);font-size:44px;font-weight:700;line-height:1;
-    font-variant-numeric:tabular-nums;color:var(--ink);
+  /* El podio del panel. Una linea por marca, con su bandera y su boton de quitar el nombre. */
+  .podio-admin{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+  .podio-admin li{
+    display:flex;align-items:center;gap:var(--s2);
+    padding:9px 2px;border-top:1px solid var(--hairline);
   }
-  .record-n small{font-size:15px;font-weight:600;color:var(--muted);margin-left:6px}
+  .podio-admin li:first-child{border-top:0}
+  .pod-pts{
+    font-family:var(--title-font);font-size:22px;font-weight:700;color:var(--ink);
+    font-variant-numeric:tabular-nums;min-width:2.6em;
+  }
+  .pod-quien{font-family:var(--title-font);font-weight:600;color:var(--ink)}
+  .pod-quien.anon{color:var(--muted);font-weight:400;font-style:italic}
+  .pod-bandera{border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.2);flex:0 0 auto}
+  .pod-fecha{margin-left:auto;color:var(--muted);font-size:12px;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pod-x{flex:0 0 auto}
+  @media (max-width:520px){
+    .podio-admin li{flex-wrap:wrap}
+    .pod-fecha{margin-left:auto}
+    .pod-x{width:100%;margin-top:4px}
+  }
 
   /* ---------- precios ---------- */
   .prow{
@@ -3366,36 +3439,61 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       </div>
     </form>
 
-    <h2>El récord de la casa</h2>
+    <h2>Los tres mejores</h2>
     <div class="card">
-      <?php if ($record["puntos"] > 0): ?>
-        <p class="record-n"><?= number_format($record["puntos"], 0, ",", ".") ?>
-          <small>puntos</small></p>
+      <?php if (!$record): ?>
         <p class="hint" style="margin:0 2px">
-          <?php if ($record["fecha"] !== ""): ?>
-            Se hizo el
-            <strong><?= h((new DateTimeImmutable($record["fecha"]))->format("d/m/Y")) ?></strong>.
-          <?php endif; ?>
-          Sale en la tarjeta del juego dentro de la carta y en el propio juego, y quien lo supere
-          lo cambia solo.
+          <strong>Todavía no ha jugado nadie.</strong> El primero que puntúe abre el marcador.
         </p>
       <?php else: ?>
-        <p class="hint" style="margin:0 2px">
-          <strong>Todavía no hay récord.</strong> Lo pone la primera partida que puntúe.
+        <ol class="podio-admin">
+          <?php foreach ($record as $i => $x): ?>
+          <li>
+            <span class="pod-pts"><?= number_format($x["puntos"], 0, ",", ".") ?></span>
+            <?php if ($x["nombre"] !== ""): ?>
+              <span class="pod-quien"><?= h($x["nombre"]) ?></span>
+            <?php else: ?>
+              <span class="pod-quien anon">sin nombre</span>
+            <?php endif; ?>
+            <?php if ($x["pais"] !== "" && isset(PAISES_NOMBRE[$x["pais"]])): ?>
+              <img class="pod-bandera" src="../assets/banderas/<?= h($x["pais"]) ?>.webp"
+                   width="20" height="15"
+                   alt="<?= h(PAISES_NOMBRE[$x["pais"]]) ?>">
+            <?php endif; ?>
+            <span class="pod-fecha">
+              <?php if ($x["fecha"] !== ""): ?>
+                <?= h((new DateTimeImmutable($x["fecha"]))->format("d/m/Y")) ?>
+              <?php endif; ?>
+            </span>
+            <?php if ($x["nombre"] !== "" || $x["pais"] !== ""): ?>
+            <form method="post" style="margin:0">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+              <button class="ghost pod-x" name="borrar_nombre" value="<?= (int) $i ?>"
+                      type="submit" title="Quitar el nombre y dejar la puntuación">
+                Quitar nombre</button>
+            </form>
+            <?php endif; ?>
+          </li>
+          <?php endforeach; ?>
+        </ol>
+        <p class="hint" style="margin:var(--s3) 2px 0">
+          El primero sale en la tarjeta del juego dentro de la carta; los tres, al acabar una
+          partida. El nombre y el país los escribe quien juega, y por eso hay un botón para
+          quitarlos: <strong>la lista de palabrotas del servidor nunca está completa</strong>.
+          Quitar el nombre deja la puntuación en su sitio.
         </p>
-      <?php endif; ?>
 
-      <?php if ($record["puntos"] > 0): ?>
-      <?php /* En su propio formulario y no en el Guardar de arriba: borra algo que no se
-               recupera, y no se pulsa por inercia al lado de un interruptor. */ ?>
-      <div class="fila-accion">
-        <span class="hint" style="margin:0">Empieza de cero. No se puede deshacer.</span>
-        <form method="post" style="margin:0">
-          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-          <button class="ghost" name="reiniciar_record" value="1" type="submit">
-            Poner el récord a cero</button>
-        </form>
-      </div>
+        <?php /* Vaciar el marcador va en su propio formulario y no en el Guardar de arriba:
+                 borra algo que no se recupera, y no se pulsa por inercia al lado de un
+                 interruptor. */ ?>
+        <div class="fila-accion">
+          <span class="hint" style="margin:0">Empieza de cero. No se puede deshacer.</span>
+          <form method="post" style="margin:0">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <button class="ghost" name="reiniciar_record" value="1" type="submit">
+              Vaciar el marcador</button>
+          </form>
+        </div>
       <?php endif; ?>
     </div>
   </section>

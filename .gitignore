@@ -8,14 +8,16 @@ server/admin/fuentes.html
 server/admin/platos.json
 server/admin/temas.json
 server/admin/cliente.php
+server/admin/paises.php
 
 # Lo que escribe el panel en el servidor. Nunca debe entrar aquí, ni siquiera si un día baja
-# una copia por FTP para depurar algo: son contraseñas, accesos y canjes de un negocio real.
+# una copia por FTP para depurar algo: son contraseñas, accesos y marcas de un negocio real.
 server/admin/clave.php
 server/admin/superclave.php
 server/admin/intentos.json
 server/admin/accesos.log
-server/admin/canjes.json
+server/admin/marcador.json
+record.json
 server/admin/permitir-hash.txt
 server/admin/copias/
 
