@@ -4025,3 +4025,42 @@ Chapa: con todo cuadrado, «panel 1787707162422 · carta 1787707162422» y sin a
 Copias: con la carpeta vacía, guardar un agotado deja **0 copias**. Publicar una subida del 10%
 crea `anterior.json` y `2026-08-25.json`. Y guardar otro agotado después **no** vuelve a
 copiar: los dos ficheros conservan su hora.
+
+## Las copias: las tres últimas, una por cambio (26 Aug 2026)
+
+Con la regla de «sólo cuando cambian los precios» recién puesta, el resto del diseño dejaba de
+encajar. Se rehace entero:
+
+| antes | ahora |
+|---|---|
+| una por **fecha de servicio**, la primera del día | una por **cada cambio de precios** |
+| `anterior.json` aparte, sin caducar | no existe: la más nueva de la lista ya es esa |
+| `COPIAS_DIAS`, 30 | `COPIAS_MAX`, **3** |
+| `2026-08-25.json` | `2026-08-26-0307.json`, con hora |
+
+**Por qué la hora en el nombre.** Con una copia por día, el segundo cambio de precios de la
+misma jornada no dejaba rastro: la copia ya estaba escrita y no se tocaba. Y `anterior.json` era,
+por definición, la más reciente de la lista — dos nombres para el mismo fichero.
+
+La fecha se lee del **nombre** y nunca de `filemtime`: una copia se puede bajar y volver a subir,
+y ahí su fecha de sistema deja de decir cuándo se hizo el cambio, que es lo único que interesa
+saber de ella.
+
+Dos cambios en el mismo minuto se pisan. Está bien: es el mismo arrepentimiento.
+
+### Un botón para vaciarlas
+
+Hizo falta el día del cambio: lo que había guardado eran fotos de cualquier guardado —un
+agotado, un destacado— y no sirven para lo único que ahora se quiere revertir. Va en su propio
+formulario, como «Vaciar el marcador», porque borra algo que no se recupera.
+
+`copias_listar()` sigue reconociendo los dos nombres viejos (`anterior.json` y el de sólo fecha)
+para poder listarlos y borrarlos desde el panel. En el orden van al final, así que la purga los
+barre primero.
+
+### Comprobado corriendo
+
+Con 7 copias sembradas —5 del formato nuevo, 2 del viejo— un cambio de precios deja exactamente
+**3**: las dos más nuevas de las sembradas y la recién hecha. Las dos del formato viejo caen.
+«Borrar todas las copias» deja la carpeta vacía **y conserva su `.htaccess`**, que no es una
+copia y no se lista.

@@ -89,10 +89,9 @@ define('ESTADO_PATH', __DIR__ . '/../estado.json');
  * La carpeta la crea el panel sola la primera vez que guarda algo. */
 define('COPIAS_DIR', __DIR__ . '/copias');
 
-/* Cuántos días de historial se guardan. Uno por fecha de servicio, más anterior.json, que es
- * aparte y no caduca. A 30 días, unos 31 ficheros de pocos KB: nada para el hosting y
- * suficiente para cubrir 'esto se rompió la semana pasada y nadie lo dijo'. */
-define('COPIAS_DIAS', 30);
+// Cuantas copias de seguridad se guardan. Se escribe una por cada cambio de precios, asi que
+// tres son los tres ultimos cambios: suficiente para volver atras y poco para encontrarla.
+define('COPIAS_MAX', 3);
 
 // Catálogo de platos que genera gen.mjs. Se regenera con la carta; no se edita a mano.
 define('PLATOS_PATH', __DIR__ . '/platos.json');

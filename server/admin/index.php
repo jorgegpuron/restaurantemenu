@@ -7,6 +7,8 @@ require __DIR__ . '/paises.php';   // lo escribe el build desde banderas.mjs
    trae la marca, y el panel tiene que seguir abriendo igual: la chapa dira que no lo sabe. */
 if (!defined('BUILD_ID')) define('BUILD_ID', '');
 if (!defined('BUILD_FECHA')) define('BUILD_FECHA', '');
+/* config.php si se edita a mano, y uno del servidor puede ser anterior al cambio de nombre. */
+if (!defined('COPIAS_MAX')) define('COPIAS_MAX', defined('COPIAS_DIAS') ? (int) COPIAS_DIAS : 3);
 
 /* Los avisos de PHP van al registro del servidor, nunca a la pantalla: un warning pintado en
    el navegador enseña rutas internas del hosting a quien no debe verlas. */
@@ -388,26 +390,42 @@ function copias_listar(): array {
   $out = [];
   foreach ((array) @scandir(COPIAS_DIR) as $f) {
     $f = (string) $f;
-    if (!preg_match('/^(anterior|[0-9]{4}-[0-9]{2}-[0-9]{2})\.json$/', $f)) continue;
+    /* El nombre de ahora lleva hora: 2026-08-26-0223.json. Se siguen reconociendo los dos de
+       antes —anterior.json y el de solo fecha— para poder listarlos y borrarlos desde aqui;
+       lo que no se reconoce no se lista, no se descarga y no se restaura. */
+    if (!preg_match('/^(anterior|[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4})?)\.json$/', $f)) continue;
     $ruta = COPIAS_DIR . '/' . $f;
     $out[] = ['nombre' => $f, 'bytes' => (int) @filesize($ruta), 'ts' => (int) @filemtime($ruta)];
   }
-  /* De la mas nueva a la mas vieja, con anterior.json siempre arriba: es la que se usa. */
+  /* De la mas nueva a la mas vieja. El nombre empieza por la fecha, asi que ordenar por texto
+     ya es ordenar por tiempo. anterior.json, si queda alguno viejo, se va al final: no se sabe
+     de cuando es. */
   usort($out, function (array $a, array $b): int {
-    $pa = $a['nombre'] === 'anterior.json';
-    $pb = $b['nombre'] === 'anterior.json';
-    if ($pa !== $pb) return $pa ? -1 : 1;
+    $va = $a['nombre'] === 'anterior.json';
+    $vb = $b['nombre'] === 'anterior.json';
+    if ($va !== $vb) return $va ? 1 : -1;
     return strcmp($b['nombre'], $a['nombre']);
   });
   return $out;
 }
 
+/* Se queda con las COPIAS_MAX primeras de la lista, que ya viene de la mas nueva a la mas
+   vieja, y borra el resto. Barre tambien los nombres viejos —anterior.json y los de solo
+   fecha— porque van al final del orden y caen los primeros. */
 function copias_purgar(): void {
-  $fechas = [];
-  foreach (copias_listar() as $c) {
-    if ($c['nombre'] !== 'anterior.json') $fechas[] = $c['nombre'];
+  foreach (array_slice(copias_listar(), COPIAS_MAX) as $viejo) {
+    @unlink(COPIAS_DIR . '/' . $viejo['nombre']);
   }
-  foreach (array_slice($fechas, COPIAS_DIAS) as $viejo) @unlink(COPIAS_DIR . '/' . $viejo);
+}
+
+/* Vaciarlas todas. Lo pide el panel con su boton: las copias de antes de la regla de precios
+   son fotos de cualquier guardado y no sirven para lo unico que ahora se quiere revertir. */
+function copias_vaciar(): int {
+  $n = 0;
+  foreach (copias_listar() as $c) {
+    if (@unlink(COPIAS_DIR . '/' . $c['nombre'])) $n++;
+  }
+  return $n;
 }
 
 /* Se llama ANTES de escribir, con el estado que todavia esta en disco. Si falla no dice nada y
@@ -430,12 +448,16 @@ function copia_de_seguridad(array $nuevo): void {
   if ($antes == $ahora) return;
 
   if (copias_dir() === null) return;
-  escribir_atomico(COPIAS_DIR . '/anterior.json', $raw);
-  $delDia = COPIAS_DIR . '/' . fecha_servicio() . '.json';
-  if (!is_file($delDia)) {
-    escribir_atomico($delDia, $raw);
-    copias_purgar();
-  }
+
+  /* Una por cambio, con la hora de Canarias en el nombre. Antes era una por dia de servicio y
+     el segundo cambio de precios del mismo dia no dejaba rastro. Dos cambios en el mismo
+     minuto se pisan, y esta bien: es el mismo arrepentimiento.
+
+     La fecha va en el nombre y no se saca de filemtime porque el fichero se puede mover o
+     restaurar y la fecha del sistema deja de decir cuando se hizo el cambio. */
+  $sello = (new DateTimeImmutable('now', new DateTimeZone(TZ)))->format('Y-m-d-Hi');
+  escribir_atomico(COPIAS_DIR . '/' . $sello . '.json', $raw);
+  copias_purgar();
 }
 
 
@@ -1404,6 +1426,17 @@ if ($csrfOk) {
     } else {
       $error = 'No he podido escribir el marcador.';
     }
+  }
+
+  /* Vaciar las copias. Va en su propio formulario y no en ningun Guardar: borra algo que no
+     se recupera. Hizo falta al cambiar la regla: las copias de antes son fotos de cualquier
+     guardado y no sirven para lo unico que ahora se quiere revertir, un cambio de precios. */
+  if (isset($_POST['vaciar_copias'])) {
+    $pestana = 'marca';
+    $n = copias_vaciar();
+    $aviso = $n === 0
+      ? 'No había ninguna copia que borrar.'
+      : 'Borradas ' . $n . ' copia(s). La próxima se escribe en el siguiente cambio de precios.';
   }
 
   if (isset($_POST['reiniciar_record'])) {
@@ -3893,7 +3926,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         no se puede deshacer a mano: una subida del 10% toca cientos de platos. Lo demás —un
         agotado, un destacado, una oferta— se deshace desmarcando la casilla, y guardar una
         copia por cada uno llenaba la carpeta de fotos iguales que sólo estorban para
-        encontrar la que importa. Se guardan los últimos <?= (int) COPIAS_DIAS ?> días.
+        encontrar la que importa. Se guardan las <strong><?= (int) COPIAS_MAX ?> últimas</strong>.
       </p>
 
       <form method="post">
@@ -3912,25 +3945,25 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php else: ?>
         <div class="copias">
           <?php foreach ($copias as $c):
-            $es_anterior = $c['nombre'] === 'anterior.json';
-            $kb          = max(1, (int) round($c['bytes'] / 1024));
-            /* La fecha sale del NOMBRE, no de filemtime. La copia del servicio del 22 se
-               escribe en el primer guardado de ese servicio, que puede caer a las 02:30 del
-               23: con la fecha del fichero, esa copia se anunciaba con el día equivocado. */
-            $dia         = $es_anterior ? null : new DateTimeImmutable(substr($c['nombre'], 0, 10));
-            $sello       = (new DateTimeImmutable('@' . $c['ts']))->setTimezone(new DateTimeZone(TZ));
-            $que         = $es_anterior
-                         ? 'Antes del último guardado'
-                         : 'Al empezar el ' . mb_strtolower(dia_semana($dia->format('Y-m-d')), 'UTF-8')
-                           . ' ' . $dia->format('d/m/y');
-            /* De anterior.json interesa la hora — es la de hace un rato. De las del día no:
-               su fecha ya está en el título y la hora en que se escribieron no dice nada. */
-            $dato        = $es_anterior
-                         ? $sello->format('d/m/y H:i') . ' · ' . $kb . ' KB'
-                         : $kb . ' KB';
-            $confirmar   = $es_anterior
-                         ? '¿Deshacer el último guardado? La carta vuelve a como estaba antes de él.'
-                         : '¿Devolver la carta a como estaba el ' . $dia->format('d/m/y') . '?'; ?>
+            $kb = max(1, (int) round($c['bytes'] / 1024));
+            /* La fecha sale del NOMBRE y no de filemtime: el fichero se puede mover, bajar y
+               volver a subir, y entonces su fecha de sistema deja de decir cuando se hizo el
+               cambio de precios, que es lo unico que interesa saber de el. */
+            $sinExt = substr($c['nombre'], 0, -5);
+            if (preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})$/', $sinExt, $m)) {
+              $dia   = new DateTimeImmutable($m[1]);
+              $cuando = mb_strtolower(dia_semana($m[1]), 'UTF-8') . ' '
+                      . $dia->format('d/m/y') . ' · ' . $m[2] . ':' . $m[3];
+            } elseif (preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $sinExt)) {
+              $dia    = new DateTimeImmutable($sinExt);
+              $cuando = mb_strtolower(dia_semana($sinExt), 'UTF-8') . ' ' . $dia->format('d/m/y');
+            } else {
+              $cuando = 'de antes';               // anterior.json, si queda alguno
+            }
+            $que       = 'Precios de antes del cambio · ' . $cuando;
+            $dato      = $kb . ' KB';
+            $confirmar = '¿Devolver los precios a como estaban antes del cambio del '
+                       . $cuando . '?'; ?>
             <div class="copia">
               <span class="copia-txt">
                 <span class="copia-que"><?= h($que) ?></span>
@@ -3954,6 +3987,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           Restaurar también se puede deshacer: antes de escribir, el panel apunta cómo está
           ahora. Nunca te quedas sin salida por haber pulsado el botón equivocado.
         </p>
+      <?php endif; ?>
+
+      <?php if ($copias): ?>
+        <div class="fila-accion">
+          <span class="hint" style="margin:0">Empezar de cero. No se puede deshacer.</span>
+          <form method="post" style="margin:0">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <button class="ghost" name="vaciar_copias" value="1" type="submit">
+              Borrar todas las copias</button>
+          </form>
+        </div>
       <?php endif; ?>
     </div>
 
