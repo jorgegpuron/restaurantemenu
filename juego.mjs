@@ -657,11 +657,26 @@ h1{
   /* El récord va en su propia petición y no dentro de estado.json: ahí están los agotados y
      los precios, y el endpoint público que escribe el récord no puede tocar eso ni por
      accidente. Cuesta una petición de cuarenta bytes. */
-  fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) { CFG.top = leerTop(j); })
-    .catch(function () {})
-    .then(function () { pintarRecord(); });
+  /* Dos sitios y un orden. Primero el fichero plano, que no cuesta PHP; si no trae marca -no
+     existe, o la raiz del servidor no deja escribirlo- se pregunta al endpoint, que lee el
+     marcador de dentro de admin/. Sin este segundo intento, un restaurante con record en el
+     panel abria la portada sin cartel y la marca solo salia al acabar una partida, que es
+     cuando llega en la respuesta del POST. */
+  function pedirRecord() {
+    return fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return leerTop(j); })
+      .catch(function () { return []; })
+      .then(function (top) {
+        if (top.length) return top;
+        return fetch('admin/record.php?t=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) { return leerTop(j); })
+          .catch(function () { return []; });
+      })
+      .then(function (top) { CFG.top = top; pintarRecord(); });
+  }
+  pedirRecord();
 
   /* El récord de la casa, en la portada y en el resultado. Sin récord todavía no se escribe
      «Récord: 0», que se lee como un fallo: sencillamente no aparece la línea. */

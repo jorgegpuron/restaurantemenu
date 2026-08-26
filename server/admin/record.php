@@ -19,7 +19,8 @@
 require __DIR__ . '/config.php';
 require __DIR__ . '/paises.php';          // lo escribe el build desde banderas.mjs
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+$metodo = (string) ($_SERVER['REQUEST_METHOD'] ?? '');
+if ($metodo !== 'POST' && $metodo !== 'GET') {
   http_response_code(405);
   exit;
 }
@@ -44,13 +45,26 @@ if (!is_array($e) || empty($e['game']['on'])) {
   exit;
 }
 
+/* ------------------------------------------------------------------ leer el marcador (GET)
+ * El juego pide el récord al cargar en record.json, que es un fichero plano y no cuesta PHP. Si
+ * ese fichero no está —nunca se escribió, o la raíz del servidor no deja escribir en ella— el
+ * juego vuelve a preguntar aquí. Sin esto, un restaurante con récord en el panel enseñaba la
+ * portada sin cartel y la marca sólo aparecía al acabar una partida, que es cuando llega en la
+ * respuesta del POST.
+ *
+ * Devuelve exactamente lo mismo que un POST: el podio sin identificadores. No escribe nada. */
+if ($metodo === 'GET') {
+  responder(marcador_leer());
+}
+
 /* ------------------------------------------------------------------ el marcador que hay */
 function marcador_leer(): array {
   $raw = @file_get_contents(MARCADOR_PATH);
   $j = $raw === false ? null : json_decode($raw, true);
-  if (!is_array($j)) return [];
   /* Sin marcador privado se mira el público: es lo que pasa al actualizar un restaurante que ya
-     tenía marca, y así no la pierde. Los identificadores se rehacen solos al primer guardado. */
+     tenía marca, y así no la pierde. Los identificadores se rehacen solos al primer guardado.
+     El `return []` que había aquí delante dejaba este respaldo muerto: sin marcador.json se
+     contestaba vacío aunque record.json estuviera entero al lado. */
   if (!is_array($j)) {
     $raw = @file_get_contents(RECORD_PATH);
     $j = $raw === false ? null : json_decode($raw, true);

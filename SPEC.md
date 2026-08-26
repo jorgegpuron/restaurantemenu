@@ -4121,3 +4121,68 @@ nombre de plato cortado por la mitad se lee peor que una línea con hueco.
 
 Las cinco de la captura —las tres de Chemex y las dos de French Press— pasan a **una línea**.
 En móvil la columna mide 256 y siguen partiendo, que es lo correcto: ahí no sobra ancho.
+
+## El récord sale al cargar, no al acabar la partida (26 Aug 2026)
+
+El cartel del récord aparecía en la portada sólo después de jugar. No era la portada: era el
+fichero. El juego pide `record.json` al arrancar, y en el servidor ese fichero **no existía**
+(404 en `socialcard.es/tinge_of_turmeric/menu2/record.json`). Al acabar una partida el podio
+llega dentro de la respuesta del POST a `admin/record.php`, y sólo entonces había algo que
+colgar del marco.
+
+`record.json` es una copia pública del marcador que vive en `admin/marcador.json`. Se escribe
+sola al entrar alguien en el podio, así que puede faltar por dos motivos: nadie ha marcado
+todavía, o la raíz del servidor no deja escribir en ella. El segundo caso no avisaba de nada:
+
+```php
+function marcador_escribir(array $top): bool {
+  if (!escribir_json(MARCADOR_PATH, ...)) return false;
+  escribir_json(RECORD_PATH, ...);   // el resultado se tiraba
+  return true;
+}
+```
+
+El panel enseñaba el podio, el juego no, y así para siempre.
+
+### El juego deja de depender de que ese fichero exista
+
+`record.php` acepta ahora **GET** además de POST, y contesta lo mismo que un POST: el podio sin
+identificadores, `no-store`, sin escribir nada. Los dos filtros de siempre siguen delante — el de
+robots y el del juego apagado, que devuelve 204.
+
+En el arranque el juego pregunta en dos sitios y en este orden:
+
+1. `record.json`, que es un fichero plano y no cuesta PHP;
+2. si eso no trae marca, `admin/record.php`, que lee el marcador de dentro de `admin/`.
+
+Con récord publicado se hace **una sola petición**: la segunda sólo sale cuando la primera vuelve
+vacía. Y `leerTop()` es el mismo para las tres entradas (fichero, endpoint y respuesta del POST),
+así que no hay dos formas de leer un podio.
+
+### Y un respaldo que estaba muerto
+
+`marcador_leer()` decía mirar `record.json` cuando no hay `marcador.json` —el caso de un
+restaurante que ya tenía marca antes de la versión del podio— pero volvía antes de llegar:
+
+```php
+$j = $raw === false ? null : json_decode($raw, true);
+if (!is_array($j)) return [];     // ← esto dejaba muerto el respaldo de abajo
+if (!is_array($j)) { ...RECORD_PATH... }
+```
+
+Fuera la primera línea. Sin ella, la marca antigua se recupera.
+
+### Comprobado corriendo
+
+Con PHP 8.4 sirviendo una copia de `2-subir`, `marcador.json` sembrado con tres marcas y **sin**
+`record.json` en la raíz:
+
+| | resultado |
+|---|---|
+| GET a `admin/record.php` | `{"top":[{"puntos":47,"nombre":"Jorge",...}]}` |
+| portada del juego, sin jugar | cartel visible, «Récord 47 Jorge» con bandera, 496×70 en y0 |
+| peticiones | `record.json` y después `admin/record.php` |
+| con `record.json` ya publicado | **sólo** `record.json`; el endpoint no se llama |
+| juego apagado | endpoint 204, cartel oculto, cero errores en consola |
+| sin `marcador.json` y con `record.json` | `{"top":[{"puntos":29,"nombre":"Lola",...}]}` (antes: vacío) |
+| PUT a `admin/record.php` | 405 |
