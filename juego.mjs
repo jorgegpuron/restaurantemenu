@@ -84,8 +84,42 @@ body{
   user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
+/* ---------- el fondo en movimiento ----------
+ *
+ * Un video con canal alfa —chiles, copos y bombas subiendo despacio— por DEBAJO de todo, sobre
+ * el color de la marca, que sigue siendo el fondo de verdad: si el video no carga, no se
+ * descodifica o el navegador lo bloquea, la pantalla queda exactamente como estaba.
+ *
+ * El alfa se comprueba de verdad antes de dejarlo puesto. Hay navegadores —Safari es el caso—
+ * que reproducen WebM y se saltan su canal alfa: ahi el video seria un RECTANGULO NEGRO encima
+ * del juego. Se mira un fotograma en un canvas y, si sale opaco, el video se quita y queda el
+ * color de siempre. Ver comprobarAlfa() abajo.
+ *
+ * Se probo mix-blend-mode:screen como red de seguridad, que borra el negro solo. No vale aqui:
+ * el fondo de la marca es un tono medio claro y screen sobre claro no pinta nada — las siluetas
+ * desaparecian del todo.
+ *
+ * No se ensena durante la partida. Las siluetas son los mismos dibujos que las fichas que hay
+ * que tocar, y detras del tablero se leerian como fichas que no responden. */
+.fondo-video{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  z-index:0;
+  opacity:.6;
+  pointer-events:none;
+}
+.fondo-video[hidden]{display:none}
+
+@media (prefers-reduced-motion: reduce){
+  .fondo-video{display:none}
+}
+
 .wrap{
   position:relative;
+  z-index:1;
   display:flex;
   flex-direction:column;
   min-height:100dvh;                 /* nunca 100vh: en móvil la barra del navegador miente */
@@ -490,6 +524,11 @@ h1{
 </style>
 </head>
 <body>
+<video class="fondo-video" id="fondo-video" autoplay muted loop playsinline preload="auto"
+       disablepictureinpicture aria-hidden="true" tabindex="-1">
+  <source src="assets/chilli-rush-fondo-alpha.webm" type="video/webm">
+</video>
+
 <div class="wrap">
   <!-- El record de la casa, colgado del marco. Lo rellena pintarRecord(); mientras no haya
        marca no se pinta y la portada queda como si esto no existiera. -->
@@ -640,6 +679,41 @@ h1{
     if (meta && fondo) meta.content = fondo;
   }
   aplicarTema(document.documentElement.dataset.tema);
+
+  /* ---- el fondo en movimiento ----
+
+     Con «menos movimiento» activado el video no se esconde: se quita del todo, para no bajar
+     250 KB que no se van a ver. El CSS ya lo oculta; esto es lo que evita la descarga. */
+  var vid = document.getElementById('fondo-video');
+  if (vid && reduce) { vid.remove(); vid = null; }
+
+  /* Y si el navegador reproduce el video pero ignora su canal alfa, lo que se ve es un
+     rectangulo negro tapando el juego. No hay forma de preguntarlo, asi que se mira: un
+     fotograma en un canvas diminuto y a contar transparencias. El video es casi todo hueco, de
+     modo que con alfa de verdad hay pixeles a cero; si TODOS salen opacos, no lo respeta y el
+     video se quita. Si algo falla por el camino se quita tambien: mas vale el fondo de color
+     que un negro encima del juego. */
+  function comprobarAlfa() {
+    if (!vid) return;
+    try {
+      var c = document.createElement('canvas');
+      c.width = 32; c.height = 57;
+      var g = c.getContext('2d', { willReadFrequently: false });
+      g.clearRect(0, 0, c.width, c.height);
+      g.drawImage(vid, 0, 0, c.width, c.height);
+      var d = g.getImageData(0, 0, c.width, c.height).data;
+      var min = 255;
+      for (var i = 3; i < d.length; i += 4) { if (d[i] < min) min = d[i]; }
+      if (min > 250) { vid.remove(); vid = null; }
+    } catch (e) { vid.remove(); vid = null; }
+  }
+  if (vid) {
+    if (vid.readyState >= 2) comprobarAlfa();
+    else vid.addEventListener('loadeddata', comprobarAlfa, { once: true });
+    /* Si no llega a cargar —formato no soportado, red caida— no queda nada que quitar: el
+       elemento vacio no pinta. */
+    vid.addEventListener('error', function () { if (vid) { vid.remove(); vid = null; } });
+  }
 
   fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
@@ -867,6 +941,17 @@ h1{
        donde salen los chiles. Vuelve solo al volver a la portada, y solo si hay marca. */
     var cartel = document.getElementById('marcador');
     if (cartel) cartel.hidden = (id !== 's-intro') || !CFG.top[0];
+
+    /* El fondo se retira del tablero: sus siluetas son las mismas que las fichas y detras de la
+       partida se leen como fichas que no responden. Y escondido se pausa, que es medio minuto
+       de video descodificandose para nadie. */
+    var fondo = vid;
+    if (fondo) {
+      var fuera = (id === 's-play');
+      fondo.hidden = fuera;
+      if (fuera) fondo.pause();
+      else { var pr = fondo.play(); if (pr && pr.catch) pr.catch(function () {}); }
+    }
   }
 
   function limpiarTablero() {

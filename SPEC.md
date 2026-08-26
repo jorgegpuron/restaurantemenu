@@ -4259,3 +4259,46 @@ Comprobado: nombre de 16, el podio enseña «Jorgeeeeeeee» con la fila propia m
 Si `estado.json` no carga, `CFG.on` se queda en `false` y **no se manda ninguna marca**. Es el
 interruptor del juego y tiene que fallar hacia apagado: un restaurante que apagó el juego no puede
 seguir acumulando récords porque un fichero no conteste.
+
+## El fondo del juego, en movimiento (26 Aug 2026)
+
+`assets/chilli-rush-fondo-alpha.webm`: 1080×1920, VP9 con canal alfa, 8 segundos en bucle, 20
+fotogramas por segundo, **253 KB**. Chiles, copos y bombas subiendo despacio, en blanco y
+recortados sobre transparencia.
+
+Va **debajo de todo y encima del color**, que sigue siendo el fondo de verdad: `position:fixed`,
+`object-fit:cover`, `opacity:.6`, sin sonido, en bucle, `playsinline` y `pointer-events:none`. Si
+el vídeo no carga, la pantalla queda exactamente como estaba.
+
+### No sale durante la partida
+
+Las siluetas del vídeo son **los mismos dibujos que las fichas** que hay que tocar. Detrás del
+tablero se leen como fichas que no responden, así que en `s-play` el vídeo se esconde y se pausa
+—medio minuto descodificándose para nadie— y vuelve al acabar. Se ve en la portada, en el 3-2-1
+y en el resultado.
+
+### El canal alfa se comprueba, no se supone
+
+Hay navegadores que reproducen WebM y **se saltan su canal alfa**; Safari es el caso. Ahí esto no
+sería un fondo: sería un rectángulo negro tapando el juego, porque el color del vídeo es negro y
+lo que dibuja la silueta es el alfa.
+
+No hay forma de preguntarlo, así que se mira. Un fotograma a un canvas de 32×57 y a contar
+transparencias: el vídeo es casi todo hueco, de modo que con alfa de verdad hay píxeles a cero.
+Si **todos** salen opacos, el navegador no lo respeta y el vídeo se quita. Si algo falla por el
+camino, se quita también — mejor el fondo de color que un negro encima del juego.
+
+Comprobado en Chrome: la transparencia mínima del fotograma es **0**, el vídeo se queda y las
+siluetas se ven sobre el verde de la marca.
+
+### Lo que se probó y no valía
+
+`mix-blend-mode:screen` como red de seguridad, que borra el negro él solo y evitaría la
+comprobación. No sirve aquí: el fondo del juego es un **tono medio claro** (`--base` va de
+`#8c8173` a `#a9a7a0` según el tema) y screen sobre claro no pinta nada. Las siluetas
+desaparecían del todo — con la opacidad al 100% la pantalla era idéntica a no tener vídeo.
+
+### Con «menos movimiento» no se descarga
+
+`prefers-reduced-motion: reduce` lo oculta por CSS, y además el arranque **borra el elemento**:
+son 253 KB que no se van a ver.
