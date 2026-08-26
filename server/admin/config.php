@@ -132,6 +132,12 @@ define('FOTOS_MAX_BYTES', 512000);
 // es que no ha pasado por el recorte del panel.
 define('FOTOS_DIM', 1000);
 
+/* ------------------------------------------------------------ CONSULTAS DE PLATO
+ * Tope del registro del mes, en bytes. Cada consulta son veinte, así que dos megas son cien mil
+ * consultas en un mes. Existe por lo mismo que DATOS_MAX_DIA: un archivo que crece sin freno
+ * llena la cuota del hosting, y entonces se cae la carta entera y no sólo el contador. */
+define('VISTAS_MAX_BYTES', 2 * 1024 * 1024);
+
 // Zona horaria del restaurante. Manda esta, no la del servidor ni la del móvil.
 define('TZ', 'Atlantic/Canary');
 

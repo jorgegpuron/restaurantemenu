@@ -1,6 +1,7 @@
 import {
   readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync, existsSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { buildGame } from './juego.mjs';
 import { PAISES, CODIGOS, BANDERA_IDIOMA, imgBandera } from './banderas.mjs';
 import {
@@ -386,6 +387,9 @@ const RUNTIME_STRINGS = HIGHLIGHTS.concat([
   'Search dish or number',
   'Photo of the restaurant',
   'Photo {n} of {total}',
+  /* la ficha de plato */
+  'Close',
+  'This dish has a photo',
 ]);
 
 /* ---- diet marks ----
@@ -498,16 +502,28 @@ const renderItem = (it, showSlot, icon, catName) => {
   // the key the panel writes into estado.json — category + name, so the gluten-free copy of a
   // dish can sell out, be highlighted or be repriced on its own
   const key = esc(catName + ' :: ' + it.name);
-  return `                    <div class="single-menu-items" data-key="${key}" data-cat="${esc(catName)}"${included ? '' : ` data-price="${esc(it.price)}"`}>
+  /* El identificador corto del contador de consultas. Sale de la MISMA clave, así que el panel
+     lo rehace con substr(sha1(clave),0,8) sin guardar ninguna tabla de equivalencias. Ocho
+     caracteres bastan: con 312 platos, la probabilidad de que dos choquen es de una entre
+     cuatrocientos millones, y el build lo comprueba de todos modos.
+
+     Va el hash y no la clave porque la clave lleva espacios y dos puntos, y esto viaja en el
+     cuerpo de una petición y acaba en una línea de un registro. */
+  const vid = vistaId(catName + ' :: ' + it.name);
+  return `                    <div class="single-menu-items" data-key="${key}" data-vid="${vid}" data-cat="${esc(catName)}"${included ? '' : ` data-price="${esc(it.price)}"`}>
                       <div class="details">${column}
                         <div class="menu-content">
-                          <h3>${tags}${badge}${T(it.name, 'names')}${dietMarks(catName, it.name)}</h3>
+                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}</h3>
                           <p>${T(it.desc, 'descriptions')}</p>
                         </div>
                       </div>
                       <h6>${priceCell}</h6>
                     </div>`;
 };
+
+/* El identificador corto de un plato para el contador de consultas. Ver el comentario de
+   data-vid en la fila. */
+const vistaId = (clave) => createHash('sha1').update(clave, 'utf8').digest('hex').slice(0, 8);
 
 /* ---- escala de picante ----
  * Era una frase: «Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall». Leída
@@ -1151,6 +1167,112 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* 13 de aire sobre el buscador: sin ellos el campo empezaba justo donde acaba la cabecera y el
    desvanecido de 13 que la separa de la lista caía encima, montándose con el borde del cuadro.
    Con el margen, ese desvanecido cae sobre papel y del botón de cerrar al buscador quedan 21. */
+
+/* ---------- la ficha del plato ----------
+ * Se abre en TODOS los platos, tengan foto o no. No es un visor de fotos: es la ficha, y por eso
+ * el contador que cuelga de ella mide interés por el plato y no «tiene foto».
+ *
+ * En móvil es una hoja que sube desde abajo, con su asa y su arrastre, igual que la de
+ * categorías. De 768 para arriba es una tarjeta centrada de 520, que en un portátil una hoja
+ * pegada al canto inferior se lee como un error. */
+.single-menu-items{cursor:pointer}
+/* El toque tiene que notarse en la fila entera, no sólo en el icono: es lo que le dice al
+   comensal que ahí se puede pulsar. Un velo del color del texto al 5%, que sobre el papel de
+   cualquiera de los cinco temas se ve sin ensuciarlo. */
+.single-menu-items:active{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.single-menu-items:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:8px}
+@media (hover:hover) and (pointer:fine){
+  .single-menu-items:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+}
+/* El icono de foto va pegado al nombre y hereda su color. Deja sitio para que un día sea una
+   miniatura de 44: cambia esta regla y nada más. */
+.has-photo{
+  display:inline-flex;vertical-align:baseline;
+  margin-left:6px;opacity:.5;color:currentColor;
+}
+.has-photo svg{width:14px;height:14px;display:block}
+
+.dsheet[hidden]{display:none}
+.dsheet{position:fixed;inset:0;z-index:55}
+.dsheet:not(.is-open){pointer-events:none}
+.dsheet-panel{
+  position:absolute;left:0;right:0;bottom:0;
+  max-height:88dvh;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--surface);
+  border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  box-shadow:var(--lift-sheet);
+  transform:translateY(100%);
+  transition:transform var(--t-sheet-out) var(--ease-drawer);
+}
+.dsheet.is-open .dsheet-panel{transform:none;transition-duration:var(--t-sheet-in)}
+/* El velo se hereda de la hoja de categorias, pero su regla de encendido esta escrita para
+   .sheet: sin esta linea la ficha se abria con el fondo sin oscurecer. */
+.dsheet.is-open .sheet-backdrop{opacity:1;transition-duration:var(--t-sheet-in)}
+/* El asa, dibujada encima de la foto y no antes: como bloque propio bajaría la foto y dejaría
+   una franja de papel arriba que no pinta nada. */
+.dsheet-panel::before{
+  content:"";position:absolute;z-index:2;
+  left:50%;top:8px;transform:translateX(-50%);
+  width:36px;height:4px;border-radius:var(--r-pill);
+  background:color-mix(in srgb,var(--ink) 28%,transparent);
+}
+.dsheet-close{
+  position:absolute;z-index:2;top:12px;right:12px;
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  border:0;border-radius:50%;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);
+  color:var(--ink);cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+}
+.dsheet-close svg{width:18px;height:18px}
+.dsheet-close:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+/* El hueco de la foto se reserva desde el principio: sin aspect-ratio, la ficha se abre corta y
+   pega un salto cuando la imagen llega. */
+.dsheet-foto{
+  position:relative;width:100%;aspect-ratio:1/1;
+  background:color-mix(in srgb,var(--ink) 8%,transparent);
+  overflow:hidden;
+}
+.dsheet-foto[hidden]{display:none}
+.dsheet-foto img{width:100%;height:100%;object-fit:cover;display:block}
+.dsheet-cuerpo{padding:var(--s3) var(--s3) calc(var(--s4) + env(safe-area-inset-bottom))}
+/* Sin foto, la ficha empieza por el nombre y hace sitio al asa. Nada de placeholder gris: un
+   hueco vacío dice «falta algo», y no falta nada. */
+.dsheet-foto[hidden] + .dsheet-cuerpo{padding-top:var(--s4)}
+.dsheet-flag{
+  margin:0 0 var(--s1);
+  font-family:var(--title-font);font-size:12px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--offer);
+}
+.dsheet-flag[hidden]{display:none}
+.dsheet-nombre{
+  margin:0;font-family:var(--title-font);font-size:24px;font-weight:700;line-height:1.15;
+}
+.dsheet-nombre .diet-marks{margin-left:6px}
+.dsheet-precio{
+  margin:var(--s1) 0 0;
+  font-family:var(--title-font);font-size:20px;font-weight:700;color:var(--accent-ink);
+}
+.dsheet-precio .price-was{margin-left:8px;font-size:15px;opacity:.6;text-decoration:line-through}
+.dsheet-desc{margin:var(--s2) 0 0;font-size:16px;line-height:1.5;color:var(--muted)}
+.dsheet-desc:empty{display:none}
+@media (min-width:768px){
+  .dsheet-panel{
+    left:50%;right:auto;bottom:auto;top:50%;
+    width:min(520px,calc(100vw - 48px));max-height:86vh;
+    border-radius:var(--r-card);
+    transform:translate(-50%,-50%) scale(.96);
+    opacity:0;
+    transition:transform var(--t-sheet-out) var(--ease-out),opacity var(--t-sheet-out) var(--ease-out);
+  }
+  .dsheet.is-open .dsheet-panel{transform:translate(-50%,-50%);opacity:1;transition-duration:var(--t-sheet-in)}
+  .dsheet-panel::before{display:none}
+  .dsheet-foto{border-radius:var(--r-card) var(--r-card) 0 0}
+}
+@media (prefers-reduced-motion:reduce){
+  .dsheet-panel{transition:none}
+}
+
 .dish-search{margin:var(--s2) 0}
 .ds-field{position:relative}
 .ds-icon{
@@ -3018,6 +3140,25 @@ ${leyenda}
     ${T('and we visit you (Zona Sur)', 'ui')}</p>
 </footer>
 
+<!-- La ficha del plato. Una sola para las 312 filas: se rellena con la que se haya pulsado.
+     La foto no se descarga con la carta —serían cuatro o cinco megas de golpe en el wifi de un
+     restaurante lleno— sino al abrir la ficha, y por eso el src va vacío. -->
+<div class="dsheet" id="dish-sheet" role="dialog" aria-modal="true" aria-labelledby="dsheet-nombre" hidden>
+  <div class="sheet-backdrop" data-dclose></div>
+  <div class="dsheet-panel" id="dsheet-panel">
+    <button type="button" class="dsheet-close" data-dclose${TL('Close')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12"/></svg></button>
+    <div class="dsheet-foto" id="dsheet-foto" hidden>
+      <img id="dsheet-img" alt="" decoding="async">
+    </div>
+    <div class="dsheet-cuerpo">
+      <p class="dsheet-flag" id="dsheet-flag" hidden></p>
+      <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
+      <p class="dsheet-precio" id="dsheet-precio"></p>
+      <p class="dsheet-desc" id="dsheet-desc"></p>
+    </div>
+  </div>
+</div>
+
 <button class="menu-fab" type="button" id="menu-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="category-sheet">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l16 0"/><path d="M4 12l16 0"/><path d="M4 18l16 0"/></svg>
   ${T('Categories', 'ui')}
@@ -3544,6 +3685,7 @@ ${sheet}
     var hayOfertaVisible = false;
     var hoy = serviceDate();
     var out = (estado && estado.soldOut) || {};
+    var fotos = (estado && estado.fotos) || {};
     var tags = (estado && estado.tags) || {};
     var precios = (estado && estado.prices) || {};
     var cfg = offerCfg();
@@ -3558,6 +3700,25 @@ ${sheet}
       var key = row.dataset.key;
 
       row.classList.toggle('is-sold-out', hoy !== null && out[key] === hoy);
+
+      /* La marca de que hay foto. El nombre de archivo se guarda en la fila para que la ficha
+         no tenga que volver a mirar el estado, y el icono se pone o se quita aquí: render() se
+         llama otra vez cada vez que el panel cambia algo, así que una foto puesta a mediodía
+         aparece sin recargar. */
+      var foto = fotos[key];
+      if (foto) row.dataset.foto = foto; else delete row.dataset.foto;
+      var h3 = row.querySelector('.menu-content h3');
+      var marca = h3 && h3.querySelector('.has-photo');
+      if (h3 && foto && !marca) {
+        marca = document.createElement('span');
+        marca.className = 'has-photo';
+        marca.setAttribute('role', 'img');
+        marca.setAttribute('aria-label', tr('This dish has a photo'));
+        marca.innerHTML = ICONO_FOTO;
+        h3.appendChild(marca);
+      } else if (marca && !foto) {
+        marca.remove();
+      }
 
       // destacado
       var alto = row.querySelector('.item-tag-high');
@@ -4617,7 +4778,224 @@ ${DATOS_ACTIVO ? `
     });
   }
 
+  /* ------------------------------------------------------------------ *
+   * La ficha del plato
+   * ------------------------------------------------------------------ *
+   * Se abre en cualquier plato, tenga foto o no: es la ficha, no un visor. La rellena la propia
+   * fila —nombre, precio y descripción ya están en el DOM, traducidos y con el precio del día—
+   * así que no hay una segunda copia de la carta que pueda quedarse vieja.
+   *
+   * La foto se pide al abrir y nunca antes: con cuarenta fotos, precargarlas son cuatro megas
+   * en el wifi de un restaurante lleno. */
+  var ICONO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
+    + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'
+    + '<circle cx="12" cy="12.5" r="3.2"/></svg>';
+
+  /* La fila se anuncia como boton SOLO si hay JS para abrirla. Escrito en el HTML, un lector
+     de pantalla diria «botón» en 312 filas que, sin JS, no hacen nada. */
+  document.querySelectorAll('.single-menu-items[data-key]').forEach(function (row) {
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+  });
+
+  var ficha       = document.getElementById('dish-sheet');
+  var fichaPanel  = document.getElementById('dsheet-panel');
+  var fichaFoto   = document.getElementById('dsheet-foto');
+  var fichaImg    = document.getElementById('dsheet-img');
+  var fichaFlag   = document.getElementById('dsheet-flag');
+  var fichaNombre = document.getElementById('dsheet-nombre');
+  var fichaPrecio = document.getElementById('dsheet-precio');
+  var fichaDesc   = document.getElementById('dsheet-desc');
+  var filaAbierta = null;      // la fila que está enseñando la ficha
+  var fichaFoco   = null;      // a quién se le devuelve el foco al cerrar
+  var fichaTimer  = null;
+
+  /* Todo sale de la fila. Si cambia el idioma o el panel cambia un precio, se vuelve a llamar a
+     esto y la ficha dice lo mismo que la carta de debajo. */
+  function rellenarFicha(row) {
+    if (!row) return;
+    var h3 = row.querySelector('.menu-content h3');
+    /* .dish-name y no .i18n a secas: dentro del h3 hay mas de uno —la etiqueta de agotado y
+       la de destacado son traducibles tambien— y el primero no es el nombre del plato. */
+    var nombre = h3 ? h3.querySelector('.dish-name') : null;
+    fichaNombre.textContent = nombre ? nombre.textContent : '';
+    var dietas = h3 ? h3.querySelector('.diet-marks') : null;
+    if (dietas) fichaNombre.appendChild(dietas.cloneNode(true));
+
+    var p = row.querySelector('.menu-content p');
+    fichaDesc.textContent = p ? p.textContent : '';
+
+    /* El precio se copia con su marcado: si hay oferta trae el de hoy y el de antes tachado, y
+       ese par ya está calculado en la fila. Volver a calcularlo aquí sería tener dos sitios
+       donde equivocarse con un céntimo. */
+    var h6 = row.querySelector('h6');
+    fichaPrecio.innerHTML = h6 ? h6.innerHTML : '';
+
+    var agotado = row.classList.contains('is-sold-out');
+    var flag = row.querySelector('.sold-out-flag');
+    fichaFlag.textContent = agotado && flag ? flag.textContent : '';
+    fichaFlag.hidden = !agotado;
+
+    var foto = row.dataset.foto;
+    if (foto) {
+      var src = 'assets/platos/' + foto;
+      if (fichaImg.getAttribute('src') !== src) fichaImg.setAttribute('src', src);
+      fichaImg.alt = fichaNombre.textContent;
+      fichaFoto.hidden = false;
+    } else {
+      fichaFoto.hidden = true;
+      fichaImg.removeAttribute('src');
+      fichaImg.alt = '';
+    }
+  }
+
+  function abrirFicha(row) {
+    if (!ficha || !row) return;
+    clearTimeout(fichaTimer);
+    filaAbierta = row;
+    fichaFoco = document.activeElement;
+    rellenarFicha(row);
+    /* Una entrada de historial: el botón atrás del móvil cierra la ficha en vez de sacar al
+       comensal de la carta. Es lo que hace que esto se sienta como una aplicación. */
+    try { history.pushState({ totmFicha: 1 }, ''); } catch (e) {}
+    ficha.hidden = false;
+    void ficha.offsetHeight;                 // un fotograma en su sitio, para que haya transición
+    ficha.classList.add('is-open');
+    bloquearFondo();
+    var cerrarBtn = ficha.querySelector('.dsheet-close');
+    if (cerrarBtn) cerrarBtn.focus({ preventScroll: true });
+    contarVista(row);
+  }
+
+  function cerrarFicha(porHistorial) {
+    if (!ficha || ficha.hidden) return;
+    if (!porHistorial) {
+      try { if (history.state && history.state.totmFicha) history.back(); } catch (e) {}
+    }
+    ficha.classList.remove('is-open');
+    soltarFondo();
+    if (fichaFoco && document.contains(fichaFoco) && fichaFoco.focus) {
+      fichaFoco.focus({ preventScroll: true });
+    }
+    fichaFoco = null;
+    filaAbierta = null;
+    clearTimeout(fichaTimer);
+    if (reduce) { ficha.hidden = true; return; }
+    /* Se queda montada hasta que acaba de bajar; si no, desaparece de golpe a mitad de camino. */
+    fichaTimer = setTimeout(function () {
+      if (!ficha.classList.contains('is-open')) ficha.hidden = true;
+    }, 400);
+  }
+
+  /* Toda la fila abre la ficha, no sólo el icono: en un móvil, apuntar a catorce píxeles es
+     pedirle al comensal que haga puntería. */
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    var row = e.target.closest('.single-menu-items[data-key]');
+    if (!row) return;
+    /* Si se estaba seleccionando texto, esto no es un toque: es alguien copiando el nombre de
+       un plato para buscarlo. */
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).length > 2) return;
+    abrirFicha(row);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (!e.target.closest) return;
+    var row = e.target.closest('.single-menu-items[data-key]');
+    if (!row || row !== e.target) return;
+    e.preventDefault();
+    abrirFicha(row);
+  });
+
+  if (ficha) {
+    ficha.addEventListener('click', function (e) {
+      if (e.target.closest('[data-dclose]')) cerrarFicha();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !ficha.hidden) cerrarFicha();
+    });
+    /* El foco no se escapa de la ficha mientras está abierta. */
+    ficha.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      var focos = ficha.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!focos.length) return;
+      var primero = focos[0], ultimo = focos[focos.length - 1];
+      if (e.shiftKey && document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
+    });
+    /* Cambiar de idioma con la ficha abierta la repinta: el nombre y la descripción salen de la
+       fila, que ya se ha traducido sola. */
+    document.addEventListener('totm:lang', function () {
+      document.querySelectorAll('.has-photo').forEach(function (m) {
+        m.setAttribute('aria-label', tr('This dish has a photo'));
+      });
+      if (filaAbierta) rellenarFicha(filaAbierta);
+    });
+
+    /* Arrastrar hacia abajo para cerrar, sólo en móvil: en escritorio la ficha va centrada con
+       su propio translate y escribirle otro encima la descolocaría. */
+    (function () {
+      var y0 = 0, t0 = 0, dy = 0, arrastrando = false, pendiente = false;
+      var UMBRAL = 8;
+      var elastico = function (d) { return d / 3; };
+      fichaPanel.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0 || window.innerWidth >= 768) return;
+        if (fichaPanel.scrollTop > 0) return;
+        pendiente = true; arrastrando = false; dy = 0; y0 = e.clientY; t0 = e.timeStamp;
+      });
+      fichaPanel.addEventListener('pointermove', function (e) {
+        if (!pendiente && !arrastrando) return;
+        var d = e.clientY - y0;
+        if (!arrastrando) {
+          if (d < UMBRAL) { if (d < -UMBRAL) pendiente = false; return; }
+          if (fichaPanel.scrollTop > 0) { pendiente = false; return; }
+          arrastrando = true;
+          fichaPanel.setPointerCapture(e.pointerId);
+          fichaPanel.style.transition = 'none';
+        }
+        dy = d > 0 ? d : elastico(d);
+        fichaPanel.style.transform = 'translateY(' + dy + 'px)';
+      });
+      var soltar = function (e) {
+        pendiente = false;
+        if (!arrastrando) return;
+        arrastrando = false;
+        fichaPanel.style.transition = '';
+        fichaPanel.style.transform = '';
+        var v = Math.abs(dy) / Math.max(1, e.timeStamp - t0);
+        /* Un tercio de la altura, o un gesto corto pero rápido: es el mismo criterio que la
+           hoja de categorías, para que las dos se cierren igual. */
+        if (dy > fichaPanel.offsetHeight * 0.35 || (dy > 24 && v > 0.11)) cerrarFicha();
+      };
+      fichaPanel.addEventListener('pointerup', soltar);
+      fichaPanel.addEventListener('pointercancel', soltar);
+    })();
+  }
+
+  /* ---- el contador de consultas ----
+     Se apunta al ABRIR la ficha, y una sola vez por plato y visita. Ni al pasar por encima, ni
+     al hacer scroll: eso mediría la carta, no el interés.
+
+     La marca vive en sessionStorage y muere al cerrar la pestaña. No es una cookie ni un
+     identificador: este navegador no puede distinguirse del de la mesa de al lado, ni aquí ni
+     en el servidor. Si sessionStorage no está —navegación privada en un iOS viejo— se cuenta
+     igual: mejor un duplicado que perder el dato. */
+  function contarVista(row) {
+    var id = row.dataset.vid;
+    if (!id || !navigator.sendBeacon) return;
+    try {
+      if (sessionStorage.getItem('v:' + id)) return;
+      sessionStorage.setItem('v:' + id, '1');
+    } catch (e) {}
+    try { navigator.sendBeacon('admin/vista.php', id); } catch (e) {}
+  }
+
   window.addEventListener('popstate', function () {
+    /* Las dos hojas comparten el botón atrás. Primero la ficha, que es la que puede estar
+       encima; nunca están las dos abiertas a la vez. */
+    if (ficha && !ficha.hidden) { cerrarFicha(true); return; }
     if (!sheet.hidden) closeSheet(true);
   });
 

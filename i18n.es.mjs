@@ -638,6 +638,8 @@ export const ui = {
   '{pct}% off': '{pct}% dto.',
   'Today we make it easy! Enjoy {pct}% off selected dishes.':
     '¡Hoy te lo ponemos fácil! Disfruta de un {pct} % de descuento en platos seleccionados.',
+  'Close': 'Cerrar',
+  'This dish has a photo': 'Este plato tiene foto',
   'Language': 'Idioma',
   'Tinge of Turmeric — Indian Restaurant Menu': 'Tinge of Turmeric — Carta de restaurante indio',
 };

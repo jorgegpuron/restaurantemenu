@@ -1000,6 +1000,119 @@ function datos_consolidar(string $mesActual): void {
   foreach (array_slice($viejos, 0, max(0, count($viejos) - DATOS_MESES)) as $f) @unlink($f);
 }
 
+
+/* ---------------------------------------------------------------- consultas de plato
+ * vista.php escribe una linea por consulta en v-YYYY-MM.log. Aqui se suman y se guardan por mes
+ * en vp-YYYY-MM.json, con la misma forma que los meses cerrados de aperturas: un archivo por
+ * mes, los dias dentro.
+ *
+ * EL REGISTRO SE RENOMBRA ANTES DE LEERLO. Renombrar es atomico: las consultas que lleguen
+ * mientras se suma empiezan un registro limpio y no se pierde ninguna. Si el proceso se cae a
+ * mitad queda un .procesando, y lo primero que hace la vuelta siguiente es terminarlo — nunca
+ * se descarta, que ahi dentro hay dias de trabajo del restaurante.
+ */
+function vistas_consolidar(): void {
+  if (!datos_hay()) return;
+
+  /* Primero los huerfanos de una vuelta que fallo, y despues el registro de ahora. */
+  $pendientes = (array) @glob(DATOS_DIR . '/v-*.log.procesando');
+  foreach ((array) @glob(DATOS_DIR . '/v-*.log') as $log) {
+    $destino = $log . '.procesando';
+    /* Si ya hay uno con ese nombre, se deja para la vuelta siguiente: pisarlo seria perderlo. */
+    if (is_file($destino)) continue;
+    if (@rename($log, $destino)) $pendientes[] = $destino;
+  }
+
+  foreach (array_unique($pendientes) as $archivo) {
+    if (!preg_match('~/v-(\d{4}-\d{2})\.log\.procesando$~', $archivo, $m)) { @unlink($archivo); continue; }
+    $suma = [];
+    $fh = @fopen($archivo, 'r');
+    if (!$fh) continue;
+    while (($linea = fgets($fh)) !== false) {
+      $linea = trim($linea);
+      if (!preg_match('/^([0-9a-f]{8});(\d{4}-\d{2}-\d{2})$/', $linea, $x)) continue;
+      $suma[substr($x[2], 8, 2)][$x[1]] = ($suma[substr($x[2], 8, 2)][$x[1]] ?? 0) + 1;
+    }
+    fclose($fh);
+    if (!$suma) { @unlink($archivo); continue; }
+
+    $ruta = DATOS_DIR . '/vp-' . $m[1] . '.json';
+    $ya = is_file($ruta) ? (json_decode((string) @file_get_contents($ruta), true) ?: []) : [];
+    $dias = is_array($ya['dias'] ?? null) ? $ya['dias'] : [];
+    foreach ($suma as $dd => $platos) {
+      foreach ($platos as $id => $n) {
+        $dias[$dd][$id] = (int) ($dias[$dd][$id] ?? 0) + (int) $n;
+      }
+    }
+    ksort($dias);
+    $json = json_encode(['mes' => $m[1], 'dias' => $dias], JSON_UNESCAPED_UNICODE);
+    /* Sin JSON escrito NO se borra el registro: mas vale sumar dos veces manana que perder el
+       dia entero hoy. */
+    if ($json === false || !escribir_atomico($ruta, $json)) continue;
+    @unlink($archivo);
+  }
+
+  /* La misma purga que las aperturas, contada por meses guardados y no por fecha. */
+  $viejos = (array) @glob(DATOS_DIR . '/vp-[0-9][0-9][0-9][0-9]-[0-9][0-9].json');
+  sort($viejos);
+  foreach (array_slice($viejos, 0, max(0, count($viejos) - DATOS_MESES)) as $f) @unlink($f);
+}
+
+
+/* Una tabla de platos consultados. $vistas es [id => n] ya ordenado, y $aperturas el total de
+   aperturas de ese mismo periodo: el porcentaje es lo unico que se puede leer sin contexto —
+   «el 34% de quienes abren la carta miran el solomillo» dice algo, «127» no dice nada. */
+function vp_lista(array $vistas, array $porVid, int $aperturas, int $tope): string {
+  $filas = '';
+  $primero = 0;
+  $i = 0;
+  foreach ($vistas as $id => $n) {
+    if (!isset($porVid[$id])) continue;          // plato que ya no esta en la carta
+    if ($primero === 0) $primero = (int) $n;
+    $i++;
+    if ($tope > 0 && $i > $tope) break;
+    $ancho = $primero > 0 ? max(2, (int) round($n / $primero * 100)) : 0;
+    $pct = $aperturas > 0 ? (int) round($n / $aperturas * 100) : null;
+    $filas .= '<div class="vp-fila">'
+      . '<span class="vp-barra" style="width:' . $ancho . '%"></span>'
+      . '<span class="vp-pos">' . $i . '</span>'
+      . '<span class="vp-nom">' . h($porVid[$id]['name']) . '</span>'
+      . '<span class="vp-n">' . number_format((int) $n, 0, ',', '.') . '</span>'
+      . '<span class="vp-pct">' . ($pct === null ? '&nbsp;' : $pct . '%') . '</span>'
+      . '</div>';
+  }
+  return $filas;
+}
+
+/* ["Y-m-d" => [id => consultas]] con todo lo consolidado. */
+function vistas_serie(): array {
+  $serie = [];
+  foreach ((array) @glob(DATOS_DIR . '/vp-[0-9][0-9][0-9][0-9]-[0-9][0-9].json') as $f) {
+    $j = json_decode((string) @file_get_contents($f), true);
+    if (!is_array($j) || !is_array($j['dias'] ?? null)) continue;
+    foreach ($j['dias'] as $dd => $platos) {
+      if (!is_array($platos)) continue;
+      $serie[$j['mes'] . '-' . $dd] = $platos;
+    }
+  }
+  ksort($serie);
+  return $serie;
+}
+
+/* Suma N dias seguidos desde una fecha y devuelve [id => consultas], de mas a menos. */
+function vistas_rango(array $serie, string $desde, int $dias): array {
+  $d = new DateTimeImmutable($desde);
+  $out = [];
+  for ($i = 0; $i < $dias; $i++) {
+    $f = $d->modify('+' . $i . ' day')->format('Y-m-d');
+    foreach ((array) ($serie[$f] ?? []) as $id => $n) {
+      $out[$id] = ($out[$id] ?? 0) + (int) $n;
+    }
+  }
+  arsort($out);
+  return $out;
+}
+
 /* ["Y-m-d" => aperturas] con todo: los meses cerrados de sus JSON y los dias del mes en curso
    del tamano de su fichero. */
 function datos_serie(): array {
@@ -1718,6 +1831,23 @@ if (DATOS_ACTIVO && $dentro) {
   $dt["mesAntes"] = datos_rango($serie, $mesAnt->format("Y-m-01"),
                       min($dt["diaDelMes"], (int) $mesAnt->format("t")));
   $dt["mesNombre"]    = MESES[(int) $hoyD->format("n")];
+
+  /* ---- los platos mas consultados ----
+     Se consolida aqui y no en cada consulta: el trabajo lo paga quien mira los numeros una vez
+     al dia, no el comensal sentado en la mesa. Ver vistas_consolidar(). */
+  vistas_consolidar();
+  $vserie = vistas_serie();
+  $dt["vhay"] = $vserie !== [];
+  /* La equivalencia id -> plato se rehace sola desde la carta de ahora: no hay tabla que
+     mantener. Un plato que se fue de la carta desaparece de la tabla, y sus consultas con el. */
+  $porVid = [];
+  foreach ($lista as $p) $porVid[substr(sha1((string) $p["key"]), 0, 8)] = $p;
+  $dt["vid"] = $porVid;
+  /* Los mismos tres periodos que las tarjetas de arriba, contados igual, para que el porcentaje
+     se pueda leer contra la cifra que tiene al lado. */
+  $dt["vhoy"]    = vistas_rango($vserie, $hoyReal, 1);
+  $dt["vsemana"] = vistas_rango($vserie, $lunes->format("Y-m-d"), $dt["diasSemana"]);
+  $dt["vmes"]    = vistas_rango($vserie, $hoyD->format("Y-m-01"), $dt["diaDelMes"]);
 
   /* ¿Ya contabamos cuando empieza el periodo con el que se compara? De eso depende que un cero
      signifique «cerramos» o «entonces no habia contador». */
@@ -2460,6 +2590,47 @@ $CUENTAS = [
      Lo que se trae tal cual: la baldosa con borde tenue, el numero de la cabecera que cambia al
      recorrer las barras, y sobre todo el gesto de foco — la barra tocada al maximo, sus vecinas
      a media luz y el resto apagadas. Eso ultimo es lo que hace que treinta barras se lean. */
+
+  /* ---------- platos mas consultados ----------
+     Una fila por plato: el puesto, el nombre sobre su barra y las dos cifras a la derecha. La
+     barra va DETRAS del nombre y no en una columna aparte: en un movil, una columna de barras
+     de 40px no dice nada, y de fondo se lee de un vistazo quien manda. */
+  .vp{margin-top:var(--s3)}
+  .vp-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);flex-wrap:wrap}
+  .vp-cab h3{margin:0;font-family:var(--title-font);font-size:17px}
+  .vp-per{display:flex;gap:4px;background:var(--chip);padding:3px;border-radius:var(--r-pill)}
+  .vp-per button{
+    min-height:34px;padding:0 var(--s2);border:0;border-radius:var(--r-pill);
+    background:transparent;color:var(--muted);
+    font-family:var(--title-font);font-size:14px;font-weight:600;cursor:pointer;
+  }
+  .vp-per button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--lift-fab)}
+  .vp-lista{margin-top:var(--s2);display:grid;gap:2px}
+  .vp-fila{
+    position:relative;display:flex;align-items:center;gap:var(--s2);
+    padding:9px 12px;border-radius:var(--r-sheet);overflow:hidden;
+  }
+  .vp-barra{
+    position:absolute;left:0;top:0;bottom:0;
+    background:color-mix(in srgb,var(--accent) 16%,transparent);
+    border-radius:var(--r-sheet);
+  }
+  /* Las celdas por encima de la barra, una a una. Con `.vp-fila > *` la barra entraba en el
+     reparto —position:relative la devolvía al flujo— y se comía la fila entera: el nombre se
+     quedaba en cero y la fila se leía «1 · 20 · 17%», sin plato. */
+  .vp-pos,.vp-nom,.vp-n,.vp-pct{position:relative}
+  .vp-pos{width:1.4em;color:var(--muted);font-family:var(--title-font);font-size:13px;
+    font-weight:600;font-variant-numeric:tabular-nums}
+  .vp-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:var(--title-font);font-size:15px;font-weight:600}
+  .vp-n{font-family:var(--title-font);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .vp-pct{width:3.6em;text-align:right;color:var(--accent-ink);
+    font-family:var(--title-font);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+  .vp-vacio{margin:var(--s2) 0 0;color:var(--muted);font-size:15px}
+  .vp-mas{margin-top:var(--s2)}
+  .vp-mas summary{cursor:pointer;color:var(--accent-ink);font-family:var(--title-font);
+    font-size:14px;font-weight:600}
+  .vp-pie{margin:var(--s2) 0 0;color:var(--muted);font-size:13px;line-height:1.5}
   .dt-bento{display:grid;gap:var(--s2);grid-template-columns:1fr;margin-top:var(--s3)}
   @media (min-width:720px){.dt-bento{grid-template-columns:repeat(3,1fr)}
     .dt-baldosa.ancha{grid-column:1 / -1}}
@@ -4224,6 +4395,77 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <?= dt_tira($dt["tiraMes"], "día 1", "día " . $dt["diasDelMes"], "El mes entero; los días que faltan van en hueco.", $dt["diaDelMes"]) ?>
         </div>
       </div>
+
+
+      <?php
+        /* Los tres periodos se pintan de una vez y el boton sólo enseña uno: son tres listas de
+           diez filas, no vale la pena una peticion al servidor para cambiar de una a otra. */
+        $vperiodos = [
+          'hoy'    => ['rot' => 'Hoy',        'v' => $dt["vhoy"],    'ap' => $dt["hoy"]],
+          'semana' => ['rot' => 'Esta semana','v' => $dt["vsemana"], 'ap' => $dt["semana"]],
+          'mes'    => ['rot' => $dt["mesNombre"], 'v' => $dt["vmes"], 'ap' => $dt["mes"]],
+        ];
+        $vhayAlgo = ($dt["vhoy"] || $dt["vsemana"] || $dt["vmes"]);
+      ?>
+      <div class="vp">
+        <div class="vp-cab">
+          <h3>Platos más consultados</h3>
+          <?php if ($vhayAlgo): ?>
+            <div class="vp-per" role="group" aria-label="Periodo">
+              <?php foreach ($vperiodos as $k => $per): ?>
+                <button type="button" data-vper="<?= h($k) ?>"
+                        aria-pressed="<?= $k === 'semana' ? 'true' : 'false' ?>"><?= h($per['rot']) ?></button>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </div>
+
+        <?php if (!$vhayAlgo): ?>
+          <p class="vp-vacio">
+            Todavía nadie ha abierto la ficha de un plato. Se cuenta cuando alguien
+            <strong>toca un plato</strong> en la carta y se le abre la ficha, una vez por plato y
+            visita.
+          </p>
+        <?php else: foreach ($vperiodos as $k => $per):
+          $filas = vp_lista($per['v'], $dt["vid"], (int) $per['ap'], 10);
+          $todas = vp_lista($per['v'], $dt["vid"], (int) $per['ap'], 0);
+          $cuantos = 0;
+          foreach ($per['v'] as $id => $n) if (isset($dt["vid"][$id])) $cuantos++; ?>
+          <div class="vp-caja" data-vpanel="<?= h($k) ?>"<?= $k === 'semana' ? '' : ' hidden' ?>>
+            <?php if ($filas === ''): ?>
+              <p class="vp-vacio">Ningún plato consultado en este periodo.</p>
+            <?php else: ?>
+              <div class="vp-lista"><?= $filas ?></div>
+              <?php if ($cuantos > 10): ?>
+                <details class="vp-mas">
+                  <summary>Ver los <?= (int) $cuantos ?> platos</summary>
+                  <div class="vp-lista" style="margin-top:var(--s2)"><?= $todas ?></div>
+                </details>
+              <?php endif; ?>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; endif; ?>
+
+        <p class="vp-pie">
+          El porcentaje es sobre las aperturas de la carta del mismo periodo.
+          <b>Los platos con foto suelen recibir más consultas</b>, así que tenlo en cuenta al
+          comparar unos con otros.
+        </p>
+      </div>
+
+      <script>
+        (function () {
+          var botones = document.querySelectorAll('[data-vper]');
+          botones.forEach(function (b) {
+            b.addEventListener('click', function () {
+              botones.forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+              document.querySelectorAll('[data-vpanel]').forEach(function (p) {
+                p.hidden = (p.dataset.vpanel !== b.dataset.vper);
+              });
+            });
+          });
+        })();
+      </script>
 
       <div class="dt-nota">
         <div class="dt-nota-cab">

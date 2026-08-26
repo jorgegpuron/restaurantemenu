@@ -4439,3 +4439,112 @@ lista de platos se pintaba entera sin fotos y sin dar un solo error. Ahora es `$
 Lo único que **no** se puede comprobar en local: que el `.htaccess` de `assets/platos/` impida
 ejecutar un `.php` colado ahí. El servidor de PHP de desarrollo no lee `.htaccess`. Hay que
 probarlo en el hosting, subiendo un archivo de prueba a esa carpeta y pidiéndolo por URL.
+
+## Ficha de plato, icono y contador de consultas · Fases 2 a 5 (26 Aug 2026)
+
+### La ficha (fase 2)
+
+Se abre **en todos los platos, tengan foto o no**. No es un visor de fotos: es la ficha del plato,
+y de eso dependen tres cosas — que el contador mida *interés* y no *tiene foto*, que quepa un día
+el filtro de alérgenos, y que la descripción larga tenga sitio sin ensuciar la lista.
+
+En móvil es una hoja que sube desde abajo, con su asa y su arrastre; de 768 para arriba, una
+tarjeta centrada de 520 con el fondo oscurecido. Lleva `history.pushState` al abrirse, así que el
+**botón atrás del móvil la cierra** en vez de sacar al comensal de la carta, y bloquea el scroll
+del fondo con el mismo `position:fixed` con top negativo que ya usaba la hoja de categorías —
+`overflow:hidden` no congela iOS.
+
+**Todo sale de la fila**: nombre, descripción, precio del día y marca de agotado se copian del
+DOM que ya está pintado y traducido. No hay una segunda copia de la carta que pueda quedarse
+vieja, y el precio con oferta —el de hoy y el de antes tachado— se copia con su marcado en vez de
+volver a calcularse, que sería un segundo sitio donde equivocarse con un céntimo.
+
+Cambiar de idioma con la ficha abierta la repinta sola: escucha el evento `totm:lang` que ya
+emitía la carta.
+
+**La foto se pide al abrir la ficha, nunca con la carta.** Con cuarenta fotos, precargarlas serían
+cuatro o cinco megas en el wifi de un restaurante lleno. El hueco va con `aspect-ratio:1/1` desde
+el principio para que no salte el maquetado cuando llega la imagen. Sin foto, la ficha empieza por
+el nombre: **nada de placeholder gris**, porque no falta nada.
+
+### El icono (fase 3)
+
+Una cámara de 14 px al final del nombre, sólo si el plato tiene foto, en `currentColor` al 50%.
+La pone y la quita `render()`, que ya se ejecuta cada vez que llega el estado: una foto subida a
+mediodía aparece en la carta sin recargar.
+
+**Toda la fila abre la ficha**, no sólo el icono: en un móvil, apuntar a catorce píxeles es pedir
+puntería. La fila tiene ya 60 px de alto, y gana cursor, un velo al 5% al tocarla y `role="button"`
+con `tabindex` — **puestos por JS y no en el HTML**: escritos en el HTML, un lector de pantalla
+anunciaría «botón» en 312 filas que sin JS no hacen nada.
+
+El CSS del icono está escrito para poder cambiarlo por una miniatura de 44 px: se toca una regla.
+
+### El contador (fase 4)
+
+Se apunta **al abrir la ficha**. Ni al pasar el ratón, ni al hacer scroll: eso mediría la carta y
+no el interés. Una vez por plato y visita, con una marca en `sessionStorage` que muere al cerrar la
+pestaña — no es una cookie ni un identificador, y si `sessionStorage` falla se cuenta igual: mejor
+un duplicado que perder el dato.
+
+Viaja con `sendBeacon` a `admin/vista.php`, que apunta **una línea** en `datos/v-YYYY-MM.log`:
+
+```
+54b7fdde;2026-08-26
+```
+
+Ocho caracteres son `substr(sha1(clave), 0, 8)`, y la clave es la misma que ya identifica al plato
+en precios y agotados. Así el panel rehace la equivalencia desde la carta de ahora y **no hay
+ninguna tabla que mantener**; un plato que se va de la carta desaparece de la tabla y deja de
+contar. Va el hash y no la clave porque la clave lleva espacios y dos puntos.
+
+**Una línea al final y no un JSON**, por lo mismo que `datos.php` cuenta con el tamaño del
+fichero: treinta comensales a la vez sobre un JSON con `flock` se serializan y algún incremento se
+pierde. El día es el natural de Canarias, **el mismo que cuenta las aperturas** — si las dos cifras
+salen en la misma pantalla, tienen que estar contadas con el mismo reloj o el porcentaje miente.
+
+La suma se hace al abrir la pestaña Analítica, no en cada consulta: el trabajo lo paga quien mira
+los números una vez al día, no el comensal sentado en la mesa. El registro **se renombra antes de
+leerlo** —renombrar es atómico— así que las consultas que llegan mientras se suma empiezan un
+registro limpio. Si el proceso se cae a mitad queda un `.procesando`, y lo primero que hace la
+vuelta siguiente es terminarlo: nunca se descarta.
+
+### La tabla (fase 5)
+
+Debajo de las tarjetas de aperturas, con los mismos tres periodos y contados igual: hoy, esta
+semana y el mes. Por fila: puesto, nombre, consultas y **porcentaje sobre las aperturas del mismo
+periodo**, con una barra detrás del nombre proporcional al primero.
+
+El porcentaje es la métrica que vale. «El 17% de quienes abren la carta miran el Pollo Korma» dice
+algo; «20» no dice nada. Y al pie, la advertencia honesta: **los platos con foto reciben más
+consultas**, así que el ranking no compara platos, compara platos-con-foto contra platos-sin-foto.
+
+Los tres periodos se pintan de una vez y el botón sólo enseña uno: son tres listas de diez filas,
+y no vale la pena una petición al servidor para cambiar de una a otra.
+
+### Dos trampas que costaron un rato
+
+- **El nombre del plato dentro del `h3`.** La ficha cogía el primer `.i18n` que encontraba, y el
+  primero es la etiqueta «Agotado hoy», que también es traducible. La ficha se abría titulada
+  «Agotado hoy». Ahora el nombre lleva su propia clase, `.dish-name`.
+- **`.vp-fila > *{position:relative}`.** Esa regla alcanzaba también a la barra del fondo, que es
+  `position:absolute`: al devolverla al flujo se comía la fila entera y el nombre se quedaba en
+  cero de ancho. La fila se leía «1 · 20 · 17%», sin plato.
+- Y una más pequeña: el velo del fondo estaba escrito para `.sheet`, así que la ficha se abría con
+  la carta sin oscurecer.
+
+### Comprobado corriendo
+
+| | resultado |
+|---|---|
+| carta cargada, peso | **cero peticiones** a `assets/platos/`; el HTML pasa de 707 a 734 KB (105 KB con gzip) |
+| ficha con foto | foto 1:1 a sangre, nombre, precio, descripción; imagen de 1000 px |
+| ficha sin foto | empieza por el nombre, sin hueco gris; panel de 169 px |
+| botón atrás | cierra la ficha, suelta el scroll y deja la carta donde estaba |
+| mismo plato dos veces | una sola línea en el registro |
+| cambio de idioma con la ficha abierta | nombre y descripción traducidos al vuelo; el icono también |
+| teclado | la fila coge el foco y Enter abre la ficha |
+| escritorio | tarjeta de 520 centrada, con el fondo al 55% |
+| consolidación | 116 consultas del registro pasan a `vp-2026-08.json` y el registro desaparece |
+| consolidación cortada a mitad | el `.procesando` huérfano se termina en la vuelta siguiente: 4 y 3, sin perder ninguna |
+| tabla | diez filas con barra, consultas y % sobre aperturas; «Ver los 16 platos» y los tres periodos |
