@@ -3225,6 +3225,11 @@ ${sheet}
     var p = canaryParts();
     if (!p) return null;
     var d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
+    /* EL 6 ESTA ESCRITO DOS VECES y tiene que ser el mismo numero: aqui, que es lo que ve el
+       comensal, y en CORTE_HORA de server/admin/config.php, que es lo que ve el restaurante.
+       No se puede leer de alli: config.php se edita a mano y este fichero lo genera el build.
+       Si se cambia uno hay que cambiar el otro, o la carta tachara un plato que el panel ya
+       da por bueno. */
     if (+p.hour < 6) d.setUTCDate(d.getUTCDate() - 1);   // sigue siendo el servicio de anoche
     return d.toISOString().slice(0, 10);
   }

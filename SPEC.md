@@ -3942,3 +3942,39 @@ La pestaña Analítica ya tenía un aviso parecido, porque ahí el día va de 00
 servicio. Pero había que entrar a verlo, y la cabecera es lo primero que se lee.
 
 Comprobado con el corte movido a las 0:00: el aviso desaparece. Con el corte en 6, sale.
+
+## Dos relojes con nombre: el panel y los agotados (26 Aug 2026)
+
+La cabecera del panel fechaba con la **fecha de servicio**, la que retrocede un día antes de las
+6:00. De madrugada eso ponía «Martes, 25/08» a la 01:34 del miércoles y parecía que el panel iba
+atrasado. El reloj estaba bien; el error era de quien fechaba qué.
+
+Ahora son dos cosas separadas y con nombre:
+
+| | qué fecha | cómo se calcula |
+|---|---|---|
+| `$hoyReal` | la **cabecera** y el contador de Analítica | el reloj de Canarias, de 00:00 a 00:00 |
+| `$hoy` | los **agotados** | igual, pero retrocede un día antes de `CORTE_HORA` |
+
+Coinciden 18 horas de cada 24. En las otras seis, debajo de la fecha sale una línea:
+
+> Son las **01:42** en Canarias. Los agotados que veas son los del servicio del **martes 25/08**
+> y se limpian solos a las 6:00.
+
+Y la pista de la pestaña Agotados añade en esas horas de qué servicio es lo que hay marcado. El
+aviso que tenía Analítica —14 líneas para explicar que arriba y allí decían días distintos— se cae:
+ya dicen el mismo. `$hoyC` era otro nombre para `$hoyReal` y se queda uno.
+
+### El 6 está escrito dos veces
+
+En `CORTE_HORA` de `config.php`, que es lo que ve el restaurante, y en `serviceDate()` dentro de
+la carta, que es lo que ve el comensal. **No se puede leer uno del otro**: `config.php` se edita a
+mano y la carta la genera el build. Si se cambia uno hay que cambiar el otro, o la carta tacharía
+un plato que el panel ya da por bueno. Queda avisado en los dos sitios.
+
+### Comprobado
+
+Marcando un plato a la 01:42 del miércoles 26, `estado.json` guarda `"2026-08-25"` —la fecha de
+servicio, no la del reloj— y la carta lo pinta tachado. Moviendo el corte a las 0:00 la casilla
+sale sin marcar sin tocar el estado, que es lo que pasará sola a las 6:00. Las ocho pestañas sin
+un aviso de PHP.

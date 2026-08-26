@@ -1407,7 +1407,16 @@ if ($csrfOk) {
 
 /* ---------------------------------------------------------------- datos para la vista */
 $estado   = leer_estado();
+/* DOS fechas y no una, y conviene no confundirlas:
+ *
+ *   $hoy      la de SERVICIO. Retrocede un dia antes de las 6:00 y es la que decide que
+ *             agotados siguen puestos: lo marcado a las 22:00 sigue marcado a las 02:00.
+ *   $hoyReal  la del RELOJ de Canarias. Es la que fecha el panel, porque quien lo abre a la
+ *             una de la madrugada del miercoles espera leer miercoles y no martes.
+ *
+ * Coinciden 18 horas de cada 24. Entre las 00:00 y el corte no, y ahi el panel lo dice. */
 $hoy      = fecha_servicio();
+$hoyReal  = fecha_contador();
 $agotados = [];
 foreach ((array) $estado['soldOut'] as $k => $d) { if ($d === $hoy) $agotados[$k] = true; }
 $tags     = is_array($estado['tags']) ? $estado['tags'] : [];
@@ -1470,9 +1479,9 @@ if (DATOS_ACTIVO && $dentro) {
      existe se mira la de encima, que es quien tiene que dejar crearla. */
   $dt = ["escribible" => is_dir(DATOS_DIR) ? is_writable(DATOS_DIR)
                                            : is_writable(dirname(DATOS_DIR))];
-  /* Aqui manda el dia natural y no $hoy, que es la fecha de servicio del resto del panel. */
-  $hoyC = fecha_contador();
-  $hoyD = new DateTimeImmutable($hoyC);
+  /* Contar gente va por dia natural: es la misma fecha que la cabecera, $hoyReal, y no la de
+     servicio, que corre el corte a las 6:00 porque eso es cosa de los agotados. */
+  $hoyD = new DateTimeImmutable($hoyReal);
   if (datos_hay()) datos_consolidar($hoyD->format("Y-m"));
   $serie = datos_hay() ? datos_serie() : [];
   $dt["serie"] = $serie;
@@ -1480,7 +1489,7 @@ if (DATOS_ACTIVO && $dentro) {
 
   /* HOY contra el MISMO DIA de la semana pasada, no contra ayer: el domingo no se parece al
      sabado ni de lejos, y comparar con ayer daria una catastrofe cada domingo. */
-  $dt["hoy"]      = (int) ($serie[$hoyC] ?? 0);
+  $dt["hoy"]      = (int) ($serie[$hoyReal] ?? 0);
   $dt["hoyAntes"] = (int) ($serie[$hoyD->modify("-7 day")->format("Y-m-d")] ?? 0);
 
   /* SIEMPRE contra el mismo numero de dias. Cuatro dias de esta semana contra los siete de la
@@ -2772,19 +2781,19 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   </div>
   <header class="head">
     <p class="head-eyebrow"><?= h(CLIENTE_NOMBRE) ?></p>
-    <h1><span class="dia"><?= h(dia_semana($hoy)) ?>,</span> <?= h(date('d/m/y', strtotime($hoy))) ?></h1>
-    <?php /* La fecha de arriba es la del SERVICIO, que retrocede un dia antes de las <?= (int) CORTE_HORA ?>:00
-             para que lo que se marco anoche siga marcado. Entre las 00:00 y esa hora no coincide
-             con el calendario, y sin decirlo parece que el panel va atrasado: a la 01:34 del
-             miercoles pone «Martes». El resto del dia las dos fechas son la misma y esto sobra. */ ?>
-    <?php $ahoraTz = new DateTimeImmutable("now", new DateTimeZone(TZ)); ?>
-    <?php if ($hoy !== $ahoraTz->format("Y-m-d")): ?>
+    <h1><span class="dia"><?= h(dia_semana($hoyReal)) ?>,</span> <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></h1>
+    <?php /* De madrugada la fecha de arriba ya es la de hoy, pero los agotados todavia son los
+             de anoche: se limpian en el corte, no a las doce. Quien entra a la una y ve tres platos
+             tachados tiene que saber de que servicio son y cuando se van a ir solos.
+
+             El resto del dia las dos fechas son la misma y esta linea no se pinta. */ ?>
+    <?php if ($hoy !== $hoyReal): ?>
       <p class="sub sub-servicio">
-        Son las <strong><?= h($ahoraTz->format("H:i")) ?></strong> del
-        <strong><?= h(mb_strtolower(dia_semana($ahoraTz->format("Y-m-d")), "UTF-8")) ?>
-        <?= h($ahoraTz->format("d/m")) ?></strong> en Canarias, y aquí arriba sigue el
-        servicio del <?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?> hasta las
-        <?= (int) CORTE_HORA ?>:00: lo que marcaste anoche sigue marcado.
+        Son las <strong><?= h((new DateTimeImmutable("now", new DateTimeZone(TZ)))->format("H:i")) ?>
+        </strong> en Canarias. Los agotados que veas son los del servicio del
+        <strong><?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?>
+        <?= h((new DateTimeImmutable($hoy))->format("d/m")) ?></strong> y se limpian solos a
+        las <?= (int) CORTE_HORA ?>:00.
       </p>
     <?php endif; ?>
     <p class="sub">
@@ -2900,7 +2909,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
       <p class="hint">
         Marca la casilla y el plato sale <strong>tachado</strong> en la carta. Se limpia solo
-        mañana a las <?= (int) CORTE_HORA ?>:00.
+        mañana a las <?= (int) CORTE_HORA ?>:00<?php if ($hoy !== $hoyReal): ?>,
+        y lo que hay marcado ahora es del servicio del
+        <?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?><?php endif; ?>.
       </p>
 
       <?php $tabActual = null; foreach ($lista as $p):
@@ -3535,20 +3546,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       </div>
     <?php endif; ?>
 
-    <?php /* Entre las 00:00 y las 6:00 la cabecera del panel y esta pestana dicen dias
-             distintos, y las dos tienen razon: arriba manda el servicio —una cena larga sigue
-             siendo la de anoche— y aqui manda el reloj. El aviso sale solo en esas horas, que es
-             cuando puede confundir; el resto del dia sobra y no se pinta. */ ?>
-    <?php if ($hoy !== $hoyC): ?>
-      <div class="msg">
-        Son las <?= h((new DateTimeImmutable("now", new DateTimeZone(TZ)))->format("H:i")) ?>
-        en Canarias, así que aquí ya cuenta el
-        <strong><?= h(mb_strtolower(dia_semana($hoyC), "UTF-8")) ?>
-        <?= h((new DateTimeImmutable($hoyC))->format("d/m")) ?></strong>, aunque arriba siga el
-        servicio del <?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?>. Aquí el día va de
-        00:00 a 00:00; los agotados van por servicio y cambian a las <?= (int) CORTE_HORA ?>:00.
-      </div>
-    <?php endif; ?>
 
     <?php if (!$dt["escribible"]): ?>
       <div class="msg bad">

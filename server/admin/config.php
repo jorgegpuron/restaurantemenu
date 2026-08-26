@@ -117,7 +117,11 @@ define('HERO_MAX', 5);
 // Zona horaria del restaurante. Manda esta, no la del servidor ni la del móvil.
 define('TZ', 'Atlantic/Canary');
 
-// Hora a la que se limpian los agotados del día anterior.
+// Hora a la que se limpian los agotados del día anterior. Sólo los agotados: la fecha de la
+// cabecera es la del reloj de Canarias y no se mueve.
+//
+// EL MISMO NÚMERO ESTÁ EN LA CARTA, en la función serviceDate() que escribe gen.mjs. Tienen
+// que coincidir: si no, la carta tacharía un plato que el panel ya da por bueno.
 define('CORTE_HORA', 6);
 
 /* ------------------------------------------------------------------ CONTADOR DE APERTURAS
