@@ -4186,3 +4186,76 @@ Con PHP 8.4 sirviendo una copia de `2-subir`, `marcador.json` sembrado con tres 
 | juego apagado | endpoint 204, cartel oculto, cero errores en consola |
 | sin `marcador.json` y con `record.json` | `{"top":[{"puntos":29,"nombre":"Lola",...}]}` (antes: vacío) |
 | PUT a `admin/record.php` | 405 |
+
+## Auditoría del juego: siete cosas (26 Aug 2026)
+
+Repaso entero de `juego.mjs` y `admin/record.php` buscando fallos, incoherencias y restos. Lo que
+salió, y lo que se ha hecho con cada cosa.
+
+### 1. La bomba no cortaba la racha si ya estabas a cero
+
+`racha = delta < 0 ? 0 : racha + 1`. La bomba no resta: **vacía**, así que su delta es `-puntos`.
+Con la puntuación ya a cero eso es `-0`, que **no** es menor que cero: la racha subía. Tocando
+bombas seguidas la racha crecía sola. Ahora la bomba corta siempre, mire el delta lo que mire.
+
+### 2. Las fichas del tablero hablaban en inglés técnico
+
+`aria-label` era `'chilli'`, `'gold'`, `'ice'` o `'bomb'`: sin traducir, y sin decir lo que vale
+cada una. Ahora usan **las mismas cuatro frases** que la portada pone bajo el título, que ya
+estaban traducidas: quien no ve los iconos oye en el tablero lo mismo que leyó antes de jugar.
+Comprobado en alemán: «Bombe, alles auf null».
+
+### 3. Con dos marcas iguales, el podio señalaba la fila equivocada
+
+El puesto propio se buscaba **por puntuación**: la primera fila con esos puntos y sin nombre. Y el
+empate no desbanca, así que dos marcas iguales en el podio pasan a menudo. Ahora el puesto lo dice
+el servidor —`responder()` añade `pos` junto al `id`—, que es el único que sabe cuál de las filas
+es la de esta partida.
+
+Comprobado: con dos 55 ya en el podio, una tercera marca de 55 devuelve `"pos":2`.
+
+### 4. El servidor contestaba como si hubiera guardado aunque no guardase
+
+```php
+if ($dentro) marcador_escribir($top);
+responder($top, $dentro ? $nuevo['id'] : '');   // se respondía pasara lo que pasara
+```
+
+El juego colgaba un récord que al recargar la página no existía, y era imposible distinguir «no se
+puede escribir» de «no ha jugado nadie». Ahora, si la escritura falla, se contesta **el podio que
+hay en disco**, sin la marca nueva y sin `id`.
+
+Comprobado poniendo un directorio donde va `marcador.json`: la respuesta es `{"top":[]}`, el juego
+no enseña récord y no aparece el formulario del nombre. Quitando el directorio, la misma llamada
+guarda y persiste.
+
+### 5. La cuenta atrás seguía corriendo con la pestaña escondida
+
+`visibilitychange` terminaba la partida en curso, pero no el 3-2-1: la partida arrancaba con la
+pestaña en segundo plano y se volvía a un tablero a medias o a un resultado que nadie había
+jugado. Ahora la cuenta se cancela y se vuelve a la portada.
+
+### 6. Un nombre recortado perdía el subrayado de tu fila
+
+Al guardar el nombre, el podio se repintaba buscando la fila **cuyo nombre coincidiera con el que
+se escribió**. Pero el servidor lo limpia: recorta a doce, vacía los que llevan enlace o palabrota.
+Escribiendo «Jorgeeeeeeeeeeee» el servidor devuelve «Jorgeeeeeeee» y no casaba nada, así que la
+fila propia se quedaba sin marcar. Ahora, si no casa, se usa el puesto que ya dio el servidor.
+
+Comprobado: nombre de 16, el podio enseña «Jorgeeeeeeee» con la fila propia marcada y su bandera.
+
+### 7. Restos
+
+- `fill()` y `esc()`: definidas y sin usar. Fuera. Con ellas, el parámetro `imgBandera`, que
+  tampoco usaba nadie.
+- Cinco cadenas en el diccionario que no pintaba nadie —`Chilli Rush`, `points`, `Top scores`,
+  `No one has played yet`— y una que sí hacía falta: **`Score`**. Los otros dos números del
+  marcador llevan su rótulo escrito encima; el grande va solo, y sin `aria-label` un lector de
+  pantalla leía un número suelto. Ahora dice «Puntos».
+- Tres comentarios apilados de dos en dos, de ediciones anteriores. Unificados.
+
+### Lo que se deja como está
+
+Si `estado.json` no carga, `CFG.on` se queda en `false` y **no se manda ninguna marca**. Es el
+interruptor del juego y tiene que fallar hacia apagado: un restaurante que apagó el juego no puede
+seguir acumulando récords porque un fichero no conteste.

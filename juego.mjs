@@ -15,15 +15,14 @@
  * ------------------------------------------------------------------ */
 
 export const GAME_STRINGS = [
-  'Chilli Rush',
   'Play', 'Play again', 'Back to the menu',
   /* Los rotulos de las cuatro fichas. No se pintan: son el aria-label de cada una, para
      quien no ve los iconos. Lo que se ve es el icono y su numero, que no hay que traducir. */
   'Chilli, one point', 'Golden chilli, three points',
   'Ice, minus two points', 'Bomb, back to zero',
-  'Score', 'Time', 'Streak', 'Ready?', 'points',
-  'Best today', 'Your score', 'Top scores', 'New record!', 'Record',
-  'Your name', 'Where are you from?', 'Other', 'Save', 'Skip', 'No one has played yet',
+  'Score', 'Time', 'Streak', 'Ready?',
+  'Best today', 'Your score', 'New record!', 'Record',
+  'Your name', 'Where are you from?', 'Other', 'Save', 'Skip',
 ];
 
 /* Los tres iconos del juego. Tabler (MIT), el mismo trazo 1.75 del resto del proyecto.
@@ -39,8 +38,7 @@ const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
 export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, titles,
-  TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES, imgBandera }) {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES }) {
   /* Las opciones del selector de pais.
 
      Un <option> NO admite un <span> dentro: el navegador se lo come y el texto se queda en
@@ -537,7 +535,9 @@ h1{
         <span class="hud-val" id="clock">30</span>
       </div>
       <div class="hud-item centro">
-        <span class="hud-val" id="score">0</span>
+        <!-- Los otros dos numeros llevan su rotulo escrito encima; este va solo porque es el
+             que se mira de reojo. Sin aria-label, un lector de pantalla lee un numero suelto. -->
+        <span class="hud-val" id="score"${TL('Score')}>0</span>
       </div>
       <div class="hud-item der">
         <span class="hud-lbl">${T('Streak', 'ui')}</span>
@@ -592,10 +592,6 @@ h1{
     var e = TR[k], l = document.documentElement.lang || 'en';
     return e ? (e[l] || e.en) : k;
   }
-  function fill(t, d) {
-    return t.replace(/[{]([a-z]+)[}]/g, function (m, k) { return d[k] !== undefined ? d[k] : m; });
-  }
-
   /* ---- idioma ----
      El juego NO tiene selector: hereda el de la carta y no se puede cambiar aqui. Ver setLang
      y el arranque del final del fichero. */
@@ -654,10 +650,10 @@ h1{
     })
     .catch(function () { pintarTextosDinamicos(); });
 
-  /* El récord va en su propia petición y no dentro de estado.json: ahí están los agotados y
-     los precios, y el endpoint público que escribe el récord no puede tocar eso ni por
-     accidente. Cuesta una petición de cuarenta bytes. */
-  /* Dos sitios y un orden. Primero el fichero plano, que no cuesta PHP; si no trae marca -no
+  /* El récord va en su propia petición y no dentro de estado.json: ahí están los agotados y los
+     precios, y el endpoint público que escribe el récord no puede tocar eso ni por accidente.
+
+     Dos sitios y un orden. Primero el fichero plano, que no cuesta PHP; si no trae marca -no
      existe, o la raiz del servidor no deja escribirlo- se pregunta al endpoint, que lee el
      marcador de dentro de admin/. Sin este segundo intento, un restaurante con record en el
      panel abria la portada sin cartel y la marca solo salia al acabar una partida, que es
@@ -678,8 +674,6 @@ h1{
   }
   pedirRecord();
 
-  /* El récord de la casa, en la portada y en el resultado. Sin récord todavía no se escribe
-     «Récord: 0», que se lee como un fallo: sencillamente no aparece la línea. */
   /* El marcador que viene del servidor. Un record.json de la version de un solo record se lee
      como un podio de uno, asi que el restaurante que ya tenia marca no la pierde. */
   function leerTop(j) {
@@ -692,9 +686,8 @@ h1{
       }).slice(0, 3);
   }
 
-  /* La linea de la portada: solo el numero uno. En la portada no cabe un podio y tampoco hace
-     falta — lo que se quiere saber antes de jugar es contra cuanto se juega. */
-  /* El cartel colgado del marco. Se rehace entero cada vez —no se parchea— para que llamarlo
+  /* El cartel colgado del marco. Solo el numero uno: en la portada no cabe un podio y tampoco
+     hace falta — lo que se quiere saber antes de jugar es contra cuanto se juega. Se rehace entero cada vez —no se parchea— para que llamarlo
      dos veces de el mismo resultado; es la misma regla que sigue render() en la carta.
 
      Sin marca todavia no se pinta nada: un cartel que dijera «Record: 0» se lee como una averia,
@@ -813,6 +806,7 @@ h1{
 
      Con una sola llamada al pulsar «Guardar», el que cierra la pestana pierde el record. */
   var miId = '';
+  var miPuesto = -1;                 // el puesto que dio el servidor al mandar la marca
 
   function mandarMarca(p) {
     if (!CFG.on || !(p > 0)) return Promise.resolve(-1);
@@ -826,13 +820,11 @@ h1{
         CFG.top = leerTop(j);
         miId = j.id || '';
         pintarRecord();
-        /* El puesto se busca por puntuacion y no se guarda del envio: si otra mesa ha entrado
-           entre medias, el servidor manda el podio bueno y el puesto puede no ser el esperado. */
+        /* El puesto lo dice el servidor, que es el unico que sabe cual de las filas es la de
+           esta partida. Buscarlo por puntuacion senalaba la fila equivocada cuando el podio
+           tiene dos marcas iguales, y el empate no desbanca: pasa a menudo. */
         if (!miId) return -1;
-        for (var i = 0; i < CFG.top.length; i++) {
-          if (CFG.top[i].puntos === p && !CFG.top[i].nombre) return i;
-        }
-        return -1;
+        return typeof j.pos === 'number' ? j.pos : -1;
       })
       .catch(function () { return -1; });
   }
@@ -891,6 +883,14 @@ h1{
   function intervalo(prog) { return 682 - 330 * prog; }        // 682ms -> 352ms
   function vida(prog) { return 1650 - 715 * prog; }            // 1.65s -> 0.94s
 
+  /* El nombre hablado de cada ficha. Son las mismas cuatro frases que la portada pone bajo el
+     titulo, asi que quien no ve los iconos oye en el tablero lo mismo que leyo antes de jugar.
+     Antes decia 'gold' o 'bomb' a secas: ingles, y ademas sin decir lo que valen. */
+  var ETIQUETA = {
+    chilli: 'Chilli, one point', gold: 'Golden chilli, three points',
+    ice: 'Ice, minus two points', bomb: 'Bomb, back to zero',
+  };
+
   function tipo(prog) {
     var r = Math.random();
     /* La bomba, primera y con banda propia. Un 5% al principio y un 8% al final: en una partida
@@ -912,7 +912,7 @@ h1{
     el.innerHTML = t === 'ice' ? ${JSON.stringify(ICE)}
                  : t === 'bomb' ? ${JSON.stringify(BOMB)}
                  : ${JSON.stringify(PEPPER)};
-    el.setAttribute('aria-label', t === 'chilli' ? 'chilli' : t);
+    el.setAttribute('aria-label', tr(ETIQUETA[t] || ETIQUETA.chilli));
     if (t === 'ice') el.querySelector('svg').setAttribute('stroke-width', '1.6');
 
     /* Un carril al azar. La ficha nace bajo el borde inferior y sube hasta salir por arriba
@@ -966,7 +966,9 @@ h1{
     void elScore.offsetWidth;
     elScore.classList.add(t === 'bomb' ? 'boom' : 'pop');
 
-    racha = delta < 0 ? 0 : racha + 1;
+    /* La bomba corta la racha siempre. Con la puntuacion a cero el delta sale -0, que no es
+       menor que cero, y la racha seguia subiendo despues de tocar una bomba. */
+    racha = (delta < 0 || t === 'bomb') ? 0 : racha + 1;
     elRacha.textContent = racha;
     if (delta > 0) { elRacha.classList.remove('pop'); void elRacha.offsetWidth; elRacha.classList.add('pop'); }
 
@@ -1034,6 +1036,7 @@ h1{
     document.getElementById('end-score').textContent = puntos;
     form.hidden = true;
     miId = '';
+    miPuesto = -1;
     pintarTextosDinamicos();
     pintarPodio(-1);
     pantalla('s-end');
@@ -1043,6 +1046,7 @@ h1{
        vacio. */
     mandarMarca(puntos).then(function (puesto) {
       if (seEstaJugando) return;                 // ya ha empezado otra: no se pisa la pantalla
+      miPuesto = puesto;
       pintarPodio(puesto);
       if (puesto < 0) return;
       ceja.textContent = tr('New record!');
@@ -1051,15 +1055,18 @@ h1{
       document.getElementById('f-nombre').focus({ preventScroll: true });
     });
   }
+  var tCuenta = null;
+
   function cuentaAtras() {
     pantalla('s-count');
     var el = document.getElementById('count');
     var n = 3;
     el.textContent = n;
     el.classList.add('tick');
-    var iv = setInterval(function () {
+    clearInterval(tCuenta);
+    var iv = tCuenta = setInterval(function () {
       n -= 1;
-      if (n <= 0) { clearInterval(iv); empezar(); return; }
+      if (n <= 0) { clearInterval(iv); tCuenta = null; empezar(); return; }
       el.textContent = n;
       el.classList.remove('tick');
       void el.offsetWidth;
@@ -1080,11 +1087,15 @@ h1{
     var c = document.getElementById('f-pais').value;
     cerrarFichar();
     fichar(n, c).then(function () {
-      /* Se repinta buscando el nombre recien puesto: el puesto pudo cambiar mientras escribia. */
+      /* Se repinta buscando el nombre recien puesto: el puesto pudo cambiar mientras escribia.
+         El servidor puede devolver otro nombre —lo recorta a doce y vacia los feos—, y entonces
+         no hay nada que casar: se cae al puesto que ya dio al guardar la marca. */
       var mio = -1;
       for (var i = 0; i < CFG.top.length; i++) {
         if (CFG.top[i].nombre === n.trim() && CFG.top[i].puntos === puntos) mio = i;
       }
+      if (mio < 0 && miPuesto >= 0 && CFG.top[miPuesto]
+          && CFG.top[miPuesto].puntos === puntos) mio = miPuesto;
       pintarPodio(mio);
     });
   });
@@ -1093,7 +1104,12 @@ h1{
 
   // salir de la pestaña a mitad de partida no debe dejar el marcador corriendo solo
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden && seEstaJugando) terminar();
+    if (!document.hidden) return;
+    if (seEstaJugando) { terminar(); return; }
+    /* Y si se va durante el 3-2-1, la cuenta se cancela y se vuelve a la portada. Dejandola
+       correr, la partida empezaba con la pestana escondida y el jugador volvia a un tablero
+       a medias o a una pantalla de resultado que no habia jugado. */
+    if (tCuenta) { clearInterval(tCuenta); tCuenta = null; pantalla('s-intro'); }
   });
 
   /* El mismo criterio que la carta, y con la misma clave: se recorre navigator.languages

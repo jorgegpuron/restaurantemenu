@@ -111,15 +111,24 @@ function escribir_json(string $ruta, array $datos): bool {
   return true;
 }
 
-/* Lo que se devuelve al juego: sin el id, que es cosa de quien acaba de jugar. */
+/* Lo que se devuelve al juego: sin el id de los demás, que es cosa de cada cual.
+ *
+ * Con id va también `pos`, el puesto de esa marca. El juego lo buscaba por puntuación, y dos
+ * marcas iguales en el podio —que pasa: el empate no desbanca— señalaban la fila equivocada. */
 function responder(array $top, string $id = ''): void {
   $publico = array_map(static fn(array $x) => [
     'puntos' => $x['puntos'], 'nombre' => $x['nombre'], 'pais' => $x['pais'],
   ], $top);
+  $salida = ['top' => $publico];
+  if ($id !== '') {
+    $salida['id'] = $id;
+    foreach ($top as $i => $x) {
+      if ($x['id'] === $id) { $salida['pos'] = $i; break; }
+    }
+  }
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store');
-  echo json_encode($id === '' ? ['top' => $publico] : ['top' => $publico, 'id' => $id],
-                   JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  echo json_encode($salida, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
   exit;
 }
 
@@ -174,7 +183,7 @@ if ($id !== '') {
     if ($x['id'] !== $id) continue;
     $top[$i]['nombre'] = $nombre;
     $top[$i]['pais'] = $pais;
-    marcador_escribir($top);
+    if (!marcador_escribir($top)) responder(marcador_leer());
     responder($top);
   }
   responder($top);                 // el puesto ya no está: otro lo ha desbancado
@@ -223,6 +232,13 @@ $top = array_slice($top, 0, 3);
    disco para nada — y de paso es lo que limita solo la frecuencia de escritura. */
 $dentro = false;
 foreach ($top as $x) { if ($x['id'] === $nuevo['id']) $dentro = true; }
-if ($dentro) marcador_escribir($top);
+
+/* Si no se ha podido guardar, se contesta el podio que hay EN DISCO y sin id. Antes se
+   respondia el podio con la marca dentro pasara lo que pasara: el juego colgaba un record que
+   al recargar la pagina no existia, y era imposible distinguir «no se guarda» de «nadie ha
+   jugado todavia». */
+if ($dentro && !marcador_escribir($top)) {
+  responder(marcador_leer());
+}
 
 responder($top, $dentro ? $nuevo['id'] : '');
