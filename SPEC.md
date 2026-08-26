@@ -3925,3 +3925,20 @@ juego dice `juego.html?lang=es`. Eligiendo inglés a mano: `?lang=en`, y el jueg
 (`Play`, `Tap the chillies...`). Abriendo `juego.html` **sin** `?lang`, coge el `en` de
 `localStorage`. Partida entera hasta el final sin un error de consola, con el podio y su bandera
 en la pantalla de resultado.
+
+## La cabecera dice de qué día es su fecha (26 Aug 2026)
+
+A la 01:34 del miércoles 26 el panel ponía **Martes, 25/08/26** y parecía ir atrasado. No lo iba:
+la fecha de la cabecera es la **de servicio**, que retrocede un día antes de las 6:00 para que un
+plato marcado a las 22:00 siga marcado a las 02:00. El reloj estaba bien —`Atlantic/Canary`,
+offset +01:00 en agosto—; lo que faltaba era decirlo.
+
+Entre las 00:00 y las 6:00, y sólo entonces, debajo de la fecha sale:
+
+> Son las **01:36** del **miércoles 26/08** en Canarias, y aquí arriba sigue el servicio del martes
+> hasta las 6:00: lo que marcaste anoche sigue marcado.
+
+La pestaña Analítica ya tenía un aviso parecido, porque ahí el día va de 00:00 a 00:00 y no por
+servicio. Pero había que entrar a verlo, y la cabecera es lo primero que se lee.
+
+Comprobado con el corte movido a las 0:00: el aviso desaparece. Con el corte en 6, sale.

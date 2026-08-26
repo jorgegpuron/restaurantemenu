@@ -1664,6 +1664,13 @@ $CUENTAS = [
     font-size:14px;
     line-height:1.45;
   }
+  /* El aviso de la madrugada se lee antes que el pie de sesion: no es un adorno, es lo que
+     explica por que la fecha de arriba no es la del movil de quien mira. */
+  .head .sub-servicio{
+    max-width:44ch;
+    margin-inline:auto;
+    color:var(--ink);
+  }
   .head .sub a{color:var(--accent-ink)}
 
   /* ---------- pestañas ---------- */
@@ -2766,6 +2773,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <header class="head">
     <p class="head-eyebrow"><?= h(CLIENTE_NOMBRE) ?></p>
     <h1><span class="dia"><?= h(dia_semana($hoy)) ?>,</span> <?= h(date('d/m/y', strtotime($hoy))) ?></h1>
+    <?php /* La fecha de arriba es la del SERVICIO, que retrocede un dia antes de las <?= (int) CORTE_HORA ?>:00
+             para que lo que se marco anoche siga marcado. Entre las 00:00 y esa hora no coincide
+             con el calendario, y sin decirlo parece que el panel va atrasado: a la 01:34 del
+             miercoles pone «Martes». El resto del dia las dos fechas son la misma y esto sobra. */ ?>
+    <?php $ahoraTz = new DateTimeImmutable("now", new DateTimeZone(TZ)); ?>
+    <?php if ($hoy !== $ahoraTz->format("Y-m-d")): ?>
+      <p class="sub sub-servicio">
+        Son las <strong><?= h($ahoraTz->format("H:i")) ?></strong> del
+        <strong><?= h(mb_strtolower(dia_semana($ahoraTz->format("Y-m-d")), "UTF-8")) ?>
+        <?= h($ahoraTz->format("d/m")) ?></strong> en Canarias, y aquí arriba sigue el
+        servicio del <?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?> hasta las
+        <?= (int) CORTE_HORA ?>:00: lo que marcaste anoche sigue marcado.
+      </p>
+    <?php endif; ?>
     <p class="sub">
       Servicio en curso<?php if (!$demo): ?> · la sesión se cierra sola tras
       <?= (int) SESION_MINUTOS ?> min sin actividad · <a href="?salir=1">Salir</a><?php endif; ?>
