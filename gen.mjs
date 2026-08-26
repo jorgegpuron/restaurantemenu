@@ -2364,8 +2364,18 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-size:14px;
   font-weight:400;
   line-height:24px;
-  /* the rule spans the column, but the sentence still stops at a readable measure */
-  max-width:46ch;
+  /* Sin tope de medida: la frase llega hasta donde llega la columna. Habia un max-width de 46ch
+     puesto por legibilidad, y a 900px de pantalla dejaba 300 sin usar y partia descripciones que
+     caben de sobra en una linea: «Cafe de filtro preparado en Chemex para 2» y debajo, sola,
+     «personas.». En una carta la descripcion es una linea de apoyo, no un parrafo de lectura
+     larga, asi que la medida corta no compensaba la palabra huerfana.
+
+     pretty le pide al navegador que no deje la ultima linea con una sola palabra cuando puede
+     evitarlo; donde no se soporta, se comporta como antes. Y nada de partir palabras con guion:
+     un nombre de plato cortado por la mitad se lee peor que una linea con hueco. */
+  text-wrap:pretty;
+  hyphens:none;
+  overflow-wrap:normal;
   margin-top:-.3em;
 }
 .single-menu-items h6{

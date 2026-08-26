@@ -16,7 +16,11 @@
 
 export const GAME_STRINGS = [
   'Chilli Rush',
-  'Tap the chillies. Dodge the ice and the bomb.', 'Play', 'Play again', 'Back to the menu',
+  'Play', 'Play again', 'Back to the menu',
+  /* Los rotulos de las cuatro fichas. No se pintan: son el aria-label de cada una, para
+     quien no ve los iconos. Lo que se ve es el icono y su numero, que no hay que traducir. */
+  'Chilli, one point', 'Golden chilli, three points',
+  'Ice, minus two points', 'Bomb, back to zero',
   'Score', 'Time', 'Streak', 'Ready?', 'points',
   'Best today', 'Your score', 'Top scores', 'New record!', 'Record',
   'Your name', 'Where are you from?', 'Other', 'Save', 'Skip', 'No one has played yet',
@@ -125,6 +129,97 @@ h1{
 }
 .rules{margin:0;max-width:30ch;font-size:clamp(16px,4.4vw,19px);line-height:1.4}
 
+/* ---------- los puntos de cada ficha ----------
+   Sustituyen a la frase «Toca los chiles. Esquiva el hielo y la bomba.», que decia que hacer
+   pero no cuanto valia cada cosa. Aqui se ve lo uno y lo otro de un vistazo y sin leer: el
+   dibujo es EL MISMO que sale en el tablero y el color tambien, asi que la portada ensena
+   exactamente lo que se va a tocar.
+
+   Los numeros van en la tipografia de titulos y con cifras tabulares para que +1, +3 y -2
+   ocupen lo mismo y la fila no baile. */
+.puntos{
+  display:flex;align-items:stretch;justify-content:center;gap:var(--s1);
+  margin:var(--s3) 0 0;width:min(330px,100%);
+}
+.punto{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 2px 8px;border-radius:14px;
+  background:color-mix(in srgb,var(--surface) 46%,transparent);
+}
+.punto .ficha{
+  width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+.punto .ficha svg{width:21px;height:21px}
+.punto .val{
+  font-family:var(--title-font);font-size:14px;font-weight:800;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--ink);
+}
+/* Cada ficha con el color que tiene en el tablero, y no uno decorativo: el chile normal sobre
+   la tinta, el dorado en su amarillo, el hielo en su azul y la bomba en el rojo con su aro. */
+.punto[data-t='chilli'] .ficha{background:var(--ink);color:var(--surface)}
+.punto[data-t='gold'] .ficha{background:#f2c14e;color:#7a4a06}
+.punto[data-t='ice'] .ficha{background:#cfe9f2;color:#0d5b73}
+.punto[data-t='bomb'] .ficha{
+  background:var(--offer);color:var(--surface);
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--surface) 88%,transparent);
+}
+.punto[data-t='ice'] .val,.punto[data-t='bomb'] .val{color:var(--offer)}
+/* Entran una detras de otra, despues del cartel: 40ms de diferencia, lo justo para que se lea
+   como una fila que se monta y no como cuatro cosas sueltas. */
+.punto{animation:sube 240ms var(--ease-out) both}
+.punto:nth-child(1){animation-delay:120ms}
+.punto:nth-child(2){animation-delay:160ms}
+.punto:nth-child(3){animation-delay:200ms}
+.punto:nth-child(4){animation-delay:240ms}
+
+/* ---------- el marcador colgado ----------
+   El record estaba debajo de las reglas en crema al 80% sobre el fondo, y no se leia. Sube al
+   borde de arriba y se convierte en un cartel colgado de dos cables, como la pizarra de un bar.
+
+   Va absoluto y fuera del centrado de .screen: la portada sigue centrada y el cartel cuelga del
+   marco. Con el juego recien puesto no hay record y no se pinta nada; entonces la portada queda
+   exactamente como estaba. */
+.marcador{
+  /* El top es la barra de estado del movil: sin el inset, en un iPhone los cables salen de
+     debajo del reloj. Donde no hay muesca, env() vale 0 y no cambia nada. */
+  position:absolute;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:2;
+  display:flex;flex-direction:column;align-items:center;
+  pointer-events:none;
+}
+.marcador[hidden]{display:none}
+.cables{display:flex;gap:118px;height:26px}
+.cables span{width:1.5px;background:color-mix(in srgb,var(--ink) 45%,transparent)}
+.placa{
+  transform-origin:top center;
+  background:var(--ink);color:var(--surface);
+  border-radius:13px;padding:9px var(--s3) 10px;
+  display:flex;align-items:center;gap:10px;max-width:calc(100vw - var(--s4));
+  box-shadow:0 10px 22px -10px rgba(0,0,0,.5),
+             inset 0 0 0 2px color-mix(in srgb,var(--metal) 55%,transparent);
+  animation:colgar 620ms cubic-bezier(.28,1.2,.5,1) both;
+}
+.placa .rot{
+  font-family:var(--title-font);font-size:10px;font-weight:800;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--metal);white-space:nowrap;
+}
+.placa .n{
+  font-family:var(--title-font);font-size:25px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+}
+.placa .quien{
+  display:flex;align-items:center;gap:6px;min-width:0;
+  font-family:var(--title-font);font-size:14px;font-weight:600;opacity:.85;
+}
+.placa .quien span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Cuelga y se mece una vez. El origen esta arriba, en los cables, que es de donde colgaria. */
+@keyframes colgar{
+  0%{opacity:0;transform:translateY(-14px) rotate(-3deg)}
+  55%{opacity:1;transform:translateY(0) rotate(1.6deg)}
+  80%{transform:rotate(-.7deg)}
+  100%{opacity:1;transform:rotate(0)}
+}
+
 /* ---------- portada «Arcade» ----------
    Elegida entre tres direcciones prototipadas (Sereno / Cartel / Arcade). Vende la partida
    antes del primer toque: mascota con entrada «pop», «Rush» en el rojo de aviso inclinado, y
@@ -176,7 +271,7 @@ h1{
 #btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--offer)}
 #btn-play svg{width:21px;height:21px;flex:0 0 auto}
 #btn-play .i18n{line-height:1}
-@media (prefers-reduced-motion:reduce){ .mascota,.record,.eyebrow-record{animation:none} }
+@media (prefers-reduced-motion:reduce){ .mascota,.record,.eyebrow-record,.punto,.placa{animation:none} }
 /* Botones a medida de app: la acción principal llena 320px (o el ancho que haya), 56px de
    alto; la secundaria debajo, misma anchura, sin relleno y con borde — se lee como opción,
    no como acción. Entre bloque de texto y botones, un escalón más de aire que entre líneas. */
@@ -398,14 +493,30 @@ h1{
 </head>
 <body>
 <div class="wrap">
+  <!-- El record de la casa, colgado del marco. Lo rellena pintarRecord(); mientras no haya
+       marca no se pinta y la portada queda como si esto no existiera. -->
+  <div class="marcador" id="marcador" hidden aria-hidden="true"></div>
+
   <!-- 1. portada -->
   <section class="screen" id="s-intro">
     <div class="mascota" aria-hidden="true">
       <img src="assets/chilirush.webp" width="89" height="126" alt="" decoding="async">
     </div>
     <h1>Chilli <em>Rush</em></h1>
-    <p class="rules">${T('Tap the chillies. Dodge the ice and the bomb.', 'ui')}</p>
-    <p class="record" id="intro-record" hidden></p>
+
+    <!-- Lo que vale cada ficha. Sustituye a la frase de las reglas: el mismo dibujo y el mismo
+         color que en el tablero, y al lado lo que suma o resta. El numero no se traduce; el
+         rotulo hablado de cada una va en su aria-label. -->
+    <div class="puntos">
+      <span class="punto" data-t="chilli"${TL('Chilli, one point')}>
+        <span class="ficha">${PEPPER}</span><span class="val">+1</span></span>
+      <span class="punto" data-t="gold"${TL('Golden chilli, three points')}>
+        <span class="ficha">${PEPPER}</span><span class="val">+3</span></span>
+      <span class="punto" data-t="ice"${TL('Ice, minus two points')}>
+        <span class="ficha">${ICE}</span><span class="val">&#8722;2</span></span>
+      <span class="punto" data-t="bomb"${TL('Bomb, back to zero')}>
+        <span class="ficha">${BOMB}</span><span class="val">0</span></span>
+    </div>
     <div class="actions">
       <button class="big-btn" id="btn-play" type="button">${PEPPER}${T('Play', 'ui')}</button>
       <a class="ghost-btn" href="./index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>${T('Back to the menu', 'ui')}</a>
@@ -568,15 +679,31 @@ h1{
 
   /* La linea de la portada: solo el numero uno. En la portada no cabe un podio y tampoco hace
      falta — lo que se quiere saber antes de jugar es contra cuanto se juega. */
+  /* El cartel colgado del marco. Se rehace entero cada vez —no se parchea— para que llamarlo
+     dos veces de el mismo resultado; es la misma regla que sigue render() en la carta.
+
+     Sin marca todavia no se pinta nada: un cartel que dijera «Record: 0» se lee como una averia,
+     y ademas la portada sin el queda exactamente como estaba antes de que existiera. */
   function pintarRecord() {
-    var el = document.getElementById('intro-record');
+    var el = document.getElementById('marcador');
     if (!el) return;
     var uno = CFG.top[0];
-    if (!uno) { el.hidden = true; el.textContent = ''; return; }
-    el.innerHTML = tr('Record') + ': <b>' + uno.puntos + '</b> ' + tr('points')
-      + (uno.nombre ? ' · ' + escapar(uno.nombre) : '')
-      + bandera(uno.pais);
-    el.hidden = false;
+    if (!uno) { el.hidden = true; el.innerHTML = ''; return; }
+    /* Se pinta siempre, pero solo se ensena en la portada. Sin esto, la llamada que hace
+       mandarMarca() al acabar una partida lo colgaria encima de la pantalla del resultado,
+       justo sobre el podio. */
+    var enPortada = !document.getElementById('s-intro').hidden;
+    el.innerHTML =
+      '<span class="cables"><span></span><span></span></span>'
+      + '<span class="placa">'
+      +   '<span class="rot">' + escapar(tr('Record')) + '</span>'
+      +   '<span class="n">' + uno.puntos + '</span>'
+      +   (uno.nombre || uno.pais
+            ? '<span class="quien"><span>' + escapar(uno.nombre) + '</span>'
+              + bandera(uno.pais) + '</span>'
+            : '')
+      + '</span>';
+    el.hidden = !enPortada;
   }
 
   /* Un nombre lo escribe un desconocido: aqui se pinta como TEXTO y nunca como HTML. El
@@ -728,6 +855,11 @@ h1{
     ['s-intro', 's-count', 's-play', 's-end'].forEach(function (s) {
       document.getElementById(s).hidden = (s !== id);
     });
+    /* El cartel del record cuelga del marco y no de la portada, asi que hay que bajarlo a mano:
+       si no, se queda colgado encima del tablero durante la partida, justo en la esquina por
+       donde salen los chiles. Vuelve solo al volver a la portada, y solo si hay marca. */
+    var cartel = document.getElementById('marcador');
+    if (cartel) cartel.hidden = (id !== 's-intro') || !CFG.top[0];
   }
 
   function limpiarTablero() {

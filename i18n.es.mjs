@@ -592,7 +592,6 @@ export const ui = {
 
   /* ---- Chilli Rush ---- */
   'Chilli Rush': 'Chilli Rush',
-  'Tap the chillies. Dodge the ice and the bomb.': 'Toca los chiles. Esquiva el hielo y la bomba.',
   'Play': 'Jugar',
   'Play again': 'Otra vez',
   'Back to the menu': 'Volver a la carta',
@@ -604,6 +603,10 @@ export const ui = {
   'points': 'puntos',
   'Best today': 'Tu mejor marca de hoy',
   'Your score': 'Tu puntuación',
+'Chilli, one point': 'Chile, un punto',
+'Golden chilli, three points': 'Chile dorado, tres puntos',
+'Ice, minus two points': 'Hielo, menos dos puntos',
+'Bomb, back to zero': 'Bomba, te deja a cero',
 'Top scores': 'Los mejores',
 'Your name': 'Tu nombre',
 'Where are you from?': '¿De dónde eres?',

@@ -4064,3 +4064,60 @@ Con 7 copias sembradas —5 del formato nuevo, 2 del viejo— un cambio de preci
 **3**: las dos más nuevas de las sembradas y la recién hecha. Las dos del formato viejo caen.
 «Borrar todas las copias» deja la carpeta vacía **y conserva su `.htaccess`**, que no es una
 copia y no se lista.
+
+## El récord colgado, los puntos a la vista, y la descripción entera (26 Aug 2026)
+
+### El récord sube al marco
+
+Estaba debajo de las reglas en **crema al 80% sobre el fondo**, que es casi el mismo color: no se
+leía. Ahora cuelga del borde de arriba en un cartel de dos cables, con la tinta de fondo y el
+número a 25px. Elegido entre tres prototipos —Cinta, Colgado, Ficha— sobre la portada de hoy.
+
+Va **absoluto dentro de `.wrap`**, no dentro de la portada, y por eso hizo falta bajarlo a mano en
+dos sitios:
+
+- `pantalla()` lo esconde fuera de `s-intro`. Sin eso se quedaba colgado sobre el tablero, justo
+  en la esquina por donde salen los chiles.
+- `pintarRecord()` mira si la portada está visible antes de enseñarlo. Sin eso, la llamada que
+  hace `mandarMarca()` al acabar una partida lo colgaba **encima del podio** de la pantalla final.
+
+Sin marca no se pinta nada y la portada queda exactamente como antes de que esto existiera. Y
+lleva `env(safe-area-inset-top)`: en un iPhone los cables salían de debajo del reloj.
+
+### «Toca los chiles. Esquiva el hielo y la bomba.» se cae
+
+En su sitio van las **cuatro fichas con lo que vale cada una**:
+
+| ficha | | 
+|---|---|
+| chile | **+1** |
+| chile dorado | **+3** |
+| hielo | **−2** |
+| bomba | **0** — te deja a cero |
+
+La frase decía qué hacer pero no cuánto valía cada cosa. El dibujo y el color son **los mismos
+que en el tablero**, así que la portada enseña exactamente lo que se va a tocar. Y como lo único
+escrito son cifras, **no hay nada que traducir**: los cuatro rótulos hablados viajan en el
+`aria-label` de cada ficha, que es lo que oye un lector de pantalla.
+
+Entran escalonadas 40ms detrás del cartel, para que se lean como una fila que se monta.
+
+### La descripción usa la columna entera
+
+`.menu-content p` tenía `max-width:46ch` por legibilidad. A 900px de pantalla la columna mide 641
+y el párrafo se quedaba en 341: **300px sin usar**, y descripciones que caben de sobra en una
+línea partidas dejando una palabra sola debajo — «Café de filtro preparado en Chemex para 3» y,
+en la siguiente, «personas.».
+
+En una carta la descripción es una línea de apoyo, no un párrafo de lectura larga, así que la
+medida corta no compensaba la palabra huérfana. Fuera el tope, y además `text-wrap:pretty` para
+que el navegador evite la última línea de una sola palabra cuando pueda, y `hyphens:none`: un
+nombre de plato cortado por la mitad se lee peor que una línea con hueco.
+
+| a 900px | antes | ahora |
+|---|---|---|
+| ancho del párrafo | 341 de 641 | **641 de 641** |
+| de más de una línea | 12 de 60 | **2 de 60** |
+
+Las cinco de la captura —las tres de Chemex y las dos de French Press— pasan a **una línea**.
+En móvil la columna mide 256 y siguen partiendo, que es lo correcto: ahí no sobra ancho.
