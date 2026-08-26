@@ -34,28 +34,9 @@ const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
-export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, IDIOMAS, titles,
+export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, titles,
   TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES, imgBandera }) {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  /* El mismo selector que la carta: bandera, nombre y chevron, arriba a la derecha. */
-  const langMenu = `<div class="head-tools">
-    <div class="lang" id="lang">
-      <button type="button" class="lang-trigger" id="lang-trigger"
-              aria-haspopup="true" aria-expanded="false" aria-controls="lang-menu"${TL('Language')}>
-        <span class="lang-flag" id="lang-flag" aria-hidden="true"></span>
-        <span class="lang-name" id="lang-name"></span>
-        <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>
-      </button>
-      <div class="lang-menu" id="lang-menu" role="menu" hidden>
-${IDIOMAS.map((l) => `        <button type="button" class="lang-opt" role="menuitemradio" aria-checked="false" data-lang="${l.code}" lang="${l.code}">
-          <span class="lang-flag" aria-hidden="true">${l.flag}</span>
-          <span class="lang-name">${esc(l.name)}</span>
-          <svg class="lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -9"/></svg>
-        </button>`).join(String.fromCharCode(10))}
-      </div>
-    </div>
-  </div>`;
-
   /* Las opciones del selector de pais.
 
      Un <option> NO admite un <span> dentro: el navegador se lo come y el texto se queda en
@@ -112,83 +93,11 @@ body{
           calc(var(--s3) + env(safe-area-inset-bottom));
 }
 
-/* ---------- idioma ----------
-   El mismo control que la carta, en el mismo sitio: arriba a la derecha, bandera + nombre +
-   chevron y un desplegable propio con los tres idiomas escritos cada uno en el suyo. Un
-   cliente que acaba de usarlo en la carta lo encuentra aquí donde lo dejó. */
-.head-tools{
-  position:absolute;
-  top:calc(var(--s1) + var(--s2) + env(safe-area-inset-top));
-  right:calc(var(--s1) + var(--s2));
-  z-index:6;
-  display:flex;align-items:center;
-  padding:4px;
-  border-radius:var(--r-pill);
-  /* 50 % y no el 78 % de la carta: allí hay una foto debajo y el cristal se nota; aquí el
-     fondo es plano y al 78 % parecía opaco. La tinta sigue a más de 9:1 en los seis temas. */
-  background:color-mix(in srgb,var(--surface) 50%,transparent);
-  backdrop-filter:blur(12px) saturate(140%);
-  -webkit-backdrop-filter:blur(12px) saturate(140%);
-  box-shadow:var(--lift-fab);
-}
-.head-tools[hidden]{display:none}   /* display:flex pisa al hidden del navegador sin esto */
-@media (prefers-reduced-transparency:reduce){
-  .head-tools{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}
-}
-.lang{position:relative}
-/* El mismo control que en la carta, con los mismos números: 44 de alto y 16 de cuerpo. Se
-   había quedado en 40 y 13, y el idioma elegido se leía más pequeño aquí que allí para un
-   control que es el mismo y se toca igual. */
-.lang-trigger{
-  display:flex;align-items:center;gap:7px;
-  height:44px;padding:0 10px 0 12px;
-  border:1px solid transparent;border-radius:var(--r-pill);
-  background:transparent;color:var(--ink);
-  font-family:var(--title-font);font-size:16px;font-weight:600;
-  cursor:pointer;
-  transition:border-color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
-}
-.lang-trigger:active{transform:scale(.96)}
-.lang-trigger:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
-.lang-flag{display:inline-flex;flex:0 0 auto}
 /* Una sola regla para todas las banderas —el selector de idioma y el podio—, porque desde que
    salen de assets/banderas/ son el mismo fichero. 20x15 es su proporcion; con la 3:2 de antes
    salian aplastadas. */
 .bandera{width:20px;height:15px;border-radius:2px;flex:0 0 auto;
   box-shadow:0 0 0 1px rgba(0,0,0,.22)}
-.lang-chevron{width:15px;height:15px;color:var(--muted);transition:transform var(--t-fast) var(--ease-out)}
-.lang-trigger[aria-expanded="true"] .lang-chevron{transform:rotate(180deg)}
-.lang-menu{
-  position:absolute;top:calc(100% + 6px);right:0;z-index:20;
-  min-width:172px;padding:5px;
-  border:1px solid var(--border);border-radius:16px;
-  background:var(--surface);box-shadow:var(--lift-fab);
-  transform-origin:top right;
-  transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
-}
-.lang-menu[hidden]{display:none}
-.lang-menu.is-closed{opacity:0;transform:translateY(-2px) scale(.97)}
-/* Bricolage a 16, como en la carta: las opciones son un control que se toca, no texto que se
-   lee, y en serif a 15 no se parecían a los chips ni al idioma ya elegido. */
-.lang-opt{
-  display:flex;align-items:center;gap:9px;
-  width:100%;min-height:42px;padding:0 9px;
-  border:0;border-radius:11px;background:transparent;color:var(--ink);
-  font-family:var(--title-font);font-size:16px;font-weight:600;
-  text-align:left;cursor:pointer;
-  transition:background-color var(--t-fast) ease;
-}
-.lang-opt .lang-name{flex:1 1 auto}
-.lang-opt:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
-@media (hover:hover) and (pointer:fine){ .lang-opt:hover{background:var(--chip)} }
-.lang-opt[aria-checked="true"]{color:var(--accent-ink)}
-.lang-check{width:17px;height:17px;color:var(--accent-ink);opacity:0}
-.lang-opt[aria-checked="true"] .lang-check{opacity:1}
-@media (prefers-reduced-motion:reduce){
-  .lang-menu,.lang-chevron{transition:none}
-  .lang-menu.is-closed{transform:none}
-}
-
 /* ---------- pantallas ---------- */
 .screen{
   flex:1 1 auto;
@@ -229,7 +138,14 @@ h1{
   box-shadow:var(--lift-fab);
   animation:pop 260ms cubic-bezier(.34,1.56,.64,1) both;
 }
-.mascota svg{width:60px;height:60px;stroke-width:1.6}
+/* El logo se sale del disco por arriba y por abajo a proposito: asi el chile se planta ENCIMA
+   del circulo en vez de quedar encerrado dentro. Se sale 11 por lado y debajo hay 21 de aire
+   hasta el titulo, asi que no llega a tocarlo.
+
+   El disco no recorta y la imagen no ocupa sitio de mas: la caja que cuenta para el hueco de
+   la columna sigue siendo la del circulo, 104. */
+.mascota img{width:auto;height:126px;display:block;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.28))}
 @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 /* ---- el aire de la portada ----
    Los huecos salían de sumar el gap de .screen (21) con márgenes sueltos de cada bloque, y
@@ -241,7 +157,9 @@ h1{
      frase   → récord   21   la referencia, pegada a lo que promete
      récord  → botones  34   el salto antes de la zona de acción */
 #s-intro{gap:0}
-#s-intro h1{margin-top:var(--s3);font-size:clamp(44px,13vw,72px);line-height:.9}
+/* Los 21 de aire se midieron con un icono dentro del disco. Ahora el logo se sale 11 por abajo
+   y se los come: el titulo se aparta esos 11 para que el hueco que se ve siga siendo 21. */
+#s-intro h1{margin-top:calc(var(--s3) + 11px);font-size:clamp(44px,13vw,72px);line-height:.9}
 #s-intro .rules{margin-top:var(--s2)}
 #s-intro .eyebrow{margin-top:var(--s2)}
 /* Un eyebrow vacío se sale del flujo, o gastaría su hueco por nada. */
@@ -480,11 +398,11 @@ h1{
 </head>
 <body>
 <div class="wrap">
-  ${langMenu}
-
   <!-- 1. portada -->
   <section class="screen" id="s-intro">
-    <div class="mascota" aria-hidden="true">${PEPPER}</div>
+    <div class="mascota" aria-hidden="true">
+      <img src="assets/chilirush.webp" width="89" height="126" alt="" decoding="async">
+    </div>
     <h1>Chilli <em>Rush</em></h1>
     <p class="rules">${T('Tap the chillies. Dodge the ice and the bomb.', 'ui')}</p>
     <p class="record" id="intro-record" hidden></p>
@@ -568,72 +486,9 @@ h1{
   }
 
   /* ---- idioma ----
-     Mismo mecanismo y misma clave que la carta, así que el juego se abre en el idioma que el
-     cliente ya eligió y volver a la carta no lo pierde. */
+     El juego NO tiene selector: hereda el de la carta y no se puede cambiar aqui. Ver setLang
+     y el arranque del final del fichero. */
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var IDIOMAS = ${JSON.stringify(IDIOMAS)};
-  var langCaja = document.getElementById('lang');
-  var langTrigger = document.getElementById('lang-trigger');
-  var langMenu = document.getElementById('lang-menu');
-  var langFlag = document.getElementById('lang-flag');
-  var langName = document.getElementById('lang-name');
-  var langOpts = [].slice.call(document.querySelectorAll('.lang-opt'));
-
-  function langAbrir(abre) {
-    langTrigger.setAttribute('aria-expanded', String(abre));
-    if (abre) {
-      langMenu.hidden = false;
-      langMenu.classList.add('is-closed');
-      void langMenu.offsetWidth;
-      langMenu.classList.remove('is-closed');
-      var marcado = langMenu.querySelector('[aria-checked="true"]') || langOpts[0];
-      if (marcado) marcado.focus();
-    } else {
-      langMenu.classList.add('is-closed');
-      if (reduce) { langMenu.hidden = true; return; }
-      setTimeout(function () {
-        if (langTrigger.getAttribute('aria-expanded') === 'false') langMenu.hidden = true;
-      }, 180);
-    }
-  }
-
-  langTrigger.addEventListener('click', function () {
-    langAbrir(langTrigger.getAttribute('aria-expanded') !== 'true');
-  });
-  langOpts.forEach(function (o, i) {
-    o.addEventListener('click', function () {
-      setLang(o.dataset.lang);
-      langAbrir(false);
-      langTrigger.focus();
-    });
-    o.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        var k = (i + (e.key === 'ArrowDown' ? 1 : -1) + langOpts.length) % langOpts.length;
-        langOpts[k].focus();
-      }
-    });
-  });
-  document.addEventListener('pointerdown', function (e) {
-    if (langTrigger.getAttribute('aria-expanded') !== 'true') return;
-    if (langCaja.contains(e.target)) return;
-    langAbrir(false);
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape' || langTrigger.getAttribute('aria-expanded') !== 'true') return;
-    langAbrir(false);
-    langTrigger.focus();
-  });
-
-  function langPintar(lang) {
-    var l = null;
-    for (var i = 0; i < IDIOMAS.length; i++) if (IDIOMAS[i].code === lang) l = IDIOMAS[i];
-    if (!l) return;
-    langFlag.innerHTML = l.flag;
-    langName.textContent = l.name;
-    langOpts.forEach(function (o) { o.setAttribute('aria-checked', String(o.dataset.lang === lang)); });
-  }
-
   function setLang(lang) {
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-es]').forEach(function (el) {
@@ -651,7 +506,6 @@ h1{
       el.setAttribute('aria-label', v !== undefined ? v : el.dataset.enLabel);
     });
     document.title = TITLE[lang] || TITLE.en;
-    langPintar(lang);
     try { localStorage.setItem('${CLAVE('lang')}', lang); } catch (e) {}
     pintarTextosDinamicos();
   }
@@ -874,13 +728,6 @@ h1{
     ['s-intro', 's-count', 's-play', 's-end'].forEach(function (s) {
       document.getElementById(s).hidden = (s !== id);
     });
-    /* El idioma se elige en la portada y ya no se toca: fuera de ella el selector sobra, y
-       en la partida además estorba en la esquina donde salen los chiles. */
-    var herramientas = document.querySelector('.head-tools');
-    if (herramientas) {
-      herramientas.hidden = (id !== 's-intro');
-      if (herramientas.hidden && langTrigger.getAttribute('aria-expanded') === 'true') langAbrir(false);
-    }
   }
 
   function limpiarTablero() {

@@ -3879,3 +3879,49 @@ La tarjeta de la carta mide 278 de ancho a 320px de pantalla, izquierda en 21: *
 la misma izquierda que `.hero-frame`**, que es lo que se pedía.
 
 Las cadenas nuevas del formulario están en los 2 catálogos de este restaurante.
+
+## El logo del juego, y fuera su selector de idioma (26 Aug 2026)
+
+### El chile, encima del disco
+
+La portada del juego llevaba el icono de línea de Tabler dentro de un disco de 104 en el color de
+la casa. Ahora lleva el logo de Chilli Rush, y **se sale del disco por arriba y por abajo**: así
+el chile se planta encima del círculo en vez de quedar encerrado dentro.
+
+| | |
+|---|---|
+| el disco | 104×104, sin recortar |
+| el logo | 89×126 en pantalla, se sale 11 por lado |
+| el fichero | `assets/chilirush.webp`, 267×378, **20.884 bytes** |
+
+El original es un PNG de 1659×2352 y 317 KB. Se rasteriza a 3× del tamaño en pantalla, que es lo
+que pide un móvil denso, y se guarda en WebP con alfa: 20,9 KB, un 6,6% del original.
+
+La caja que ocupa en la columna sigue siendo la del círculo, 104, así que el logo no empuja nada.
+Lo que sí hacía era comerse 11 de los 21 de aire hasta el título, y el título se aparta esos 11 para
+que el hueco que se ve siga siendo el declarado.
+
+### El juego se queda sin selector de idioma
+
+Sobraba. El juego **ya hereda** el idioma de la carta por tres vías, en este orden:
+
+1. el `?lang=` del enlace de la carta, que `setLang()` reescribe en cada cambio;
+2. `localStorage`, con **la misma clave** que la carta (`<slug>-lang`);
+3. `navigator.languages` entera, y si ninguno de los suyos está, inglés.
+
+El primero cubre el modo privado, donde `localStorage` no sobrevive. Un segundo selector dentro
+del juego sólo podía desincronizarse del de la carta, y el camino de vuelta · **Volver a la carta**
+· está a un toque.
+
+Se van con él: la plantilla del desplegable, 72 líneas de CSS, 63 de JavaScript, la tabla `IDIOMAS`
+—que `gen.mjs` ya no le pasa— y el trozo de `pantalla()` que lo escondía durante la partida.
+**`juego.html` baja de 57,8 KB a 50,6.** Las banderas siguen: las usan el podio y el selector de
+país, que no son lo mismo.
+
+### Comprobado corriendo, no leyendo
+
+Con `localStorage` vacío y el navegador en `["es","es-ES"]`, la carta abre en español y el enlace del
+juego dice `juego.html?lang=es`. Eligiendo inglés a mano: `?lang=en`, y el juego abre en inglés
+(`Play`, `Tap the chillies...`). Abriendo `juego.html` **sin** `?lang`, coge el `en` de
+`localStorage`. Partida entera hasta el final sin un error de consola, con el podio y su bandera
+en la pantalla de resultado.

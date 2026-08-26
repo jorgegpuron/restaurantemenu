@@ -4686,7 +4686,7 @@ const juego = buildGame({
   /* Los paises del marcador, desde banderas.mjs: el juego pinta el selector y las banderas
      con la misma lista que valida el endpoint. */
   PAISES, imgBandera,
-  T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), IDIOMAS, CLIENTE, CLAVE,
+  T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), CLIENTE, CLAVE,
   TEMAS_SLUGS: [TEMA_POR_DEFECTO].concat(TEMAS.map((t) => t.slug).filter((s) => s !== TEMA_POR_DEFECTO)),
   TEMA_INK: derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink'],
   /* El mismo titulo en los tres idiomas: es el nombre del juego y el del restaurante. */
