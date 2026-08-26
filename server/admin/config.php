@@ -113,6 +113,25 @@ define('HERO_MAX_BYTES', 1024 * 1024);
 // Cuántas fotos admite el carrusel.
 define('HERO_MAX', 5);
 
+/* ------------------------------------------------------------ FOTOS DE PLATO
+ * Una foto por plato, cuadrada, y la recorta y comprime el NAVEGADOR antes de subirla: aquí
+ * llega ya en 1000x1000 WebP y por debajo de medio mega. El servidor no reescala nada, sólo
+ * comprueba que sea eso y lo guarda.
+ *
+ * Viven en assets/platos/ y no en 2-subir: son del restaurante, como assets/hero/, y el build
+ * no las conoce. Subir la carta por FTP no las pisa. */
+define('FOTOS_DIR', __DIR__ . '/../assets/platos');
+
+// La ruta con la que la carta y el panel las piden, desde la raíz de la carta.
+define('FOTOS_URL', 'assets/platos/');
+
+// Medio mega. Lo mismo que ya trae comprimido el navegador; aquí es el tope que se acepta.
+define('FOTOS_MAX_BYTES', 512000);
+
+// El lado del cuadrado. Una foto que no mida exactamente esto se rechaza: si llega otra cosa,
+// es que no ha pasado por el recorte del panel.
+define('FOTOS_DIM', 1000);
+
 // Zona horaria del restaurante. Manda esta, no la del servidor ni la del móvil.
 define('TZ', 'Atlantic/Canary');
 

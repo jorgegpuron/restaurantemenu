@@ -128,6 +128,17 @@ function estado_vacio(): array {
     /* Las fotos del carrusel de cabecera, en el orden en que se ven. Sólo los nombres de
        archivo: viven en assets/hero/ y ahí los deja el propio panel. */
     'hero'    => [],
+    /* Una foto por plato: clave del plato => nombre de archivo. Viven en assets/platos/ y las
+       deja aquí el panel, igual que las del hero.
+
+       Van en el ESTADO y no en la carta a propósito. La carta se compila desde carta.mjs en el
+       ordenador de quien la mantiene; el estado lo escribe el panel en el servidor. Una foto
+       guardada en la carta se perdería en la siguiente compilación, y además el panel no sabe
+       escribir la carta. El precio de esto es el mismo que ya pagan los precios y los agotados:
+       se identifica por la clave del plato, así que renombrarlo en la carta le quita la foto.
+
+       Sólo el nombre del archivo, nunca la ruta: la carpeta la ponen FOTOS_DIR y FOTOS_URL. */
+    'fotos'   => [],
     /* Las redes del restaurante. Del WhatsApp se guarda SOLO el numero en digitos; la
        direccion la monta la carta. Guardar el enlace entero seria guardar dos veces el mismo
        dato y dejar que se separen. */
@@ -314,6 +325,83 @@ function hero_recomprimir(string $tmp, array $info, string $destino): bool {
 function hero_borrar(string $nombre, array $hero): bool {
   if (!in_array($nombre, $hero, true)) return false;
   @unlink(HERO_DIR . '/' . $nombre);
+  return true;
+}
+
+/* ---------------------------------------------------------------- fotos de plato
+ * La foto llega ya recortada y comprimida por el navegador: 1000x1000 WebP por debajo de medio
+ * mega. Aquí no se reescala nada —GD puede no estar, y no hace falta— pero tampoco se cree uno
+ * lo que llega: se comprueba el peso, el tipo REAL con finfo y las dimensiones. Un .php
+ * renombrado a .webp no pasa de la segunda comprobación.
+ *
+ * La carpeta lleva el mismo guardián que la del hero, y por el mismo motivo: es la única
+ * carpeta del sitio donde escribe un desconocido a través del panel. */
+function fotos_carpeta_lista(): bool {
+  if (!is_dir(FOTOS_DIR) && !@mkdir(FOTOS_DIR, 0755, true)) return false;
+  $guardia = FOTOS_DIR . '/.htaccess';
+  if (!is_file($guardia)) {
+    /* Todo dentro de <IfModule>, como en hero: php_flag suelto tumba la carpeta entera en un
+       servidor con PHP-FPM, y un guardián que tira el sitio no es un guardián. */
+    @file_put_contents($guardia, implode(PHP_EOL, [
+      '# Aqui solo hay fotos de plato subidas desde el panel. Nada se ejecuta.',
+      '<IfModule mod_php.c>',
+      '  php_flag engine off',
+      '</IfModule>',
+      '<IfModule mod_php7.c>',
+      '  php_flag engine off',
+      '</IfModule>',
+      '<IfModule mod_mime.c>',
+      '  RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phps',
+      '  AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .phps',
+      '</IfModule>',
+      '<IfModule mod_headers.c>',
+      '  Header set X-Content-Type-Options "nosniff"',
+      '</IfModule>',
+    ]) . PHP_EOL);
+  }
+  return is_writable(FOTOS_DIR);
+}
+
+/* El nombre lleva el plato delante para poder mirar la carpeta por FTP y saber qué es cada
+   cosa, y ocho al azar detrás para que cambiar la foto cambie la dirección: sin eso, el
+   navegador del comensal seguiría enseñando la anterior durante horas. */
+function fotos_nombre(string $key): string {
+  $slug = strtolower($key);
+  $slug = strtr($slug, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u','ñ'=>'n']);
+  $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+  $slug = trim((string) $slug, '-');
+  if ($slug === '') $slug = 'plato';
+  if (strlen($slug) > 40) $slug = rtrim(substr($slug, 0, 40), '-');
+  return $slug . '-' . bin2hex(random_bytes(4)) . '.webp';
+}
+
+/** Devuelve ['ok' => nombre] o ['error' => mensaje]. No toca el estado: eso lo hace quien llama. */
+function fotos_guardar(array $f) {
+  if (!isset($f['error']) || $f['error'] !== UPLOAD_ERR_OK) {
+    return ['error' => 'No ha llegado la foto. Inténtalo otra vez.'];
+  }
+  if (!is_uploaded_file($f['tmp_name'])) return ['error' => 'Archivo no válido.'];
+  if ($f['size'] > FOTOS_MAX_BYTES) {
+    return ['error' => 'La foto pesa más de ' . round(FOTOS_MAX_BYTES / 1024) . ' KB.'];
+  }
+  /* El tipo REAL, no el que dice el navegador ni la extensión. */
+  $mime = function_exists('finfo_open')
+    ? (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name'])
+    : null;
+  $info = @getimagesize($f['tmp_name']);
+  $tipoOk = ($mime === 'image/webp') || ($mime === null && $info && $info[2] === IMAGETYPE_WEBP);
+  if (!$tipoOk) return ['error' => 'Formato no permitido: la foto tiene que llegar en WebP.'];
+  if (!$info || $info[0] !== FOTOS_DIM || $info[1] !== FOTOS_DIM) {
+    return ['error' => 'La foto tiene que medir ' . FOTOS_DIM . 'x' . FOTOS_DIM . '.'];
+  }
+  return ['ok' => true];
+}
+
+/* Igual que en el hero: un nombre que llega por POST no se pega nunca a una ruta. Sólo se borra
+   lo que esté escrito en el estado. */
+function fotos_borrar(string $nombre, array $fotos): bool {
+  if ($nombre === '' || !in_array($nombre, $fotos, true)) return false;
+  @unlink(FOTOS_DIR . '/' . $nombre);
   return true;
 }
 
@@ -1015,6 +1103,71 @@ if ($csrfOk) {
   $estado = leer_estado();
   $hoy = fecha_servicio();
 
+  /* ---------------------------------------------------------------- fotos de plato
+   * Llega por fetch desde la lista de platos y contesta JSON, no una página: la lista tiene 312
+   * filas y recargarla entera para cambiar una foto sería perder el sitio donde estabas y el
+   * texto que hubiera en el buscador.
+   *
+   * Va aquí dentro y no en un archivo aparte para no duplicar la puerta: la sesión y el token
+   * ya están comprobados en $csrfOk, que es lo que protege a todo lo demás del panel. */
+  if (isset($_POST['foto_accion'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    $accion = (string) $_POST['foto_accion'];
+    $key    = (string) ($_POST['foto_plato'] ?? '');
+    $fotosPlato  = is_array($estado['fotos'] ?? null) ? $estado['fotos'] : [];
+    $fallo  = static function (string $m) {
+      echo json_encode(['ok' => false, 'error' => $m], JSON_UNESCAPED_UNICODE);
+      exit;
+    };
+
+    /* El plato tiene que existir en la carta de ahora. Sin esto, el estado se llena de claves
+       que no pinta nadie y la carpeta de fotos, de archivos que no reclama nadie. */
+    if (!isset($porKey[$key])) $fallo('Ese plato ya no está en la carta.');
+
+    $anterior = (string) ($fotosPlato[$key] ?? '');
+
+    if ($accion === 'quitar') {
+      if ($anterior === '') $fallo('Ese plato no tiene foto.');
+      fotos_borrar($anterior, $fotosPlato);
+      unset($fotosPlato[$key]);
+      $estado['fotos'] = $fotosPlato;
+      if (!guardar_estado($estado)) $fallo('No he podido guardar. Inténtalo otra vez.');
+      registrar_acceso('foto quitada: ' . $key);
+      echo json_encode(['ok' => true, 'foto' => null], JSON_UNESCAPED_UNICODE);
+      exit;
+    }
+
+    if ($accion !== 'subir') $fallo('Acción desconocida.');
+
+    $sube = fotos_guardar($_FILES['foto'] ?? []);
+    if (isset($sube['error'])) $fallo($sube['error']);
+    if (!fotos_carpeta_lista()) {
+      $fallo('No puedo escribir en assets/platos/. Crea la carpeta en el servidor y dale permiso de escritura.');
+    }
+
+    $nombre  = fotos_nombre($key);
+    $destino = FOTOS_DIR . '/' . $nombre;
+    if (!@move_uploaded_file($_FILES['foto']['tmp_name'], $destino)) {
+      $fallo('No he podido guardar la foto.');
+    }
+    @chmod($destino, 0644);
+
+    /* Primero el estado y después el borrado de la anterior. Al revés, un guardado que falla
+       deja al plato apuntando a un archivo que ya no está: la carta enseñaría un hueco. */
+    $fotosPlato[$key] = $nombre;
+    $estado['fotos'] = $fotosPlato;
+    if (!guardar_estado($estado)) {
+      @unlink($destino);
+      $fallo('No he podido guardar. La foto no se ha cambiado.');
+    }
+    if ($anterior !== '' && $anterior !== $nombre) fotos_borrar($anterior, [$anterior]);
+    registrar_acceso('foto nueva: ' . $key);
+    echo json_encode(['ok' => true, 'foto' => $nombre, 'url' => FOTOS_URL . $nombre],
+                     JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+
   /* --- copias de seguridad --- */
   /* Las descargas salen por PHP y no por un enlace directo: admin/copias/ esta denegado por el
      .htaccess, que es justo lo que queremos, asi que el fichero lo sirve el panel con la sesion
@@ -1487,6 +1640,13 @@ $oferta_corriendo = $oferta['on']
   && $min_ahora >= (int) $oferta['from']
   && $min_ahora < (int) $oferta['to'];
 $precios  = is_array($estado['prices']) ? $estado['prices'] : [];
+/* Las fotos NO se cruzan con la lista de platos, al contrario que los agotados. Un plato que
+   hoy no está —porque se le cambió el nombre en la carta— vuelve mañana si se deshace el
+   cambio, y con él su foto. Borrar la entrada aquí sería borrar el trabajo de alguien por un
+   despiste de una tarde. Lo que queda huérfano es el archivo, y eso se ve por FTP. */
+/* $fotosPlato y no $fotos: diecinueve lineas mas abajo, $fotos son las de la PORTADA. Con el
+   mismo nombre, la lista de platos se pintaba entera sin fotos y sin dar un solo error. */
+$fotosPlato = is_array($estado['fotos'] ?? null) ? $estado['fotos'] : [];
 $catsVisibles = [];
 foreach ($lista as $p) { $catsVisibles[$p['cat']] = ($catsVisibles[$p['cat']] ?? 0) + 1; }
 $listaKeys = array_flip(array_column($lista, 'key'));
@@ -1938,6 +2098,59 @@ $CUENTAS = [
     display:block;margin-top:2px;
     font-family:var(--body-font);font-size:13px;font-weight:400;color:var(--muted);
   }
+  /* ---------- foto del plato ----------
+     El botón de cámara vive al final de la fila, con los mismos 44 px de área táctil que la
+     casilla de agotado. Apagado dice «aquí se puede poner foto»; encendido, en el acento de la
+     marca, dice «este plato ya la tiene» — y es también el botón para cambiarla. */
+  .camara{
+    flex:0 0 auto;width:44px;height:44px;min-height:0;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    border:0;border-radius:var(--r-pill);background:transparent;
+    color:var(--muted);opacity:.55;cursor:pointer;
+    transition:opacity var(--t-fast) ease,color var(--t-fast) ease,background-color var(--t-fast) ease;
+  }
+  .camara svg{width:21px;height:21px}
+  .camara:hover{opacity:1;background:var(--chip)}
+  .camara.tiene{color:var(--accent-ink);opacity:1}
+  .camara.tiene::after{
+    content:"";position:absolute;margin:22px 0 0 22px;
+    width:7px;height:7px;border-radius:50%;background:var(--accent-ink);
+  }
+  .camara:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
+
+  /* El recorte. Una capa sobre todo, con el cuadrado en el centro: lo que se ve dentro del
+     cuadrado es exactamente lo que se guarda, ni más ni menos. */
+  .recorte{
+    position:fixed;inset:0;z-index:60;display:none;
+    align-items:center;justify-content:center;padding:var(--s3);
+    background:var(--scrim);
+  }
+  .recorte[open]{display:flex}
+  .recorte .caja{
+    width:min(420px,100%);max-height:100%;overflow:auto;
+    padding:var(--s3);border-radius:var(--r-card);
+    background:var(--surface);box-shadow:var(--lift-card);
+  }
+  .recorte h3{margin:0 0 var(--s1);font-family:var(--title-font);font-size:18px}
+  .recorte .quien{margin:0 0 var(--s2);color:var(--muted);font-size:14px}
+  .lienzo-caja{
+    position:relative;width:100%;aspect-ratio:1/1;
+    border-radius:var(--r-sheet);overflow:hidden;background:var(--chip);
+    touch-action:none;cursor:grab;
+  }
+  .lienzo-caja:active{cursor:grabbing}
+  .lienzo-caja canvas{display:block;width:100%;height:100%}
+  .recorte .pista{margin:var(--s2) 0 0;color:var(--muted);font-size:13px;text-align:center}
+  .recorte .fila-b{display:flex;gap:var(--s2);margin-top:var(--s2)}
+  .recorte .fila-b button{flex:1}
+  .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent-ink)}
+  .recorte .err{margin:var(--s2) 0 0;color:var(--offer);font-size:14px}
+  .recorte .err:empty{display:none}
+  .camara.cargando{opacity:1;color:var(--accent-ink)}
+  .camara.cargando svg{animation:latir 900ms ease-in-out infinite}
+  @keyframes latir{0%,100%{opacity:.35}50%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){ .camara.cargando svg{animation:none} }
+
   .row.is-out .nm{color:var(--offer);text-decoration:line-through;text-decoration-thickness:1px}
   .row.is-out .nm small{color:var(--offer);opacity:.75}
   .row.is-out .num{color:var(--offer)}
@@ -3005,6 +3218,18 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </label>
           <span class="num"><?= h($p['id']) ?></span>
           <span class="nm"><?= h($p['name']) ?><br><small><?= h($p['sub']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?></small></span>
+          <?php $suFoto = (string) ($fotosPlato[$p['key']] ?? ''); ?>
+          <button type="button" class="camara<?= $suFoto !== '' ? ' tiene' : '' ?>"
+                  data-k="<?= h($p['key']) ?>" data-foto="<?= h($suFoto) ?>"
+                  data-nombre="<?= h($p['name']) ?>"
+                  title="<?= $suFoto !== '' ? 'Cambiar la foto' : 'Poner foto' ?>"
+                  aria-label="<?= $suFoto !== '' ? 'Cambiar la foto de ' : 'Poner foto a ' ?><?= h($p['name']) ?>">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>
+              <circle cx="12" cy="12.5" r="3.2"/>
+            </svg>
+          </button>
         </div>
       <?php endforeach; if ($tabActual !== null) echo '</div>'; ?>
 
@@ -3018,6 +3243,43 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </span>
       </div>
     </form>
+
+    <!-- El recorte de la foto. Una sola capa para los 312 platos: se abre con el plato que se
+         haya pulsado y se cierra al terminar. -->
+    <div class="recorte" id="recorte" role="dialog" aria-modal="true" aria-labelledby="rec-t">
+      <div class="caja">
+        <h3 id="rec-t">Foto del plato</h3>
+        <p class="quien" id="rec-quien"></p>
+
+        <!-- lo que hay ahora -->
+        <div id="rec-actual" hidden>
+          <img id="rec-img" alt="" width="120" height="120"
+               style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-sheet);display:block">
+          <div class="fila-b">
+            <button type="button" class="save" id="rec-cambiar">Cambiar</button>
+            <button type="button" class="ghost" id="rec-quitar">Quitar foto</button>
+          </div>
+          <div class="fila-b">
+            <button type="button" class="ghost" id="rec-cerrar">Cerrar</button>
+          </div>
+        </div>
+
+        <!-- el recorte -->
+        <div id="rec-editor" hidden>
+          <div class="lienzo-caja" id="rec-caja"><canvas id="rec-lienzo" width="1000" height="1000"></canvas></div>
+          <input type="range" class="zoom" id="rec-zoom" min="100" max="400" value="100"
+                 aria-label="Acercar o alejar la foto">
+          <p class="pista">Arrastra para encuadrar. Lo que se ve en el cuadrado es lo que se guarda.</p>
+          <div class="fila-b">
+            <button type="button" class="save" id="rec-guardar">Guardar foto</button>
+            <button type="button" class="ghost" id="rec-cancelar">Cancelar</button>
+          </div>
+        </div>
+
+        <p class="err" id="rec-error"></p>
+      </div>
+    </div>
+    <input type="file" id="rec-file" accept="image/*" hidden>
 
     <script>
       var form = document.getElementById('f');
@@ -3094,6 +3356,265 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         e.returnValue = '';
       });
       form.addEventListener('submit', function () { sucio = false; });
+    </script>
+
+    <script>
+      /* ---------------------------------------------------------------- foto del plato
+       * Todo el trabajo pesado lo hace el NAVEGADOR: recorta a 1000x1000 y comprime a WebP por
+       * debajo de medio mega antes de subir. Al servidor le llega una foto pequena y ya hecha,
+       * y por eso no hace falta GD en el hosting ni esperar a que suban ocho megas por el wifi
+       * del restaurante.
+       *
+       * La foto se sube sola, sin pasar por el Guardar de la pestana: son cosas distintas, y
+       * mezclarlas obligaria a guardar los agotados para cambiar una foto. */
+      (function () {
+        var DIM = 1000, MAX_BYTES = 512000, MAX_ORIGINAL = 25 * 1024 * 1024;
+
+        var capa    = document.getElementById('recorte');
+        var file    = document.getElementById('rec-file');
+        var lienzo  = document.getElementById('rec-lienzo');
+        var caja    = document.getElementById('rec-caja');
+        var zoom    = document.getElementById('rec-zoom');
+        var errEl   = document.getElementById('rec-error');
+        var quienEl = document.getElementById('rec-quien');
+        var vActual = document.getElementById('rec-actual');
+        var vEditor = document.getElementById('rec-editor');
+        var imgEl   = document.getElementById('rec-img');
+        var bGuardar = document.getElementById('rec-guardar');
+        if (!capa || !file || !form) return;
+        var campoCsrf = form.querySelector('input[name=csrf]');
+        var csrf = campoCsrf ? campoCsrf.value : '';
+
+        var ctx = lienzo.getContext('2d');
+        var boton = null;                    // el boton de camara que abrio la capa
+        var st = null;                       // { img, escala, minEscala, x, y }
+        var ultimoFoco = null;
+
+        function error(m) { errEl.textContent = m || ''; }
+
+        function abrir(vista) {
+          vActual.hidden = (vista !== 'actual');
+          vEditor.hidden = (vista !== 'editor');
+          capa.setAttribute('open', '');
+          document.body.style.overflow = 'hidden';
+          var f = document.getElementById(vista === 'actual' ? 'rec-cambiar' : 'rec-guardar');
+          if (f) f.focus();
+        }
+        function cerrar() {
+          capa.removeAttribute('open');
+          document.body.style.overflow = '';
+          error('');
+          st = null;
+          file.value = '';
+          if (ultimoFoco) { ultimoFoco.focus(); ultimoFoco = null; }
+        }
+
+        /* ---- pintar ---- */
+        function encajar() {
+          var min = Math.max(DIM / st.img.width, DIM / st.img.height);
+          st.minEscala = min;
+          if (st.escala < min) st.escala = min;
+          var w = st.img.width * st.escala, h = st.img.height * st.escala;
+          /* El cuadrado, siempre cubierto: nada de bordes blancos por arrastrar de mas. */
+          st.x = Math.min(0, Math.max(DIM - w, st.x));
+          st.y = Math.min(0, Math.max(DIM - h, st.y));
+        }
+        function pintar() {
+          if (!st) return;
+          encajar();
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, DIM, DIM);
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(st.img, st.x, st.y, st.img.width * st.escala, st.img.height * st.escala);
+          zoom.value = String(Math.round((st.escala / st.minEscala) * 100));
+        }
+
+        /* ---- cargar el archivo elegido ---- */
+        function cargar(f) {
+          error('');
+          if (!f) return;
+          if (f.size > MAX_ORIGINAL) {
+            error('Esa foto pesa ' + Math.round(f.size / 1048576) + ' MB y es demasiado grande para '
+                + 'abrirla aqui. Mandatela por WhatsApp y sube la que llega, que viene mas ligera.');
+            return;
+          }
+          /* createImageBitmap respeta la orientacion EXIF: sin esto, las fotos verticales de
+             movil salen tumbadas. */
+          createImageBitmap(f).then(function (img) {
+            st = { img: img, escala: Math.max(DIM / img.width, DIM / img.height), x: 0, y: 0 };
+            st.x = (DIM - img.width * st.escala) / 2;
+            st.y = (DIM - img.height * st.escala) / 2;
+            pintar();
+            abrir('editor');
+          }).catch(function () {
+            error('Tu navegador no puede leer este formato. Prueba a subir la foto en JPG.');
+          });
+        }
+
+        /* ---- arrastrar y pellizcar ---- */
+        var punteros = {}, dist0 = 0, escala0 = 1;
+        caja.addEventListener('pointerdown', function (e) {
+          if (!st) return;
+          caja.setPointerCapture(e.pointerId);
+          punteros[e.pointerId] = { x: e.clientX, y: e.clientY };
+          var ids = Object.keys(punteros);
+          if (ids.length === 2) {
+            var a = punteros[ids[0]], b = punteros[ids[1]];
+            dist0 = Math.hypot(a.x - b.x, a.y - b.y);
+            escala0 = st.escala;
+          }
+        });
+        caja.addEventListener('pointermove', function (e) {
+          if (!st || !punteros[e.pointerId]) return;
+          var prev = punteros[e.pointerId];
+          punteros[e.pointerId] = { x: e.clientX, y: e.clientY };
+          var ids = Object.keys(punteros);
+          var razon = DIM / caja.getBoundingClientRect().width;   // pantalla -> lienzo
+          if (ids.length === 2) {
+            var a = punteros[ids[0]], b = punteros[ids[1]];
+            var d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (dist0 > 0) escalar(escala0 * (d / dist0));
+          } else {
+            st.x += (e.clientX - prev.x) * razon;
+            st.y += (e.clientY - prev.y) * razon;
+          }
+          pintar();
+        });
+        function soltar(e) {
+          delete punteros[e.pointerId];
+          if (Object.keys(punteros).length < 2) dist0 = 0;
+        }
+        caja.addEventListener('pointerup', soltar);
+        caja.addEventListener('pointercancel', soltar);
+
+        /* El zoom deja quieto el centro del cuadrado. Sin esto, acercar echa la foto hacia una
+           esquina y hay que recolocarla a mano cada vez. */
+        function escalar(nueva) {
+          if (!st) return;
+          var min = st.minEscala || Math.max(DIM / st.img.width, DIM / st.img.height);
+          nueva = Math.max(min, Math.min(min * 4, nueva));
+          var k = nueva / st.escala;
+          st.x = DIM / 2 - (DIM / 2 - st.x) * k;
+          st.y = DIM / 2 - (DIM / 2 - st.y) * k;
+          st.escala = nueva;
+        }
+        caja.addEventListener('wheel', function (e) {
+          if (!st) return;
+          e.preventDefault();
+          escalar(st.escala * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+          pintar();
+        }, { passive: false });
+        zoom.addEventListener('input', function () {
+          if (!st) return;
+          escalar(st.minEscala * (parseInt(zoom.value, 10) / 100));
+          pintar();
+        });
+
+        /* ---- exportar y subir ---- */
+        function exportar() {
+          var calidades = [0.82, 0.77, 0.72, 0.67, 0.62, 0.57, 0.52];
+          var i = 0;
+          return new Promise(function (resolver, rechazar) {
+            (function probar() {
+              if (i >= calidades.length) { rechazar(new Error('grande')); return; }
+              lienzo.toBlob(function (blob) {
+                /* Un navegador sin WebP devuelve null. Se avisa y se para: subir cuatro megas
+                   en otro formato para que el servidor lo rechace no ayuda a nadie. */
+                if (!blob) { rechazar(new Error('webp')); return; }
+                if (blob.size <= MAX_BYTES) resolver(blob);
+                else probar();
+              }, 'image/webp', calidades[i++]);
+            })();
+          });
+        }
+
+        function enviar(datos) {
+          datos.append('csrf', csrf);
+          return fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar.');
+              return j;
+            });
+        }
+
+        bGuardar.addEventListener('click', function () {
+          if (!st || !boton) return;
+          error('');
+          var actual = boton;
+          var textoAntes = bGuardar.textContent;
+          bGuardar.disabled = true;
+          bGuardar.textContent = 'Guardando\u2026';
+          actual.classList.add('cargando');
+          exportar().then(function (blob) {
+            var fd = new FormData();
+            fd.append('foto_accion', 'subir');
+            fd.append('foto_plato', actual.dataset.k);
+            fd.append('foto', blob, 'plato.webp');
+            return enviar(fd);
+          }).then(function (j) {
+            actual.dataset.foto = j.foto;
+            actual.classList.add('tiene');
+            actual.title = 'Cambiar la foto';
+            cerrar();
+          }).catch(function (e) {
+            var m = e && e.message;
+            error(m === 'webp'
+              ? 'Tu navegador no sabe guardar en WebP. Prueba desde otro navegador.'
+              : m === 'grande'
+                ? 'No he podido dejar la foto por debajo de 500 KB. Prueba con otra.'
+                : m || 'No se ha podido guardar.');
+          }).then(function () {
+            bGuardar.disabled = false;
+            bGuardar.textContent = textoAntes;
+            actual.classList.remove('cargando');
+          });
+        });
+
+        document.getElementById('rec-quitar').addEventListener('click', function () {
+          if (!boton) return;
+          var actual = boton;
+          error('');
+          var fd = new FormData();
+          fd.append('foto_accion', 'quitar');
+          fd.append('foto_plato', actual.dataset.k);
+          enviar(fd).then(function () {
+            actual.dataset.foto = '';
+            actual.classList.remove('tiene');
+            actual.title = 'Poner foto';
+            cerrar();
+          }).catch(function (e) { error((e && e.message) || 'No se ha podido quitar.'); });
+        });
+
+        document.getElementById('rec-cambiar').addEventListener('click', function () { file.click(); });
+        document.getElementById('rec-cancelar').addEventListener('click', cerrar);
+        document.getElementById('rec-cerrar').addEventListener('click', cerrar);
+        capa.addEventListener('click', function (e) { if (e.target === capa) cerrar(); });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && capa.hasAttribute('open')) cerrar();
+        });
+        file.addEventListener('change', function () { cargar(file.files && file.files[0]); });
+
+        /* Un solo oyente para las 312 filas. */
+        document.addEventListener('click', function (e) {
+          var b = e.target.closest ? e.target.closest('.camara') : null;
+          if (!b) return;
+          e.preventDefault();
+          boton = b;
+          ultimoFoco = b;
+          quienEl.textContent = b.dataset.nombre || '';
+          error('');
+          if (b.dataset.foto) {
+            /* El panel vive en admin/ y FOTOS_URL cuelga de la raiz de la carta, que esta un piso
+               por encima: sin el ../ la vista previa pediria admin/assets/platos/ y no habria foto. */
+            imgEl.src = '../' + <?= json_encode(FOTOS_URL) ?> + b.dataset.foto + '?t=' + Date.now();
+            imgEl.alt = b.dataset.nombre || '';
+            abrir('actual');
+          } else {
+            file.click();
+          }
+        });
+      })();
     </script>
 
   <?php /* ================================================ DESTACADOS ============== */ ?>

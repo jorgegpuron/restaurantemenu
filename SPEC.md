@@ -4354,3 +4354,88 @@ Tres decisiones pequeñas:
 Estilo `.ver`: el mismo fantasma que los demás secundarios del panel —borde, sin relleno— para que
 no compita con Guardar. Comprobado a 375 px: la barra no desborda; el contador se parte en dos
 líneas y los dos botones caben enteros.
+
+## Foto por plato · Fase 1: subirla desde el panel (26 Aug 2026)
+
+Primera de las cinco fases de «foto por plato, ficha emergente y contador de consultas». Ésta
+sólo hace una cosa: que el restaurante pueda poner una foto a un plato desde el panel. La carta
+todavía no las enseña.
+
+### Dónde vive una foto, y por qué ahí
+
+La carta de este proyecto **no la edita el panel**: los platos están en `carta.mjs` y se compilan.
+Una foto guardada en la carta se perdería en la siguiente compilación, y además el panel no sabe
+escribir la carta. Así que va en `estado.json`, que es lo que el panel sí escribe:
+
+```json
+"fotos": { "Appetizers :: Papadum": "appetizers-papadum-d17995e5.webp" }
+```
+
+Se identifica al plato **por su clave** —`Categoría :: Nombre en inglés`—, la misma que ya usan
+precios, agotados y destacados. El precio de esto, asumido y decidido: renombrar un plato en la
+carta le quita la foto, igual que hoy le quita el precio. La alternativa era darle un id fijo a
+los 312 platos y migrar también precios y agotados; no compensa por una foto.
+
+Los archivos van a **`assets/platos/`**, que es del servidor y no del build: `gen.mjs` sólo copia
+el primer nivel de `assets/`, así que subir la carta por FTP no las pisa. Es la misma regla que
+ya protege a `assets/hero/`, y está anotada en el LEEME.
+
+### El navegador hace el trabajo pesado
+
+El dueño sube **la foto tal y como sale del móvil** y el navegador la deja en 1000×1000 WebP por
+debajo de 500 KB antes de enviarla. Al servidor le llegan 30 KB ya hechos.
+
+- `createImageBitmap()` para cargarla, que respeta la orientación EXIF: sin eso, las fotos
+  verticales de móvil salen tumbadas.
+- Recorte cuadrado: arrastrar para encuadrar, rueda o pellizco para acercar, y una barra de zoom
+  para quien no tenga ni rueda ni dedos. El cuadrado **siempre queda cubierto** —el zoom no baja
+  del mínimo que lo llena— así que no hay bordes blancos posibles.
+- El zoom deja quieto el centro del cuadrado. Sin eso, acercar echa la foto a una esquina y hay
+  que recolocarla a mano cada vez.
+- La compresión baja la calidad de 0,82 a 0,52 hasta entrar en 500 KB. Si el navegador no sabe
+  escribir WebP, se dice y se para: subir cuatro megas para que el servidor los rechace no ayuda.
+- Por encima de 25 MB de original se avisa antes de intentar decodificar: los móviles viejos se
+  quedan sin memoria.
+
+### Lo que comprueba el servidor
+
+No se cree nada de lo que llega: peso, tipo **real** con `finfo` —no la extensión ni lo que diga
+el navegador— y que mida exactamente 1000×1000. Un `.php` renombrado a `.webp` se cae en la
+segunda comprobación. Además el plato tiene que existir en la carta de ahora, o el estado se
+llenaría de claves que no pinta nadie.
+
+La carpeta lleva el mismo guardián `.htaccess` que `assets/hero/`, con todo dentro de `<IfModule>`
+porque `php_flag` suelto tumba la carpeta entera en un servidor con PHP-FPM.
+
+Y el orden importa: **primero se guarda el estado y después se borra la foto anterior**. Al revés,
+un guardado que falla deja al plato apuntando a un archivo que ya no existe.
+
+### En el panel
+
+Cada fila de la lista de platos gana un botón de cámara de 44×44 al final, apagado si no hay foto
+y en el acento de la marca si la hay. Sin foto abre el selector de archivos directamente; con
+foto abre una tarjeta con la que hay, **Cambiar** y **Quitar foto**.
+
+Sube sola, sin pasar por el Guardar de la pestaña: son cosas distintas, y mezclarlas obligaría a
+guardar los agotados para cambiar una foto. Con 312 filas, recargar la página tras cada foto sería
+perder el sitio y lo escrito en el buscador.
+
+### Una trampa que costó un rato
+
+`$fotos` **ya existía** en el panel: son las fotos de la portada, diecinueve líneas más abajo. La
+lista de platos se pintaba entera sin fotos y sin dar un solo error. Ahora es `$fotosPlato`.
+
+### Comprobado corriendo
+
+| | resultado |
+|---|---|
+| foto vertical de 3024×4032 | llega 1000×1000, 36 KB, sin girar |
+| cambiar la foto de un plato | la anterior desaparece de `assets/platos/` |
+| `.php` renombrado a `.webp` | «Formato no permitido: la foto tiene que llegar en WebP» |
+| plato que no está en la carta | «Ese plato ya no está en la carta» |
+| quitar la foto | archivo borrado, entrada fuera del estado, botón apagado |
+| vista previa en el panel | 1000 px, servida desde `../assets/platos/` |
+
+Lo único que **no** se puede comprobar en local: que el `.htaccess` de `assets/platos/` impida
+ejecutar un `.php` colado ahí. El servidor de PHP de desarrollo no lee `.htaccess`. Hay que
+probarlo en el hosting, subiendo un archivo de prueba a esa carpeta y pidiéndolo por URL.
