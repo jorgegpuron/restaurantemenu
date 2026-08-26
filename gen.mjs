@@ -120,6 +120,13 @@ const REDES = [
  */
 const BUILD = String(Date.now());
 
+/* La misma marca en cristiano, en hora de Canarias, para la chapa del panel. Se calcula aqui
+   y no en PHP porque aqui es donde se sabe cuando se compilo. */
+const FECHA_BUILD = new Intl.DateTimeFormat('es-ES', {
+  timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+}).format(new Date(+BUILD)).replace(', ', ' · ');
+
 /* English is the document text; every other language rides along in data-<code>. */
 const LANGS = IDIOMAS_CLIENTE;
 
@@ -4775,6 +4782,11 @@ writeFileSync(
     '/* Generado por gen.mjs desde cliente.mjs. No editar a mano: se sobrescribe en cada build. */',
     "define('CLIENTE_SLUG',   " + JSON.stringify(CLIENTE.slug) + ');',
     "define('CLIENTE_NOMBRE', " + JSON.stringify(CLIENTE.nombre) + ');',
+    /* La marca de esta compilacion, para que el panel pueda decir que version corre. Es el
+       mismo numero que viaja en version.json y dentro del HTML de la carta: si los tres no
+       coinciden, la subida se quedo a medias o el movil esta enseñando cache. */
+    "define('BUILD_ID',      " + JSON.stringify(BUILD) + ');',
+    "define('BUILD_FECHA',   " + JSON.stringify(FECHA_BUILD) + ');',
     '',
   ].join(NL),
 );

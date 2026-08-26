@@ -3978,3 +3978,50 @@ Marcando un plato a la 01:42 del miércoles 26, `estado.json` guarda `"2026-08-2
 servicio, no la del reloj— y la carta lo pinta tachado. Moviendo el corte a las 0:00 la casilla
 sale sin marcar sin tocar el estado, que es lo que pasará sola a las 6:00. Las ocho pestañas sin
 un aviso de PHP.
+
+## La chapa de versión, y las copias sólo por precios (26 Aug 2026)
+
+### Saber qué versión corre
+
+Al pie del panel, en pequeño: **Versión 26/08/2026 · 02:19**, y debajo los dos identificadores
+de compilación que deberían ser el mismo:
+
+| | de dónde sale |
+|---|---|
+| `panel` | `BUILD_ID`, que el build escribe dentro de `admin/cliente.php` |
+| `carta` | el `build` de `version.json`, en la carpeta de al lado |
+
+Si no coinciden sale en rojo **«la carta de al lado es de otra compilación: la subida se quedó
+a medias»**. Es el caso real de una subida por FTP que se corta: el panel nuevo y la carta vieja,
+o al revés.
+
+El tercer número, el que lleva dentro el `index.html` que un móvil tenga cacheado, no se puede
+ver desde aquí. Pero teniendo éste a mano ya se sabe contra qué comparar.
+
+`BUILD_FECHA` se calcula en `gen.mjs` con `Intl.DateTimeFormat` en `Atlantic/Canary`, no en PHP:
+la hora que interesa es la de cuando se compiló. Y el panel define las dos constantes vacías si
+no están, para que un `cliente.php` de una versión anterior no tire el panel — dice
+«Versión desconocida» y sigue.
+
+### Las copias, sólo cuando cambian los precios
+
+`copia_de_seguridad()` se llamaba en **cada** guardado. Marcar un plato agotado dejaba una copia,
+y otra al desmarcarlo, y la carpeta se llenaba de fotos idénticas que sólo estorbaban para
+encontrar la que importa.
+
+Ahora recibe el estado nuevo y compara `prices` con el de disco: si son iguales, se va sin tocar
+nada. Un cambio de precios es lo único que no se deshace a mano —una subida del 10% toca
+cientos de platos—; un agotado o un destacado se deshacen desmarcando la casilla.
+
+La comparación es `==` y no `===`: en PHP `==` entre arrays mira los pares clave-valor sin
+importar el orden. Con `===` bastaría con que el formulario devolviera las claves en otro orden
+para que pareciera un cambio de precios.
+
+### Comprobado corriendo
+
+Chapa: con todo cuadrado, «panel 1787707162422 · carta 1787707162422» y sin aviso. Falseando el
+`version.json` a otro número, sale el aviso rojo; devolviéndolo, desaparece.
+
+Copias: con la carpeta vacía, guardar un agotado deja **0 copias**. Publicar una subida del 10%
+crea `anterior.json` y `2026-08-25.json`. Y guardar otro agotado después **no** vuelve a
+copiar: los dos ficheros conservan su hora.

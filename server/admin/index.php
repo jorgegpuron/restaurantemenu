@@ -3,6 +3,11 @@ declare(strict_types=1);
 require __DIR__ . '/config.php';
 require __DIR__ . '/paises.php';   // lo escribe el build desde banderas.mjs
 
+/* cliente.php lo escribe el build. Si el que hay arriba es de una version anterior no
+   trae la marca, y el panel tiene que seguir abriendo igual: la chapa dira que no lo sabe. */
+if (!defined('BUILD_ID')) define('BUILD_ID', '');
+if (!defined('BUILD_FECHA')) define('BUILD_FECHA', '');
+
 /* Los avisos de PHP van al registro del servidor, nunca a la pantalla: un warning pintado en
    el navegador enseña rutas internas del hosting a quien no debe verlas. */
 ini_set('display_errors', '0');
@@ -323,7 +328,7 @@ function leer_estado(): array {
    rename y podía publicarse un archivo a medias. */
 function guardar_estado(array $estado): bool {
   /* Antes de tocar el disco, la foto de como estaba. Ver copia_de_seguridad(). */
-  copia_de_seguridad();
+  copia_de_seguridad($estado);
   $estado['actualizado'] = gmdate('c');
   /* Los canjes de premios se fueron con los premios, pero un estado.json viejo puede seguir
      trayendo la lista dentro: se retira para no publicarla. De review sólo queda el enlace;
@@ -408,9 +413,22 @@ function copias_purgar(): void {
 /* Se llama ANTES de escribir, con el estado que todavia esta en disco. Si falla no dice nada y
    el guardado sigue: no poder copiar es malo, pero impedir que el restaurante marque un plato
    agotado en plena cena es peor. */
-function copia_de_seguridad(): void {
+function copia_de_seguridad(array $nuevo): void {
   $raw = @file_get_contents(ESTADO_PATH);
   if ($raw === false || $raw === '') return;      // primer guardado: no hay nada que copiar
+
+  /* SOLO cuando cambian los PRECIOS. Es lo unico que alguien querria revertir: subir un 5% a
+     toda la carta y arrepentirse toca cientos de platos y no se deshace a mano. Un agotado o
+     un destacado se deshacen desmarcando la casilla, y guardar una copia por cada uno llenaba
+     la carpeta de fotos identicas que solo estorban para encontrar la que importa. */
+  $viejo = json_decode($raw, true);
+  $antes = (is_array($viejo) && is_array($viejo['prices'] ?? null)) ? $viejo['prices'] : [];
+  $ahora = is_array($nuevo['prices'] ?? null) ? $nuevo['prices'] : [];
+  /* == y no ===: compara pares clave-valor sin mirar el orden, que es lo que hace falta.
+     Con === bastaria con que el formulario devolviera las claves en otro orden para que
+     pareciera un cambio de precios y se copiara sin motivo. */
+  if ($antes == $ahora) return;
+
   if (copias_dir() === null) return;
   escribir_atomico(COPIAS_DIR . '/anterior.json', $raw);
   $delDia = COPIAS_DIR . '/' . fecha_servicio() . '.json';
@@ -1680,6 +1698,18 @@ $CUENTAS = [
     margin-inline:auto;
     color:var(--ink);
   }
+  /* La chapa de version. Al pie, apagada y en tipografia de numeros: no es para leerla cada
+     dia, es para mirarla cuando algo no cuadra despues de subir. */
+  .chapa{
+    margin:var(--s4) auto var(--s3);
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.6;
+  }
+  .chapa strong{color:var(--ink);font-variant-numeric:tabular-nums}
+  .chapa-id{font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
+  .chapa-mal{color:var(--mal,#b3261e);font-weight:600}
   .head .sub a{color:var(--accent-ink)}
 
   /* ---------- pestañas ---------- */
@@ -3859,9 +3889,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <h2>Copias de seguridad</h2>
     <div class="card">
       <p class="hint">
-        Cada vez que se guarda algo aquí, antes se apunta cómo estaba. Es la vuelta atrás:
-        si alguien devuelve los precios a los de la carta sin querer, o marca medio menú
-        agotado, esto lo deshace. Se guardan los últimos <?= (int) COPIAS_DIAS ?> días.
+        <strong>Se copia cuando cambian los precios, y sólo entonces.</strong> Es lo único que
+        no se puede deshacer a mano: una subida del 10% toca cientos de platos. Lo demás —un
+        agotado, un destacado, una oferta— se deshace desmarcando la casilla, y guardar una
+        copia por cada uno llenaba la carpeta de fotos iguales que sólo estorban para
+        encontrar la que importa. Se guardan los últimos <?= (int) COPIAS_DIAS ?> días.
       </p>
 
       <form method="post">
@@ -4159,6 +4191,37 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 <?php endif; ?>
 
 </div>
+
+<?php /* ---------------------------------------------------------------- la chapa de version
+ * Tres numeros que deberian ser el mismo:
+ *
+ *   BUILD_ID          el de este panel, escrito por el build dentro de cliente.php
+ *   version.json      el de la carta que hay en esta misma carpeta
+ *   el del movil      el que lleva dentro el index.html que ese movil tenga cacheado
+ *
+ * Los dos primeros se comparan aqui: si no coinciden, la subida se quedo a medias. El
+ * tercero no se puede ver desde aqui, pero teniendo este a mano se sabe contra que comparar.
+ */ ?>
+<?php
+  $cartaRaw = @file_get_contents(__DIR__ . '/../version.json');
+  $cartaJ = $cartaRaw === false ? null : json_decode($cartaRaw, true);
+  $cartaBuild = is_array($cartaJ) ? (string) ($cartaJ['build'] ?? '') : '';
+  $cuadra = BUILD_ID !== '' && $cartaBuild !== '' && BUILD_ID === $cartaBuild;
+ ?>
+<p class="chapa">
+  <?php if (BUILD_FECHA !== ''): ?>
+    Versión <strong><?= h(BUILD_FECHA) ?></strong>
+  <?php else: ?>
+    Versión <strong>desconocida</strong> (este panel es anterior a la chapa)
+  <?php endif; ?>
+  <?php if (BUILD_ID !== '' && $cartaBuild !== '' && !$cuadra): ?>
+    <span class="chapa-mal">· la carta de al lado es de otra compilación:
+    la subida se quedó a medias</span>
+  <?php endif; ?>
+  <br>
+  <span class="chapa-id">panel <?= h(BUILD_ID !== '' ? BUILD_ID : '?') ?> · carta <?= h($cartaBuild !== '' ? $cartaBuild : '?') ?></span>
+</p>
+
   <?php if (DATOS_ACTIVO): ?>
   <script>
   /* Recorrer las barras.
