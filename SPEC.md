@@ -4302,3 +4302,55 @@ desaparecían del todo — con la opacidad al 100% la pantalla era idéntica a n
 
 `prefers-reduced-motion: reduce` lo oculta por CSS, y además el arranque **borra el elemento**:
 son 253 KB que no se van a ver.
+
+## «Cinta»: la cuenta atrás y el resultado (26 Aug 2026)
+
+Las dos pantallas que no son la portada ni el tablero estaban vacías: un rótulo de doce píxeles y
+un número. Elegida entre tres direcciones prototipadas —**Marcador** (la cifra dentro de una placa
+de tinta), **Cinta** (banda roja y tipografía) y **Termómetro** (la cifra comparada con el récord
+en una barra)— gana **Cinta**.
+
+El rótulo va en una **banda roja inclinada 3°**, que es el mismo gesto que «Rush» en la portada, y
+debajo la cifra, enorme y en tinta. Así las tres pantallas se leen como el mismo cartel.
+
+| | antes | ahora |
+|---|---|---|
+| cuenta atrás | `clamp(64px,26vw,120px)` | `clamp(96px,44vw,172px)`, y tres rayas que se apagan una por segundo |
+| resultado | `clamp(30px,9vw,44px)` | `clamp(72px,32vw,132px)` |
+| «Mejor de hoy» | 15px al 85% | 16px, sin apagar |
+
+La banda se limita a `#s-count` y `#s-end`. El eyebrow de la portada lleva **el premio**, y eso no
+es un rótulo sino una promesa: en rojo y torcido parecería otra oferta de la carta.
+
+### «¡Nuevo récord!» ya no puede ir en rojo
+
+`.eyebrow-record` pintaba el rótulo de rojo. Sobre una banda roja eso es texto invisible. Ahora el
+rótulo se queda en crema y **lo que cambia es la cifra**, que se pinta de rojo: se ve desde mucho
+más lejos que un rótulo de doce píxeles.
+
+### Dos restos que salieron por el camino
+
+- El bloque `.record` —la línea del récord en la portada, antes de que subiera al marco— llevaba
+  sin dueño desde entonces: no hay ningún `class="record"` en el HTML. Además colisionaba con el
+  `.tally.record` nuevo, y le habría metido su `opacity:.8`.
+- «Saltar» iba en `var(--surface)` al 60% sobre el fondo del juego, que es un tono medio: no se
+  leía. Pasa a tinta al 65%.
+
+## «Ver menú» en la barra del panel (26 Aug 2026)
+
+Al lado de Guardar, en las cuatro pestañas que guardan algo —agotados y precios, oferta, juego y
+marca—. No en la barra de **publicar precios**: ésa es una confirmación de dos pasos y ahí un
+enlace a otro sitio es una trampa.
+
+Tres decisiones pequeñas:
+
+- **Abre en otra pestaña.** En la misma se perdería lo que estuviera sin guardar, y la barra ya
+  avisa «sin guardar» precisamente porque eso pasa.
+- **Lleva la hora en la dirección** (`../index.html?v=<time()>`). Sin eso el navegador puede
+  enseñar la carta de antes del guardado, que es justo lo que se va a comprobar.
+- **Ruta relativa**, no `CLIENTE.base`: así funciona igual en el hosting y en el servidor local, y
+  no hay una dirección del restaurante escrita dos veces.
+
+Estilo `.ver`: el mismo fantasma que los demás secundarios del panel —borde, sin relleno— para que
+no compita con Guardar. Comprobado a 375 px: la barra no desborda; el contador se parte en dos
+líneas y los dos botones caben enteros.

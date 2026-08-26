@@ -2195,6 +2195,20 @@ $CUENTAS = [
     border-radius:var(--r-card) var(--r-card) 0 0;
     box-shadow:var(--lift-sheet);
   }
+  /* Guardar y «Ver menú», juntos a la derecha de la barra. El enlace abre en OTRA pestaña a
+     propósito: abriéndose aquí, lo que estuviera sin guardar se perdería al volver. Y lleva la
+     hora en la dirección para que el navegador no enseñe la carta de antes del guardado, que es
+     justo lo que se va a comprobar. */
+  .bar .acciones{display:flex;align-items:center;gap:var(--s2);min-width:0}
+  .bar .ver{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-height:48px;padding:0 var(--s3);
+    border:1px solid var(--border);border-radius:var(--r-pill);
+    background:transparent;color:var(--muted);text-decoration:none;
+    font-family:var(--title-font);font-size:15px;font-weight:600;white-space:nowrap;
+    transition:color var(--t-fast) ease,border-color var(--t-fast) ease;
+  }
+  .bar .ver:hover{color:var(--ink);border-color:var(--muted)}
   button{
     font-family:var(--title-font);font-size:15px;font-weight:600;
     border:0;border-radius:var(--r-pill);
@@ -2998,7 +3012,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
       <div class="bar">
         <span class="count" id="estado-txt"><span id="n2"><?= count($agotados) ?></span> agotados</span>
-        <button class="save" type="submit">Guardar</button>
+        <span class="acciones">
+          <a class="ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver menú</a>
+          <button class="save" type="submit">Guardar</button>
+        </span>
       </div>
     </form>
 
@@ -3351,7 +3368,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
       <div class="bar">
         <span class="count" id="ocount"><?= count($oferta['keys']) ?> plato(s) sueltos</span>
-        <button class="save" name="guardar_oferta" value="1" type="submit">Guardar oferta</button>
+        <span class="acciones">
+          <a class="ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver menú</a>
+          <button class="save" name="guardar_oferta" value="1" type="submit">Guardar oferta</button>
+        </span>
       </div>
     </form>
 
@@ -3530,7 +3550,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       </div>
       <div class="bar">
         <span class="count"><?= !empty($juego["on"]) ? "En la carta" : "Fuera de la carta" ?></span>
-        <button class="save" name="guardar_juego" value="1" type="submit">Guardar</button>
+        <span class="acciones">
+          <a class="ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver menú</a>
+          <button class="save" name="guardar_juego" value="1" type="submit">Guardar</button>
+        </span>
       </div>
     </form>
 
@@ -3914,7 +3937,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             $nombre_actual = 'el de la casa';
             foreach ($temas as $t) if ($t['slug'] === $tema_actual) $nombre_actual = $t['nombre']; ?>
           <span class="count">En la carta: <?= h($nombre_actual) ?></span>
-          <button class="save" name="guardar_marca" value="1" type="submit">Guardar</button>
+          <span class="acciones">
+            <a class="ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver menú</a>
+            <button class="save" name="guardar_marca" value="1" type="submit">Guardar</button>
+          </span>
         </div>
       </form>
     <?php endif; ?>

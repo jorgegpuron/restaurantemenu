@@ -303,7 +303,7 @@ h1{
 #btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--offer)}
 #btn-play svg{width:21px;height:21px;flex:0 0 auto}
 #btn-play .i18n{line-height:1}
-@media (prefers-reduced-motion:reduce){ .mascota,.record,.eyebrow-record,.punto,.placa{animation:none} }
+@media (prefers-reduced-motion:reduce){ .mascota,.eyebrow-record,.punto,.placa{animation:none} }
 /* Botones a medida de app: la acción principal llena 320px (o el ancho que haya), 56px de
    alto; la secundaria debajo, misma anchura, sin relleno y con borde — se lee como opción,
    no como acción. Entre bloque de texto y botones, un escalón más de aire que entre líneas. */
@@ -493,26 +493,56 @@ h1{
   background-repeat:no-repeat;background-position:right 13px center;background-size:17px}
 .fichar .par{display:flex;gap:var(--s2)}
 .fichar .par button{flex:1}
-.saltar{background:none;border:0;color:var(--surface);opacity:.6;
+.saltar{background:none;border:0;color:var(--ink);opacity:.65;
   font-family:var(--title-font);font-size:15px;font-weight:600;min-height:48px;cursor:pointer}
 
-/* El récord de la casa: la referencia contra la que se juega. */
-.record{
-  margin:var(--s3) 0 0;
-  font-family:var(--title-font);font-size:15px;font-weight:600;
-  color:var(--surface);opacity:.8;
-  font-variant-numeric:tabular-nums;
-}
-.record[hidden]{display:none}
-.record b{font-weight:800;opacity:1}
 /* Batir el récord: lo único que celebra, y no da nada. */
 .eyebrow-record{color:var(--offer);animation:sube 240ms var(--ease-out) both}
-.tally{margin:0;font-family:var(--title-font);font-size:clamp(30px,9vw,44px);font-weight:800;line-height:1}
-.tally small{display:block;margin-top:6px;font-family:var(--body-font);font-size:15px;font-weight:400;opacity:.85}
+#s-end{gap:0}
+.tally{
+  margin:14px 0 0;font-family:var(--title-font);font-size:clamp(72px,32vw,132px);font-weight:800;
+  line-height:.86;letter-spacing:-.05em;font-variant-numeric:tabular-nums;
+}
+/* El récord de la partida, en el rojo de la casa. El rótulo se queda en crema sobre la banda. */
+.tally.record{color:var(--offer)}
+.tally small{display:block;margin-top:10px;font-family:var(--body-font);font-size:16px;
+  font-weight:400;letter-spacing:0;color:var(--ink)}
+#s-end .actions{margin-top:var(--s4)}
+
+/* ---------- «Cinta»: la cuenta atrás y el resultado ----------
+   Elegida entre tres direcciones prototipadas (Marcador / Cinta / Termómetro). El rótulo va en
+   una banda roja inclinada —el mismo gesto que «Rush» en la portada— y debajo la cifra, enorme
+   y en tinta. Así las tres pantallas se leen como el mismo cartel y no como tres páginas de una
+   aplicación cualquiera.
+
+   La banda se limita a estas dos pantallas: el eyebrow de la portada lleva el premio, y ése no
+   es un rótulo sino una promesa — en rojo y torcido parecería una oferta más de la carta. */
+#s-count .eyebrow,#s-end .eyebrow{
+  display:inline-block;
+  transform:rotate(-3deg);
+  background:var(--offer);color:var(--surface);
+  padding:.3em .55em;border-radius:.14em;
+}
+#s-count .eyebrow{font-size:15px;letter-spacing:.2em;padding:.28em .6em}
+#s-end .eyebrow:empty{display:none}
+/* «¡Nuevo récord!» ya iba en rojo, y sobre la banda roja no se leía. Ahora lo que cambia es la
+   cifra, que se pinta de rojo: se ve desde más lejos que un rótulo de doce píxeles. */
+#s-end .eyebrow.eyebrow-record{color:var(--surface)}
 
 /* ---------- cuenta atrás ---------- */
-.count{font-family:var(--title-font);font-size:clamp(64px,26vw,120px);font-weight:800;line-height:1}
+#s-count{gap:0}
+.count{font-family:var(--title-font);font-size:clamp(96px,44vw,172px);font-weight:800;
+  line-height:.86;letter-spacing:-.05em;margin:var(--s4) 0 0;font-variant-numeric:tabular-nums}
 .count.tick{animation:pop 260ms var(--ease-out)}
+/* Tres rayas que se apagan una por segundo: la cuenta se ve además de leerse, y con el rabillo
+   del ojo ya en el tablero. */
+.rayas{display:flex;gap:7px;margin-top:var(--s4)}
+.rayas i{
+  width:34px;height:5px;border-radius:var(--r-pill);
+  background:color-mix(in srgb,var(--ink) 22%,transparent);
+  transition:background-color var(--t-fast) var(--ease-out);
+}
+.rayas i.on{background:var(--offer)}
 
 @media (prefers-reduced-motion:reduce){
   .spot,.spot.viaje{transition:opacity var(--t-fast) ease}
@@ -564,6 +594,7 @@ h1{
   <section class="screen" id="s-count" hidden>
     <p class="eyebrow">${T('Ready?', 'ui')}</p>
     <p class="count" id="count">3</p>
+    <div class="rayas" id="rayas" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></div>
   </section>
 
   <!-- 3. partida -->
@@ -590,7 +621,7 @@ h1{
   <!-- 4. resultado -->
   <section class="screen" id="s-end" hidden>
     <p class="eyebrow" id="end-eyebrow"></p>
-    <p class="tally"><span id="end-score">0</span><small id="end-best"></small></p>
+    <p class="tally" id="end-tally"><span id="end-score">0</span><small id="end-best"></small></p>
 
     <!-- quien acaba de entrar en el podio se pone nombre. Sale ya con la marca guardada:
          si cierra la pestana sin rellenarlo, la marca esta y sale sin nombre. -->
@@ -1116,8 +1147,10 @@ h1{
 
     var ceja = document.getElementById('end-eyebrow');
     var form = document.getElementById('fichar');
+    var tally = document.getElementById('end-tally');
     ceja.textContent = tr('Your score');
     ceja.classList.remove('eyebrow-record');
+    tally.classList.remove('record');
     document.getElementById('end-score').textContent = puntos;
     form.hidden = true;
     miId = '';
@@ -1136,23 +1169,35 @@ h1{
       if (puesto < 0) return;
       ceja.textContent = tr('New record!');
       ceja.classList.add('eyebrow-record');
+      tally.classList.add('record');
       form.hidden = false;
       document.getElementById('f-nombre').focus({ preventScroll: true });
     });
   }
   var tCuenta = null;
 
+  /* Las rayas van con la cuenta: se apaga una por segundo. */
+  function pintarRayas(n) {
+    var caja = document.getElementById('rayas');
+    if (!caja) return;
+    [].slice.call(caja.children).forEach(function (i, idx) {
+      i.classList.toggle('on', idx < n);
+    });
+  }
+
   function cuentaAtras() {
     pantalla('s-count');
     var el = document.getElementById('count');
     var n = 3;
     el.textContent = n;
+    pintarRayas(n);
     el.classList.add('tick');
     clearInterval(tCuenta);
     var iv = tCuenta = setInterval(function () {
       n -= 1;
       if (n <= 0) { clearInterval(iv); tCuenta = null; empezar(); return; }
       el.textContent = n;
+      pintarRayas(n);
       el.classList.remove('tick');
       void el.offsetWidth;
       el.classList.add('tick');
