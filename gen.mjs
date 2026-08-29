@@ -1277,33 +1277,56 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:0;background:none;color:var(--offer);font-size:12px;
 }
 .dsheet-flag[hidden]{display:none}
-/* Nombre a la izquierda y precio a la derecha, en la misma línea y sobre la misma base: es
-   exactamente como se lee la fila de la carta, y la ficha no tiene por qué contar lo mismo de
-   otra manera. La descripción va debajo, a todo el ancho. */
-.dsheet-linea{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2)}
+/* Nombre a la izquierda y precio a la derecha, y la descripción debajo a todo el ancho: es como
+   se lee la fila de la carta.
+
+   El precio va en una CHAPA de crema y no suelto en blanco. Sobre una foto, un número blanco más
+   entre otras palabras blancas hay que buscarlo; la chapa se ve sin buscarla, que es lo que se
+   hace con un precio. Elegido entre tres. */
+.dsheet-linea{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)}
 .dsheet-nombre{
   margin:0;min-width:0;
   font-family:var(--title-font);font-size:26px;font-weight:700;line-height:1.12;
   text-shadow:0 1px 12px rgba(0,0,0,.35);
 }
 .dsheet-nombre .diet-marks{margin-left:6px}
+/* La chapa mide 34 de alto y la primera línea del nombre 29: el -1 la centra con esa línea en
+   vez de dejarla colgada del borde de la caja del texto. */
 .dsheet-precio{
-  margin:0;flex:0 0 auto;white-space:nowrap;
-  font-family:var(--title-font);font-size:21px;font-weight:700;
-  text-shadow:0 1px 12px rgba(0,0,0,.35);
+  margin:-1px 0 0;flex:0 0 auto;white-space:nowrap;
+  padding:6px 13px;border-radius:var(--r-pill);
+  background:var(--surface);color:var(--ink);
+  font-family:var(--title-font);font-size:17px;font-weight:800;
+  /* La carta lleva un interlineado de lectura heredado, y dentro de una pastilla eso la hincha
+     seis píxeles y la descuadra con la línea del nombre. */
+  line-height:1.2;
+  font-variant-numeric:tabular-nums;
+  box-shadow:0 2px 10px rgba(0,0,0,.3);
 }
-.dsheet-precio .price-was{margin-left:8px;font-size:15px;opacity:.65;text-decoration:line-through}
-.dsheet-desc{margin:var(--s1) 0 0;font-size:16px;line-height:1.45;color:rgba(255,255,255,.88)}
-/* Sobre el papel, los colores de siempre. */
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre,
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{text-shadow:none}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{color:var(--accent-ink)}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted);margin-top:var(--s2)}
+.dsheet-precio .price-was{margin-left:7px;font-size:.76em;font-weight:600;opacity:.55;
+  text-decoration:line-through}
+/* El filete separa el nombre de la descripción, como la línea que separa los platos en la carta:
+   hace el trabajo de un escalón de 21 con la mitad de aire, y encima de una foto se agradece
+   cada píxel que no se tapa. */
+.dsheet-filete{display:block;height:1px;margin:11px 0;background:rgba(255,255,255,.32)}
+.dsheet-filete[hidden]{display:none}
+.dsheet-desc{margin:0;font-size:16px;line-height:1.45;color:rgba(255,255,255,.88)}
+/* Sobre el papel, los colores de siempre. Y la chapa se deshace: una chapa de crema sobre papel
+   de crema no es una chapa, es un número que no se ve. */
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre{text-shadow:none}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{
+  margin:0;padding:0;background:none;box-shadow:none;
+  color:var(--accent-ink);font-size:21px;font-weight:700;
+}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-filete{background:var(--hairline)}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted)}
 /* El texto entra un pelo después que la hoja: primero se ve la foto, y encima aparece lo que
    dice. Al revés, el nombre llega antes que aquello que nombra. */
 .dsheet.is-open .dsheet-linea,
+.dsheet.is-open .dsheet-filete,
 .dsheet.is-open .dsheet-desc{animation:dsheet-entra 260ms var(--ease-out) both}
 .dsheet.is-open .dsheet-linea{animation-delay:110ms}
+.dsheet.is-open .dsheet-filete,
 .dsheet.is-open .dsheet-desc{animation-delay:170ms}
 @keyframes dsheet-entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .dsheet-desc:empty{display:none}
@@ -3208,6 +3231,7 @@ ${leyenda}
         <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
         <p class="dsheet-precio" id="dsheet-precio"></p>
       </div>
+      <span class="dsheet-filete" aria-hidden="true"></span>
       <p class="dsheet-desc" id="dsheet-desc"></p>
     </div>
   </div>
@@ -4882,6 +4906,10 @@ ${DATOS_ACTIVO ? `
 
     var p = row.querySelector('.menu-content p');
     fichaDesc.textContent = p ? p.textContent : '';
+    /* Sin descripción no hay nada que separar, y una raya suelta debajo del nombre se lee como
+       un error de maquetado. */
+    var filete = ficha.querySelector('.dsheet-filete');
+    if (filete) filete.hidden = !fichaDesc.textContent.trim();
 
     /* El precio se copia con su marcado: si hay oferta trae el de hoy y el de antes tachado, y
        ese par ya está calculado en la fila. Volver a calcularlo aquí sería tener dos sitios
