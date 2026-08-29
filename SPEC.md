@@ -4573,3 +4573,52 @@ foto suelen recibir más consultas, tenlo en cuenta», ahora dice que **ahí só
 con foto** y que la tabla los compara entre sí. Y el estado vacío avisa de lo mismo.
 
 Comprobado: un plato sin foto no abre nada al tocarlo y no lleva `role`; el que la tiene, sí.
+
+## La ficha, en «Escaparate» (26 Aug 2026)
+
+Elegida entre tres direcciones prototipadas sobre la carta de verdad y en móvil —**Escaparate**
+(la foto es la ficha), **Etiqueta** (la foto enmarcada dentro del papel) y **Compacta** (foto de
+108 al lado del texto)—. Punto de restauración antes del cambio en
+`3-copias/2026-08-26_antes-de-escaparate/`.
+
+La foto pasa de cuadrada a **4:5**, la vertical del móvil, y llena la hoja entera. El nombre, el
+precio y la descripción van **encima de la foto**, en blanco, en el pie.
+
+### El degradado va en el bloque de texto, no en una capa aparte
+
+Una capa de altura fija —62% de la foto, por ejemplo— deja una línea sin fondo debajo en cuanto la
+descripción crece. Aquí el degradado es el `background` del propio bloque de texto, así que **crece
+con lo que haya escrito** y nunca hay una línea flotando sobre la foto pelada. Va de
+`rgba(9,18,14,.94)` abajo a transparente arriba.
+
+Es lo único que hace legible un nombre blanco sobre una foto que puede ser clara. Probado con la
+misma foto aclarada a propósito: el nombre y el precio se siguen leyendo.
+
+### Lo que hubo que cambiar de color
+
+- **La cruz de cerrar** iba en crema translúcido, y sobre una foto clara desaparecía. Ahora es un
+  disco oscuro al 55% con desenfoque detrás.
+- **El asa** era tinta al 28%: invisible sobre una foto oscura. Ahora es blanca con una sombra.
+- **«Agotado hoy»** era texto rojo, que sobre una foto no se lee. Ahora es una pastilla roja con
+  el texto en blanco.
+- Nombre y precio llevan una sombra suave (`0 1px 12px rgba(0,0,0,.35)`) para despegarse de las
+  zonas claras de la foto sin que se note el truco.
+
+### Sin foto, la ficha vuelve a ser papel
+
+Hoy no se abre ninguna ficha sin foto —sólo abren los platos que la tienen— pero la regla está
+escrita: si algún día se abre una, el bloque de texto pierde el degradado, deja de ser absoluto y
+vuelve a la tinta sobre crema. Blanco sobre crema no se lee, y eso no puede depender de que nadie
+cambie una condición.
+
+### El texto entra después que la foto
+
+La hoja sube, y 110 ms más tarde entran el nombre y el precio, y 60 ms después la descripción. Al
+revés se lee el nombre antes que aquello que nombra. Con `prefers-reduced-motion` no entra nada:
+está todo puesto desde el principio.
+
+### Comprobado corriendo
+
+Móvil 440 de ancho: hoja de 550 de alto con la foto entera, pastilla de agotado legible sobre la
+foto, nombre y precio en la misma línea base. Escritorio 1000: la misma ficha dentro de la tarjeta
+de 520 centrada. Cero errores en consola.

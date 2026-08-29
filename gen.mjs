@@ -1201,7 +1201,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet:not(.is-open){pointer-events:none}
 .dsheet-panel{
   position:absolute;left:0;right:0;bottom:0;
-  max-height:88dvh;overflow-y:auto;overscroll-behavior:contain;
+  max-height:88dvh;overflow:hidden;overscroll-behavior:contain;
   background:var(--surface);
   border-radius:var(--r-sheet) var(--r-sheet) 0 0;
   box-shadow:var(--lift-sheet);
@@ -1218,35 +1218,63 @@ html:not(.js) .lang-menu{position:static;display:block}
   content:"";position:absolute;z-index:2;
   left:50%;top:8px;transform:translateX(-50%);
   width:36px;height:4px;border-radius:var(--r-pill);
-  background:color-mix(in srgb,var(--ink) 28%,transparent);
+  background:rgba(255,255,255,.6);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
 }
 .dsheet-close{
   position:absolute;z-index:2;top:12px;right:12px;
   width:36px;height:36px;display:flex;align-items:center;justify-content:center;
   border:0;border-radius:50%;
-  background:color-mix(in srgb,var(--surface) 88%,transparent);
-  color:var(--ink);cursor:pointer;
-  box-shadow:0 1px 3px rgba(0,0,0,.18);
+  /* Oscuro y no crema: encima de una foto clara, un botón crema desaparece. */
+  background:rgba(9,18,14,.55);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  color:#fff;cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.28);
 }
 .dsheet-close svg{width:18px;height:18px}
 .dsheet-close:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
-/* El hueco de la foto se reserva desde el principio: sin aspect-ratio, la ficha se abre corta y
-   pega un salto cuando la imagen llega. */
+/* La foto ES la ficha. En 4:5, que es la vertical del móvil: llena la pantalla y el texto va
+   encima, en el pie. El hueco se reserva con aspect-ratio desde el principio, así que la ficha
+   se abre ya del alto que va a tener y no pega un salto cuando llega la imagen.
+
+   Elegida entre tres direcciones prototipadas —Escaparate, Etiqueta y Compacta— sobre la carta
+   de verdad y en móvil. */
 .dsheet-foto{
-  position:relative;width:100%;aspect-ratio:1/1;
-  background:color-mix(in srgb,var(--ink) 8%,transparent);
+  position:relative;width:100%;aspect-ratio:4/5;
+  background:color-mix(in srgb,var(--ink) 12%,transparent);
   overflow:hidden;
 }
 .dsheet-foto[hidden]{display:none}
 .dsheet-foto img{width:100%;height:100%;object-fit:cover;display:block}
-.dsheet-cuerpo{padding:var(--s3) var(--s3) calc(var(--s4) + env(safe-area-inset-bottom))}
-/* Sin foto, la ficha empieza por el nombre y hace sitio al asa. Nada de placeholder gris: un
-   hueco vacío dice «falta algo», y no falta nada. */
-.dsheet-foto[hidden] + .dsheet-cuerpo{padding-top:var(--s4)}
+/* El texto, en el pie de la foto. El degradado va en el propio bloque de texto y no en una capa
+   de altura fija: así crece con lo que haya escrito y nunca deja una línea sin fondo debajo.
+   Es lo único que hace legible un nombre blanco sobre una foto que puede ser clara. */
+.dsheet-cuerpo{
+  position:absolute;left:0;right:0;bottom:0;
+  padding:var(--s5) var(--s3) calc(var(--s3) + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,
+    rgba(9,18,14,.94) 0%,
+    rgba(9,18,14,.86) 34%,
+    rgba(9,18,14,.55) 62%,
+    rgba(9,18,14,0) 100%);
+  color:#fff;
+}
+/* Sin foto no hay escaparate que valga: la ficha vuelve a ser papel con su texto en tinta. Hoy
+   no se abre ninguna sin foto, pero el día que se abra no puede salir blanco sobre crema. */
+.dsheet-foto[hidden] + .dsheet-cuerpo{
+  position:static;background:none;color:var(--ink);
+  padding:var(--s4) var(--s3) calc(var(--s4) + env(safe-area-inset-bottom));
+}
 .dsheet-flag{
-  margin:0 0 var(--s1);
-  font-family:var(--title-font);font-size:12px;font-weight:700;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--offer);
+  display:inline-block;margin:0 0 var(--s1);
+  padding:3px 9px;border-radius:var(--r-pill);
+  background:var(--offer);color:#fff;
+  font-family:var(--title-font);font-size:11px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+/* Sobre el papel, la pastilla roja sobra: ahí el rojo sobre crema ya se lee. */
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-flag{
+  padding:0;background:none;color:var(--offer);font-size:12px;
 }
 .dsheet-flag[hidden]{display:none}
 /* Nombre a la izquierda y precio a la derecha, en la misma línea y sobre la misma base: es
@@ -1255,15 +1283,29 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-linea{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2)}
 .dsheet-nombre{
   margin:0;min-width:0;
-  font-family:var(--title-font);font-size:24px;font-weight:700;line-height:1.15;
+  font-family:var(--title-font);font-size:26px;font-weight:700;line-height:1.12;
+  text-shadow:0 1px 12px rgba(0,0,0,.35);
 }
 .dsheet-nombre .diet-marks{margin-left:6px}
 .dsheet-precio{
   margin:0;flex:0 0 auto;white-space:nowrap;
-  font-family:var(--title-font);font-size:20px;font-weight:700;color:var(--accent-ink);
+  font-family:var(--title-font);font-size:21px;font-weight:700;
+  text-shadow:0 1px 12px rgba(0,0,0,.35);
 }
-.dsheet-precio .price-was{margin-left:8px;font-size:15px;opacity:.6;text-decoration:line-through}
-.dsheet-desc{margin:var(--s2) 0 0;font-size:16px;line-height:1.5;color:var(--muted)}
+.dsheet-precio .price-was{margin-left:8px;font-size:15px;opacity:.65;text-decoration:line-through}
+.dsheet-desc{margin:var(--s1) 0 0;font-size:16px;line-height:1.45;color:rgba(255,255,255,.88)}
+/* Sobre el papel, los colores de siempre. */
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre,
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{text-shadow:none}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{color:var(--accent-ink)}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted);margin-top:var(--s2)}
+/* El texto entra un pelo después que la hoja: primero se ve la foto, y encima aparece lo que
+   dice. Al revés, el nombre llega antes que aquello que nombra. */
+.dsheet.is-open .dsheet-linea,
+.dsheet.is-open .dsheet-desc{animation:dsheet-entra 260ms var(--ease-out) both}
+.dsheet.is-open .dsheet-linea{animation-delay:110ms}
+.dsheet.is-open .dsheet-desc{animation-delay:170ms}
+@keyframes dsheet-entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .dsheet-desc:empty{display:none}
 @media (min-width:768px){
   .dsheet-panel{
@@ -1276,7 +1318,8 @@ html:not(.js) .lang-menu{position:static;display:block}
   }
   .dsheet.is-open .dsheet-panel{transform:translate(-50%,-50%);opacity:1;transition-duration:var(--t-sheet-in)}
   .dsheet-panel::before{display:none}
-  .dsheet-foto{border-radius:var(--r-card) var(--r-card) 0 0}
+  /* La tarjeta entera es la foto, también aquí: el redondeo lo pone el panel, que ya recorta. */
+  .dsheet-foto{border-radius:0}
 }
 @media (prefers-reduced-motion:reduce){
   .dsheet-panel{transition:none}
