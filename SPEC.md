@@ -4548,3 +4548,28 @@ y no vale la pena una petición al servidor para cambiar de una a otra.
 | consolidación | 116 consultas del registro pasan a `vp-2026-08.json` y el registro desaparece |
 | consolidación cortada a mitad | el `.procesando` huérfano se termina en la vuelta siguiente: 4 y 3, sin perder ninguna |
 | tabla | diez filas con barra, consultas y % sobre aperturas; «Ver los 16 platos» y los tres periodos |
+
+## La ficha, con la forma de la fila y sólo donde hay foto (26 Aug 2026)
+
+Dos cambios pedidos sobre la fase 2, y el segundo cambia lo que mide el contador.
+
+### Nombre y precio en la misma línea
+
+La ficha ponía el precio debajo del nombre, en su propia línea. La carta no se lee así: nombre a
+la izquierda, precio a la derecha, descripción debajo a todo el ancho. Ahora la ficha lo cuenta
+igual — `display:flex` con `align-items:baseline`, para que las dos cifras compartan la línea base
+como en la fila. Comprobado a 375 y a 1000: nombre en x=21 y precio en x=301 en móvil, misma línea.
+
+### Sólo abre el plato que tiene foto
+
+Antes se abría en todos. Ahora la fila se ofrece a abrirse —cursor, velo al tocar, `role="button"`
+y `tabindex`— **sólo si el estado le da una foto**, y lo pone y lo quita `render()`, así que subir
+una foto desde el panel hace que ese plato empiece a abrirse sin recargar la carta.
+
+**Lo que esto le hace al contador, dicho claro:** ya no mide interés por un plato, mide interés
+por *los platos que tienen foto*. Un plato sin foto no puede aparecer en la tabla porque no hay
+manera de consultarlo. La nota del panel se cambió en consecuencia: donde decía «los platos con
+foto suelen recibir más consultas, tenlo en cuenta», ahora dice que **ahí sólo salen los platos
+con foto** y que la tabla los compara entre sí. Y el estado vacío avisa de lo mismo.
+
+Comprobado: un plato sin foto no abre nada al tocarlo y no lleva `role`; el que la tiene, sí.

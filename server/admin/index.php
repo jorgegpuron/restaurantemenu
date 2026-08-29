@@ -4423,8 +4423,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php if (!$vhayAlgo): ?>
           <p class="vp-vacio">
             Todavía nadie ha abierto la ficha de un plato. Se cuenta cuando alguien
-            <strong>toca un plato</strong> en la carta y se le abre la ficha, una vez por plato y
-            visita.
+            <strong>toca un plato con foto</strong> y se le abre la ficha, una vez por plato y
+            visita. Los platos sin foto no abren ficha, así que no aparecen aquí.
           </p>
         <?php else: foreach ($vperiodos as $k => $per):
           $filas = vp_lista($per['v'], $dt["vid"], (int) $per['ap'], 10);
@@ -4448,8 +4448,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <p class="vp-pie">
           El porcentaje es sobre las aperturas de la carta del mismo periodo.
-          <b>Los platos con foto suelen recibir más consultas</b>, así que tenlo en cuenta al
-          comparar unos con otros.
+          <b>Aquí sólo salen los platos con foto</b>: son los únicos cuya ficha se abre, así que
+          esto no compara un plato con todos, compara los que tienen foto entre sí.
         </p>
       </div>
 

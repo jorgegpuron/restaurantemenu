@@ -1175,14 +1175,18 @@ html:not(.js) .lang-menu{position:static;display:block}
  * En móvil es una hoja que sube desde abajo, con su asa y su arrastre, igual que la de
  * categorías. De 768 para arriba es una tarjeta centrada de 520, que en un portátil una hoja
  * pegada al canto inferior se lee como un error. */
-.single-menu-items{cursor:pointer}
+ * Sólo abren los platos que tienen foto. La marca .abre la pone render() al leer el estado, así
+ * que una fila no se ofrece a abrirse si detrás no hay nada que enseñar. Lo pide el restaurante:
+ * y la consecuencia es que el contador mide los platos CON foto y no el interés en general.
+ */
+.single-menu-items.abre{cursor:pointer}
 /* El toque tiene que notarse en la fila entera, no sólo en el icono: es lo que le dice al
    comensal que ahí se puede pulsar. Un velo del color del texto al 5%, que sobre el papel de
    cualquiera de los cinco temas se ve sin ensuciarlo. */
-.single-menu-items:active{background:color-mix(in srgb,var(--ink) 5%,transparent)}
-.single-menu-items:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:8px}
+.single-menu-items.abre:active{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.single-menu-items.abre:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:8px}
 @media (hover:hover) and (pointer:fine){
-  .single-menu-items:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+  .single-menu-items.abre:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
 }
 /* El icono de foto va pegado al nombre y hereda su color. Deja sitio para que un día sea una
    miniatura de 44: cambia esta regla y nada más. */
@@ -1245,12 +1249,17 @@ html:not(.js) .lang-menu{position:static;display:block}
   letter-spacing:.12em;text-transform:uppercase;color:var(--offer);
 }
 .dsheet-flag[hidden]{display:none}
+/* Nombre a la izquierda y precio a la derecha, en la misma línea y sobre la misma base: es
+   exactamente como se lee la fila de la carta, y la ficha no tiene por qué contar lo mismo de
+   otra manera. La descripción va debajo, a todo el ancho. */
+.dsheet-linea{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2)}
 .dsheet-nombre{
-  margin:0;font-family:var(--title-font);font-size:24px;font-weight:700;line-height:1.15;
+  margin:0;min-width:0;
+  font-family:var(--title-font);font-size:24px;font-weight:700;line-height:1.15;
 }
 .dsheet-nombre .diet-marks{margin-left:6px}
 .dsheet-precio{
-  margin:var(--s1) 0 0;
+  margin:0;flex:0 0 auto;white-space:nowrap;
   font-family:var(--title-font);font-size:20px;font-weight:700;color:var(--accent-ink);
 }
 .dsheet-precio .price-was{margin-left:8px;font-size:15px;opacity:.6;text-decoration:line-through}
@@ -3152,8 +3161,10 @@ ${leyenda}
     </div>
     <div class="dsheet-cuerpo">
       <p class="dsheet-flag" id="dsheet-flag" hidden></p>
-      <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
-      <p class="dsheet-precio" id="dsheet-precio"></p>
+      <div class="dsheet-linea">
+        <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
+        <p class="dsheet-precio" id="dsheet-precio"></p>
+      </div>
       <p class="dsheet-desc" id="dsheet-desc"></p>
     </div>
   </div>
@@ -3707,6 +3718,16 @@ ${sheet}
          aparece sin recargar. */
       var foto = fotos[key];
       if (foto) row.dataset.foto = foto; else delete row.dataset.foto;
+      /* Sólo se ofrece a abrirse el que tiene foto. Y el papel de botón va con la foto: sin ella
+         la fila vuelve a ser texto, y un lector de pantalla no anuncia un botón que no hace nada. */
+      row.classList.toggle('abre', !!foto);
+      if (foto) {
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+      } else {
+        row.removeAttribute('role');
+        row.removeAttribute('tabindex');
+      }
       var h3 = row.querySelector('.menu-content h3');
       var marca = h3 && h3.querySelector('.has-photo');
       if (h3 && foto && !marca) {
@@ -4792,13 +4813,6 @@ ${DATOS_ACTIVO ? `
     + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'
     + '<circle cx="12" cy="12.5" r="3.2"/></svg>';
 
-  /* La fila se anuncia como boton SOLO si hay JS para abrirla. Escrito en el HTML, un lector
-     de pantalla diria «botón» en 312 filas que, sin JS, no hacen nada. */
-  document.querySelectorAll('.single-menu-items[data-key]').forEach(function (row) {
-    row.setAttribute('role', 'button');
-    row.setAttribute('tabindex', '0');
-  });
-
   var ficha       = document.getElementById('dish-sheet');
   var fichaPanel  = document.getElementById('dsheet-panel');
   var fichaFoto   = document.getElementById('dsheet-foto');
@@ -4851,7 +4865,7 @@ ${DATOS_ACTIVO ? `
   }
 
   function abrirFicha(row) {
-    if (!ficha || !row) return;
+    if (!ficha || !row || !row.dataset.foto) return;
     clearTimeout(fichaTimer);
     filaAbierta = row;
     fichaFoco = document.activeElement;
@@ -4893,7 +4907,7 @@ ${DATOS_ACTIVO ? `
   document.addEventListener('click', function (e) {
     if (!e.target.closest) return;
     var row = e.target.closest('.single-menu-items[data-key]');
-    if (!row) return;
+    if (!row || !row.dataset.foto) return;
     /* Si se estaba seleccionando texto, esto no es un toque: es alguien copiando el nombre de
        un plato para buscarlo. */
     var sel = window.getSelection && window.getSelection();
@@ -4904,7 +4918,7 @@ ${DATOS_ACTIVO ? `
     if (e.key !== 'Enter' && e.key !== ' ') return;
     if (!e.target.closest) return;
     var row = e.target.closest('.single-menu-items[data-key]');
-    if (!row || row !== e.target) return;
+    if (!row || row !== e.target || !row.dataset.foto) return;
     e.preventDefault();
     abrirFicha(row);
   });
