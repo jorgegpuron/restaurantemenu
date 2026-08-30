@@ -39,6 +39,24 @@ export const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"
 <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap"></noscript>`;
 
+/* Los anchos en que el panel guarda cada foto de portada, en WebP, además del original.
+   Tiene que ser la MISMA lista que HERO_ANCHOS en server/admin/config.php: el panel escribe
+   esos ficheros y la carta los pide por nombre. Si se tocan aquí y allí no, la carta pide
+   anchos que no existen.
+
+   Están porque un móvil enseña la portada a unos 370 px y se bajaba la de 1600: 350 KB para
+   un hueco de 370, y era lo que más retrasaba la aparición de la carta. */
+export const HERO_ANCHOS = [480, 640, 800, 1000, 1200, 1600];
+
+/* Cuánto ocupa la portada de ancho, para que el navegador elija el escalón que le toca: la
+   tarjeta llega a 1570 y la foto va 8 px por dentro de cada lado, más los 12 de la calle.
+   Por debajo de eso, la pantalla entera menos ese mismo aire.
+   Está aquí arriba porque lo usan dos sitios que tienen que decir lo MISMO: el <source> que
+   monta el runtime y el preload que sale de la cabecera. Si no coincidieran, el navegador
+   elegiría un escalón en el preload y otro distinto al pintar, y se bajaría la foto dos
+   veces. */
+export const HERO_SIZES = '(min-width: 1594px) 1546px, calc(100vw - 40px)';
+
 /* Tokens compartidos: la carta y el juego beben del mismo sitio.
    Los colores ya no están escritos aquí: los escribe temas.mjs, un bloque por juego de
    marca, y el panel elige cuál manda. Lo que queda en este archivo es lo que no cambia de
@@ -830,7 +848,8 @@ const html = `<!DOCTYPE html>
      el navegador sigue montando la página, y la portada —que es el elemento más grande de la
      primera pantalla— se pide antes. -->
 <script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
-try{window.__estado=fetch('estado.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})}catch(e){}</script>
+try{window.__estado=fetch('estado.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var w=s.heroWebp||[];if(w.indexOf&&w.indexOf(f)!==-1){var b=f.replace(/\\.[^.]+$/,'');l.imageSrcset=${JSON.stringify(HERO_ANCHOS)}.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ');l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -2236,6 +2255,9 @@ html:not(.has-hero) .hero{display:none}
   scroll-snap-align:center;
   scroll-snap-stop:always;
 }
+/* <picture> es en línea por naturaleza, y dentro de uno en línea el height:100% del <img> no
+   tiene contra qué resolverse: la foto se quedaba en su alto natural. */
+.hero-slide picture{display:block;width:100%;height:100%}
 .hero-slide img{
   display:block;
   width:100%;
@@ -3239,6 +3261,56 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
             <div class="hero-dots" id="hero-dots" role="group"${TL('Photos')}></div>
           </div>
         </figure>
+        <!-- La primera foto se monta AQUÍ, y no abajo con el resto del carrusel.
+             Abajo hay 88 KB de script, y antes de que se ejecuten hay que haber leído las 780
+             KB del documento entero: los 312 platos con sus tres idiomas. La foto ya estaba
+             descargada mucho antes —se pide desde la cabecera— pero no se pintaba hasta el
+             final de todo eso, y era lo que marcaba el LCP.
+             En este punto del documento existen ya el marco y su carril, y no se ha leído
+             todavía ni el primer plato. El resto del carrusel —los puntos, las flechas, las
+             otras cuatro fotos— lo sigue montando el runtime cuando le toca; esto sólo
+             adelanta la que se ve. -->
+        <script>
+        (function () {
+          var p = window.__estado;
+          if (!p || !p.then) return;
+          p.then(function (s) {
+            try {
+              var f = s && s.hero && s.hero[0];
+              var carril = document.getElementById('hero-track');
+              if (!f || !carril || carril.children.length) return;
+              var li = document.createElement('li');
+              li.className = 'hero-slide';
+              var img = document.createElement('img');
+              img.alt = ${JSON.stringify(TL_TXT('Photo of the restaurant'))};
+              img.decoding = 'async';
+              img.setAttribute('fetchpriority', 'high');
+              img.addEventListener('load', function () { img.classList.add('is-ready'); });
+              img.addEventListener('error', function () { li.hidden = true; });
+              var w = (s && s.heroWebp) || [];
+              if (w.indexOf && w.indexOf(f) !== -1) {
+                var pic = document.createElement('picture');
+                var src = document.createElement('source');
+                src.type = 'image/webp';
+                var b = f.replace(/\\.[^.]+$/, '');
+                src.srcset = ${JSON.stringify(HERO_ANCHOS)}.map(function (n) {
+                  return 'assets/hero/' + b + '-' + n + '.webp ' + n + 'w';
+                }).join(', ');
+                src.sizes = ${JSON.stringify(HERO_SIZES)};
+                pic.appendChild(src);
+                pic.appendChild(img);
+                li.appendChild(pic);
+              } else {
+                li.appendChild(img);
+              }
+              img.src = 'assets/hero/' + f;
+              carril.appendChild(li);
+              /* Para que el runtime la reconozca y no la tire para volver a montarla igual. */
+              window.__heroYa = f;
+            } catch (e) {}
+          });
+        })();
+        </script>
 
         <div class="title-area">
           <div class="sub-title">${T(CLIENTE.rotulo, 'ui')}</div>
@@ -4112,10 +4184,17 @@ ${sheet}
       })
       .catch(function () {});
   }
-  cargarRecord();
+  /* El récord se pide DESPUÉS del estado y sólo si el juego está encendido. Antes se pedía
+     siempre y de entrada: en un restaurante que no usa el juego, record.json no existe, así
+     que cada visita gastaba una petición para recibir un 404 y dejar un error en la consola
+     del navegador. La chapa del récord cuelga de la tarjeta del juego, que tampoco se enseña
+     si el juego está apagado, así que no se pierde nada esperando. */
+  function cargarRecordSiProcede() {
+    if (estado && estado.game && estado.game.on) cargarRecord();
+  }
   /* Al volver del juego. pageshow y no load: si el móvil sirve la carta desde la caché de
      atrás, load no se dispara y el récord recién batido no aparecería. */
-  window.addEventListener('pageshow', function (e) { if (e.persisted) cargarRecord(); });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) cargarRecordSiProcede(); });
 
   /* La primera lectura ya viene pedida desde la cabecera, antes de que existiera este script:
      se recoge aquí en vez de volver a pedirla. Se consume una sola vez —se pone a null— para
@@ -4131,6 +4210,7 @@ ${sheet}
         if (state) { estado = state; aplicarTema(state.theme); }
         estadoLeido = true;
         render();
+        cargarRecordSiProcede();
       })
       .catch(function () {
         /* La carta se queda entera y con sus precios. Lo único que sí cambia es la portada:
@@ -4216,6 +4296,23 @@ ${DATOS_ACTIVO ? `
   var heroFirma = '';
   var heroDecidido = false;
   var heroN = 0;
+  /* Los anchos en que el panel guarda cada portada. La lista es la misma de config.php: si
+     cambia allí, cambia aquí. */
+  var HERO_ANCHOS = ${JSON.stringify(HERO_ANCHOS)};
+  /* Las fotos 2 a 5, sin pedir todavía. Cada elemento es la función que las pide. */
+  var heroDiferidas = [];
+
+  /* Suelta las que quedan. Con cuántas, según quién pregunte:
+       · en reposo, sólo la SIGUIENTE. Es la única que alguien puede llegar a ver con un solo
+         gesto, y así el que nunca desliza —que son casi todos— no paga las otras tres: son
+         180 KB en un móvil con datos, en una terraza.
+       · en cuanto alguien toca el carrusel, TODAS: ya está claro que las quiere, y con la
+         conexión libre bajarlas juntas es mejor que ir una a una detrás del dedo. */
+  function heroSoltar(cuantas) {
+    if (!heroDiferidas.length) return;
+    var pendientes = heroDiferidas.splice(0, cuantas || heroDiferidas.length);
+    pendientes.forEach(function (pedir) { pedir(); });
+  }
   var heroActual = 0;
 
   function heroIndice() {
@@ -4259,6 +4356,15 @@ ${DATOS_ACTIVO ? `
     heroFirma = firma;
     heroN = fotos.length;
 
+    /* La primera foto puede venir ya montada desde el cuerpo del documento, mucho antes de
+       que este script existiera: ver el <script> que va detrás del marco. Si es la misma que
+       toca, se queda tal cual. Volver a montarla sería quitar de la pantalla una imagen que ya
+       está pintada para poner otra idéntica: un parpadeo gratis, y el LCP contando de nuevo. */
+    var yaMontada = null;
+    if (window.__heroYa && window.__heroYa === fotos[0] && heroTrack.firstElementChild) {
+      yaMontada = heroTrack.firstElementChild;
+      yaMontada.remove();
+    }
     heroTrack.textContent = '';
     heroDots.textContent = '';
     document.documentElement.classList.toggle('con-hero', heroN > 0);
@@ -4274,24 +4380,12 @@ ${DATOS_ACTIVO ? `
     heroFig.classList.toggle('is-single', heroN === 1);
     if (!heroN) return;
 
-    fotos.forEach(function (archivo, i) {
-      var li = document.createElement('li');
-      li.className = 'hero-slide';
-      var img = document.createElement('img');
-      img.src = 'assets/hero/' + archivo;
-      img.alt = tr('Photo of the restaurant');
-      img.decoding = 'async';
-      /* La primera es el elemento mas grande de la primera pantalla: se pide con prioridad.
-         Las demas, en diferido — nadie paga por descargar cuatro fotos que quiza no mire. */
-      if (i === 0) img.setAttribute('fetchpriority', 'high');
-      else img.loading = 'lazy';
-      if (img.complete) img.classList.add('is-ready');
-      else img.addEventListener('load', function () { img.classList.add('is-ready'); });
-      /* Una foto que no carga no deja un icono roto: se queda el gris del hueco. */
-      img.addEventListener('error', function () { li.hidden = true; });
-      li.appendChild(img);
-      heroTrack.appendChild(li);
+    var conVariantes = (estado && Array.isArray(estado.heroWebp)) ? estado.heroWebp : [];
+    heroDiferidas.length = 0;
 
+    /* El punto de cada foto, aparte: lo montan los dos caminos —la foto adelantada y las que
+       monta este script— y tienen que salir iguales. */
+    function montarPunto(i) {
       var punto = document.createElement('button');
       punto.type = 'button';
       punto.className = 'hero-dot';
@@ -4299,8 +4393,69 @@ ${DATOS_ACTIVO ? `
          asociado que aquí no existe. El activo se marca con aria-current. */
       if (i === 0) punto.setAttribute('aria-current', 'true');
       punto.setAttribute('aria-label', fill(tr('Photo {n} of {total}'), { n: i + 1, total: fotos.length }));
-      punto.addEventListener('click', function () { heroIr(i); });
+      punto.addEventListener('click', function () { heroSoltar(); heroIr(i); });
       heroDots.appendChild(punto);
+    }
+
+    fotos.forEach(function (archivo, i) {
+      /* La primera, si ya venía montada, se devuelve al carril y no se toca nada más de ella:
+         su <img> es el mismo nodo que el navegador ya pintó. */
+      if (i === 0 && yaMontada) {
+        heroTrack.appendChild(yaMontada);
+        var suImg = yaMontada.querySelector('img');
+        if (suImg && suImg.complete) suImg.classList.add('is-ready');
+        montarPunto(i);
+        return;
+      }
+      var li = document.createElement('li');
+      li.className = 'hero-slide';
+      var img = document.createElement('img');
+      img.alt = tr('Photo of the restaurant');
+      img.decoding = 'async';
+      if (i === 0) img.setAttribute('fetchpriority', 'high');
+      if (img.complete && img.src) img.classList.add('is-ready');
+      else img.addEventListener('load', function () { img.classList.add('is-ready'); });
+      /* Una foto que no carga no deja un icono roto: se queda el gris del hueco. */
+      img.addEventListener('error', function () { li.hidden = true; });
+      li.appendChild(img);
+      heroTrack.appendChild(li);
+
+      /* Pedir la foto es montar el <picture> con sus anchos y darle el src al <img>. Va en una
+         función aparte porque de las cinco sólo la primera se pide al cargar la carta.
+
+         <picture> y no un srcset suelto en el <img>: si el navegador no entiende WebP ignora
+         el <source> entero y se queda con el original del <img>. Con srcset a secas elegiría
+         un WebP que no sabe pintar. Y el <source> no puede estar puesto de antemano en las
+         diferidas: con srcset y sin src, el navegador ya se baja la foto igual. */
+      var pedir = function () {
+        if (img.src) return;
+        if (conVariantes.indexOf(archivo) !== -1) {
+          var pic = document.createElement('picture');
+          var src = document.createElement('source');
+          src.type = 'image/webp';
+          var base = archivo.replace(/\\.[^.]+$/, '');
+          src.srcset = HERO_ANCHOS.map(function (w) {
+            return 'assets/hero/' + base + '-' + w + '.webp ' + w + 'w';
+          }).join(', ');
+          /* El MISMO valor que usa el preload de la cabecera. Ver HERO_SIZES. */
+          src.sizes = ${JSON.stringify(HERO_SIZES)};
+          li.insertBefore(pic, img);
+          pic.appendChild(src);
+          pic.appendChild(img);
+        }
+        img.src = 'assets/hero/' + archivo;
+      };
+
+      /* La primera es el elemento más grande de la primera pantalla: se pide ya y con
+         prioridad. Las demás NO. El atributo loading=lazy no sirve aquí: las cinco entran en el alto de
+         la pantalla —el carrusel se desliza en horizontal— así que el navegador las da por
+         visibles y se bajaba más de un mega de fotos que casi nadie llega a mirar. Se piden
+         cuando alguien toca el carrusel, o solas cuando la página ya no tiene nada mejor que
+         hacer. */
+      if (i === 0) pedir();
+      else heroDiferidas.push(pedir);
+
+      montarPunto(i);
     });
 
     heroTrack.scrollLeft = 0;
@@ -4311,12 +4466,29 @@ ${DATOS_ACTIVO ? `
     /* El scroll dispara muchisimos eventos por gesto; se pinta una vez por fotograma. */
     var heroPend = false;
     heroTrack.addEventListener('scroll', function () {
+      heroSoltar();
       if (heroPend) return;
       heroPend = true;
       requestAnimationFrame(function () { heroPend = false; heroPintarEstado(); });
     });
-    heroPrev.addEventListener('click', function () { heroIr(heroActual - 1); });
-    heroNext.addEventListener('click', function () { heroIr(heroActual + 1); });
+    /* Tocar el carril cuenta como querer la siguiente foto, aunque todavía no se haya movido:
+       pedirlas al empezar el gesto y no al terminarlo es lo que hace que la segunda ya esté
+       ahí cuando el dedo llega. Se escucha una sola vez porque después de la primera vez no queda nada que
+       soltar y el oyente sólo estorbaría en cada toque. */
+    /* Envuelto y no heroSoltar a pelo: como oyente recibiría el evento en el primer argumento
+       y lo tomaría por «cuántas». */
+    heroTrack.addEventListener('pointerdown', function () { heroSoltar(); }, { once: true, passive: true });
+
+    /* Y si nadie toca nada, se piden solas cuando la página está en calma: así el que sí
+       desliza a los diez segundos no espera, y el que no, no ha pagado por ellas durante la
+       carga, que es lo que se estaba arreglando. */
+    window.addEventListener('load', function () {
+      var unaMas = function () { heroSoltar(1); };
+      if (window.requestIdleCallback) requestIdleCallback(unaMas, { timeout: 4000 });
+      else setTimeout(unaMas, 2500);
+    });
+    heroPrev.addEventListener('click', function () { heroSoltar(); heroIr(heroActual - 1); });
+    heroNext.addEventListener('click', function () { heroSoltar(); heroIr(heroActual + 1); });
     heroTrack.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowRight') { e.preventDefault(); heroIr(heroActual + 1); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); heroIr(heroActual - 1); }

@@ -125,6 +125,19 @@ define('HERO_MAX_BYTES', 1024 * 1024);
 // Cuántas fotos admite el carrusel.
 define('HERO_MAX', 5);
 
+// Los anchos en que se guarda cada foto de portada, además del original. Un móvil enseña la
+// portada en unos 370 px de ancho: bajarse los 1600 para eso eran 350 KB por foto y era, con
+// diferencia, lo que más tardaba en aparecer la carta. Con esta escalera el navegador elige el
+// que le toca por pantalla y densidad, y en un móvil normal se baja el de 800.
+//
+// En WebP, que pesa alrededor de un 30% menos que el mismo JPEG y lo entiende el 97% de los
+// navegadores. El original NO se toca: se queda como estaba y es el que reciben los demás.
+define('HERO_ANCHOS', [480, 640, 800, 1000, 1200, 1600]);
+
+// Calidad de las variantes. 72 en WebP sobre una foto de comida es indistinguible de 80 a
+// simple vista y pesa un tercio menos.
+define('HERO_WEBP_CALIDAD', 72);
+
 /* ------------------------------------------------------------ FOTOS DE PLATO
  * Una foto por plato, cuadrada, y la recorta y comprime el NAVEGADOR antes de subirla: aquí
  * llega ya en 1000x1000 WebP y por debajo de medio mega. El servidor no reescala nada, sólo

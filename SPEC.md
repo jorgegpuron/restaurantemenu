@@ -4745,3 +4745,133 @@ marcada, un lector de pantalla no ofrece el salto al contenido.
 - **Sin comprimir y sin caché en local.** El servidor de desarrollo de PHP no aplica ni `gzip` ni
   cabeceras de caché; las dos cosas están en el `.htaccess` y sólo se ven en producción. Cualquier
   medida de peso o de latencia hecha contra `localhost` cuenta de más por esto.
+
+## Rendimiento en móvil: la portada dejaba de ser una foto y pasaba a ser el problema (30 Aug 2026)
+
+Segunda pasada, ahora sobre rendimiento. La anterior había dejado la carta en 100 de
+accesibilidad, 100 de SEO y el CLS resuelto; faltaba lo que tardaba en aparecer.
+
+### Primero, medir donde se parece a producción
+
+El servidor de desarrollo de PHP no comprime ni pone cabeceras de caché. Medida contra él,
+Lighthouse acusaba 524 KiB de «documento sin comprimir» y una caché inexistente que en el
+hosting sí están, en el `.htaccess`. Con eso la nota salía 64 y dos de los tres peores avisos
+eran mentira.
+
+Las medidas de este trabajo están hechas contra un servidor de laboratorio que aplica lo mismo
+que el `.htaccess`: gzip —y sólo gzip, que es lo que hace `mod_deflate`; con brotli habría un
+20% de ventaja que el hosting no tiene— y las mismas cabeceras de caché. Y con cinco fotos de
+portada del peso real de las de producción, no con fotos de prueba de un kilobyte. Sobre esa
+base la nota de partida era **75**, no 64, y el diagnóstico ya era uno solo:
+
+| | valor | veredicto |
+|---|---|---|
+| TTFB | 10 ms | bien |
+| FCP | 1,3 s | bien |
+| Speed Index | 1,3 s | bien |
+| TBT | 12 ms | bien |
+| CLS | 0,024 | bien |
+| **LCP** | **8,1 s** | **el problema entero** |
+
+Todo lo demás estaba en verde. El LCP es la foto de portada, y valía por sí solo los 25 puntos
+que faltaban.
+
+### Por qué tardaba
+
+Tres cosas, en este orden de tamaño:
+
+1. **La foto que se bajaba no era la que se veía.** El panel guardaba una sola versión de 1600
+   px. Un móvil enseña la portada en unos 370: se bajaba 348 KB para pintar un hueco de 370.
+2. **Se bajaban las cinco.** `loading="lazy"` no servía: el carrusel se desliza en horizontal, y
+   las cinco fotos entran en el alto de la pantalla, así que el navegador las daba por visibles
+   y las pedía todas. Más de un mega y medio, en una carta que se abre con datos móviles.
+3. **La petición salía tarde.** La lista de fotos llega en `estado.json`, y la foto no se pedía
+   hasta que el script de 88 KB se había leído entero.
+
+### Lo que se ha hecho
+
+**El panel guarda una escalera de anchos, en WebP.** 480, 640, 800, 1000, 1200 y 1600, con el
+original intacto al lado. Es `HERO_ANCHOS`, y está escrito dos veces —`config.php` y `gen.mjs`—
+porque lo escribe uno y lo pide el otro; si cambia en un sitio tiene que cambiar en el otro.
+Sobre las fotos de prueba: 347 KB el original, 61 KB el escalón de 800, 84 KB el de 1000.
+
+La carta las pide con `<picture>` y `srcset`, no con un `srcset` suelto: quien no entienda WebP
+—un 3%— ignora el `<source>` y se queda con el original del `<img>`. Con `srcset` a secas
+elegiría un WebP que no sabe pintar.
+
+**Nunca se pide un fichero que no exista.** El panel apunta en `estado.json`, en `heroWebp`, qué
+fotos tienen la escalera completa, y la carta sólo pide variantes de ésas. Eso cubre los tres
+casos que si no dejarían la portada rota: el rato entre subir una foto y generarle las
+variantes, un hosting sin WebP en GD, y las fotos que ya estaban subidas antes de todo esto.
+`heroWebp` no es una preferencia que se configure: se recalcula mirando el disco en cada
+guardado, porque es el disco quien manda.
+
+**Las fotos viejas se ponen al día solas, de una en una.** Una foto por visita al panel, no las
+cinco: cada una son seis decodificaciones y seis codificaciones de GD, y las cinco de golpe se
+pueden pasar del tiempo máximo de una petición en un hosting compartido. En dos o tres visitas
+están todas, y mientras tanto la carta sirve el original y se ve igual.
+
+**De las cinco fotos sólo se pide una.** La que se ve. En reposo, y sólo cuando la página ya no
+tiene nada mejor que hacer, entra la siguiente —la única que se puede alcanzar con un gesto—. El
+resto, en cuanto alguien toca el carrusel: ahí ya está claro que las quiere. Quien nunca desliza,
+que son casi todos, se ahorra 180 KB.
+
+**La foto se pide desde la cabecera y se pinta antes del resto de la carta.** Dos cambios que van
+juntos: un `<link rel=preload>` con `imagesrcset` que sale en cuanto responde `estado.json`, y un
+`<script>` de veinte líneas colocado justo detrás del marco de la portada. En ese punto del
+documento ya existe el carril y no se ha leído todavía ni el primer plato; abajo, en cambio, hay
+que haber leído las 780 KB enteras —312 platos por tres idiomas— antes de ejecutar nada. El
+runtime reconoce después esa foto por `window.__heroYa` y la deja donde está en vez de montarla
+otra vez, que sería quitar de la pantalla una imagen ya pintada para poner otra idéntica.
+
+El `sizes` está escrito una sola vez, en `HERO_SIZES`, porque lo usan el preload y el `<source>`
+y tienen que decir lo mismo: si no coincidieran, el navegador elegiría un escalón en el preload y
+otro al pintar, y se bajaría la foto dos veces.
+
+**El récord del juego ya no se pide siempre.** `record.json` no existe en un restaurante que no
+usa el juego, así que cada visita gastaba una petición para recibir un 404 y dejar un error en la
+consola. Ahora se pide después del estado y sólo si el juego está encendido. La chapa del récord
+cuelga de la tarjeta del juego, que tampoco se enseña si está apagado.
+
+### Antes y después
+
+Medido alternando las dos versiones contra el mismo servidor, en la misma sesión y con las
+mismas fotos, tres pasadas cada una, mediana:
+
+| | antes | después |
+|---|---|---|
+| Lighthouse móvil, rendimiento | 76 | **88** |
+| LCP (Lighthouse, simulado) | 7,2 s | **4,0 s** |
+| **LCP (medido de verdad)** | **10,9 s** | **1,24 s** |
+| Peso total | 2054 KB | **441 KB** |
+| Peticiones | 16 | **12** |
+| FCP | 1,28 s | 1,29 s |
+| CLS | 0,024 | 0,022 |
+| Accesibilidad | 100 | 100 |
+| SEO | 100 | 100 |
+| Buenas prácticas | 96 | **100** |
+
+Las dos cifras de LCP no se contradicen: la de Lighthouse no es una medida sino una simulación
+—reconstruye el tiempo a partir del grafo de dependencias con la CPU multiplicada— y castiga el
+trabajo de hilo principal, que aquí es leer un documento de 780 KB con 312 platos. La medida de
+verdad, con `PerformanceObserver` y la misma red y CPU frenadas, es la que ve el cliente: la
+portada pasa de aparecer a los once segundos a aparecer a poco más de uno.
+
+El juego, de propina: 69 a 92, por la hoja de tipografías que dejó de bloquear en la pasada
+anterior.
+
+### Lo que se ha medido y se ha decidido NO hacer
+
+- **Minificar el CSS y el JavaScript en línea.** Son 15 KiB comprimidos y unos 90 KB de
+  comentarios sin comprimir. El CSS se podría hacer sin dependencias; el JavaScript no, sin un
+  parser de verdad —hay expresiones regulares y cadenas con `//` dentro, y un limpiador a base de
+  expresiones regulares lo rompe—. Meter un minificador cambia lo que este proyecto es: un build
+  sin dependencias. Queda propuesto, no hecho.
+- **Bajar más el escalón que se pide.** Lighthouse sigue pidiendo 96 KiB menos porque compara con
+  los 370 px de CSS y no con los píxeles reales de la pantalla. En un móvil de densidad 2,6 eso
+  significaría servir una foto de 480 para un hueco de 370: se vería blanda. No se cambia calidad
+  visible por puntos.
+- **Las tipografías, 195 KB en dos ficheros de Google.** Ya no bloquean el pintado y no retrasan
+  el LCP —la foto llega antes—, pero son el segundo bloque de peso. Servirlas desde el propio
+  dominio y recortarlas a los caracteres que usan tres idiomas bajaría bastante y quitaría un
+  tercero de en medio. Es un cambio con su propio riesgo visual y va aparte.

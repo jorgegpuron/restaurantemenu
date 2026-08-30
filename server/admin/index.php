@@ -292,6 +292,10 @@ function hero_guardar(array $f) {
     return ['error' => 'No he podido guardar la foto.'];
   }
   @chmod($destino, 0644);
+  /* Las variantes, aquí mismo: es una sola foto y el que acaba de subirla está esperando. Si
+     GD no puede con ellas no se aborta nada — la foto ya está guardada y la carta sabe servir
+     el original. */
+  hero_generar_variantes($nombre);
   return ['ok' => $nombre];
 }
 
@@ -320,11 +324,119 @@ function hero_recomprimir(string $tmp, array $info, string $destino): bool {
   return true;
 }
 
+/* ---------------------------------------------------------------- variantes de portada
+ * Cada foto se guarda además en varios anchos y en WebP. El original no se toca: sigue siendo
+ * el que se sirve a quien no entienda WebP, y el que se borra manda sobre todo lo demás.
+ *
+ * El nombre de cada variante es el del original sin extensión, un guion y el ancho:
+ *   a1b2c3d4e5f6a7b8.jpg  ->  a1b2c3d4e5f6a7b8-800.webp
+ * Así se sabe qué variantes tiene una foto sin apuntarlo en ningún sitio, y borrarlas es
+ * mirar la carpeta.
+ *
+ * Si el hosting no trae GD con WebP, aquí no se genera nada y no pasa nada: la carta lo ve en
+ * `heroWebp` del estado y sirve el original, que es lo que hacía antes de todo esto.
+ */
+function hero_base(string $nombre): string {
+  return preg_replace('/\.[^.]+$/', '', $nombre);
+}
+
+/** Los anchos de los que ya existe variante en disco, para una foto. */
+function hero_variantes_en_disco(string $nombre): array {
+  $base = hero_base($nombre);
+  $out = [];
+  foreach (HERO_ANCHOS as $w) {
+    if (is_file(HERO_DIR . '/' . $base . '-' . $w . '.webp')) $out[] = $w;
+  }
+  return $out;
+}
+
+/** Los anchos que TOCA tener: los de la escalera que no superen el original. */
+function hero_anchos_previstos(string $nombre): array {
+  $info = @getimagesize(HERO_DIR . '/' . $nombre);
+  if ($info === false) return [];
+  $ancho = (int) $info[0];
+  $out = [];
+  foreach (HERO_ANCHOS as $w) {
+    if ($w <= $ancho) $out[] = $w;
+  }
+  /* Una foto de 900 px se queda con 480, 640 y 800. Ampliarla a 1200 sería inventar píxeles y
+     pesar más por una imagen que no mejora. */
+  return $out;
+}
+
+/** Genera las variantes que falten de UNA foto. Devuelve true si al acabar están todas. */
+function hero_generar_variantes(string $nombre): bool {
+  if (!function_exists('imagewebp') || !function_exists('imagecreatetruecolor')) return false;
+  $origen = HERO_DIR . '/' . $nombre;
+  if (!is_file($origen)) return false;
+  $previstos = hero_anchos_previstos($nombre);
+  if (!$previstos) return false;
+  $faltan = array_diff($previstos, hero_variantes_en_disco($nombre));
+  if (!$faltan) return true;
+
+  $info = @getimagesize($origen);
+  $img = false;
+  if ($info[2] === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) $img = @imagecreatefromjpeg($origen);
+  if ($info[2] === IMAGETYPE_PNG  && function_exists('imagecreatefrompng'))  $img = @imagecreatefrompng($origen);
+  if ($info[2] === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) $img = @imagecreatefromwebp($origen);
+  if ($img === false) return false;
+
+  $base = hero_base($nombre);
+  foreach ($faltan as $w) {
+    $chico = @imagescale($img, $w);
+    if ($chico === false) continue;
+    $destino = HERO_DIR . '/' . $base . '-' . $w . '.webp';
+    /* Al fichero temporal primero: si el proceso se corta a media escritura, la carta no llega
+       a ver nunca media imagen con el nombre bueno. */
+    $tmp = $destino . '.tmp';
+    if (@imagewebp($chico, $tmp, HERO_WEBP_CALIDAD)) {
+      @rename($tmp, $destino);
+      @chmod($destino, 0644);
+    } else {
+      @unlink($tmp);
+    }
+    imagedestroy($chico);
+  }
+  imagedestroy($img);
+  return !array_diff($previstos, hero_variantes_en_disco($nombre));
+}
+
+/* Las fotos que ya estaban subidas antes de que existieran las variantes también las tienen
+   que tener. Se hace UNA foto por visita al panel, no las cinco: cada una son cinco decodes y
+   cinco encodes de GD, y las cinco de golpe pueden pasarse del tiempo máximo de una petición
+   en un hosting compartido. En dos o tres visitas están todas, y mientras tanto la carta sirve
+   el original, que es exactamente lo de antes. */
+function hero_completar_una(array $hero): void {
+  foreach ($hero as $nombre) {
+    if (!is_string($nombre)) continue;
+    $previstos = hero_anchos_previstos($nombre);
+    if ($previstos && array_diff($previstos, hero_variantes_en_disco($nombre))) {
+      hero_generar_variantes($nombre);
+      return;
+    }
+  }
+}
+
+/** Las fotos que tienen la escalera completa. Es lo que la carta necesita saber. */
+function hero_con_variantes(array $hero): array {
+  $out = [];
+  foreach ($hero as $nombre) {
+    if (!is_string($nombre)) continue;
+    $previstos = hero_anchos_previstos($nombre);
+    if ($previstos && !array_diff($previstos, hero_variantes_en_disco($nombre))) $out[] = $nombre;
+  }
+  return $out;
+}
+
 /* Un nombre de archivo que llega por POST no se usa nunca tal cual para borrar: se comprueba
    que sea uno de los que hay en el estado. Sin esto, un ../../ borra lo que quiera. */
 function hero_borrar(string $nombre, array $hero): bool {
   if (!in_array($nombre, $hero, true)) return false;
   @unlink(HERO_DIR . '/' . $nombre);
+  /* Y sus variantes: si se quedaran, la carpeta acumularía cinco WebP huérfanos por cada foto
+     que el restaurante cambie de idea. */
+  $base = hero_base($nombre);
+  foreach (HERO_ANCHOS as $w) @unlink(HERO_DIR . '/' . $base . '-' . $w . '.webp');
   return true;
 }
 
@@ -427,6 +539,12 @@ function guardar_estado(array $estado): bool {
   if (is_array($estado['review'] ?? null)) {
     $estado['review'] = array_intersect_key($estado['review'], ['url' => 1]);
   }
+  /* Qué fotos de portada tienen su escalera de anchos en WebP. No es una preferencia que se
+     configure: es el estado del disco, y por eso se recalcula en cada guardado en vez de
+     apuntarse. La carta sólo pide variantes de las fotos que salen aquí; de las demás pide el
+     original. Así nunca pide un fichero que no existe, ni en el rato que va desde que se sube
+     una foto hasta que se le generan las variantes, ni en un hosting sin WebP. */
+  $estado['heroWebp'] = hero_con_variantes(is_array($estado['hero'] ?? null) ? $estado['hero'] : []);
   $json = json_encode($estado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
   if ($json === false) return false;
   $tmp = ESTADO_PATH . '.' . bin2hex(random_bytes(6)) . '.tmp';
@@ -1724,6 +1842,27 @@ if ($csrfOk) {
 
 /* ---------------------------------------------------------------- datos para la vista */
 $estado   = leer_estado();
+
+/* Las fotos de portada que se subieron antes de que existieran las variantes se ponen al día
+   solas, una por visita al panel. Ver hero_completar_una(): las cinco de golpe pueden pasarse
+   del tiempo de una petición en un hosting compartido. Mientras falten, la carta sirve el
+   original y se ve igual; sólo pesa más. */
+if (is_array($estado['hero'] ?? null) && $estado['hero']) {
+  hero_completar_una($estado['hero']);
+  $conVariantes = hero_con_variantes($estado['hero']);
+  /* Se escribe sólo si ha cambiado, y sin pasar por guardar_estado(): esto es un dato derivado
+     del disco, no una decisión del restaurante. Con la ceremonia entera cada visita al panel
+     dejaría una copia de seguridad y movería la fecha de «actualizado», que es la que la carta
+     enseña. */
+  if (($estado['heroWebp'] ?? null) !== $conVariantes) {
+    $estado['heroWebp'] = $conVariantes;
+    $json = json_encode($estado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    if ($json !== false) {
+      $tmp = ESTADO_PATH . '.' . bin2hex(random_bytes(6)) . '.tmp';
+      if (@file_put_contents($tmp, $json, LOCK_EX) !== false && !@rename($tmp, ESTADO_PATH)) @unlink($tmp);
+    }
+  }
+}
 /* DOS fechas y no una, y conviene no confundirlas:
  *
  *   $hoy      la de SERVICIO. Retrocede un dia antes de las 6:00 y es la que decide que
