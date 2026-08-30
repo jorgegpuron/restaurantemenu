@@ -5045,3 +5045,88 @@ queda:
 
 Las variantes las genera el panel al abrirlo, y el panel pide contraseña: es el restaurante
 quien tiene que entrar una vez. Hasta entonces la carta funciona igual, sólo que pesada.
+
+## De 79 a 94 en móvil, y por qué los cinco que faltan no están en el código (30 Aug 2026)
+
+Con las variantes WebP ya generadas por el panel, PageSpeed subió de 79 a 89. Lo que quedaba
+estaba en dos avisos suyos que hasta entonces se perdían entre el ruido de las fotos.
+
+### Las tipografías le quitaban ancho de banda a la portada
+
+En la traza de producción: fuentes 992→1102 y 992→1118 ms, foto 996→1185. Las dos tipografías
+son 194 KB y se bajaban a la vez que la portada, que son 54 KB y tardaba 189 ms por compartir la
+línea con ellas.
+
+Quién manda entre las dos no admite discusión: la portada es lo que Google mide como LCP, y el
+texto entretanto ya se está viendo —`font-display:swap` lo pinta desde el primer momento en la
+de respaldo—. Así que la carta ya no pide la hoja de estilos de entrada: sólo deja abiertos los
+`preconnect`, que no cuestan ancho de banda, y la pide el script de detrás del marco en cuanto
+la foto ha terminado. O a los 2,5 s si no llega, o de inmediato si resulta que no hay portada.
+
+El juego se queda como estaba: allí no hay foto con la que competir.
+
+### El empujón de bienvenida medía en el peor momento
+
+`empujon()` —la señal que avanza y devuelve la barra de categorías para que se entienda que hay
+más— empieza leyendo `scrollWidth` y `clientWidth`. Hacerlo en mitad del arranque obliga al
+navegador a rehacer el diseño en ese instante: 17 ms de redistribución forzada, que PageSpeed
+señala con nombre y línea, justo en la ventana en la que se está pintando la portada.
+
+Ahora espera al `load`. No se pierde nada: ya tenía 700 ms de retraso propio y es una señal de
+bienvenida, no algo que nadie esté esperando.
+
+**Las dos cosas juntas: el «retraso de renderizado de elementos» pasó de 409 ms a 101.**
+
+### Y un fallo de verdad, escondido en buenas prácticas
+
+El `<meta charset>` estaba en el byte 3.382, detrás del comentario del traductor y del arranque
+de JavaScript. El límite son 1.024: si el navegador no encuentra la codificación ahí, la adivina,
+y cuando luego se la encuentra **vuelve a empezar el análisis del documento desde el principio**.
+Con acentos y eñes en cada plato, adivinar mal no es un detalle de formulario. Ahora está en el
+byte 81, que es donde tenía que haber estado siempre.
+
+### Dónde está ahora, y qué falta
+
+| | inicio | ahora |
+|---|---|---|
+| Rendimiento móvil | 74 | **94** (cuatro pasadas seguidas) |
+| LCP | 7,9 s | **2,77 s** |
+| FCP | 2,03 s | 2,01 s |
+| Speed Index | 2,54 s | 2,43 s |
+| TBT | 21 ms | 8 ms |
+| CLS | 0,022 | 0,024 |
+| Peso total | 1.039 KB | **389 KB** |
+| Buenas prácticas | 96 | **100** |
+
+Accesibilidad 100 y SEO 100, sin moverse en ningún momento.
+
+**Los cinco puntos que faltan son TTFB, y el TTFB no está en el código.** Medido con `curl`
+contra socialcard.es, cinco veces:
+
+| Tramo | Tiempo |
+|---|---|
+| Conexión TCP | ~200 ms |
+| Negociación TLS | ~370 ms |
+| El servidor piensa | ~190 ms |
+| **Total hasta el primer byte** | **~760 ms** |
+
+Ese TTFB entra entero en el LCP y en el FCP, y las dos métricas puntúan hoy 0,84. Son las dos
+únicas que no están en verde, y las dos mejoran con lo mismo.
+
+Dos cosas concretas, las dos del hosting:
+
+1. **TLS 1.3.** El servidor negocia **TLS 1.2**, comprobado con `openssl s_client`. La 1.2
+   necesita dos idas y vueltas para el saludo; la 1.3, una. A la latencia medida, eso son unos
+   185 ms menos en cada primera visita. Suele ser un interruptor en el panel del hosting.
+2. **Una CDN por delante** (Cloudflare tiene plan gratuito). Termina el TLS cerca de quien
+   escanea el QR en vez de al otro lado del país: los ~570 ms de TCP más TLS se quedarían en
+   50-100. Eso son ~450 ms menos en el FCP y en el LCP a la vez, y con eso las dos métricas
+   entran en verde.
+
+Tampoco ofrece HTTP/3 (`alt-svc` vacío), que es lo que la CDN traería de propina.
+
+Lo que sí se aclaró por el camino: **el hosting SÍ habla HTTP/2**. La nota anterior de este
+registro decía lo contrario porque lo comprobé con un `curl` que no negocia h2; Lighthouse lo
+registra como `h2`. La decisión de dejar las tipografías en Google se tomó con ese dato
+equivocado y habría que volver a mirarla —aunque hoy importa menos, porque ya no se piden hasta
+que la portada está.
