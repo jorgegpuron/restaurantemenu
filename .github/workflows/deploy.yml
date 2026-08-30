@@ -1,0 +1,168 @@
+name: Desplegar carta a socialcard.es
+
+# Cada push a main compila la carta y sube SOLO 2-subir/ al hosting.
+#
+# Lo que este workflow NO hace, y es lo importante:
+#   - No borra en espejo. Nunca. Ni dangerous-clean-slate ni equivalentes.
+#   - No toca nada fuera de FTP_REMOTE_PATH.
+#   - No sube ni pisa lo que escribe el panel en produccion: contrasenas, estado del dia,
+#     records del juego, fotos que sube el restaurante y contadores de visitas.
+#
+# La lista de exclusiones de abajo no es teorica: cada linea protege datos que existen
+# ahora mismo en el servidor.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ensayo:
+        description: 'Ensayo: calcula y lista los cambios sin subir nada'
+        type: boolean
+        default: true
+
+# Solo un despliegue a la vez. Dos subidas FTP simultaneas sobre la misma carpeta dejan la
+# carta a medias: el panel nuevo con el index viejo, que es el fallo que mas caro sale.
+# cancel-in-progress va en false a proposito: cortar un FTP por la mitad es peor que esperar.
+concurrency:
+  group: deploy-ftp-tinge
+  cancel-in-progress: false
+
+# El workflow no necesita escribir en el repositorio.
+permissions:
+  contents: read
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+
+    # El entorno es lo que exige tu aprobacion manual antes de cada despliegue, si le
+    # configuras "Required reviewers" en Settings > Environments. Sin eso, el push publica solo.
+    environment: produccion
+
+    steps:
+      # gen.mjs comprueba que el nombre de la carpeta que contiene 1-proyecto aparezca en
+      # cliente.mjs -> base. Es un detector de restos de otro restaurante y aborta el build si
+      # no cuadra. Por eso el checkout va a tinge_of_turmeric/1-proyecto y no a la raiz: asi
+      # carpetaCliente = "tinge_of_turmeric", que si esta en la direccion publica.
+      # De paso, ../2-subir cae dentro del workspace en vez de fuera.
+      - name: Descargar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: tinge_of_turmeric/1-proyecto
+          persist-credentials: false
+
+      - name: Preparar Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20'
+
+      - name: Comprobar la ruta de despliegue
+        env:
+          RUTA: ${{ secrets.FTP_REMOTE_PATH }}
+        run: |
+          if [ -z "$RUTA" ]; then
+            echo "::error::FTP_REMOTE_PATH esta vacio o no existe."
+            echo "Sin ruta, la subida iria a la RAIZ del FTP y se mezclaria con las otras webs."
+            exit 1
+          fi
+          case "$RUTA" in
+            /*/) : ;;
+            *) echo "::error::FTP_REMOTE_PATH debe empezar y terminar en barra. Ejemplo: /carpeta/sub/"
+               exit 1 ;;
+          esac
+          if [ "$RUTA" = "/" ]; then
+            echo "::error::FTP_REMOTE_PATH es la raiz del FTP. Eso publicaria la carta encima de todo."
+            exit 1
+          fi
+          echo "Ruta de despliegue validada."
+
+      # Sin package.json ni dependencias: gen.mjs solo usa node:fs, node:crypto y modulos del
+      # propio repositorio. No hay npm ci que hacer ni cache que guardar.
+      - name: Compilar la carta
+        working-directory: tinge_of_turmeric/1-proyecto
+        run: node gen.mjs
+
+      # Una carta rota es peor que una carta vieja. Si el build no dejo lo minimo, se para
+      # aqui y el servidor se queda como estaba.
+      - name: Comprobar lo compilado
+        working-directory: tinge_of_turmeric/2-subir
+        run: |
+          for f in index.html juego.html version.json admin/index.php; do
+            if [ ! -s "$f" ]; then
+              echo "::error::Falta o esta vacio: $f. No se sube nada."
+              exit 1
+            fi
+          done
+          # Cinturon y tirantes: si un dia el build empezara a generar datos de produccion,
+          # nos enteramos aqui y no pisandolos en el servidor.
+          for f in estado.json record.json admin/clave.php admin/superclave.php; do
+            if [ -e "$f" ]; then
+              echo "::error::El build ha generado $f, que es un dato de produccion. Abortado."
+              exit 1
+            fi
+          done
+          echo "Compilado correcto: $(find . -type f | wc -l) ficheros, $(du -sh . | cut -f1)"
+          echo "Build: $(cat version.json)"
+
+      # Fijado al SHA del commit, no a la etiqueta. Una etiqueta se puede reescribir para que
+      # apunte a otro codigo; un SHA no. Este action recibe las credenciales FTP, asi que es
+      # justo donde no interesa que el codigo cambie bajo los pies.
+      #   SHA 3a9c65ae = v4.4.0, publicada el 2026-04-20
+      # Para actualizar: mira la release nueva, coge su SHA y cambia las dos cosas a la vez.
+      - name: Subir por FTP
+        uses: SamKirkland/FTP-Deploy-Action@3a9c65ae0fc12ac924ccef8afc26941cc43aad0b # v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_REMOTE_PATH }}
+          local-dir: ./tinge_of_turmeric/2-subir/
+          # FTPS: GoDaddy lo admite y evita mandar la contrasena en claro. Si el servidor no
+          # lo aceptara, el paso falla sin haber subido nada.
+          protocol: ftps
+          # SEGURO DE FABRICA. Mientras la variable de repositorio DESPLIEGUE_REAL no valga
+          # exactamente "true", TODO run es un ensayo: calcula y lista los cambios, pero no
+          # escribe en el servidor. Esto existe porque el primer push de este fichero dispara
+          # el evento push, y sin esta linea ese push publicaria de verdad sin que nadie lo
+          # hubiera revisado nunca.
+          #
+          # Para activar los despliegues reales:
+          #   Settings > Secrets and variables > Actions > Variables > DESPLIEGUE_REAL = true
+          # Para volver a la red de seguridad: borra la variable o ponla a false.
+          dry-run: ${{ vars.DESPLIEGUE_REAL != 'true' || (github.event_name == 'workflow_dispatch' && inputs.ensayo) }}
+          # NO se pone dangerous-clean-slate. Borraria la carpeta entera antes de subir, y con
+          # ella las contrasenas, las fotos y el estado del restaurante.
+          log-level: standard
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            estado.json
+            record.json
+            assets/hero/**
+            assets/platos/**
+            admin/clave.php
+            admin/superclave.php
+            admin/intentos.json
+            admin/accesos.log
+            admin/canjes.json
+            admin/marcador.json
+            admin/permitir-hash.txt
+            admin/copias/**
+            admin/datos/**
+            admin/acceso.jpg
+            admin/acceso-*.jpg
+            LEEME-SERVIDOR.txt
+            **/SPEC.md
+
+      - name: Resumen
+        if: always()
+        run: |
+          echo "### Despliegue de la carta" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Origen: \`2-subir/\` compilado en este mismo run" >> $GITHUB_STEP_SUMMARY
+          echo "- Modo: ${{ (vars.DESPLIEGUE_REAL != 'true' || (github.event_name == 'workflow_dispatch' && inputs.ensayo)) && 'ENSAYO — no se ha subido nada' || 'DESPLIEGUE REAL' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Seguro DESPLIEGUE_REAL: ${{ vars.DESPLIEGUE_REAL == 'true' && 'desactivado (los push publican)' || 'ACTIVO (todo run es ensayo)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Borrado en espejo: desactivado" >> $GITHUB_STEP_SUMMARY
+          echo "- Datos del panel en produccion: excluidos" >> $GITHUB_STEP_SUMMARY
