@@ -4875,3 +4875,98 @@ anterior.
   el LCP —la foto llega antes—, pero son el segundo bloque de peso. Servirlas desde el propio
   dominio y recortarlas a los caracteres que usan tres idiomas bajaría bastante y quitaría un
   tercero de en medio. Es un cambio con su propio riesgo visual y va aparte.
+
+## Tercera pasada: los tres pendientes, medidos uno a uno (30 Aug 2026)
+
+Los tres puntos que la pasada anterior dejó escritos como «propuestos, no hechos» se han probado
+de verdad. Uno se queda, uno se ha deshecho con la medida delante, y el tercero se rechaza otra
+vez y por escrito. Ninguno cambia una sola línea del diseño.
+
+### 1. Los comentarios no viajan al móvil. SE QUEDA
+
+El fuente sigue escrito con todas sus explicaciones —son la mitad del valor de este proyecto—
+pero el documento compilado no las necesita: son 123 KB de 810 que el teléfono lee antes de
+poder pintar nada, y no ejecutan nada.
+
+Lo hace `adelgazar.mjs`, que **no es un minificador**: no renombra variables, no reordena, no
+toca la sintaxis. Sólo borra lo que no se ejecuta. Esa distinción es la que permite hacerlo sin
+dependencias y sin miedo.
+
+El JavaScript se recorre con una máquina de estados y no con expresiones regulares, porque en
+este código hay expresiones regulares literales (`/\.[^.]+$/`), cadenas con `//` dentro
+(`https://`) y plantillas con `${}` anidados. Un limpiador a base de buscar y reemplazar los
+rompe en silencio, que es la peor forma de romper algo. El CSS se puede aplastar más, porque no
+tiene ni expresiones regulares ni punto y coma automático; en el JavaScript se conserva un salto
+de línea por sentencia justamente por el punto y coma automático.
+
+Se prueba con once casos que tumban a un limpiador ingenuo —comillas dentro de comentarios,
+comentarios dentro de comillas, división contra expresión regular, plantillas— más, sobre el
+JavaScript de verdad de la carta, que sigue compilando y que aplicarlo dos veces da lo mismo que
+aplicarlo una.
+
+| | antes | después |
+|---|---|---|
+| index.html en crudo | 810 KB | **707 KB** |
+| index.html comprimido | 114 KB | **77 KB** |
+| FCP real | 412 ms | **288 ms** |
+| LCP real | 1240 ms | **1112 ms** |
+| CLS real | 0,024 | **0,012** |
+
+### 2. Las tipografías desde el propio dominio. SE DESHACE
+
+Se hizo entero: los cuatro woff2 bajados a `assets/fuentes/`, las declaraciones `@font-face`
+escritas a mano con sus `unicode-range`, el build copiando la carpeta. Y luego se midió.
+
+**Sale peor.** El LCP real subió de 1,24 a 1,40 s. El motivo no es el peso —los ficheros son los
+mismos— sino que **el hosting habla HTTP/1.1**. Comprobado con `curl` contra socialcard.es: sin
+multiplexado, las fuentes servidas desde el propio dominio hacen cola con el documento, con
+`estado.json` y con la foto de portada, que es justo lo que marca el LCP. Desde Google iban por
+otra conexión y no estorbaban.
+
+Es exactamente al revés de lo que suele recomendarse, y por una razón concreta de este hosting.
+Si algún día el servidor pasa a HTTP/2, esta decisión hay que volver a mirarla: con multiplexado
+el reparto cambia y traerlas aquí probablemente gane.
+
+De paso quedó una trampa apuntada: dentro de una hoja de estilos externa, las `url()` son
+relativas **a la hoja**, no al documento. Con las rutas del documento el navegador pedía
+`assets/fuentes/assets/fuentes/...`, y como las fuentes no cargaban, la página se veía con las
+de respaldo y todas las medidas salían mejor. Una medición que mejora sin explicación es una
+medición rota.
+
+### 3. Servir una foto más pequeña de la que se ve. SE RECHAZA
+
+Lighthouse pide un escalón menor porque compara con los 370 px de CSS y no con los píxeles
+reales de la pantalla. En un móvil de densidad 2,6 eso significa servir una foto de 480 para un
+hueco de 370: se ve blanda. Y ya no arregla nada — la foto llega en 120 ms; la red dejó de ser
+el cuello hace dos pasadas.
+
+### Lo que se probó y no aportó nada
+
+- **`content-visibility:hidden` en las pestañas cerradas.** Cero. Ya están en `display:none`, que
+  se salta el diseño igual. El «estilo y diseño» se quedó en los mismos 280 ms.
+- **Medir el carril de categorías en el siguiente fotograma** en vez de en la misma tarea. Peor:
+  un fotograma más de trabajo y el TBT subiendo.
+- **HTTP/2 en el laboratorio.** El LCP simulado baja mucho en algunas pasadas, pero no de forma
+  estable. No es algo que se pueda cambiar desde el proyecto: es del hosting.
+
+### Sobre la nota de Lighthouse, y por qué no se persigue más
+
+La nota de rendimiento en móvil oscila entre 88 y 99 **en el mismo build y contra el mismo
+servidor**. Doce pasadas seguidas: cuatro en 99, ocho en 88. No es ruido térmico: son dos
+resultados discretos, y la diferencia está entera en el `elementRenderDelay` observado —149 ms
+contra 285— que el simulador de Lighthouse multiplica hasta convertirlo en 1,7 s de LCP.
+
+Por eso este registro da siempre las dos cifras. La de Lighthouse sirve para comparar auditorías;
+la real, con `PerformanceObserver` y la red y la CPU frenadas, es la que ve quien escanea el QR:
+
+| | valor real | umbral |
+|---|---|---|
+| LCP | 1,11 s | 2,5 s |
+| FCP | 0,29 s | 1,8 s |
+| CLS | 0,012 | 0,1 |
+| TBT | ~10 ms | 200 ms |
+
+Las cuatro en verde y con holgura. Perseguir los puntos que faltan en la nota simulada exigiría
+tocar lo que de verdad queda debajo —un documento de 707 KB con 312 platos en trece pestañas y
+sus tres idiomas en atributos— y eso ya no es un ajuste de rendimiento: es rehacer cómo se
+guardan las traducciones. No se hace por una nota.

@@ -1,3 +1,4 @@
+import { adelgazarCSS, adelgazarJS } from './adelgazar.mjs';
 import {
   readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync, existsSync,
 } from 'node:fs';
@@ -3283,7 +3284,10 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
               li.className = 'hero-slide';
               var img = document.createElement('img');
               img.alt = ${JSON.stringify(TL_TXT('Photo of the restaurant'))};
-              img.decoding = 'async';
+              /* sync y no async: esta foto es el elemento mas grande de la primera
+                 pantalla, y con async el navegador puede pintar la pagina sin ella y
+                 encajarla en un fotograma posterior. Es justo el retraso que marca el LCP. */
+              img.decoding = 'sync';
               img.setAttribute('fetchpriority', 'high');
               img.addEventListener('load', function () { img.classList.add('is-ready'); });
               img.addEventListener('error', function () { li.hidden = true; });
@@ -4411,7 +4415,7 @@ ${DATOS_ACTIVO ? `
       li.className = 'hero-slide';
       var img = document.createElement('img');
       img.alt = tr('Photo of the restaurant');
-      img.decoding = 'async';
+      img.decoding = i === 0 ? 'sync' : 'async';
       if (i === 0) img.setAttribute('fetchpriority', 'high');
       if (img.complete && img.src) img.classList.add('is-ready');
       else img.addEventListener('load', function () { img.classList.add('is-ready'); });
@@ -5465,7 +5469,24 @@ if (missingIcons.length) {
   throw new Error('subcategories with a heading but no icon:\n  ' + [...new Set(missingIcons)].join('\n  '));
 }
 
-writeFileSync(new URL('./index.html', import.meta.url), html);
+/* Lo que viaja al móvil no lleva los comentarios. El fuente los conserva —son la mitad del
+   valor de este proyecto— pero en el documento compilado son 100 KB de los 780 que el teléfono
+   tiene que leer antes de pintar nada, y no ejecutan nada. Ver adelgazar.mjs: no es un
+   minificador, sólo borra lo que no se ejecuta, y el JavaScript se recorre con una máquina de
+   estados porque aquí hay expresiones regulares literales y cadenas con // dentro.
+
+   Se aplica a lo COMPILADO y en un solo sitio, para que la carta y el juego salgan iguales. */
+let ahorrado = 0;
+function adelgazarDocumento(doc) {
+  const antes = doc.length;
+  const salida = doc
+    .replace(/<style>([\s\S]*?)<\/style>/g, (_, css) => '<style>' + adelgazarCSS(css) + '</style>')
+    .replace(/<script>([\s\S]*?)<\/script>/g, (_, js) => '<script>' + adelgazarJS(js) + '</script>');
+  ahorrado += antes - salida.length;
+  return salida;
+}
+
+writeFileSync(new URL('./index.html', import.meta.url), adelgazarDocumento(html));
 
 /* Treinta bytes que dicen que compilacion es la buena. Se sube junto al index.html; si falta,
    la comprobacion falla en silencio y la carta funciona igual. */
@@ -5488,7 +5509,7 @@ const juego = buildGame({
   titles: Object.fromEntries(['en'].concat(LANGS.map((l) => l.code))
     .map((c) => [c, CLIENTE.tituloJuego])),
 });
-writeFileSync(new URL('./juego.html', import.meta.url), juego);
+writeFileSync(new URL('./juego.html', import.meta.url), adelgazarDocumento(juego));
 
 /* El panel también bebe de aquí. Antes tenía su propia paleta y sus propias fuentes copiadas
    a mano, que es como se acaba con dos verdades: se cambia un color en la carta y el panel se
@@ -5665,5 +5686,6 @@ for (const [desde, destino] of CARPETAS) {
 
 console.log(
   '2-subir rehecha |', copiados, 'ficheros | build', BUILD,
+  '| sin comentarios:', Math.round(ahorrado / 1024) + ' KB menos que leer',
   dejados.length ? '| en tierra: ' + dejados.join(', ') : ''
 );
