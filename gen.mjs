@@ -5599,8 +5599,12 @@ writeFileSync(new URL('./juego.html', import.meta.url), adelgazarDocumento(juego
 /* La página de error. Comparte tokens y tipografías con la carta y el juego, y nada más: ver
    error404.mjs. La activa el ErrorDocument del .htaccess. */
 writeFileSync(
-  new URL('./404.html', import.meta.url),
-  adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS })),
+  new URL('./404.php', import.meta.url),
+  /* La cabecera de estado va DELANTE de todo, en una linea de PHP: la regla de reescritura del
+     .htaccess sirve este fichero con un 200 y hay que corregirlo aqui. Un 404 que responde 200
+     es lo que Google llama un soft 404, y es peor que no tener pagina de error. */
+  '<' + '?php http_response_code(404); ?' + '>' + String.fromCharCode(10)
+  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS })),
 );
 
 /* El panel también bebe de aquí. Antes tenía su propia paleta y sus propias fuentes copiadas
@@ -5726,12 +5730,20 @@ if (!SUBIR.pathname.replace(/\/$/, '').endsWith('/2-subir')) {
 {
   const htaccess = readFileSync(new URL('./server/.htaccess', import.meta.url), 'utf8');
   const dice = (htaccess.match(/^\s*ErrorDocument\s+404\s+(\S+)/m) || [])[1];
-  const toca = new URL(CLIENTE.base).pathname + '404.html';
-  if (false && dice !== toca) {
+  const toca = new URL(CLIENTE.base).pathname + '404.php';
+  if (dice !== toca) {
     abortar(
       'server/.htaccess: ErrorDocument 404 apunta a ' + JSON.stringify(dice || '(nada)')
       + ' y cliente.mjs dice que la carta esta en ' + JSON.stringify(toca) + '.',
       'pon esa misma ruta en el ErrorDocument del .htaccess');
+  }
+  /* Y el RewriteBase, que es el que de verdad sirve la pagina en este hosting. */
+  const rb = (htaccess.match(/^\s*RewriteBase\s+(\S+)/m) || [])[1];
+  if (rb !== new URL(CLIENTE.base).pathname) {
+    abortar(
+      'server/.htaccess: RewriteBase dice ' + JSON.stringify(rb || '(nada)')
+      + ' y la carta esta en ' + JSON.stringify(new URL(CLIENTE.base).pathname) + '.',
+      'pon esa misma ruta en el RewriteBase');
   }
 }
 
@@ -5755,7 +5767,7 @@ const copiar = (desde, hasta) => {
 const SUELTOS = [
   ['./index.html', 'index.html'],
   ['./juego.html', 'juego.html'],
-  ['./404.html', '404.html'],
+  ['./404.php', '404.php'],
   ['./version.json', 'version.json'],
   ['./server/.htaccess', '.htaccess'],
   ['./server/LEEME-SERVIDOR.txt', 'LEEME-SERVIDOR.txt'],

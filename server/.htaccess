@@ -11,16 +11,34 @@ Options -Indexes
 
 # La página de error de la carta. Cubre esta carpeta y todo lo que cuelga de ella.
 #
-# La ruta es ABSOLUTA desde la raíz del dominio y no relativa: es lo único que Apache acepta
-# aquí, y si se pone relativa devuelve la página en blanco sin decir por qué.
+# DOS MECANISMOS, y el orden importa.
 #
-# Lo que NO cambia y es lo importante: la respuesta sigue siendo un 404 de verdad. ErrorDocument
-# cambia el cuerpo, no el código. Un 404 que responde 200 —un «soft 404»— le diría a Google que
-# la página existe y merece indexarse, y acabaría compitiendo con la carta buena.
+# El normal es ErrorDocument. Se deja puesto porque es lo correcto y porque en cualquier
+# servidor sensato basta con él. PERO ESTE HOSTING LO IGNORA: comprobado a propósito,
+# poniéndole una cadena literal y desplegando — el servidor siguió devolviendo su «404 Not
+# Found» de trece bytes. No da error ni aviso: lo acepta y no lo aplica.
+#
+# Así que el que hace el trabajo es el de abajo, con mod_rewrite: cualquier dirección que no
+# corresponda a un fichero ni a una carpeta de verdad va a 404.php, que pone el código 404 a
+# mano y escribe la página.
+#
+# Por qué .php y no .html: una regla de reescritura sirve el fichero con código 200. Eso es un
+# «soft 404», y es peor que no tener página de error: le dice a Google que la dirección
+# inventada existe y merece indexarse. Con PHP la respuesta lleva el 404 de verdad.
 #
 # Fuera de esta carpeta no llega: socialcard.es y las carpetas de los otros restaurantes tienen
 # su propio .htaccess, que no sale de este proyecto.
-ErrorDocument 404 "PRUEBA-ERRORDOCUMENT-VIVE"
+ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /tinge_of_turmeric/menu2/
+  # Sólo lo que NO existe. Un fichero real —la carta, el juego, una foto, el panel— no se toca,
+  # y una carpeta real tampoco: sin estas dos condiciones esto se comería el sitio entero.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . 404.php [L]
+</IfModule>
 
 <IfModule mod_headers.c>
   # HSTS. El panel ya redirige de http a https, pero ESA PRIMERA petición viaja en claro y
