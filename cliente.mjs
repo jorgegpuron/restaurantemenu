@@ -51,7 +51,7 @@ export const CLIENTE = {
      titulo, rotulo y descripcion se traducen: tienen que existir como clave en la
      seccion ui de cada diccionario de idioma. */
   nombre: 'Tinge of Turmeric',
-  titulo: 'Tinge of Turmeric — Indian Restaurant Menu',
+  titulo: 'Tinge of Turmeric — Indian Restaurant Menu.',
   tituloSocial: 'Tinge of Turmeric — South Indian Restaurant Menu',
   rotulo: 'South Indian Restaurant Menu',
   descripcion: 'Tinge of Turmeric — Indian restaurant menu.',

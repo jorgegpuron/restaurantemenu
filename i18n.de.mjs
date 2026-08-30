@@ -635,6 +635,6 @@ export const ui = {
   'Close': 'Schließen',
   'This dish has a photo': 'Dieses Gericht hat ein Foto',
   'Language': 'Sprache',
-  'Tinge of Turmeric — Indian Restaurant Menu': 'Tinge of Turmeric — Speisekarte, indisches Restaurant',
+  'Tinge of Turmeric — Indian Restaurant Menu.': 'Tinge of Turmeric — Speisekarte, indisches Restaurant.',
   'Tinge of Turmeric — Indian restaurant menu.': 'Tinge of Turmeric — Speisekarte eines indischen Restaurants.',
 };
