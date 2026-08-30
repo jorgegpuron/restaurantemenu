@@ -86,70 +86,80 @@ body{
   display:grid;
   place-items:center;
   padding:var(--s3) var(--s2);
-  /* El navy de la carta, NO el --base del juego. Es la misma relación que la carta y que el
-     panel: fondo profundo y papel crema encima. Quien llega aquí desde un QR tiene que
-     reconocer el sitio antes de leer una palabra. */
+  /* Sin tarjeta: aquí no hay carta que enmarcar. El navy de la marca a pantalla completa, con
+     el texto en crema encima. Es la misma paleta que la carta, en la relación contraria —y a
+     propósito: quien llega aquí no está mirando un menú, está mirando un aviso. */
   background:var(--ink);
-  color:var(--ink);
+  color:var(--surface);
   font-family:var(--body-font);
   -webkit-font-smoothing:antialiased;
+  /* La marca de agua es más ancha que la pantalla en un móvil estrecho. Sin esto, la página
+     tendría barra horizontal por un adorno. */
+  overflow-x:hidden;
 }
 
-/* Lo que el navegador pinta y nadie diseña: la selección de texto y el anillo de foco salen de
-   la paleta, no del gris del sistema. Es lo mismo que hace la carta. */
+/* Lo que el navegador pinta y nadie diseña: la selección de texto sale de la paleta, no del
+   azul del sistema. Es lo mismo que hace la carta. */
 ::selection{background:var(--accent);color:var(--surface)}
 
-.hoja{
-  width:min(560px,100%);
-  background:var(--surface);
-  border-radius:var(--r-card);
-  box-shadow:var(--lift-card);
-  padding:var(--s5) var(--s4);
+/* ---- la marca de agua ----
+   El código de error, enorme y detrás de todo. No es decoración: es el dato exacto de lo que ha
+   pasado, puesto donde no estorba a lo que hay que leer.
+   Va en el 7% del crema: medido, el titular sigue en 7,8:1 y el párrafo en 4,6:1 cuando el
+   texto cae justo encima de un trazo, que es el peor caso. Por eso el párrafo subió del 68 al
+   76% de crema — con la marca detrás, el 68 se quedaba rozando el mínimo.
+   aria-hidden porque el titular ya dice en palabras lo que pasa; un lector de pantalla no
+   necesita oír «cuatrocientos cuatro» antes de la frase. */
+.marca{
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:color-mix(in srgb,var(--surface) 7%,transparent);
+  font-family:var(--title-font);
+  font-variant-numeric:tabular-nums;
+  font-size:clamp(200px,52vw,460px);
+  font-weight:800;
+  line-height:1;
+  letter-spacing:-0.06em;
+  /* No se selecciona ni se toca: está detrás, y quien arrastre para copiar el mensaje no
+     debería llevarse un 404 pegado. */
+  user-select:none;
+  -webkit-user-select:none;
+  pointer-events:none;
+}
+
+.caja{
+  position:relative;   /* por delante de la marca de agua */
+  width:min(420px,100%);
   text-align:center;
 }
 
-/* El número, en el mismo sitio y con el mismo aire que el de un plato: alineado a la derecha,
-   con cifras tabulares y en el gris de las descripciones. No es adorno — es el código de
-   error, que es la información exacta de lo que ha pasado. Lo que hace es enseñarlo en el
-   idioma visual de la casa en vez de en el de un servidor. */
-.numero{
-  display:block;
-  /* Pegado al titular: el numero y la frase son una sola cosa, no dos. El aire de verdad va
-     despues, antes de la explicacion. */
-  margin:0 0 var(--s1);
-  color:var(--muted);
-  font-family:var(--title-font);
-  font-variant-numeric:tabular-nums;
-  font-size:clamp(52px,16vw,86px);
-  font-weight:800;
-  line-height:1;
-  letter-spacing:-0.04em;
-}
-
 h1{
-  margin:0 0 var(--s3);
-  color:var(--ink);
+  margin:0 0 var(--s2);
+  color:var(--surface);
   font-family:var(--title-font);
-  font-size:clamp(24px,6.4vw,34px);
-  font-weight:800;
+  font-size:clamp(21px,5.4vw,26px);
+  font-weight:700;
   font-optical-sizing:auto;
-  line-height:1.15;
-  letter-spacing:-0.02em;
+  line-height:1.25;
+  letter-spacing:-0.015em;
   text-wrap:balance;
 }
 
 .cuerpo{
-  /* 46ch y no 65: son dos frases centradas, y una medida de lectura larga las convierte en una
-     línea sola que hay que barrer de lado a lado. */
-  max-width:46ch;
+  /* 36ch: es una frase, no un párrafo. Una medida de lectura larga la convertiría en una línea
+     sola que hay que barrer de lado a lado. */
+  max-width:36ch;
   margin:0 auto var(--s4);
-  color:var(--muted);
-  font-size:17px;
-  line-height:1.55;
+  color:color-mix(in srgb,var(--surface) 76%,transparent);
+  font-size:16px;
+  line-height:1.5;
   text-wrap:pretty;
 }
 
-/* El mismo botón que el del juego: pastilla en tinta, texto crema, y la pulsación se hunde.
+/* El botón, en crema sobre el fondo oscuro: es lo único claro y sólido de la pantalla, así que
+   es lo primero que se mira. Sin sombra —no flota sobre nada— y con la pulsación hundiéndose.
    Es un enlace de verdad y no un div con un click: se puede abrir en otra pestaña, se anuncia
    como enlace y funciona sin JavaScript. */
 .boton{
@@ -157,42 +167,46 @@ h1{
   align-items:center;
   justify-content:center;
   gap:var(--s1);
-  min-height:56px;
+  min-height:52px;
   padding:0 var(--s4);
   border-radius:var(--r-pill);
-  background:var(--ink);
-  color:var(--surface);
+  background:var(--surface);
+  color:var(--ink);
   font-family:var(--title-font);
-  font-size:18px;
+  font-size:17px;
   font-weight:700;
   letter-spacing:.02em;
   text-decoration:none;
-  box-shadow:var(--lift-fab);
   transition:transform var(--t-press) var(--ease-out);
 }
 .boton:active{transform:scale(.96)}
-.boton:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.boton:focus-visible{outline:3px solid var(--surface);outline-offset:3px}
 @media (hover:hover) and (pointer:fine){
   .boton:hover{transform:translateY(-1px)}
 }
 .boton svg{flex:0 0 auto}
 
-/* La entrada: la hoja sube un poco y aparece. Un solo momento, y sólo uno. Quien llega aquí ya
-   ha tenido un contratiempo; lo último que necesita es una página que se mueva.
-   Sale de un estado ya visible: si el script no llega a correr, la hoja está donde tiene que
-   estar y no en blanco. */
+/* La entrada: un solo momento. El mensaje sube y aparece; la marca de agua se revela detrás,
+   un poco después y sin moverse, que es lo que hace que se lea como fondo y no como otro
+   elemento pidiendo atención.
+   Las dos salen de un estado ya visible: si el script nunca corre, la página está entera. */
 @media (prefers-reduced-motion:no-preference){
-  .hoja{animation:entra .5s var(--ease-out) both}
+  .caja{animation:entra .42s var(--ease-out) both}
+  .marca{animation:revela .6s var(--ease-out) .12s both}
 }
 @keyframes entra{
   from{opacity:0;transform:translateY(10px)}
   to{opacity:1;transform:none}
 }
+@keyframes revela{
+  from{opacity:0}
+  to{opacity:1}
+}
 </style>
 </head>
 <body>
-<main class="hoja">
-  <span class="numero" aria-hidden="true">404</span>
+<span class="marca" aria-hidden="true">404</span>
+<main class="caja">
   <h1 id="t">${base.titulo}</h1>
   <p class="cuerpo" id="c">${base.cuerpo}</p>
   <a class="boton" id="b" href="${ruta}">

@@ -5353,3 +5353,48 @@ Lo que sí se puede afirmar, porque se midió y no oscila:
 
 El cambio es correcto en el orden y neutro en lo medido. No hay en el código otra palanca del
 tamaño que haría falta: **la que queda es el TTFB, y es del hosting.**
+
+### El 404, rehecho: la señal y la marca de agua (31 Aug 2026)
+
+La primera versión —tarjeta crema con el 404 en el estilo del número de un plato— duró un día.
+Se probaron cuatro direcciones en un selector y ganó la contraria: **sin tarjeta**.
+
+**La página entera es el navy de la marca**, con el mensaje en crema encima y un único botón
+claro. Es la relación invertida respecto a la carta, y a propósito: quien llega aquí no está
+mirando un menú, está mirando un aviso. La tarjeta crema es el lenguaje de «esto es contenido»;
+aquí no hay contenido que enmarcar.
+
+**El 404 pasa a ser marca de agua**: enorme, centrado, detrás de todo, al 7% del crema. Sigue
+siendo el dato exacto de lo que ha pasado —no es adorno— pero deja de competir por la atención
+con la única frase que hay que leer. Y desaparece el icono de aviso que llevaba la versión
+«Señal» del selector: con el número gigante detrás, un triángulo encima del titular era decir
+dos veces lo mismo.
+
+**Lo que costó medir.** Con el número detrás, el texto ya no cae sobre el fondo limpio sino
+sobre los trazos, y ahí es donde hay que medir el contraste. El párrafo estaba al 68% del crema
+y en el peor caso se quedaba en 4,57:1, rozando el mínimo; subido al 76% queda en 5,40. Medido
+en los seis temas, texto sobre trazo:
+
+| Tema | Titular | Cuerpo |
+|---|---|---|
+| de la casa | 8,05 | 5,40 |
+| caoba | 9,17 | 5,99 |
+| ciruela | 7,75 | **5,14** |
+| laurel | 8,05 | 5,40 |
+| mar | 10,81 | 6,90 |
+| ónice | 12,91 | 8,03 |
+
+El peor caso de los seis está en 5,14, por encima de 4,5. La marca de agua se queda en 1,15-1,19
+frente al fondo en todos: se distingue, no compite.
+
+**Tres detalles que no se ven.** La marca lleva `aria-hidden` —el titular ya dice en palabras lo
+que pasa, y nadie necesita oír «cuatrocientos cuatro» antes de la frase—, no se puede seleccionar
+ni recibe clics, y el `<body>` corta el desbordamiento horizontal: a 320 px de ancho el glifo es
+más ancho que la pantalla y sin eso la página tendría barra horizontal por un adorno.
+
+**El movimiento, uno solo.** El mensaje sube diez píxeles y aparece; la marca de agua se revela
+detrás, 120 ms más tarde y sin moverse, que es lo que hace que se lea como fondo. Con
+`prefers-reduced-motion`, ninguna de las dos.
+
+Pesa **3,4 KB comprimidos**. 29 comprobaciones en verde, incluidas las de contraste sobre el
+trazo, los tres idiomas, el tema heredado, sin JavaScript y cuatro anchos de pantalla.
