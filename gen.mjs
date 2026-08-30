@@ -35,10 +35,30 @@ verificarTemas();
 
    El <noscript> es para quien navegue sin JavaScript: ahí el onload no se dispara nunca y sin
    esta segunda etiqueta se quedaría con la tipografía del sistema para siempre. */
+export const HOJA_FUENTES = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@8..60,400..600&display=swap';
+const HOJA_FUENTES_HTML = HOJA_FUENTES.replace(/&/g, '&amp;');
+
+/* El juego: la hoja se pide de entrada y sin bloquear. Ahí no hay foto de portada con la que
+   competir, así que cuanto antes llegue la tipografía, mejor. */
 export const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap"></noscript>`;
+<link rel="stylesheet" media="print" onload="this.media='all'" href="${HOJA_FUENTES_HTML}">
+<noscript><link rel="stylesheet" href="${HOJA_FUENTES_HTML}"></noscript>`;
+
+/* La carta, en cambio, NO pide la hoja de entrada: sólo deja abiertas las conexiones.
+   Las dos tipografías pesan 194 KB y se bajaban a la vez que la foto de portada. Medido en
+   producción: la foto son 54 KB y tardaba 189 ms porque compartía el ancho de banda con ellas.
+   Y el hosting habla HTTP/1.1, donde eso se nota más.
+   Quién manda entre las dos está claro: la portada es lo que Google mide como LCP, y el texto
+   entretanto ya se ve —font-display:swap lo pinta desde el primer momento en la de respaldo—.
+   Así que la hoja se pide cuando la portada ya está, y la etiqueta la mete el script que hay
+   detrás del marco. Los preconnect SÍ van de entrada: abrir las conexiones no cuesta ancho de
+   banda y las deja listas para cuando toque.
+   El <noscript> es para quien navegue sin JavaScript: ahí no hay nada que inyecte nada, y sin
+   esta etiqueta se quedaría con la tipografía del sistema para siempre. */
+export const FONTS_CARTA = `<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<noscript><link rel="stylesheet" href="${HOJA_FUENTES_HTML}"></noscript>`;
 
 /* Los anchos en que el panel guarda cada foto de portada, en WebP, además del original.
    Tiene que ser la MISMA lista que HERO_ANCHOS en server/admin/config.php: el panel escribe
@@ -872,7 +892,7 @@ window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var
 ${CLIENTE.imagenSocial ? `<meta property="og:image" content="${CLIENTE.base}${CLIENTE.imagenSocial}">
 <meta property="og:image:alt" content="${esc(CLIENTE.tituloSocial)}">
 <meta name="twitter:card" content="summary_large_image">` : ''}
-${FONTS}
+${FONTS_CARTA}
 <style>
 /* Palette. Un bloque por tema, escrito por temas.mjs: el de la casa en :root y los demás
    colgando de data-tema, que pone el runtime al leer estado.json. Tres semillas por tema
@@ -3279,13 +3299,32 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
              adelanta la que se ve. -->
         <script>
         (function () {
+          /* La hoja de tipografías, cuando la portada ya no la necesite. Ver FONTS_CARTA:
+             son 194 KB que se bajaban a la vez que la foto y le quitaban ancho de banda.
+             Se pide en cuanto la foto está —o a los dos segundos y medio, si no llega— y
+             nunca más tarde: el texto se ve entretanto en la de respaldo, pero no se puede
+             quedar así. */
+          var fuentesPedidas = false;
+          function pedirFuentes() {
+            if (fuentesPedidas) return;
+            fuentesPedidas = true;
+            var l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = ${JSON.stringify(HOJA_FUENTES)};
+            document.head.appendChild(l);
+          }
+          setTimeout(pedirFuentes, 2500);
+
           var p = window.__estado;
-          if (!p || !p.then) return;
+          /* Sin estado no hay portada que esperar: la tipografía es lo siguiente en importancia
+             y se pide ya. */
+          if (!p || !p.then) { pedirFuentes(); return; }
           p.then(function (s) {
             try {
               var f = s && s.hero && s.hero[0];
               var carril = document.getElementById('hero-track');
-              if (!f || !carril || carril.children.length) return;
+              /* Sin portada que esperar, la tipografía deja de tener por qué esperar. */
+              if (!f || !carril || carril.children.length) { pedirFuentes(); return; }
               var li = document.createElement('li');
               li.className = 'hero-slide';
               var img = document.createElement('img');
@@ -3295,8 +3334,12 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
                  encajarla en un fotograma posterior. Es justo el retraso que marca el LCP. */
               img.decoding = 'sync';
               img.setAttribute('fetchpriority', 'high');
-              img.addEventListener('load', function () { img.classList.add('is-ready'); });
-              img.addEventListener('error', function () { li.hidden = true; });
+              img.addEventListener('load', function () {
+                img.classList.add('is-ready');
+                /* La portada ya está: le toca a la tipografía. */
+                pedirFuentes();
+              });
+              img.addEventListener('error', function () { li.hidden = true; pedirFuentes(); });
               var w = (s && s.heroWebp) || [];
               if (w.indexOf && w.indexOf(f) !== -1) {
                 var pic = document.createElement('picture');
@@ -3594,7 +3637,14 @@ ${sheet}
     };
     setTimeout(function () { requestAnimationFrame(paso); }, 700);
   }
-  empujon();
+  /* El empujón espera a que la página haya cargado. Su primera línea LEE geometría
+     —scrollWidth y clientWidth— y hacerlo aquí, en mitad del arranque, obligaba al navegador a
+     rehacer el diseño en ese instante: 17 ms de redistribución forzada, medidos por PageSpeed,
+     justo en la ventana en la que se está pintando la portada.
+     No se pierde nada esperando: el empujón ya tenía 700 ms de retraso propio, y lo que hace es
+     una señal de bienvenida, no algo que nadie esté esperando. */
+  if (document.readyState === 'complete') empujon();
+  else window.addEventListener('load', empujon);
 
   nav.addEventListener('scroll', syncScroller, { passive: true });
   window.addEventListener('resize', syncScroller);
