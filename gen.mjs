@@ -4489,6 +4489,9 @@ ${DATOS_ACTIVO ? `
          diferidas: con srcset y sin src, el navegador ya se baja la foto igual. */
       var pedir = function () {
         if (img.src) return;
+        /* Prioridad baja: aunque por lo que sea acabe pidiendose a la vez que la primera, el
+           navegador sabe cual de las dos importa. La que se ve es la otra. */
+        if (i > 0) img.setAttribute('fetchpriority', 'low');
         if (conVariantes.indexOf(archivo) !== -1) {
           var pic = document.createElement('picture');
           var src = document.createElement('source');
