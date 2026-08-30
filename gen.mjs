@@ -844,6 +844,13 @@ const JSONLD = (() => {
 const html = `<!DOCTYPE html>
 <html lang="en" translate="no" class="notranslate">
 <head>
+<meta charset="utf-8">
+<!-- El charset, lo PRIMERO de todo. El navegador tiene que saber en qué está escrito el
+     documento dentro de los primeros 1024 bytes; si no lo encuentra ahí, adivina, y cuando
+     luego se lo encuentra vuelve a empezar el análisis desde el principio. Estaba después del
+     arranque de JavaScript, en el byte 3.382, y PageSpeed lo señalaba.
+     Con acentos y eñes en cada plato, adivinar mal no es un detalle: es la carta entera con
+     los caracteres rotos hasta que reinicia. -->
 <!-- La carta ya trae su propio traductor (ES/EN/DE), con los platos traducidos a mano por
      alguien que sabe qué es un paneer. El del navegador encima de eso convierte «Naan de ajo»
      en cualquier cosa y además pelea con nuestro cambio de idioma: Chrome envuelve los nodos
@@ -877,7 +884,6 @@ const html = `<!DOCTYPE html>
 <script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
 try{window.__estado=fetch('estado.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
 window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var w=s.heroWebp||[];if(w.indexOf&&w.indexOf(f)!==-1){var b=f.replace(/\\.[^.]+$/,'');l.imageSrcset=${JSON.stringify(HERO_ANCHOS)}.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ');l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
-<meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${CLIENTE.titulo}</title>
