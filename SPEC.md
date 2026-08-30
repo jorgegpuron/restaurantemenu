@@ -5130,3 +5130,70 @@ registro decía lo contrario porque lo comprobé con un `curl` que no negocia h2
 registra como `h2`. La decisión de dejar las tipografías en Google se tomó con ese dato
 equivocado y habría que volver a mirarla —aunque hoy importa menos, porque ya no se piden hasta
 que la portada está.
+
+## La página que ve quien se pierde (30 Aug 2026)
+
+Hasta hoy, una dirección mal escrita dentro de la carta devolvía la pantalla en blanco de
+Apache: «404 Not Found», trece bytes, sin marca y sin salida. Quien escanea un QR viejo sentado
+a la mesa se quedaba ahí.
+
+### La idea
+
+La carta ya tiene un lenguaje propio: cada plato lleva su número delante, `01`, `02`, `07`. La
+página de error enseña **404 en ese mismo sitio y con ese mismo aire**, como el número de un
+plato que no está. No es un chiste a costa de la claridad —el titular dice «Esta página no
+existe» en palabras llanas— y no es adorno: el 404 es el código exacto de lo que ha pasado,
+contado en el idioma visual de la casa en vez de en el de un servidor.
+
+Sin rótulo encima del titular. El titular se sostiene solo y el nombre del restaurante ya está
+en el botón, que es donde hace falta.
+
+### Cómo está hecha
+
+Tarjeta crema sobre el navy de la carta —la misma relación de fondo profundo y papel encima—,
+centrada, con el número, el titular, dos frases y un botón. Nada más. Un solo momento de
+movimiento: la hoja sube diez píxeles al entrar, y con `prefers-reduced-motion` ni eso.
+
+Comparte con la carta los tokens y las tipografías, y nada más: ni platos, ni estado, ni
+carrusel, ni el motor de idiomas. **3,3 KB comprimidos.**
+
+### Cuatro decisiones que no se ven
+
+**Los enlaces son absolutos.** Apache sirve el fichero pero la dirección de la barra sigue
+siendo la que el visitante escribió: desde `/menu2/carpeta/inventada/`, un enlace relativo
+apuntaría a `/menu2/carpeta/inventada/index.html`, que tampoco existe.
+
+**Sigue siendo un 404 de verdad.** `ErrorDocument` cambia el cuerpo, no el código. Un 404 que
+respondiera 200 —un «soft 404»— le diría a Google que la página existe y merece indexarse, y
+acabaría compitiendo con la carta buena. Lleva además `noindex,follow`.
+
+**El idioma se elige en el navegador, no en el servidor.** Los tres textos viajan en el HTML
+—son cuatro frases— y el script escoge: primero el idioma que el visitante ya eligió en la
+carta, si no el de su teléfono, si no inglés. Sin JavaScript se queda el de la casa, que se lee
+igual.
+
+**Hereda el tema.** Se lee de `localStorage` antes del primer pintado, igual que hace el juego.
+Quien venía de una carta en ciruela ve un error en ciruela, no en verde. La barra del navegador
+acompaña.
+
+### Dos trampas del .htaccess
+
+**La ruta del `ErrorDocument` es absoluta y está escrita a mano**, porque es lo único que Apache
+acepta ahí y ese fichero se sube tal cual. Es la única dirección del proyecto que vive en dos
+sitios, así que el build la compara con `cliente.mjs` y **aborta si dejan de coincidir**: sin
+esa guardia, mover la carta de carpeta dejaría un 404 que devuelve la pantalla en blanco de
+Apache sin que nadie se entere.
+
+**El anuncio de `estado.json` pasa a `<Files "index.html">`.** Estaba en el `<FilesMatch>` de
+todos los `.html`, así que la página de error y el juego anunciaban un fichero que no leen: una
+petición que nadie recoge y un aviso en consola. Y se usa `<Files>` y no `<If>` a propósito:
+`<If>` necesita Apache 2.4 con `mod_authz_core`, y en un hosting compartido donde falte no da un
+aviso, da un error 500 y se lleva la carta por delante.
+
+### Comprobado
+
+28 comprobaciones: un solo `h1`, el 404 oculto al lector de pantalla, el botón como enlace de
+verdad, contrastes (titular 9,6:1 · cuerpo 4,63:1 · botón 9,6:1), el foco visible en el primer
+Tab, los tres idiomas, la preferencia guardada por delante del idioma del teléfono, el tema
+heredado, sin JavaScript, y a 320, 390, 768 y 1440 sin desbordes y siempre centrada. Cero
+errores de consola.

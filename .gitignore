@@ -2,6 +2,7 @@
 # commit arrastraría 700 KB de ruido que tapan el cambio de verdad, que son tres líneas de CSS.
 index.html
 juego.html
+404.html
 version.json
 server/admin/tokens.css
 server/admin/fuentes.html

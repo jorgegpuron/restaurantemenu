@@ -4,6 +4,7 @@ import {
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { buildGame } from './juego.mjs';
+import { buildError404 } from './error404.mjs';
 import { PAISES, CODIGOS, BANDERA_IDIOMA, imgBandera } from './banderas.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
@@ -5595,6 +5596,13 @@ const juego = buildGame({
 });
 writeFileSync(new URL('./juego.html', import.meta.url), adelgazarDocumento(juego));
 
+/* La página de error. Comparte tokens y tipografías con la carta y el juego, y nada más: ver
+   error404.mjs. La activa el ErrorDocument del .htaccess. */
+writeFileSync(
+  new URL('./404.html', import.meta.url),
+  adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS })),
+);
+
 /* El panel también bebe de aquí. Antes tenía su propia paleta y sus propias fuentes copiadas
    a mano, que es como se acaba con dos verdades: se cambia un color en la carta y el panel se
    queda con el viejo. Ahora el build le escribe los tokens y el link de las tipografías, y el
@@ -5710,6 +5718,23 @@ if (!SUBIR.pathname.replace(/\/$/, '').endsWith('/2-subir')) {
   throw new Error('la carpeta de subida no es 2-subir: ' + SUBIR.pathname);
 }
 
+/* El ErrorDocument del .htaccess lleva la ruta de la carta escrita a mano, porque Apache sólo
+   acepta ahí una ruta absoluta y ese fichero se sube tal cual, sin pasar por ninguna plantilla.
+   Es la única dirección del proyecto que está en dos sitios, así que se comprueba que los dos
+   digan lo mismo: si un día la carta cambia de carpeta, esto para el build en vez de dejar un
+   404 que devuelve la página en blanco de Apache y no se entera nadie. */
+{
+  const htaccess = readFileSync(new URL('./server/.htaccess', import.meta.url), 'utf8');
+  const dice = (htaccess.match(/^\s*ErrorDocument\s+404\s+(\S+)/m) || [])[1];
+  const toca = new URL(CLIENTE.base).pathname + '404.html';
+  if (dice !== toca) {
+    abortar(
+      'server/.htaccess: ErrorDocument 404 apunta a ' + JSON.stringify(dice || '(nada)')
+      + ' y cliente.mjs dice que la carta esta en ' + JSON.stringify(toca) + '.',
+      'pon esa misma ruta en el ErrorDocument del .htaccess');
+  }
+}
+
 /* Nombres, no rutas: cualquiera de estos que aparezca en server/admin/ se queda en tierra. */
 const NO_SUBIR = new Set([
   'SPEC.md',            // notas de diseño del panel; no pinta nada en el hosting
@@ -5730,6 +5755,7 @@ const copiar = (desde, hasta) => {
 const SUELTOS = [
   ['./index.html', 'index.html'],
   ['./juego.html', 'juego.html'],
+  ['./404.html', '404.html'],
   ['./version.json', 'version.json'],
   ['./server/.htaccess', '.htaccess'],
   ['./server/LEEME-SERVIDOR.txt', 'LEEME-SERVIDOR.txt'],

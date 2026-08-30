@@ -9,6 +9,19 @@ Options -Indexes
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
 </IfModule>
 
+# La página de error de la carta. Cubre esta carpeta y todo lo que cuelga de ella.
+#
+# La ruta es ABSOLUTA desde la raíz del dominio y no relativa: es lo único que Apache acepta
+# aquí, y si se pone relativa devuelve la página en blanco sin decir por qué.
+#
+# Lo que NO cambia y es lo importante: la respuesta sigue siendo un 404 de verdad. ErrorDocument
+# cambia el cuerpo, no el código. Un 404 que responde 200 —un «soft 404»— le diría a Google que
+# la página existe y merece indexarse, y acabaría compitiendo con la carta buena.
+#
+# Fuera de esta carpeta no llega: socialcard.es y las carpetas de los otros restaurantes tienen
+# su propio .htaccess, que no sale de este proyecto.
+ErrorDocument 404 /tinge_of_turmeric/menu2/404.html
+
 <IfModule mod_headers.c>
   # HSTS. El panel ya redirige de http a https, pero ESA PRIMERA petición viaja en claro y
   # con ella la contraseña si alguien la envía por http. Esto le dice al navegador que no
@@ -47,28 +60,36 @@ Options -Indexes
   # si cambió, se ve al momento. no-store daría la misma frescura pagando 77 KB por visita.
   <FilesMatch "\.html$">
     Header set Cache-Control "no-cache, must-revalidate"
-
-    # estado.json, pedido ANTES de que termine de bajar el HTML.
-    #
-    # La foto de portada es el elemento más grande de la primera pantalla —lo que Google mide
-    # como LCP— y hasta ahora se pedía al final de una fila de tres: primero el documento
-    # entero, luego estado.json para saber qué foto es, y sólo entonces la foto. Medido por
-    # PageSpeed en móvil: 1.710 ms de espera antes de empezar siquiera a pedir la imagen.
-    #
-    # Esta cabecera viaja con la PRIMERA respuesta, antes que una sola línea del HTML, así que
-    # el navegador empieza a bajar estado.json mientras todavía está recibiendo el documento.
-    # Los dos primeros viajes dejan de ir en fila y pasan a solaparse.
-    #
-    # Va aquí y no en una etiqueta del HTML a propósito: dentro del documento no se descubre
-    # antes que el documento, que es justo el problema que resuelve.
-    #
-    # La ruta es relativa a la carpeta de la carta: la cabecera se aplica a index.html y a
-    # juego.html, y los dos viven al lado de estado.json.
-    #
-    # OJO: el fetch del runtime tiene que pedir esta MISMA dirección, sin ?t= ni nada detrás, o
-    # el navegador se baja el fichero dos veces. La frescura la garantiza el no-store de abajo.
-    Header set Link "<estado.json>; rel=preload; as=fetch; crossorigin"
   </FilesMatch>
+
+  # estado.json, pedido ANTES de que termine de bajar el HTML.
+  #
+  # La foto de portada es el elemento más grande de la primera pantalla —lo que Google mide como
+  # LCP— y se pedía al final de una fila de tres: primero el documento entero, luego estado.json
+  # para saber qué foto es, y sólo entonces la foto. Medido por PageSpeed en móvil: 1.710 ms de
+  # espera antes de empezar siquiera a pedir la imagen.
+  #
+  # Esta cabecera viaja con la PRIMERA respuesta, antes que una sola línea del HTML, así que el
+  # navegador empieza a bajar estado.json mientras todavía está recibiendo el documento. Los dos
+  # primeros viajes dejan de ir en fila y pasan a solaparse.
+  #
+  # Va en el servidor y no en una etiqueta del HTML a propósito: dentro del documento no se
+  # descubre antes que el documento, que es justo el problema que resuelve.
+  #
+  # OJO: el fetch del runtime tiene que pedir esta MISMA dirección, sin ?t= ni nada detrás, o el
+  # navegador se baja el fichero dos veces. La frescura la garantiza el no-store de más abajo.
+  #
+  # SÓLO en la carta. El juego y la página de error también son .html y no leen el estado: ahí
+  # sería una petición que nadie recoge, y el navegador avisa por consola de que se ha
+  # precargado algo sin usar.
+  #
+  # Con <Files> y no con <If>: <If> necesita Apache 2.4 con mod_authz_core, y en un hosting
+  # compartido donde falte no da un aviso, da un error 500 y se lleva la carta por delante.
+  # <Files> existe desde siempre. Y cubre tanto /menu2/ como /menu2/index.html: Apache resuelve
+  # primero el índice del directorio y luego mira el nombre del fichero.
+  <Files "index.html">
+    Header set Link "<estado.json>; rel=preload; as=fetch; crossorigin"
+  </Files>
   # Lo que cambia durante el servicio no se guarda nunca. version.json es además la marca
   # que decide la recarga única por sesión: cachearlo rompería justo lo que resuelve.
   <FilesMatch "^(estado|version|record)\.json$">
