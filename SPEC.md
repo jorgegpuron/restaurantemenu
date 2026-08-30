@@ -5176,11 +5176,39 @@ igual.
 Quien venía de una carta en ciruela ve un error en ciruela, no en verde. La barra del navegador
 acompaña.
 
-### Dos trampas del .htaccess
+### Este hosting ignora ErrorDocument
 
-**La ruta del `ErrorDocument` es absoluta y está escrita a mano**, porque es lo único que Apache
+Y no lo dice. La página se hizo, se desplegó, y la dirección inventada seguía devolviendo los
+trece bytes de siempre. El fichero estaba subido y accesible, y el resto del .htaccess se estaba
+aplicando —se comprobó con una cabecera que sólo existe en la versión nueva—, así que la
+directiva se estaba leyendo y no ejecutando.
+
+Se resolvió con una prueba en vez de con una teoría: se desplegó . Si la cadena aparecía, la directiva funcionaba y el problema
+era la ruta. No apareció. **El hosting acepta ErrorDocument y no lo aplica**, sin error ni
+aviso.
+
+El que hace el trabajo es : lo que no corresponde a un fichero ni a una carpeta
+de verdad va a . El  se deja puesto de todas formas, porque es lo
+correcto y en cualquier servidor sensato basta con él.
+
+**Y por eso la página es .php y no .html.** Una regla de reescritura sirve el fichero con código
+200, y eso es un soft 404: peor que no tener página de error, porque le dice a Google que la
+dirección inventada existe. La primera línea del fichero pone el 404 a mano.
+
+Las dos condiciones  y  no son adorno: sin ellas la regla se come el sitio entero.
+Comprobado después de desplegar que la carta, el juego, las fotos, estado.json y el panel siguen
+respondiendo 200 con su tamaño de siempre.
+
+Una nota de método, porque costó una hora: entre el despliegue y la comprobación hay que esperar
+a que el despliegue TERMINE. Dos de las medidas que llevaron a pensar que la reescritura tampoco
+funcionaba se hicieron contra la versión anterior, porque  se había quedado con
+el identificador del despliegue de antes.
+
+### Dos trampas más del .htaccess
+
+**Las rutas del `ErrorDocument` y del `RewriteBase` son absolutas y están escritas a mano**, porque es lo único que Apache
 acepta ahí y ese fichero se sube tal cual. Es la única dirección del proyecto que vive en dos
-sitios, así que el build la compara con `cliente.mjs` y **aborta si dejan de coincidir**: sin
+sitios, así que el build las compara con `cliente.mjs` y **aborta si alguna deja de coincidir**: sin
 esa guardia, mover la carta de carpeta dejaría un 404 que devuelve la pantalla en blanco de
 Apache sin que nadie se entere.
 
