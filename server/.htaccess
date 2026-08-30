@@ -47,6 +47,27 @@ Options -Indexes
   # si cambió, se ve al momento. no-store daría la misma frescura pagando 77 KB por visita.
   <FilesMatch "\.html$">
     Header set Cache-Control "no-cache, must-revalidate"
+
+    # estado.json, pedido ANTES de que termine de bajar el HTML.
+    #
+    # La foto de portada es el elemento más grande de la primera pantalla —lo que Google mide
+    # como LCP— y hasta ahora se pedía al final de una fila de tres: primero el documento
+    # entero, luego estado.json para saber qué foto es, y sólo entonces la foto. Medido por
+    # PageSpeed en móvil: 1.710 ms de espera antes de empezar siquiera a pedir la imagen.
+    #
+    # Esta cabecera viaja con la PRIMERA respuesta, antes que una sola línea del HTML, así que
+    # el navegador empieza a bajar estado.json mientras todavía está recibiendo el documento.
+    # Los dos primeros viajes dejan de ir en fila y pasan a solaparse.
+    #
+    # Va aquí y no en una etiqueta del HTML a propósito: dentro del documento no se descubre
+    # antes que el documento, que es justo el problema que resuelve.
+    #
+    # La ruta es relativa a la carpeta de la carta: la cabecera se aplica a index.html y a
+    # juego.html, y los dos viven al lado de estado.json.
+    #
+    # OJO: el fetch del runtime tiene que pedir esta MISMA dirección, sin ?t= ni nada detrás, o
+    # el navegador se baja el fichero dos veces. La frescura la garantiza el no-store de abajo.
+    Header set Link "<estado.json>; rel=preload; as=fetch; crossorigin"
   </FilesMatch>
   # Lo que cambia durante el servicio no se guarda nunca. version.json es además la marca
   # que decide la recarga única por sesión: cachearlo rompería justo lo que resuelve.

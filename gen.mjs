@@ -844,12 +844,18 @@ const html = `<!DOCTYPE html>
      visita típica de una carta es la primera —alguien que acaba de escanear el QR— y ahí no
      hay nada guardado que consultar. Quien ya ha estado lleva el número en localStorage.
 
+     Sin ?t= detrás: el servidor anuncia estado.json en una cabecera Link de la propia
+     respuesta del HTML —ver server/.htaccess— para que empiece a bajar antes de que el
+     documento termine. Ese anuncio pide la dirección pelada, así que si aquí se le colgara un
+     rompecachés serían dos ficheros distintos y el navegador se lo bajaría dos veces. La
+     frescura la da la cabecera no-store, que es lo que corresponde.
+
      La petición se lanza aquí y no en el script grande de abajo, que ocupa 88 KB y hay que
      leerlo entero antes de llegar a su primera línea. Lanzada desde la cabecera sale mientras
      el navegador sigue montando la página, y la portada —que es el elemento más grande de la
      primera pantalla— se pide antes. -->
 <script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
-try{window.__estado=fetch('estado.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
+try{window.__estado=fetch('estado.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
 window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var w=s.heroWebp||[];if(w.indexOf&&w.indexOf(f)!==-1){var b=f.replace(/\\.[^.]+$/,'');l.imageSrcset=${JSON.stringify(HERO_ANCHOS)}.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ');l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
@@ -4207,7 +4213,7 @@ ${sheet}
   function cargarEstado() {
     var adelantada = window.__estado;
     window.__estado = null;
-    var peticion = adelantada || fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })
+    var peticion = adelantada || fetch('estado.json', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; });
     return peticion
       .then(function (state) {
