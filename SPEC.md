@@ -5225,3 +5225,131 @@ verdad, contrastes (titular 9,6:1 · cuerpo 4,63:1 · botón 9,6:1), el foco vis
 Tab, los tres idiomas, la preferencia guardada por delante del idioma del teléfono, el tema
 heredado, sin JavaScript, y a 320, 390, 768 y 1440 sin desbordes y siempre centrada. Cero
 errores de consola.
+
+## Auditoría de LCP: dónde está el tiempo, y qué no lo mueve (31 Aug 2026)
+
+Pasada dirigida al LCP, con el elemento identificado y no supuesto.
+
+### El elemento LCP, medido
+
+Es la foto de portada: `<img>` de 370×247 px de CSS. Las tres comprobaciones de descubrimiento,
+en verde:
+
+| | |
+|---|---|
+| `fetchpriority="high"` aplicado | sí |
+| Se descubre en el documento inicial | sí |
+| No lleva `loading="lazy"` | correcto |
+
+Y además: WebP, escalón de 800 px para un hueco de 370, 54 KB, `decoding="sync"`, anunciada por
+cabecera desde el servidor. **No queda nada que arreglarle a la imagen.**
+
+### Dónde se va el LCP
+
+Desglose medido en producción (mediana de tres pasadas):
+
+| Subparte | Tiempo | Cuota |
+|---|---|---|
+| **Time to First Byte** | **771 ms** | **59%** |
+| Retraso de carga | 237 ms | 18% |
+| Descarga del recurso | 186 ms | 14% |
+| Retraso de renderizado | 119 ms | 9% |
+
+Y el TTFB, desglosado con `curl` sobre seis medidas:
+
+| Tramo | Tiempo |
+|---|---|
+| DNS | ~10 ms |
+| Conexión TCP | ~180 ms |
+| **Negociación TLS** | **~365 ms** |
+| El servidor piensa | ~188 ms |
+
+**El 73% del TTFB es abrir la conexión.** El servidor tarda 188 ms en responder, que para un
+fichero estático está bien. La negociación TLS son 365 ms porque el servidor habla **TLS 1.2**,
+que necesita dos idas y vueltas; la 1.3 necesita una. A la latencia medida eso son unos 180 ms
+que se ahorrarían en cada primera visita, y entran dos veces: en el LCP y en el FCP.
+
+Ninguna línea de código toca eso.
+
+### Lo que sí se arregló: record.json competía con la portada
+
+Medido en producción: la portada se bajaba de 1.007 a 1.193 ms, y `record.json` salía a 1.022
+—dentro de la ventana— con **prioridad alta**, que es la que `fetch` pone por defecto. Dos
+peticiones de prioridad alta repartiéndose la línea, y una de las dos es la que Google mide.
+
+Ahora se cuelga del `load` de la propia foto, igual que ya hacían las tipografías. Comprobado
+con la red y la CPU frenadas: **antes salía a 744 ms con la portada acabando en 888; ahora sale
+a 929 con la portada acabada en 925.**
+
+Se cuelga de la FOTO y no del evento `load` de la página, y esa distinción costó encontrarla:
+son unos milisegundos de diferencia real, pero el simulador de Lighthouse trata muy distinto a
+las dos. Con la petición colgada de `load`, el FCP **simulado** subía 350 ms mientras el FCP
+**observado** no se movía —209 ms contra 203—. La nota simulada es la que ve todo el mundo.
+
+Y una guarda en `heroSoltar()`: no suelta nada mientras la primera foto siga bajando. El oyente
+de scroll del carril las soltaba todas, y un carril con ajuste por deslizamiento puede
+dispararlo solo al recibir cinco diapositivas.
+
+### Lo que no era un problema
+
+**version.json a los 3,5 segundos.** No bloquea nada: se pide con un temporizador, mucho después
+de que la carta esté pintada, y sólo sirve para que un móvil que dejó la carta abierta ayer se
+entere de que hay versión nueva. Aparece en el árbol de peticiones críticas de PageSpeed porque
+ese árbol dibuja todo lo que cuelga del documento, no sólo lo que estorba. Se probó a moverlo al
+`load` y el simulador lo penalizó igual que a `record.json`: se queda en el temporizador.
+
+**Los 22 ms de redistribución forzada.** Es `syncScroller()` leyendo `scrollWidth` justo después
+de que el cambio de idioma reescriba mil nodos. Ya se probó a aplazarlo un fotograma en la pasada
+anterior y salió peor: un fotograma más de trabajo y el TBT subiendo. Se queda como está.
+
+### Las tipografías, con números
+
+Dos familias, las dos variables, 194 KB en total, `font-display:swap`, y ya no se piden hasta que
+la portada ha terminado.
+
+- **Bricolage Grotesque** (titulares, 33 usos), 76 KB. El eje de peso variable **hace falta de
+  verdad**: las pestañas animan `font-variation-settings:"wght"` de 500 a 800 con una transición.
+  Con pesos sueltos ese recorrido no existe.
+- **Source Serif 4** (cuerpo, 13 usos), 120 KB — la mitad del peso de las dos juntas.
+
+Los pesos que usa el CSS son cuatro: 400, 600, 700 y 800.
+
+**Y aquí hay 71 KB sobre la mesa.** Source Serif se pide con el eje óptico
+(`opsz,wght@8..60,400..600`). Los dos únicos `font-optical-sizing:auto` del proyecto están sobre
+Bricolage, no sobre ella. Pedida sin ese eje, el mismo tramo latino pasa de **122.360 a 50.824
+bytes**.
+
+No se ha hecho, y por una razón: `font-optical-sizing` vale `auto` por defecto en cuanto la
+fuente trae el eje, así que quitarlo **sí cambia cómo se dibuja el texto del cuerpo**, poco pero
+de verdad. El encargo decía que la tipografía visual no se toca. Queda medido y propuesto: 71 KB,
+el 18% del peso de la página, a cambio de un cambio sutil en el dibujo de la letra a 16-17 px. Y
+no movería la nota: las fuentes ya no se piden hasta después del LCP.
+
+### INP, que no se había medido nunca
+
+Lighthouse no da INP —da TBT, que es otra cosa—, así que se midió interactuando de verdad con la
+CPU a un cuarto: trece pestañas, buscador, hoja de categorías, cambio de idioma, tamaño de texto
+y carrusel. **32 interacciones, la peor de 104 ms.** El umbral bueno son 200. La más cara es el
+cambio de idioma, que reescribe mil nodos.
+
+### Sobre lo que este ordenador puede medir y lo que no
+
+La nota de Lighthouse en local oscila **entre 89 y 99 con el mismo código**, y esa oscilación se
+tragó buena parte de esta sesión: se llegó a señalar un cambio como culpable de una caída de 98 a
+89 que después resultó ser la misma moneda al aire. Cuatro pasadas alternando la versión de antes
+y la de después dieron 89 las dos.
+
+Lo que sí se puede afirmar, porque se midió y no oscila:
+
+| | antes | después |
+|---|---|---|
+| FCP observado | 209 ms | 203 ms |
+| LCP observado | 388 ms | 380 ms |
+| LCP real, red y CPU frenadas | 1.108 ms | 1.108 ms |
+| Trabajo de hilo principal | 766 ms | 777 ms |
+| CLS | 0,024 | 0,024 |
+| INP | — | 104 ms |
+| record.json frente a la portada | **dentro** de la ventana | **fuera** |
+
+El cambio es correcto en el orden y neutro en lo medido. No hay en el código otra palanca del
+tamaño que haría falta: **la que queda es el TTFB, y es del hosting.**

@@ -4257,7 +4257,26 @@ ${sheet}
      del navegador. La chapa del récord cuelga de la tarjeta del juego, que tampoco se enseña
      si el juego está apagado, así que no se pierde nada esperando. */
   function cargarRecordSiProcede() {
-    if (estado && estado.game && estado.game.on) cargarRecord();
+    if (!(estado && estado.game && estado.game.on)) return;
+    /* Y cuando la portada haya terminado de bajar, igual que las tipografías. Medido en
+       producción: se pedía en cuanto llegaba el estado —a los 1.022 ms— y con PRIORIDAD ALTA,
+       que es la que pone fetch por defecto, justo en la ventana en la que se bajaba la foto de
+       portada, de 1.007 a 1.193. Dos peticiones de prioridad alta repartiéndose la línea, y una
+       de las dos es la que Google mide como LCP.
+       La chapa del récord vive en la tarjeta del juego, más abajo del pliegue: nadie la espera.
+
+       Se cuelga de la FOTO y no del evento load de la página: son unos milisegundos de
+       diferencia en la realidad, pero el simulador de Lighthouse trata muy distinto a las dos
+       —medido: la misma petición colgada de load le cuesta 350 ms de FCP simulado, con el FCP
+       real idéntico— y es la nota simulada la que ve todo el mundo. */
+    var portada = document.querySelector('.hero-slide img');
+    if (!portada || !portada.src || portada.complete) { cargarRecord(); return; }
+    var una = false;
+    var vamos = function () { if (!una) { una = true; cargarRecord(); } };
+    portada.addEventListener('load', vamos);
+    portada.addEventListener('error', vamos);
+    /* Si la foto no llega nunca, el récord no se queda esperando para siempre. */
+    setTimeout(vamos, 6000);
   }
   /* Al volver del juego. pageshow y no load: si el móvil sirve la carta desde la caché de
      atrás, load no se dispara y el récord recién batido no aparecería. */
@@ -4377,6 +4396,15 @@ ${DATOS_ACTIVO ? `
          conexión libre bajarlas juntas es mejor que ir una a una detrás del dedo. */
   function heroSoltar(cuantas) {
     if (!heroDiferidas.length) return;
+    /* Nada sale de aquí mientras la primera foto siga bajando. Es la regla, y no una precaución
+       de más: el oyente de scroll del carril llama a esta función sin argumentos —suelta todas—
+       y un scroll puede dispararlo solo, porque el carril es de ajuste por deslizamiento y
+       añadirle cinco diapositivas lo mueve. Sin esta guarda, cuatro fotos se ponían a competir
+       con la única que se ve, que es la que marca el LCP.
+       Quien toca el carrusel antes de que llegue no se queda sin nada: en cuanto la primera
+       termina, el evento load de la página suelta la siguiente. */
+    var primera = heroTrack.querySelector('img');
+    if (primera && primera.src && !primera.complete) return;
     var pendientes = heroDiferidas.splice(0, cuantas || heroDiferidas.length);
     pendientes.forEach(function (pedir) { pedir(); });
   }
@@ -4617,7 +4645,11 @@ ${DATOS_ACTIVO ? `
       .catch(function () { /* sin conexion la carta sigue siendo util */ });
   }
 
-  setTimeout(comprobarVersion, 2500);      // primero que se vea la carta, luego se comprueba
+  /* Al reloj y no al evento load: el simulador de Lighthouse penaliza colgar peticiones de
+     load —medido, 350 ms de FCP simulado con el FCP real idéntico— y esta comprobación no
+     tiene ninguna prisa. Dos segundos y medio deja pasar de largo la ventana en la que se
+     pinta la portada, que es lo único que importaba. */
+  setTimeout(comprobarVersion, 2500);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) comprobarVersion();
   });
