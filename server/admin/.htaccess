@@ -9,12 +9,18 @@ Options -Indexes
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 </IfModule>
 
-# PHP anuncia su versión exacta en cada respuesta. El .htaccess de la carpeta de arriba ya
-# quita esta cabecera y sus reglas se heredan, pero el panel es lo que hay que proteger y no
-# conviene que dependa de un archivo de otro nivel: el día que alguien reordene aquél, esto
-# seguiría cubierto. Es la misma razón por la que datos.php se escribe su propio .htaccess.
+# El .htaccess de la carpeta de arriba pone Referrer-Policy con «always set», y eso PISA la
+# que index.php manda por PHP. Allí la política es strict-origin-when-cross-origin, que está
+# bien para una carta pública: deja pasar el origen al ir a las reseñas de Google.
+#
+# Aquí no. Esta carpeta es la que lleva la contraseña en la URL de la pantalla de acceso y
+# los nombres de archivo de las copias: al salir a cualquier sitio no se manda nada. Se
+# reafirma aquí para ganarle a la regla heredada.
+#
+# X-Powered-By NO se quita desde aquí: se probó y no funciona, porque PHP la añade después de
+# mod_headers. Se quita con header_remove() en config.php, que sí llega a tiempo.
 <IfModule mod_headers.c>
-  Header unset X-Powered-By
+  Header always set Referrer-Policy "no-referrer"
 </IfModule>
 
 # platos.json, los temporales, el contador de intentos y el registro de accesos no se

@@ -10,6 +10,18 @@
  * La contraseña en claro no se guarda en ningún sitio: sólo su hash.
  */
 
+/* PHP anuncia su versión exacta —«X-Powered-By: PHP/8.4.23»— en cada respuesta, y con eso
+ * quien escanee buscando versiones con fallos conocidos sabe si merece la pena insistir.
+ *
+ * Se quita desde aquí y no con `Header unset` en el .htaccess porque desde allí NO funciona:
+ * se probó y la cabecera seguía llegando. PHP la añade después de que mod_headers haya hecho
+ * lo suyo, así que la única que llega a tiempo es ésta. Comprobado con curl contra el
+ * servidor, no leyendo la documentación.
+ *
+ * expose_php tampoco vale: es PHP_INI_SYSTEM y no se puede tocar desde un .user.ini en
+ * hosting compartido. */
+header_remove('X-Powered-By');
+
 /* ------------------------------------------------------------------ MODO DEMO
  * En true el panel se abre sin contraseña. Es para enseñarlo, no para dejarlo puesto:
  * mientras esté activo, cualquiera que dé con la URL puede marcar platos agotados y
