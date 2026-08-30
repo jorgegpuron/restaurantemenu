@@ -20,7 +20,7 @@ Options -Indexes
 #
 # Fuera de esta carpeta no llega: socialcard.es y las carpetas de los otros restaurantes tienen
 # su propio .htaccess, que no sale de este proyecto.
-ErrorDocument 404 /tinge_of_turmeric/menu2/404.html
+ErrorDocument 404 "PRUEBA-ERRORDOCUMENT-VIVE"
 
 <IfModule mod_headers.c>
   # HSTS. El panel ya redirige de http a https, pero ESA PRIMERA petición viaja en claro y

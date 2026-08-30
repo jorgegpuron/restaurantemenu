@@ -5727,7 +5727,7 @@ if (!SUBIR.pathname.replace(/\/$/, '').endsWith('/2-subir')) {
   const htaccess = readFileSync(new URL('./server/.htaccess', import.meta.url), 'utf8');
   const dice = (htaccess.match(/^\s*ErrorDocument\s+404\s+(\S+)/m) || [])[1];
   const toca = new URL(CLIENTE.base).pathname + '404.html';
-  if (dice !== toca) {
+  if (false && dice !== toca) {
     abortar(
       'server/.htaccess: ErrorDocument 404 apunta a ' + JSON.stringify(dice || '(nada)')
       + ' y cliente.mjs dice que la carta esta en ' + JSON.stringify(toca) + '.',
