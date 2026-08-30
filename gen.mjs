@@ -46,20 +46,30 @@ export const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"
 <link rel="stylesheet" media="print" onload="this.media='all'" href="${HOJA_FUENTES_HTML}">
 <noscript><link rel="stylesheet" href="${HOJA_FUENTES_HTML}"></noscript>`;
 
-/* La carta, en cambio, NO pide la hoja de entrada: sólo deja abiertas las conexiones.
-   Las dos tipografías pesan 194 KB y se bajaban a la vez que la foto de portada. Medido en
-   producción: la foto son 54 KB y tardaba 189 ms porque compartía el ancho de banda con ellas.
-   Y el hosting habla HTTP/1.1, donde eso se nota más.
-   Quién manda entre las dos está claro: la portada es lo que Google mide como LCP, y el texto
-   entretanto ya se ve —font-display:swap lo pinta desde el primer momento en la de respaldo—.
-   Así que la hoja se pide cuando la portada ya está, y la etiqueta la mete el script que hay
-   detrás del marco. Los preconnect SÍ van de entrada: abrir las conexiones no cuesta ancho de
-   banda y las deja listas para cuando toque.
+/* La carta NO pide NADA de tipografías desde la cabecera: ni la hoja ni las conexiones.
+   Las dos fuentes pesan 194 KB y se bajaban a la vez que la foto de portada, que es lo que
+   Google mide como LCP. El texto entretanto ya se ve —font-display:swap lo pinta desde el
+   primer momento en la de respaldo—, así que el orden está claro: primero la foto.
+
+   Los preconnect también esperan, y esto costó una medición para creérselo. Aquí ponía que
+   «abrir las conexiones no cuesta ancho de banda y las deja listas para cuando toque». Es
+   falso. Comprobado con seis pasadas de Lighthouse por variante, alternando A y B contra el
+   mismo servidor:
+
+     con los preconnect en la cabecera:  99 89 89 88 89 89   → mediana 89, LCP 3,72 s
+     con los preconnect diferidos:       99 99 99 99 99 99   → mediana 99, LCP 2,18 s
+
+   Dos apretones de manos TLS contra dos dominios ajenos, arrancados en el mismo instante en
+   que el navegador está pidiendo el documento, el estado y la foto, no son gratis: compiten
+   por las mismas conexiones y por el mismo hilo justo en la ventana que decide el LCP. Y no
+   adelantan nada, porque la hoja no se va a pedir hasta un segundo más tarde.
+
+   Ahora los abre el mismo script que pide la hoja, un instante antes de pedirla. Es cuando
+   sirven de algo.
+
    El <noscript> es para quien navegue sin JavaScript: ahí no hay nada que inyecte nada, y sin
    esta etiqueta se quedaría con la tipografía del sistema para siempre. */
-export const FONTS_CARTA = `<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<noscript><link rel="stylesheet" href="${HOJA_FUENTES_HTML}"></noscript>`;
+export const FONTS_CARTA = `<noscript><link rel="stylesheet" href="${HOJA_FUENTES_HTML}"></noscript>`;
 
 /* Los anchos en que el panel guarda cada foto de portada, en WebP, además del original.
    Tiene que ser la MISMA lista que HERO_ANCHOS en server/admin/config.php: el panel escribe
@@ -2301,6 +2311,8 @@ html:not(.has-hero) .hero{display:none}
   transition:opacity var(--t-sheet-in) var(--ease-out);
 }
 .hero-slide img.is-ready{opacity:1}
+/* PRUEBA 3: la primera aparece sin fundido. Las demás lo conservan. */
+.hero-slide:first-child img{opacity:1;transition:none}
 
 /* ---- las flechas ----
    Solo con raton: en un movil se desliza con el dedo y dos botones encima de la foto serian
@@ -3315,6 +3327,13 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
           function pedirFuentes() {
             if (fuentesPedidas) return;
             fuentesPedidas = true;
+            ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].forEach(function (o, n) {
+              var c = document.createElement('link');
+              c.rel = 'preconnect';
+              c.href = o;
+              if (n) c.crossOrigin = '';
+              document.head.appendChild(c);
+            });
             var l = document.createElement('link');
             l.rel = 'stylesheet';
             l.href = ${JSON.stringify(HOJA_FUENTES)};

@@ -5433,3 +5433,79 @@ con todo lo que se traduce.
 
 La medida del párrafo sube de 36 a 40 caracteres: son dos frases y no una, y a 36 la negrita se
 partía en demasiados trozos. 31 comprobaciones en verde, contrastes incluidos.
+
+## Dos A/B sobre el LCP, y un comentario de este archivo que era falso (31 Aug 2026)
+
+Tres pruebas, un solo cambio cada vez, seis a diez pasadas de Lighthouse por variante y siempre
+alternando A y B contra el mismo servidor para que la deriva de la máquina afecte a las dos por
+igual.
+
+### Prueba 1: `estado.json` se pide una vez. No se toca nada
+
+Se contó por tres vías independientes en producción, con la red y la CPU frenadas: los eventos
+de red del navegador, la API de rendimiento de la página y los avisos de consola.
+
+**Una sola petición**, con `initiatorType: link` —la arranca el preload de la cabecera y el
+`fetch` la reutiliza— y ni un aviso de «preload sin usar». El mecanismo funciona como se diseñó.
+No había nada que arreglar y no se tocó.
+
+### Prueba 2: los `preconnect` de las tipografías estaban costando dinero
+
+Aquí arriba ponía, escrito por mí, que «abrir las conexiones no cuesta ancho de banda y las deja
+listas para cuando toque». **Es falso**, y la medida lo dice sin ambigüedad:
+
+| | pasadas | mediana | LCP |
+|---|---|---|---|
+| A · preconnect en la cabecera | 99 89 89 88 89 89 | **89** | 3,72 s |
+| B · preconnect diferidos | 99 99 99 99 99 99 | **99** | **2,18 s** |
+
+Seis de seis en 99 contra una de seis. No es ruido: es la diferencia entre las dos ramas en las
+que llevaba oscilando la nota toda la semana, y resulta que la rama lenta la provocaban los
+`preconnect`.
+
+Dos apretones de manos TLS contra dos dominios ajenos, arrancados en el instante en que el
+navegador está pidiendo el documento, el estado y la foto de portada, compiten por las mismas
+conexiones y por el mismo hilo justo en la ventana que decide el LCP. Y no adelantan nada,
+porque la hoja de estilos no se va a pedir hasta un segundo más tarde: para entonces la conexión
+ya se habría abierto igual.
+
+Ahora los abre el mismo script que pide la hoja, un instante antes de pedirla, que es cuando
+sirven de algo. **La lección, más general que el caso: un `preconnect` a un recurso que no vas a
+pedir todavía no es gratis.**
+
+### Prueba 3: la portada aparece sin fundido
+
+Todas las fotos del carrusel entran con `opacity 0 → 1` en 340 ms. Una imagen a opacidad 0 no
+cuenta como pintada, así que el fundido retrasaba el LCP por su propia duración.
+
+Sólo la primera —la que marca el LCP— pierde la transición. Las otras cuatro la conservan, y se
+comprobó en el navegador: la primera con `transition: none`, las demás con sus 0,34 s.
+
+| | mediana de 10 | rango |
+|---|---|---|
+| A · con fundido | 2.177 ms | 2.177-2.178 |
+| B · sin fundido | **1.878 ms** | 1.877-2.103 |
+
+−299 ms, y en ninguna pasada peor que A. La nota no se mueve —99 en las dos— porque a estas
+alturas el LCP ya está dentro de la parte plana de la curva; el que gana es el cliente, no el
+marcador.
+
+El TBT de B salió con una mediana peor (30 contra 16), pero era **una** pasada: quitando ese
+único valor de 232 ms, la media de B es 20 ms y la de A 23. Quitar una transición no puede
+añadir trabajo de hilo principal, y las dos están muy por debajo del umbral de 200.
+
+### Lo que dan las dos juntas
+
+Medido como lo mide el campo —`PerformanceObserver`, red y CPU frenadas—, que es lo que ve quien
+escanea el QR:
+
+| | antes | después |
+|---|---|---|
+| **LCP real** | 1.080 ms | **768 ms** (−29%) |
+| FCP real | 272 ms | 292 ms |
+| CLS real | 0,0119 | 0,0119 |
+| INP | 128 ms | 128 ms |
+
+Y en Lighthouse: móvil de 89 a 99, **escritorio 100**. Accesibilidad, buenas prácticas, SEO y
+navegación agéntica en 100 en las dos plataformas, antes y después. 47 pruebas funcionales en
+verde y cero errores de consola.
