@@ -1,0 +1,83 @@
+name: Borrar un fichero del servidor (uso puntual)
+
+# Herramienta de mantenimiento. NO se ejecuta sola: solo a mano.
+#
+# Existe para retirar del hosting algo que el despliegue ya no sube pero que sigue ahi de
+# antes. Excluir un fichero del workflow de despliegue impide subirlo, pero no borra el que
+# ya estaba: el despliegue no borra nada, por diseno.
+#
+# Solo puede tocar UN fichero suelto dentro de FTP_REMOTE_PATH. No acepta rutas con barras
+# ni con "..", asi que no puede salir de la carpeta de la carta.
+#
+# Cuando se haya usado, se borra este fichero del repositorio: no conviene dejar rondando
+# una herramienta que borra en produccion.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fichero:
+        description: 'Nombre del fichero a borrar (sin barras). Ej: LEEME-SERVIDOR.txt'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ftp-tinge
+  cancel-in-progress: false
+
+jobs:
+  borrar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Borrar por FTPS
+        env:
+          SERVIDOR: ${{ secrets.FTP_SERVER }}
+          USUARIO: ${{ secrets.FTP_USERNAME }}
+          CLAVE: ${{ secrets.FTP_PASSWORD }}
+          RUTA: ${{ secrets.FTP_REMOTE_PATH }}
+          FICHERO: ${{ inputs.fichero }}
+        run: |
+          set -eu
+
+          # Un nombre de fichero y nada mas: ni barras, ni "..", ni vacio. Sin esto, un
+          # descuido en el formulario podria apuntar a cualquier sitio del hosting.
+          case "$FICHERO" in
+            ''|*/*|*..*) echo "::error::Nombre no permitido: solo un fichero suelto, sin barras."; exit 1 ;;
+          esac
+          case "$RUTA" in
+            /*/) : ;;
+            *) echo "::error::FTP_REMOTE_PATH invalido."; exit 1 ;;
+          esac
+
+          # Las credenciales van en un fichero de configuracion, no en la linea de comandos.
+          umask 077
+          printf 'user = "%s:%s"\nssl-reqd\n' "$USUARIO" "$CLAVE" > "$RUNNER_TEMP/curlrc"
+
+          listar() {
+            curl -sS --config "$RUNNER_TEMP/curlrc" --list-only "ftp://${SERVIDOR}${RUTA}"
+          }
+
+          echo "--- antes ---"
+          if listar | grep -Fxq "$FICHERO"; then
+            echo "  $FICHERO esta en el servidor"
+          else
+            echo "::error::$FICHERO no aparece en $RUTA. No se borra nada."
+            exit 1
+          fi
+
+          echo "--- borrando ---"
+          curl -sS --config "$RUNNER_TEMP/curlrc" \
+               "ftp://${SERVIDOR}${RUTA}" \
+               -Q "DELE ${RUTA}${FICHERO}" -o /dev/null
+          echo "  DELE enviado"
+
+          echo "--- despues ---"
+          if listar | grep -Fxq "$FICHERO"; then
+            echo "::error::$FICHERO sigue en el servidor."
+            exit 1
+          fi
+          echo "  $FICHERO ya no esta"
+
+          echo "--- lo que queda en la carpeta ---"
+          listar | sort
