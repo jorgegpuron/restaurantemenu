@@ -112,9 +112,21 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: ${{ secrets.FTP_REMOTE_PATH }}
           local-dir: ./tinge_of_turmeric/2-subir/
-          # FTPS: GoDaddy lo admite y evita mandar la contrasena en claro. Si el servidor no lo
-          # aceptara, el paso falla sin haber subido nada.
+          # FTPS con verificacion completa del certificado.
+          #
+          # FTP_SERVER tiene que ser el nombre del servidor de cPanel
+          # (Server Information > Server Name + ".prod.phx3.secureserver.net"), NO el dominio.
+          # El FTP presenta un certificado de *.prod.phx3.secureserver.net, legitimo y de una
+          # CA publica, pero emitido para la infraestructura del hosting. Conectando por el
+          # dominio el nombre no cuadra y hay que renunciar a comprobarlo; conectando por el
+          # nombre del servidor, valida.
+          #
+          # Con security: strict el canal va cifrado Y se comprueba con quien se habla. La
+          # contrapartida: si GoDaddy dejara caducar ese certificado o migrara la cuenta a otro
+          # servidor, el despliegue fallaria al conectar hasta actualizar FTP_SERVER. Falla
+          # antes de tocar ficheros, asi que no deja la carta a medias.
           protocol: ftps
+          security: strict
           # El unico interruptor. Sin la variable puesta a "true", esto es siempre un ensayo.
           dry-run: ${{ vars.DESPLIEGUE_REAL != 'true' }}
           log-level: standard
