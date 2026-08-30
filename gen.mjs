@@ -1259,7 +1259,10 @@ html:not(.js) .lang-menu{position:static;display:block}
   position:absolute;left:0;right:0;bottom:0;
   max-height:88dvh;overflow:hidden;overscroll-behavior:contain;
   background:var(--surface);
-  border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  /* La mitad del radio de las hojas: 10.5px. Va calculado sobre --r-sheet y no escrito a
+     mano para que siga siendo la mitad si algún día cambia el radio de la casa. No se toca
+     --r-sheet, que lo comparten las tarjetas, la hoja de categorías y el envoltorio. */
+  border-radius:calc(var(--r-sheet) / 2) calc(var(--r-sheet) / 2) 0 0;
   box-shadow:var(--lift-sheet);
   transform:translateY(100%);
   transition:transform var(--t-sheet-out) var(--ease-drawer);
@@ -1333,12 +1336,15 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:0;background:none;color:var(--offer);font-size:12px;
 }
 .dsheet-flag[hidden]{display:none}
-/* Nombre a la izquierda y precio a la derecha, en la misma línea y sobre la misma base: es
-   exactamente como se lee la fila de la carta, y la ficha no tiene por qué contar lo mismo de
-   otra manera. La descripción va debajo, a todo el ancho. */
+/* El nombre manda solo, a todo el ancho, y el precio baja a compartir línea con la
+   descripción, sobre su misma base. El cuerpo está anclado al pie de la foto y crece hacia
+   arriba, así que sacar el nombre de la línea sube el bloque entero: el nombre gana el ancho
+   completo —los largos ya no se estrechan contra el precio— y la descripción, que es lo que
+   se lee para decidir, queda a la altura de lo que cuesta.
+   Antes iban nombre y precio arriba, y la descripción sola debajo. */
 .dsheet-linea{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2)}
 .dsheet-nombre{
-  margin:0;min-width:0;
+  margin:0 0 var(--s1);min-width:0;
   font-family:var(--title-font);font-size:26px;font-weight:700;line-height:1.12;
   text-shadow:0 1px 12px rgba(0,0,0,.35);
 }
@@ -1349,25 +1355,38 @@ html:not(.js) .lang-menu{position:static;display:block}
   text-shadow:0 1px 12px rgba(0,0,0,.35);
 }
 .dsheet-precio .price-was{margin-left:8px;font-size:15px;opacity:.65;text-decoration:line-through}
-.dsheet-desc{margin:var(--s1) 0 0;font-size:16px;line-height:1.45;color:rgba(255,255,255,.88)}
+/* Sin margen arriba y con min-width:0: ahora comparte fila con el precio, y ese margen la
+   descolgaría de la base común. El min-width deja que una descripción larga se estreche en
+   vez de empujar el precio fuera. */
+.dsheet-desc{margin:0;min-width:0;font-size:16px;line-height:1.45;color:rgba(255,255,255,.88)}
 /* Sobre el papel, los colores de siempre. */
 .dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre,
 .dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{text-shadow:none}
 .dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{color:var(--accent-ink)}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted);margin-top:var(--s2)}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted)}
+/* Sobre el papel el nombre respira un punto más: sin la foto detrás no hay degradado que
+   separe, y el aire lo tiene que poner el espaciado. */
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre{margin-bottom:var(--s2)}
 /* El texto entra un pelo después que la hoja: primero se ve la foto, y encima aparece lo que
-   dice. Al revés, el nombre llega antes que aquello que nombra. */
-.dsheet.is-open .dsheet-linea,
-.dsheet.is-open .dsheet-desc{animation:dsheet-entra 260ms var(--ease-out) both}
-.dsheet.is-open .dsheet-linea{animation-delay:110ms}
-.dsheet.is-open .dsheet-desc{animation-delay:170ms}
+   dice. Al revés, el nombre llega antes que aquello que nombra.
+   Los dos objetivos siguen la estructura nueva: primero el nombre, que ahora va suelto, y
+   detrás la línea de descripción y precio. Antes eran .dsheet-linea y .dsheet-desc, que era
+   lo mismo cuando el nombre vivía dentro de la línea. */
+.dsheet.is-open .dsheet-nombre,
+.dsheet.is-open .dsheet-linea{animation:dsheet-entra 260ms var(--ease-out) both}
+.dsheet.is-open .dsheet-nombre{animation-delay:110ms}
+.dsheet.is-open .dsheet-linea{animation-delay:170ms}
 @keyframes dsheet-entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* Una descripción vacía no debe dejar un hueco a la izquierda del precio. */
 .dsheet-desc:empty{display:none}
 @media (min-width:768px){
   .dsheet-panel{
     left:50%;right:auto;bottom:auto;top:50%;
     width:min(520px,calc(100vw - 48px));max-height:86vh;
-    border-radius:var(--r-card);
+    /* La mitad, igual que en móvil. En escritorio la ficha es una tarjeta centrada y el radio
+       sale de --r-card (34px), no de --r-sheet: si sólo se hubiera reducido el de móvil, en
+       pantalla grande no habría cambiado nada. */
+    border-radius:calc(var(--r-card) / 2);
     transform:translate(-50%,-50%) scale(.96);
     opacity:0;
     transition:transform var(--t-sheet-out) var(--ease-out),opacity var(--t-sheet-out) var(--ease-out);
@@ -3286,11 +3305,11 @@ ${leyenda}
     </div>
     <div class="dsheet-cuerpo">
       <p class="dsheet-flag" id="dsheet-flag" hidden></p>
+      <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
       <div class="dsheet-linea">
-        <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
+        <p class="dsheet-desc" id="dsheet-desc"></p>
         <p class="dsheet-precio" id="dsheet-precio"></p>
       </div>
-      <p class="dsheet-desc" id="dsheet-desc"></p>
     </div>
   </div>
 </div>
