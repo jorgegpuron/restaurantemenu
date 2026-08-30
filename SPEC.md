@@ -5398,3 +5398,38 @@ detrás, 120 ms más tarde y sin moverse, que es lo que hace que se lea como fon
 
 Pesa **3,4 KB comprimidos**. 29 comprobaciones en verde, incluidas las de contraste sobre el
 trazo, los tres idiomas, el tema heredado, sin JavaScript y cuatro anchos de pantalla.
+
+### El texto del 404 cambia de voz (31 Aug 2026)
+
+De «Esta página no existe» a «¡Ups! Este enlace se ha quedado sin mesa 🍽️». Es una decisión del
+restaurante, no de diseño: el registro pasa de sobrio a cálido, y con él el botón, que ahora
+dice «Volver a la carta» en vez de «Ver la carta» — «volver» reconoce que el visitante venía de
+algún sitio, y eso es lo que ha pasado.
+
+**El cuerpo va partido en dos.** La segunda mitad —«la carta sigue en su sitio y está llena de
+cosas deliciosas»— va destacada, porque es lo único que hace falta llevarse si sólo se lee media
+frase. El peso lo pone el color, no el trazo: sube al crema entero mientras la primera mitad se
+queda al 76%. Sobre fondo oscuro, subir el brillo separa mejor que engordar la letra.
+
+Partirlo en dos `<span>` en vez de escribir la negrita con HTML tiene una razón concreta: el
+cambio de idioma escribe con `textContent`, que no interpreta etiquetas. Con el párrafo entero
+en una sola pieza habría que pasar a `innerHTML`, que es la costumbre que acaba metiendo marcado
+donde no toca. Dos trozos y cada uno con su `id`.
+
+**El emoji lleva `aria-hidden`.** Un lector de pantalla lo lee en voz alta —«plato con tenedor y
+cuchillo»— y sería lo primero que oye alguien ciego justo después de enterarse de que se ha
+perdido. La frase funciona igual sin él, que es exactamente la prueba de que para quien no lo ve
+sobra. Va además en su propio `<span>` con su tamaño y su interlineado: es el único glifo de la
+página que no dibuja nuestra tipografía —lo pone el sistema operativo y se ve distinto en cada
+teléfono—, así que se le da una caja para que no descoloque la línea base del titular.
+
+**El título de la ventana se queda sobrio.** Sigue siendo «Página no encontrada · Tinge of
+Turmeric»: una pestaña con «¡Ups!» y un emoji es ruido en una lista de veinte pestañas.
+
+Las traducciones al inglés y al alemán llevan el mismo chiste, no una traducción literal:
+«Oops! This link could not get a table» y «Hoppla! Für diesen Link war kein Tisch frei». Están
+escritas aquí y **conviene que las mire alguien del restaurante**, que es la regla de esta carta
+con todo lo que se traduce.
+
+La medida del párrafo sube de 36 a 40 caracteres: son dos frases y no una, y a 36 la negrita se
+partía en demasiados trozos. 31 comprobaciones en verde, contrastes incluidos.

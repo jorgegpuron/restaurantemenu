@@ -27,25 +27,32 @@
  */
 
 export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS }) {
-  /* Los textos, uno por idioma. Cortos a propósito: quien está perdido no lee un párrafo.
-     El inglés es el original y el que se queda si algo falla. */
+  /* Los textos, uno por idioma. El inglés es el original y el que se queda si algo falla.
+     El cuerpo va partido en dos porque la segunda mitad va en negrita: es lo que se quiere que
+     se lleve el que sólo lee media frase —que la carta sigue ahí—, y partirlo permite seguir
+     escribiendo con textContent al cambiar de idioma en vez de inyectar HTML.
+     La `pestana` es el título de la ventana y se queda sobrio a propósito: una pestaña del
+     navegador con «¡Ups!» y un emoji es ruido en una lista de veinte pestañas. */
   const TEXTOS = {
     en: {
-      titulo: 'This page does not exist',
-      cuerpo: 'The link you followed does not lead anywhere. The menu is still where it was.',
-      boton: 'See the menu',
+      titulo: 'Oops! This link could not get a table',
+      cuerpoPlano: 'The page you are looking for is not available, but do not worry:',
+      cuerpoFuerte: 'the menu is right where it was, and it is full of good things.',
+      boton: 'Back to the menu',
       pestana: 'Page not found',
     },
     es: {
-      titulo: 'Esta página no existe',
-      cuerpo: 'El enlace que has seguido no lleva a ninguna parte. La carta sigue en su sitio.',
-      boton: 'Ver la carta',
+      titulo: '¡Ups! Este enlace se ha quedado sin mesa',
+      cuerpoPlano: 'La página que buscas no está disponible, pero tranquilo:',
+      cuerpoFuerte: 'la carta sigue en su sitio y está llena de cosas deliciosas.',
+      boton: 'Volver a la carta',
       pestana: 'Página no encontrada',
     },
     de: {
-      titulo: 'Diese Seite gibt es nicht',
-      cuerpo: 'Der Link führt ins Leere. Die Speisekarte ist weiterhin da.',
-      boton: 'Zur Speisekarte',
+      titulo: 'Hoppla! Für diesen Link war kein Tisch frei',
+      cuerpoPlano: 'Die gesuchte Seite ist nicht verfügbar, aber keine Sorge:',
+      cuerpoFuerte: 'die Speisekarte ist noch da – und voller guter Sachen.',
+      boton: 'Zurück zur Speisekarte',
       pestana: 'Seite nicht gefunden',
     },
   };
@@ -148,14 +155,32 @@ h1{
 }
 
 .cuerpo{
-  /* 36ch: es una frase, no un párrafo. Una medida de lectura larga la convertiría en una línea
-     sola que hay que barrer de lado a lado. */
-  max-width:36ch;
+  /* 40ch: dos frases, no una. Una medida de lectura larga las convertiría en líneas que hay
+     que barrer de lado a lado, y una corta parte la negrita en demasiados trozos. */
+  max-width:40ch;
   margin:0 auto var(--s4);
   color:color-mix(in srgb,var(--surface) 76%,transparent);
   font-size:16px;
   line-height:1.5;
   text-wrap:pretty;
+}
+
+/* La mitad que importa, en el crema entero: quien lea media frase se lleva lo único que hace
+   falta saber —que la carta sigue ahí—. El peso lo pone el color, no una negrita de más:
+   sobre fondo oscuro, subir el brillo separa mejor que engordar el trazo. */
+.cuerpo strong{
+  color:var(--surface);
+  font-weight:600;
+}
+
+/* El emoji es el único glifo de la página que no dibuja nuestra tipografía: lo pone el sistema
+   operativo y se ve distinto en cada teléfono. Se le da su propia caja para que no altere la
+   línea base del titular ni su interlineado. */
+.emoji{
+  display:inline-block;
+  font-size:.82em;
+  line-height:1;
+  vertical-align:baseline;
 }
 
 /* El botón, en crema sobre el fondo oscuro: es lo único claro y sólido de la pantalla, así que
@@ -207,8 +232,12 @@ h1{
 <body>
 <span class="marca" aria-hidden="true">404</span>
 <main class="caja">
-  <h1 id="t">${base.titulo}</h1>
-  <p class="cuerpo" id="c">${base.cuerpo}</p>
+  <!-- El emoji va en su propio span y con aria-hidden. Un lector de pantalla lo lee en voz alta
+       —«plato con tenedor y cuchillo»— y sería lo primero que oye alguien ciego después de
+       enterarse de que se ha perdido. La frase funciona igual sin él, que es la prueba de que
+       sobra para quien no lo ve. -->
+  <h1><span id="t">${base.titulo}</span> <span class="emoji" aria-hidden="true">🍽️</span></h1>
+  <p class="cuerpo"><span id="c">${base.cuerpoPlano}</span> <strong id="cf">${base.cuerpoFuerte}</strong></p>
   <a class="boton" id="b" href="${ruta}">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>
     <span>${base.boton}</span>
@@ -243,7 +272,8 @@ h1{
   var t = T[lang] || T.en;
   document.documentElement.lang = lang;
   document.getElementById('t').textContent = t.titulo;
-  document.getElementById('c').textContent = t.cuerpo;
+  document.getElementById('c').textContent = t.cuerpoPlano;
+  document.getElementById('cf').textContent = t.cuerpoFuerte;
   document.getElementById('b').querySelector('span').textContent = t.boton;
   document.title = t.pestana + ' \\u00b7 ' + ${JSON.stringify(CLIENTE.nombre)};
 })();
