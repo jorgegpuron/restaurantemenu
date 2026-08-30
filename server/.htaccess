@@ -35,6 +35,9 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   RewriteBase /tinge_of_turmeric/menu2/
   # Sólo lo que NO existe. Un fichero real —la carta, el juego, una foto, el panel— no se toca,
   # y una carpeta real tampoco: sin estas dos condiciones esto se comería el sitio entero.
+  # sonda temporal: si esto responde, mod_rewrite funciona
+  RewriteRule ^sonda-rewrite$ version.json [L]
+
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . 404.php [L]
