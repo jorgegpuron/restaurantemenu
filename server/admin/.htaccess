@@ -9,6 +9,14 @@ Options -Indexes
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 </IfModule>
 
+# PHP anuncia su versión exacta en cada respuesta. El .htaccess de la carpeta de arriba ya
+# quita esta cabecera y sus reglas se heredan, pero el panel es lo que hay que proteger y no
+# conviene que dependa de un archivo de otro nivel: el día que alguien reordene aquél, esto
+# seguiría cubierto. Es la misma razón por la que datos.php se escribe su propio .htaccess.
+<IfModule mod_headers.c>
+  Header unset X-Powered-By
+</IfModule>
+
 # platos.json, los temporales, el contador de intentos y el registro de accesos no se
 # sirven: sólo los lee PHP desde dentro.
 <FilesMatch "\.(json|tmp|log|log\.1|txt)$">

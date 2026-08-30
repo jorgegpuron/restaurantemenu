@@ -10,6 +10,39 @@ Options -Indexes
 </IfModule>
 
 <IfModule mod_headers.c>
+  # HSTS. El panel ya redirige de http a https, pero ESA PRIMERA petición viaja en claro y
+  # con ella la contraseña si alguien la envía por http. Esto le dice al navegador que no
+  # vuelva a intentarlo en claro durante un año.
+  #
+  # OJO, tres cosas que no se ven mirando este archivo:
+  #
+  #   1. HSTS es del HOST ENTERO, no de esta carpeta. Servida desde aquí, la política cubre
+  #      todo socialcard.es: también /reginacafe/ y /dedos_las_americas/. Comprobado antes de
+  #      ponerla: los dos responden 200 por https, así que no deja nada inaccesible.
+  #
+  #   2. Sólo la recibe quien pase por esta carta. Quien entre por socialcard.es y no baje a
+  #      menu2/ no queda protegido. Para cubrir el dominio de verdad, esta misma línea tiene
+  #      que ir en el .htaccess de la raíz del dominio — que está fuera de este proyecto y no
+  #      se toca desde aquí.
+  #
+  #   3. SIN includeSubDomains a propósito. Hoy www, mail, cpanel y webdisk sirven https, así
+  #      que cabría; pero es irreversible durante el max-age y dejaría inaccesible cualquier
+  #      subdominio futuro que naciera sin certificado. El riesgo no compensa lo que añade.
+  #      Sin preload por lo mismo: eso se quita pidiéndolo a los navegadores, y tarda meses.
+  Header always set Strict-Transport-Security "max-age=31536000"
+
+  # El navegador respeta el Content-Type declarado y no adivina por el contenido.
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Al salir a otro dominio —el WhatsApp del restaurante, las reseñas de Google— sólo viaja
+  # el origen, no la dirección completa. No se usa no-referrer, que es lo que lleva el panel:
+  # aquí cortaría la atribución del enlace de reseñas, y esto es una página pública.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # PHP anuncia su versión exacta en cada respuesta del panel. No es un agujero, pero le
+  # ahorra el trabajo a quien escanee buscando versiones con fallos conocidos.
+  Header unset X-Powered-By
+
   # El HTML se guarda pero se pregunta siempre: si no cambió, un 304 de cientos de bytes;
   # si cambió, se ve al momento. no-store daría la misma frescura pagando 77 KB por visita.
   <FilesMatch "\.html$">
