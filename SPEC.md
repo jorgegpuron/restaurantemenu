@@ -4655,3 +4655,93 @@ relleno de 120px arriba y abajo a 1440px, así que el aire de las esquinas se qu
 Por debajo de 1200px no cambia nada en pantalla: ahí ya estaban ocultas. Lo que sí cambia en
 móvil es que ya no viajan al hosting esos ~60 KB de PNG, que se subían siempre aunque el móvil
 nunca los descargara.
+
+## Auditoría de calidad web y arreglos (30 Aug 2026)
+
+Pasada completa con Lighthouse 13.4 sobre la carta y sobre el juego, y una prueba de uso real
+con Playwright: las trece pestañas, el buscador, el selector de idioma, el tamaño de texto, el
+carrusel, el teclado, tres anchos de pantalla y la consola. Lo que salió y lo que se ha hecho.
+
+### El salto de la portada: 0,316 de CLS
+
+El peor resultado con diferencia, y el único que suspendía un umbral de Core Web Vitals.
+
+Las fotos de portada las sube el restaurante desde el panel, así que la lista no está en el HTML:
+llega en `estado.json`, ya con la carta pintada. Al llegar, la portada aparecía de golpe y
+empujaba la carta entera hacia abajo. Dos movimientos en el mismo instante, además: la portada
+ocupando su sitio, y la tarjeta cambiando su relleno superior de 89px a 8 —`.has-hero`— porque
+con foto los controles van sobre ella y la imagen empieza donde empieza la tarjeta.
+
+Medido en móvil con CPU a un cuarto y red 4G lenta, tomando la mediana de tres pasadas y
+descartando los saltos con `hadRecentInput`, que es como lo mide el campo: **0,316**. El límite
+son 0,1.
+
+**El hueco se reserva antes de saber si hay foto.** El marco ya sale del build con su proporción
+—3:2 en móvil, 2:1 en escritorio— y con su gris de fondo, así que reservarlo es reservar
+exactamente lo que la foto va a ocupar. La decisión se toma en el arranque de la cabecera, antes
+del primer pintado, con la clase `has-hero` en el `<html>`; de ahí cuelgan tanto el hueco como el
+relleno corto de la tarjeta. Cuando llega `estado.json`, `pintarHero()` confirma o corrige.
+
+Se reserva **por defecto**, y sólo se deja de reservar cuando ya se sabe que no hay fotos. La
+visita típica de una carta es la primera —alguien que acaba de escanear el QR en la mesa— y ahí
+no hay nada guardado que consultar; acertar en esa visita vale más que acertar en la segunda.
+Quien ya ha estado lleva el número de fotos en `localStorage` y entonces se acierta siempre.
+
+Sin JavaScript no se reserva nada: la lista de fotos vive en `estado.json` y ahí no va a llegar
+ninguna, así que la carta empieza en el título, que es lo correcto.
+
+**La trampa, y costó encontrarla.** `render()` da una primera pasada *antes* de que llegue
+`estado.json`. En esa pasada «no hay fotos» todavía no significa que no las haya, y el primer
+intento de este arreglo recogía el hueco recién reservado para volver a abrirlo medio segundo
+después: dos saltos de 231px en lugar de uno, el doble de CLS que al empezar, y encima un cero
+falso apuntado en `localStorage` que estropeaba la visita siguiente. Por eso existe
+`estadoLeido`: distingue «todavía no sé» de «sé que no hay». `null` es lo mismo en los dos casos
+y la portada necesita esa diferencia.
+
+Se vio porque los dos saltos aparecían en la traza como un par que se anulaba —376 arriba, 376
+abajo— y porque llevaban `had_recent_input`, que los escondía de la medición de campo. La
+comprobación buena fue comparar el mismo código antes y después con el mismo método, no fiarse de
+la nota global.
+
+Resultado: **0,316 → 0,031**. Lo que queda es el cambio de tipografía al cargar la fuente, y está
+diez veces por debajo del límite.
+
+### La hoja de tipografías bloqueaba el primer pintado
+
+`<link rel="stylesheet">` a secas: el navegador no pinta nada hasta tenerla. Medido, 2,6 s de
+retraso en móvil, y con ellos se iban el FCP y el LCP. Ahora se pide con `media="print"` y el
+`onload` la devuelve a `all`, que es el modo de bajarla sin bloquear. No se pierde nada: ya venía
+con `display=swap`, así que el texto siempre se pintaba antes en la de respaldo. El `<noscript>`
+cubre a quien navegue sin JavaScript, donde el `onload` no se dispara nunca.
+
+### `estado.json` se pide desde la cabecera
+
+Se pedía desde el script grande, que ocupa 88 KB y hay que leerlo entero antes de llegar a su
+primera línea. Ahora sale de la cabecera, mientras el navegador sigue montando la página, y la
+respuesta se recoge abajo en vez de volver a pedirla. La portada —el elemento más grande de la
+primera pantalla— se descubre antes. Se consume una sola vez: el refresco de cada minuto vuelve a
+preguntar de verdad y no revive la respuesta vieja.
+
+### El botón de idioma se llamaba distinto de como se lee
+
+`aria-label="Idioma"` mientras en pantalla ponía «Español». Es el criterio 2.5.3 de las WCAG,
+nivel A, y no es una formalidad: quien maneja el móvil por voz dice lo que lee —«pulsa Español»—
+y el mando no encontraba ningún botón con ese nombre. El `aria-label` se ha quitado y la palabra
+«Idioma» está ahora dentro del botón, escondida a la vista con `.a11y` pero no al lector. El
+nombre accesible es «Idioma Español», y en inglés «Language English»: se traduce con el resto.
+
+### El juego no tenía región principal
+
+Su envoltorio era un `div`. Ahora es `<main>`, misma clase y mismo CSS. Sin ninguna región
+marcada, un lector de pantalla no ofrece el salto al contenido.
+
+### Lo que se ha medido y no se toca
+
+- **Las fotos de portada pesan 1,5 MB de más.** El panel ya las reduce a 1600px y las guarda a
+  calidad 80, pero un móvil que enseña la foto a 370px se descarga igualmente los 1600. La
+  solución es que el panel guarde varios tamaños y la carta los pida con `srcset`, y eso es una
+  función nueva del panel, no un ajuste: queda propuesta, sin hacer.
+- **`is-crawlable` suspende en el juego.** Lleva `noindex` a propósito.
+- **Sin comprimir y sin caché en local.** El servidor de desarrollo de PHP no aplica ni `gzip` ni
+  cabeceras de caché; las dos cosas están en el `.htaccess` y sólo se ven en producción. Cualquier
+  medida de peso o de latencia hecha contra `localhost` cuenta de más por esto.

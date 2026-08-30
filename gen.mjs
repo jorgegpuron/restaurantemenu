@@ -23,9 +23,21 @@ verificarTemas();
    Se pide el eje de peso continuo (400..800) y no tres instancias sueltas: las pestañas
    animan de 500 a 800, y con pesos separados por comas ese recorrido no existe. Una fuente
    variable pesa además menos que las tres estáticas. */
+/* La hoja de Google Fonts NO bloquea el primer pintado. Con `rel=stylesheet` a secas, el
+   navegador no pinta nada hasta tenerla: medido, 2,6 s de retraso en móvil, y con ellos se
+   iban el FCP y el LCP. El truco de media="print" la baja como hoja de otro medio —que no
+   bloquea— y el onload la devuelve a "all" en cuanto llega.
+
+   No se pierde nada por el camino: la fuente ya venía con display=swap, así que el texto
+   siempre se pintaba antes en la de respaldo y cambiaba después. Lo único que cambia es que
+   ahora el resto de la carta no espera a esa ida y vuelta.
+
+   El <noscript> es para quien navegue sin JavaScript: ahí el onload no se dispara nunca y sin
+   esta segunda etiqueta se quedaría con la tipografía del sistema para siempre. */
 export const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap" rel="stylesheet">`;
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Source+Serif+4:opsz,wght@8..60,400..600&amp;display=swap"></noscript>`;
 
 /* Tokens compartidos: la carta y el juego beben del mismo sitio.
    Los colores ya no están escritos aquí: los escribe temas.mjs, un bloque por juego de
@@ -798,7 +810,27 @@ const html = `<!DOCTYPE html>
      en cualquier cosa y además pelea con nuestro cambio de idioma: Chrome envuelve los nodos
      en <font> y el siguiente cambio se los come. translate="no" es el estándar; la meta y la
      clase son para los que no lo miran. -->
-<script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e)}catch(e){}</script>
+<!-- Este arranque hace tres cosas, y las tres tienen que pasar ANTES del primer pintado:
+     el tema y el tamaño de letra guardados —si se aplicaran después, la carta se vería un
+     instante con los de fábrica—, la reserva del hueco de la portada, y la petición de
+     estado.json.
+
+     La reserva del hueco: las fotos de portada las sube el restaurante desde el panel, así
+     que la lista no está en el HTML, llega en estado.json. Hasta ahora la portada aparecía
+     cuando llegaba esa respuesta y empujaba la carta entera hacia abajo: 0,271 de CLS
+     medido en producción, casi el triple del límite de 0,1. El hueco se reserva desde el
+     principio con su proporción, y la foto entra dentro sin mover nada.
+
+     Se reserva por defecto, y sólo se deja de reservar cuando SABEMOS que no hay fotos: la
+     visita típica de una carta es la primera —alguien que acaba de escanear el QR— y ahí no
+     hay nada guardado que consultar. Quien ya ha estado lleva el número en localStorage.
+
+     La petición se lanza aquí y no en el script grande de abajo, que ocupa 88 KB y hay que
+     leerlo entero antes de llegar a su primera línea. Lanzada desde la cabecera sale mientras
+     el navegador sigue montando la página, y la portada —que es el elemento más grande de la
+     primera pantalla— se pide antes. -->
+<script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
+try{window.__estado=fetch('estado.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -2154,6 +2186,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    Por eso NO lleva la clase .food-menu-tab, que es la que da la calle del contenido. */
 .hero{margin:0 0 var(--s4);padding:0 var(--s1)}
 .hero[hidden]{display:none}
+/* La portada sólo existe si hay fotos que poner, y eso se decide con has-hero en el <html>:
+   la pone el arranque de la cabecera —antes del primer pintado— y la corrige pintarHero()
+   cuando llega estado.json. Sin la clase no hay hueco, que es lo que toca sin JavaScript (la
+   lista de fotos vive en estado.json y ahí no va a llegar nunca) y en una carta que ya se
+   sabe sin portada. */
+html:not(.has-hero) .hero{display:none}
 .hero-frame{
   position:relative;
   /* 3:2 en movil y tablet. La caja manda sobre el original: la foto puede venir en la
@@ -2334,6 +2372,12 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Con foto, los controles van sobre ella y la tarjeta no necesita ni el hueco de 56px ni los
    89 de crema: la imagen empieza donde empieza la tarjeta. */
 .food-menu-tab-wrapper.has-hero{padding-top:var(--s1)}
+/* La misma medida, pedida desde el <html>, que es donde la clase existe ya en el primer
+   pintado. Sin esto la tarjeta empezaba con sus 89px de crema y los perdía al llegar
+   estado.json: 82px de salto con la carta entera detrás, y era la mitad del CLS medido.
+   Tres clases y un elemento en el selector, por delante de las reglas de breakpoint que
+   ajustan este mismo padding más abajo. */
+html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 
 /* ---- la portada, mas plana en escritorio ----
    3:2 en una pantalla ancha es demasiado alto: a 1570 son 1029px de foto y la carta empieza
@@ -3157,8 +3201,15 @@ html:not(.js) .lang-menu{position:static;display:block}
           <!-- Cada idioma escrito en su idioma y con su bandera, no en codigos de dos letras:
                un aleman busca "Deutsch", no "DE". -->
           <div class="lang" id="lang">
+            <!-- El nombre accesible sale del CONTENIDO, no de un aria-label. Con aria-label
+                 el botón se llamaba «Idioma» mientras en pantalla ponía «Español», y eso
+                 rompe el criterio 2.5.3 de las WCAG: quien maneja el móvil por voz dice lo
+                 que lee —«pulsa Español»— y el mando no encuentra ningún botón con ese
+                 nombre. Con la palabra dentro, escondida a la vista pero no al lector, el
+                 nombre es «Idioma Español» y contiene lo que se ve. -->
             <button type="button" class="lang-trigger" id="lang-trigger"
-                    aria-haspopup="true" aria-expanded="false" aria-controls="lang-menu"${TL('Language')}>
+                    aria-haspopup="true" aria-expanded="false" aria-controls="lang-menu">
+              <span class="a11y">${T('Language', 'ui')}</span>
               <span class="lang-flag" id="lang-flag" aria-hidden="true"></span>
               <span class="lang-name" id="lang-name"></span>
               <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>
@@ -3176,7 +3227,7 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
         <!-- El carrusel de cabecera. Sale vacio del build y lo llena el runtime con lo que
              haya subido el panel: las fotos son del restaurante y cambian sin recompilar. Si
              no hay ninguna, este bloque no llega a existir en pantalla. -->
-        <figure class="hero" id="hero" hidden>
+        <figure class="hero" id="hero">
           <div class="hero-frame">
             <ul class="hero-track" id="hero-track" tabindex="0"${TL('Photo of the restaurant')}></ul>
             <button type="button" class="hero-arrow hero-prev" id="hero-prev"${TL('Previous photo')}>
@@ -3488,6 +3539,10 @@ ${sheet}
      build: precios de siempre, sin agotados y sin ofertas. Nunca se esconde comida porque una
      petición haya fallado. */
   var estado = null;
+  /* Distingue «todavía no sé» de «sé que no hay»: null es lo mismo antes de preguntar que
+     después de una respuesta vacía, y la portada necesita esa diferencia para no recoger un
+     hueco que sí va a hacer falta. */
+  var estadoLeido = false;
 
   function canaryParts() {
     try {
@@ -4062,14 +4117,28 @@ ${sheet}
      atrás, load no se dispara y el récord recién batido no aparecería. */
   window.addEventListener('pageshow', function (e) { if (e.persisted) cargarRecord(); });
 
+  /* La primera lectura ya viene pedida desde la cabecera, antes de que existiera este script:
+     se recoge aquí en vez de volver a pedirla. Se consume una sola vez —se pone a null— para
+     que el refresco de cada minuto vuelva a preguntar de verdad y no reviva la respuesta
+     vieja. Si aquella petición no llegó a salir, este camino pide como siempre. */
   function cargarEstado() {
-    return fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    var adelantada = window.__estado;
+    window.__estado = null;
+    var peticion = adelantada || fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; });
+    return peticion
       .then(function (state) {
         if (state) { estado = state; aplicarTema(state.theme); }
+        estadoLeido = true;
         render();
       })
-      .catch(function () { /* la carta se queda entera y con sus precios */ });
+      .catch(function () {
+        /* La carta se queda entera y con sus precios. Lo único que sí cambia es la portada:
+           si el estado no se puede leer no van a llegar fotos, y el hueco reservado tiene que
+           recogerse en vez de quedarse como un rectángulo gris para siempre. */
+        estadoLeido = true;
+        render();
+      });
   }
 
   cargarEstado();
@@ -4145,6 +4214,7 @@ ${DATOS_ACTIVO ? `
   var heroPrev = document.getElementById('hero-prev');
   var heroNext = document.getElementById('hero-next');
   var heroFirma = '';
+  var heroDecidido = false;
   var heroN = 0;
   var heroActual = 0;
 
@@ -4173,16 +4243,31 @@ ${DATOS_ACTIVO ? `
   }
 
   function pintarHero() {
-    if (!heroFig) return;
+    /* estadoLeido y no sólo heroFig: render() da una primera pasada ANTES de que llegue
+       estado.json, y ahí «no hay fotos» todavía no significa que no las haya. Sin esta guarda
+       esa pasada recogía el hueco que la cabecera acababa de reservar para volver a abrirlo
+       medio segundo después —justo el salto que la reserva viene a quitar— y además dejaba
+       apuntado un cero falso que estropeaba la visita siguiente. */
+    if (!heroFig || !estadoLeido) return;
     var fotos = (estado && estado.hero && estado.hero.length) ? estado.hero.slice(0, 5) : [];
     var firma = fotos.join('|');
-    if (firma === heroFirma) return;
+    /* heroDecidido, y no sólo la firma: sin fotos la firma es cadena vacía, que es con lo que
+       arranca heroFirma, y la primera pasada con respuesta se iría por aquí sin recoger el
+       hueco reservado ni apuntar que esta carta no tiene portada. */
+    if (firma === heroFirma && heroDecidido) return;
+    heroDecidido = true;
     heroFirma = firma;
     heroN = fotos.length;
 
     heroTrack.textContent = '';
     heroDots.textContent = '';
     document.documentElement.classList.toggle('con-hero', heroN > 0);
+    /* Lo que se acaba de aprender, para la próxima visita: si el hueco de la portada se
+       reserva o no se decide en la cabecera, antes de que exista esta respuesta. Guardar el
+       número es lo que permite que una carta sin portada deje de reservar sitio a partir de
+       la segunda visita. */
+    document.documentElement.classList.toggle('has-hero', heroN > 0);
+    try { localStorage.setItem('${CLAVE('hero')}', String(heroN)); } catch (e) {}
     var tarjeta = document.querySelector('.food-menu-tab-wrapper');
     if (tarjeta) tarjeta.classList.toggle('has-hero', heroN > 0);
     heroFig.hidden = heroN === 0;

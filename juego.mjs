@@ -559,7 +559,9 @@ h1{
   <source src="assets/chilli-rush-fondo-alpha.webm" type="video/webm">
 </video>
 
-<div class="wrap">
+<!-- main y no div: es el contenido de la página, y sin ninguna región marcada el lector de
+     pantalla no ofrece el salto al contenido. La clase y el CSS son los mismos. -->
+<main class="wrap">
   <!-- El record de la casa, colgado del marco. Lo rellena pintarRecord(); mientras no haya
        marca no se pinta y la portada queda como si esto no existiera. -->
   <div class="marcador" id="marcador" hidden aria-hidden="true"></div>
@@ -645,7 +647,7 @@ h1{
     </div>
   </section>
 
-</div>
+</main>
 
 <script>
 (function () {
