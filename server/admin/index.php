@@ -402,19 +402,27 @@ function hero_generar_variantes(string $nombre): bool {
 }
 
 /* Las fotos que ya estaban subidas antes de que existieran las variantes también las tienen
-   que tener. Se hace UNA foto por visita al panel, no las cinco: cada una son cinco decodes y
-   cinco encodes de GD, y las cinco de golpe pueden pasarse del tiempo máximo de una petición
-   en un hosting compartido. En dos o tres visitas están todas, y mientras tanto la carta sirve
-   el original, que es exactamente lo de antes. */
-function hero_completar_una(array $hero): void {
+   que tener. Se van haciendo por visita al panel, y el que manda es el RELOJ, no un número
+   fijo de fotos: cada foto son seis decodificaciones y seis codificaciones de GD, y lo que hay
+   que evitar es pasarse del tiempo máximo de una petición en un hosting compartido, que suele
+   estar en treinta segundos.
+   Con ocho segundos de presupuesto caben varias fotos en un servidor normal y sólo una en uno
+   lento, que es exactamente lo que se quiere: el rápido termina en una visita y el lento no se
+   queda a medias. Mientras falten, la carta sirve el original y se ve igual. */
+function hero_completar_pendientes(array $hero, float $presupuesto = 8.0): int {
+  $arranque = microtime(true);
+  $hechas = 0;
   foreach ($hero as $nombre) {
     if (!is_string($nombre)) continue;
     $previstos = hero_anchos_previstos($nombre);
-    if ($previstos && array_diff($previstos, hero_variantes_en_disco($nombre))) {
-      hero_generar_variantes($nombre);
-      return;
-    }
+    if (!$previstos || !array_diff($previstos, hero_variantes_en_disco($nombre))) continue;
+    hero_generar_variantes($nombre);
+    $hechas++;
+    /* Se mira el reloj DESPUÉS de cada foto y no antes: así nunca se empieza una que no va a
+       caber, pero tampoco se deja de hacer la primera por ir justos. */
+    if (microtime(true) - $arranque > $presupuesto) break;
   }
+  return $hechas;
 }
 
 /** Las fotos que tienen la escalera completa. Es lo que la carta necesita saber. */
@@ -1844,11 +1852,11 @@ if ($csrfOk) {
 $estado   = leer_estado();
 
 /* Las fotos de portada que se subieron antes de que existieran las variantes se ponen al día
-   solas, una por visita al panel. Ver hero_completar_una(): las cinco de golpe pueden pasarse
-   del tiempo de una petición en un hosting compartido. Mientras falten, la carta sirve el
-   original y se ve igual; sólo pesa más. */
+   solas, por visita al panel y con un presupuesto de tiempo. Ver hero_completar_pendientes():
+   lo que hay que evitar es pasarse del máximo de una petición en un hosting compartido, no
+   hacer pocas. Mientras falten, la carta sirve el original y se ve igual; sólo pesa más. */
 if (is_array($estado['hero'] ?? null) && $estado['hero']) {
-  hero_completar_una($estado['hero']);
+  hero_completar_pendientes($estado['hero']);
   $conVariantes = hero_con_variantes($estado['hero']);
   /* Se escribe sólo si ha cambiado, y sin pasar por guardar_estado(): esto es un dato derivado
      del disco, no una decisión del restaurante. Con la ceremonia entera cada visita al panel

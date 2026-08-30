@@ -4492,10 +4492,29 @@ ${DATOS_ACTIVO ? `
     /* Y si nadie toca nada, se piden solas cuando la página está en calma: así el que sí
        desliza a los diez segundos no espera, y el que no, no ha pagado por ellas durante la
        carga, que es lo que se estaba arreglando. */
-    window.addEventListener('load', function () {
+    /* La segunda foto entra sola, pero DESPUÉS de que la primera haya terminado de bajar.
+       Antes bastaba con el evento load de la página y el navegador estaba ocioso: en una
+       conexión rápida las dos peticiones salían con veinte milisegundos de diferencia y se
+       repartían el ancho de banda, así que la primera —la que se ve, la que marca el LCP—
+       tardaba el doble. En el móvil de un cliente sentado en la terraza eso es medio segundo
+       de foto en gris.
+
+       Se espera a las dos cosas: a que la primera esté, y a que la página no tenga nada mejor
+       que hacer. Y si la primera nunca llega —sin cobertura— un tope de ocho segundos evita
+       que las demás se queden esperando para siempre. */
+    var soltarLaSiguiente = function () {
       var unaMas = function () { heroSoltar(1); };
       if (window.requestIdleCallback) requestIdleCallback(unaMas, { timeout: 4000 });
       else setTimeout(unaMas, 2500);
+    };
+    window.addEventListener('load', function () {
+      var primera = heroTrack.querySelector('img');
+      if (!primera || primera.complete) return soltarLaSiguiente();
+      var hecho = false;
+      var una = function () { if (!hecho) { hecho = true; soltarLaSiguiente(); } };
+      primera.addEventListener('load', una);
+      primera.addEventListener('error', una);
+      setTimeout(una, 8000);
     });
     heroPrev.addEventListener('click', function () { heroSoltar(); heroIr(heroActual - 1); });
     heroNext.addEventListener('click', function () { heroSoltar(); heroIr(heroActual + 1); });
