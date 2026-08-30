@@ -51,10 +51,8 @@ Measured on the rendered page — 21 text pairs, worst 5.24:1:
 .container                 max-width 1570px; padding 0 12px
 .food-menu-tab-wrapper.style3  background #fff; border-radius 32px; padding 120px 0; position relative; z-index 1
   @<=1199px padding 90px 0 ; @<=991px padding 80px 0   (.section-padding)
-.shape1  position absolute; top 40px; left 40px;  img 137x158; class float-bob-x
-.shape2  position absolute; top 73px; right 20px; img 125x106; class float-bob-y
-.shape3  position absolute; bottom 0; right 0;    img 131x172; class float-bob-y
-  all three: `d-none d-xl-block` -> hidden below 1200px
+  (.shape1/.shape2/.shape3 de la plantilla: medidas del original, retiradas el 30 Aug 2026.
+   Ver «Fuera las tres fotos de las esquinas».)
 .title-area              position relative; z-index 5
 .title-area .sub-title   Epilogue 16px/normal 700; #FC791A; uppercase; text-align center; margin-bottom 15px
   inner icons: titleIcon.svg 20x20, me-1 (margin-right 4px) / ms-1 (margin-left 4px)
@@ -538,8 +536,8 @@ permission you do not want open.
 one source of truth instead of being retyped in PHP. 326 keys, all unique.
 
 ## Responsive
-1440px: 2 columns, shapes visible, card padding 120px 0, tab padding 0 120px
-768px : 1 column (col-lg-6 stacks at <992px), shapes hidden, card padding 80px 0, tab padding 0 50px
+1440px: 2 columns, card padding 120px 0, tab padding 0 120px
+768px : 1 column (col-lg-6 stacks at <992px), card padding 80px 0, tab padding 0 50px
 390px : 1 column, item wraps so price drops under the text (gap 25px), tab padding 0 40px, container no max-width
 
 ## Sold out today — final visual pass (21 Aug 2026)
@@ -4622,3 +4620,38 @@ está todo puesto desde el principio.
 Móvil 440 de ancho: hoja de 550 de alto con la foto entera, pastilla de agotado legible sobre la
 foto, nombre y precio en la misma línea base. Escritorio 1000: la misma ficha dentro de la tarjeta
 de 520 centrada. Cero errores en consola.
+
+## Fuera las tres fotos de las esquinas (30 Aug 2026)
+
+Las tres imágenes decorativas de las esquinas de la tarjeta —`.shape1` arriba a la izquierda,
+`.shape2` arriba a la derecha, `.shape3` abajo a la derecha— se eliminan. No se sustituyen por
+otras: ahí no vuelve a cargar ninguna foto.
+
+Eran arte de la plantilla original («Getting You Hungry»): unas patatas fritas a lápiz, unas
+hierbas y una ensalada, las tres ajenas al sistema de tres colores de la carta. Ya se habían ido
+apagando por fases —primero se les quitó el balanceo perpetuo, luego se bajaron a opacidad 0,55 y
+se escondieron por debajo de 1200px— y la conclusión de ese camino es que sobran. Un adorno que
+hay que ir atenuando para que no moleste no está aportando nada.
+
+### Qué se ha quitado, exactamente
+
+- El bloque de HTML con los tres `<div>` y sus `<img>`, y el comentario del `loading="lazy"`.
+- Las cinco reglas de CSS: el `position:absolute` compartido, la media query de 1200px y las
+  tres de posición.
+- Los tres PNG de `assets/`: `foodmenuShape3_1.png`, `foodmenuShape3_2.png` y
+  `foodmenuShape3_3.png`.
+
+Los ficheros se borran, no se dejan huérfanos. El build copia `assets/` entera al hosting, así
+que un PNG que se quede aquí se sigue subiendo aunque nadie lo pida, y dentro de un año nadie
+sabe si hace falta.
+
+### Lo que cambia y lo que no
+
+`.food-menu-tab-wrapper.style3` sigue siendo `position:relative` con `z-index:1`: de él cuelgan
+los controles de cabecera y el `z-index:5` del título, que no se tocan. La tarjeta conserva su
+relleno de 120px arriba y abajo a 1440px, así que el aire de las esquinas se queda igual; lo
+único que desaparece es el dibujo que había dentro de ese aire.
+
+Por debajo de 1200px no cambia nada en pantalla: ahí ya estaban ocultas. Lo que sí cambia en
+móvil es que ya no viajan al hosting esos ~60 KB de PNG, que se subían siempre aunque el móvil
+nunca los descargara.

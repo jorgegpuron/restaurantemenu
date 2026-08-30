@@ -898,16 +898,6 @@ h1,h2,h3,h4,p{margin:0}
   box-shadow:var(--lift-card);
 }
 
-/* ---------- decorative shapes ---------- */
-/* Held back to texture. They are template artwork outside the three-colour system, so they
-   sit quiet behind the type instead of competing with it — and they no longer bob forever:
-   perpetual decorative motion has no function and pulls the eye off the menu. */
-.shape1,.shape2,.shape3{position:absolute;display:none;opacity:.55}
-@media (min-width:1200px){.shape1,.shape2,.shape3{display:block}}
-.shape1{top:var(--s4);left:var(--s4)}
-.shape2{top:var(--s5);right:var(--s3)}
-.shape3{bottom:0;right:0}
-
 /* ---------- title ---------- */
 .title-area{position:relative;z-index:5}
 .title-area .sub-title{
@@ -3150,18 +3140,6 @@ html:not(.js) .lang-menu{position:static;display:block}
   <div class="food-menu-wrapper style3">
     <div class="container">
       <div class="food-menu-tab-wrapper style3">
-
-        <!-- lazy: dentro de un display:none nunca intersecan, así que el móvil (que jamás
-             las enseña: sólo existen de 1200px en adelante) no descarga sus ~60 KB -->
-        <div class="shape1">
-          <img src="assets/foodmenuShape3_1.png" alt="" width="137" height="158" loading="lazy" decoding="async">
-        </div>
-        <div class="shape2">
-          <img src="assets/foodmenuShape3_2.png" alt="" width="125" height="106" loading="lazy" decoding="async">
-        </div>
-        <div class="shape3">
-          <img src="assets/foodmenuShape3_3.png" alt="" width="131" height="172" loading="lazy" decoding="async">
-        </div>
 
         <!-- Los tres controles de la carta, juntos y arriba a la derecha. El idioma era una
              fila entera debajo del titulo: 65px de alto en un movil, para algo que se toca una
