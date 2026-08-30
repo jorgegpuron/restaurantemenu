@@ -4970,3 +4970,78 @@ Las cuatro en verde y con holgura. Perseguir los puntos que faltan en la nota si
 tocar lo que de verdad queda debajo —un documento de 707 KB con 312 platos en trece pestañas y
 sus tres idiomas en atributos— y eso ya no es un ajuste de rendimiento: es rehacer cómo se
 guardan las traducciones. No se hace por una nota.
+
+## PageSpeed sobre la URL de verdad: 79, y lo que faltaba (30 Aug 2026)
+
+Las medidas anteriores eran contra un servidor local. PageSpeed sobre socialcard.es dio 79 en
+móvil, y su desglose de LCP señalaba algo que en local no se ve, porque en local no hay latencia:
+
+| Subparte del LCP | antes |
+|---|---|
+| Time to First Byte | 190 ms |
+| **Retraso de carga de recursos** | **1.710 ms** |
+| Duración de la carga del recurso | 1.070 ms |
+| Retraso de renderizado | 380 ms |
+
+1.710 ms esperando para *empezar* a pedir la foto. La causa es una fila de tres viajes: el
+navegador baja el documento entero (76 KB comprimidos, 1.217 ms), dentro encuentra la petición
+de `estado.json` (1.901 ms) para saber qué foto toca, y sólo entonces pide la foto. Y el hosting
+habla HTTP/1.1, así que no hay nada que solape esos viajes por su cuenta.
+
+### La cabecera Link: los dos primeros viajes dejan de ir en fila
+
+El `.htaccess` anuncia `estado.json` en la respuesta del propio HTML:
+
+```
+Header set Link "<estado.json>; rel=preload; as=fetch; crossorigin"
+```
+
+Esa cabecera viaja **antes que la primera línea del documento**, así que el navegador empieza a
+bajar `estado.json` mientras todavía está recibiendo el HTML. Va en el servidor y no en una
+etiqueta del documento a propósito: dentro del documento no se descubre antes que el documento,
+que es justo el problema que resuelve.
+
+De paso desaparece el `?t=` del fetch. El anuncio pide la dirección pelada; con un rompecachés
+serían dos direcciones distintas y dos descargas. Comprobado que no pasa: una sola petición,
+iniciada por el `link`, y ni un aviso de «preload sin usar» en consola. La frescura la garantiza
+el `no-store` que ya estaba puesto para ese fichero.
+
+**Resultado, medido en producción: el retraso de carga baja de 1.710 ms a 249 ms.**
+
+### La segunda foto espera a la primera
+
+En la traza de producción se veía que la segunda foto empezaba a bajar 19 ms después de la
+primera. El disparador era el evento `load` de la página, y en una conexión rápida el navegador
+ya estaba ocioso: las dos peticiones se repartían el ancho de banda y la que se ve —la que marca
+el LCP— tardaba el doble. Ahora la segunda espera a que la primera haya terminado, además de a
+que la página esté en calma, con un tope de ocho segundos por si la primera no llega nunca.
+
+Comprobado con la red frenada de verdad: primera foto 951→4.235 ms, `load` a 4.237, segunda a
+4.243. En la traza de Lighthouse seguían pareciendo simultáneas, y esa es una lección para la
+próxima: Lighthouse carga la página **sin frenar** y simula después, así que dos peticiones que
+en la simulación se solapan pueden estar perfectamente ordenadas en la realidad.
+
+### El panel convierte por reloj, no de una en una
+
+Antes convertía una foto de portada por visita al panel. Ahora convierte mientras le quede
+presupuesto: ocho segundos. Lo que hay que evitar es pasarse del máximo de una petición en un
+hosting compartido —suelen ser treinta segundos—, no hacer pocas. El reloj se mira DESPUÉS de
+cada foto: un servidor rápido termina las cinco en una visita y uno lento hace la que le cabe y
+no se queda a medias.
+
+### Lo que queda, y no depende del código
+
+Con todo lo anterior desplegado, la nota sigue en 74 y el LCP simulado en 7,9 s **porque las
+variantes WebP todavía no existen en el servidor**: la portada se sirve como el JPG original de
+407 KB. Es el camino de respaldo previsto —nada roto—, pero es ahora el único término grande que
+queda:
+
+| Subparte del LCP | antes | ahora | con variantes (estimado) |
+|---|---|---|---|
+| TTFB | 190 ms | 782 ms | 782 ms |
+| Retraso de carga | 1.710 ms | **249 ms** | 249 ms |
+| Carga del recurso | 1.070 ms | 551 ms | ~110 ms |
+| Retraso de renderizado | 380 ms | 398 ms | 398 ms |
+
+Las variantes las genera el panel al abrirlo, y el panel pide contraseña: es el restaurante
+quien tiene que entrar una vez. Hasta entonces la carta funciona igual, sólo que pesada.
