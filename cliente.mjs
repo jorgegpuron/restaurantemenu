@@ -56,6 +56,15 @@ export const CLIENTE = {
   rotulo: 'South Indian Restaurant Menu',
   descripcion: 'Tinge of Turmeric — Indian restaurant menu.',
   tituloJuego: 'Chilli Rush — Tinge of Turmeric',
+
+  /* La imagen que sale al pegar el enlace en WhatsApp, Facebook o iMessage. Ruta relativa a
+     `base`; si se deja vacía, el build no emite og:image y el enlace se comparte como texto
+     pelado, que es lo que hacía hasta ahora.
+     Open Graph pide 1200x630 como mínimo: ésta es 1620x1080.
+     OJO: apunta a assets/hero/, que NO viaja en el build — las fotos de portada las sube el
+     restaurante desde el panel. Si cambia las fotos, este nombre deja de existir y el enlace
+     vuelve a compartirse sin imagen. Se comprueba abriendo la URL en el navegador. */
+  imagenSocial: 'assets/hero/13e8475aef8d2630.jpg',
 };
 
 /* Se usa en todas partes como CLAVE('tema'), CLAVE('lang')... Una sola función y ni un literal

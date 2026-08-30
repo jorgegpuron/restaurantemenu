@@ -641,5 +641,6 @@ export const ui = {
   'Close': 'Cerrar',
   'This dish has a photo': 'Este plato tiene foto',
   'Language': 'Idioma',
+  'Skip to the menu': 'Saltar a la carta',
   'Tinge of Turmeric — Indian Restaurant Menu.': 'Tinge of Turmeric — Carta de restaurante indio.',
 };

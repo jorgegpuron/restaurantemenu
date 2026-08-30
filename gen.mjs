@@ -517,7 +517,7 @@ const renderItem = (it, showSlot, icon, catName) => {
                           <p>${T(it.desc, 'descriptions')}</p>
                         </div>
                       </div>
-                      <h6>${priceCell}</h6>
+                      <p class="price">${priceCell}</p>
                     </div>`;
 };
 
@@ -602,7 +602,7 @@ const renderSub = (catName, label, showSlot) => {
   const gIcon = GROUP_ICON_BY_CAT[catName];
   if (label && !gIcon) missingIcons.push(catName);
   const head = label
-    ? `                <h4 class="menu-group-title"><span class="group-icon" aria-hidden="true">${GROUP_ICON[gIcon] || ''}</span>${T(label, 'groups')}</h4>` + String.fromCharCode(10)
+    ? `                <h2 class="menu-group-title"><span class="group-icon" aria-hidden="true">${GROUP_ICON[gIcon] || ''}</span>${T(label, 'groups')}</h2>` + String.fromCharCode(10)
     : '';
   /* La escala de picante va DEBAJO de los platos, no encima: es una leyenda de lo que se acaba
      de leer, no una advertencia previa. Lo que la nota dijera además se queda arriba como
@@ -737,6 +737,59 @@ ${body}${cierre}
 
 const totalItems = Object.values(categories).reduce((n, c) => n + c.items.length, 0);
 
+/* ---- datos estructurados --------------------------------------------------
+ * Un Restaurant con su Menu completo, para que Google pueda enseñar la carta como resultado
+ * enriquecido en vez de como un enlace más. Sale de las mismas `categories` que pinta el HTML,
+ * así que no puede desincronizarse: si un plato cambia de precio, cambia en los dos sitios a
+ * la vez o en ninguno.
+ *
+ * Va en inglés, que es el texto del documento. Las traducciones viajan en data-<code> y las
+ * pone el runtime; un rastreador no ejecuta ese JavaScript, así que meterlas aquí sería
+ * prometer un idioma que la página servida no tiene.
+ *
+ * Los platos «included» (los que van con otro) no llevan `offers`: un precio de 0 diría que
+ * son gratis, que es distinto.
+ *
+ * Se emite con JSON.stringify y no a mano: los apóstrofos de «Chef's special» y las comillas
+ * de las descripciones romperían el JSON, y escaparlos a mano es una fuga esperando su turno.
+ * El `<` escapado evita que una descripción pueda cerrar el <script>.
+ *
+ * Va al final del <body>, no en el <head>: son 53 KB y el elemento LCP es el titular, que
+ * está arriba del todo. En la cabecera, el analizador tendría que atravesarlos antes de
+ * llegar a pintarlo. Google lee el JSON-LD esté donde esté en el documento. */
+const JSONLD = (() => {
+  const secciones = Object.entries(categories)
+    .filter(([, c]) => c.items.length)
+    .map(([nombre, c]) => ({
+      '@type': 'MenuSection',
+      name: nombre,
+      hasMenuItem: c.items.map((it) => {
+        const item = { '@type': 'MenuItem', name: it.name };
+        if (it.desc) item.description = it.desc;
+        if (!/^included$/i.test(it.price)) {
+          item.offers = { '@type': 'Offer', price: it.price, priceCurrency: 'EUR' };
+        }
+        return item;
+      }),
+    }));
+
+  const datos = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: CLIENTE.nombre,
+    url: CLIENTE.base,
+    description: CLIENTE.descripcion,
+    servesCuisine: 'Indian',
+    priceRange: '€',
+    ...(CLIENTE.imagenSocial ? { image: CLIENTE.base + CLIENTE.imagenSocial } : {}),
+    hasMenu: { '@type': 'Menu', name: CLIENTE.titulo, hasMenuSection: secciones },
+  };
+
+  return '<script type="application/ld+json">'
+    + JSON.stringify(datos).replace(/</g, '\\u003c')
+    + '<' + '/script>';
+})();
+
 const html = `<!DOCTYPE html>
 <html lang="en" translate="no" class="notranslate">
 <head>
@@ -758,6 +811,9 @@ const html = `<!DOCTYPE html>
 <meta property="og:title" content="${CLIENTE.tituloSocial}">
 <meta property="og:description" content="${CLIENTE.descripcion}">
 <meta property="og:url" content="${CLIENTE.base}">
+${CLIENTE.imagenSocial ? `<meta property="og:image" content="${CLIENTE.base}${CLIENTE.imagenSocial}">
+<meta property="og:image:alt" content="${esc(CLIENTE.tituloSocial)}">
+<meta name="twitter:card" content="summary_large_image">` : ''}
 ${FONTS}
 <style>
 /* Palette. Un bloque por tema, escrito por temas.mjs: el de la casa en :root y los demás
@@ -819,7 +875,7 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 img{max-width:100%;height:auto;display:block}
-h2,h3,h4,h6,p{margin:0}
+h1,h2,h3,h4,p{margin:0}
 
 /* ---------- layout ---------- */
 /* El mismo aire por arriba que el panel: 34 en movil, 55 de tablet para arriba. Eran dos
@@ -1866,6 +1922,27 @@ html:not(.js) .lang-menu{position:static;display:block}
   border:0;
 }
 
+/* El enlace de salto. Fuera de la pantalla hasta que recibe el foco, y entonces baja a la
+   esquina. No usa .a11y porque aquélla lo dejaría en 1x1 px incluso enfocado: hay que poder
+   leerlo. Va sobre todo lo demás —el z-index más alto de la hoja— porque la barra de
+   categorías se queda pegada arriba al bajar y lo taparía. */
+.skip-link{
+  position:fixed;
+  top:0;left:var(--s2);
+  z-index:200;
+  transform:translateY(-120%);
+  padding:var(--s1) var(--s2);
+  background:var(--accent);
+  color:var(--surface);
+  font-weight:700;
+  border-radius:0 0 var(--r-card) var(--r-card);
+  text-decoration:none;
+}
+.skip-link:focus{transform:translateY(0)}
+@media (prefers-reduced-motion:no-preference){
+  .skip-link{transition:transform 160ms var(--ease-out)}
+}
+
 /* ---------- escala de picante ----------
    La barra de arriba es el degradado del rojo de oferta a un granate; cada peldaño lleva su
    color de esa misma interpolación, así que la barra y las marcas cuentan lo mismo. No es un
@@ -2021,11 +2098,11 @@ html:not(.js) .lang-menu{position:static;display:block}
 .is-sold-out .menu-content h3 > .i18n,
 .is-sold-out .menu-content h3 > .diet-marks,
 .is-sold-out .menu-content p,
-.is-sold-out h6,
+.is-sold-out .price,
 .is-sold-out .item-id,
 .is-sold-out .item-badge{opacity:.45}
 .is-sold-out .menu-content h3 > .i18n{text-decoration:line-through;text-decoration-thickness:1px}
-.is-sold-out h6{text-decoration:line-through;text-decoration-thickness:1px}
+.is-sold-out .price{text-decoration:line-through;text-decoration-thickness:1px}
 .is-sold-out .sold-out-flag{
   display:inline-block;
   margin-right:var(--s1);
@@ -2552,7 +2629,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   overflow-wrap:normal;
   margin-top:-.3em;
 }
-.single-menu-items h6{
+.single-menu-items .price{
   color:var(--ink);
   text-align:right;
   font-family:var(--title-font);
@@ -2972,15 +3049,15 @@ html:not(.js) .lang-menu{position:static;display:block}
   /* That line pushes the dish name down, so the price follows it rather than sitting up
      beside the number. The row carries the class from the generator instead of :has(),
      so alignment does not depend on selector support. */
-  .single-menu-items.has-tags h6,
-  .single-menu-items.is-sold-out h6{padding-top:calc(var(--tags-line) + 5px)}
+  .single-menu-items.has-tags .price,
+  .single-menu-items.is-sold-out .price{padding-top:calc(var(--tags-line) + 5px)}
   .item-badge-icon svg{vertical-align:-2px;width:15px;height:15px}
   .single-menu-items .details{gap:0}
   /* measured at 390px across all 326 names: 278 fit one line, 46 two, 2 three */
   .menu-content h3{font-size:calc(16px * var(--escala));line-height:calc(22px * var(--escala));margin-bottom:6px}
   .menu-content p{font-size:calc(14px * var(--escala));line-height:calc(21px * var(--escala))}
   /* the price shares the dish name's line box, so the two sit on the same line */
-  .single-menu-items h6{font-size:16px;line-height:22px;padding-left:var(--s2)}
+  .single-menu-items .price{font-size:16px;line-height:22px;padding-left:var(--s2)}
 
   /* chips: 44px tall, filled, so they read as tappable and meet the touch minimum */
   .nav-pills .nav-link{
@@ -3008,7 +3085,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 @media (max-width:470px){
   /* price wraps onto its own line here, as in the source section */
   .single-menu-items{flex-wrap:wrap;gap:var(--s3)}
-  .single-menu-items h6{padding-left:0}
+  .single-menu-items .price{padding-left:0}
 }
 
 /* ---------- accessibility ----------
@@ -3044,6 +3121,11 @@ html:not(.js) .lang-menu{position:static;display:block}
 </style>
 </head>
 <body>
+
+<!-- Antes de la carta hay hero, banda de oferta y trece pestañas de categoría. Sin esto, el
+     que navega con teclado los recorre todos cada vez que entra. Sólo aparece al recibir el
+     foco: es la primera parada del Tab y no se ve en ningún otro momento. -->
+<a class="skip-link" href="#carta">${T('Skip to the menu', 'ui')}</a>
 
 <section class="food-menu-section fix">
   <div class="food-menu-wrapper style3">
@@ -3112,7 +3194,7 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
 
         <div class="title-area">
           <div class="sub-title">${T(CLIENTE.rotulo, 'ui')}</div>
-          <h2 class="title">${esc(CLIENTE.nombre)}</h2>
+          <h1 class="title">${esc(CLIENTE.nombre)}</h1>
         </div>
 
 
@@ -3133,7 +3215,7 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
 
         <div class="food-menu-tab style2">
           <div class="tab-nav-sentinel" aria-hidden="true"></div>
-          <div class="tab-nav">
+          <nav class="tab-nav">
             <button type="button" class="nav-arrow nav-arrow-prev"${TL('Scroll categories left')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6"/></svg>
             </button>
@@ -3143,11 +3225,11 @@ ${nav}
             <button type="button" class="nav-arrow nav-arrow-next"${TL('Scroll categories right')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
             </button>
-          </div>
+          </nav>
 
-          <div class="tab-content">
+          <main class="tab-content" id="carta">
 ${panes}
-          </div>
+          </main>
 ${leyenda}
 
           <!-- La entrada al juego va al final a propósito: el momento de jugar es después de
@@ -3800,9 +3882,9 @@ ${sheet}
       }
 
       // precio: primero el que haya puesto el panel, y encima la oferta si toca
-      var h6 = row.querySelector('h6');
+      var precio = row.querySelector('.price');
       var base = row.dataset.price;
-      if (h6 && base) {
+      if (precio && base) {
         var vigente = precios[key] ? Number(precios[key]) : Number(base);
         if (!isFinite(vigente)) vigente = Number(base);
         if (enOferta(row)) {
@@ -3810,13 +3892,13 @@ ${sheet}
              como 3.48 pero otros redondeos (el TPV, el camarero a mano) dan 3.48 también —
              y con otros precios el error cae al lado malo y muestra un céntimo de menos. */
           var rebajado = Math.round(Math.round(vigente * 100) * (100 - cfg.percent) / 100) / 100;
-          h6.className = 'has-offer';
-          h6.innerHTML = '<span class="price-now"></span><span class="price-was"></span>';
-          h6.firstChild.textContent = euros(rebajado);
-          h6.lastChild.textContent = euros(vigente);
+          precio.className = 'price has-offer';
+          precio.innerHTML = '<span class="price-now"></span><span class="price-was"></span>';
+          precio.firstChild.textContent = euros(rebajado);
+          precio.lastChild.textContent = euros(vigente);
         } else {
-          h6.className = '';
-          h6.textContent = euros(vigente);
+          precio.className = 'price';
+          precio.textContent = euros(vigente);
         }
       }
 
@@ -4536,8 +4618,8 @@ ${DATOS_ACTIVO ? `
     return out;
   }
 
-  /* has-offer lo pone render() en el h6 del precio, no en la fila: la oferta es del precio. */
-  function dsOferta(f) { return !!f.el.querySelector('h6.has-offer'); }
+  /* has-offer lo pone render() en el .price del precio, no en la fila: la oferta es del precio. */
+  function dsOferta(f) { return !!f.el.querySelector('.price.has-offer'); }
   function dsAgotado(f) { return f.el.classList.contains('is-sold-out'); }
   function dsTag(f) { var t = f.el.querySelector('.item-tag-high:not([hidden])'); return t ? (t.dataset.tag || '') : ''; }
 
@@ -4696,7 +4778,7 @@ ${DATOS_ACTIVO ? `
 
       var pre = document.createElement('span');
       pre.className = 'ds-hit-price';
-      var precio = f.el.querySelector('.price-now') || f.el.querySelector('h6');
+      var precio = f.el.querySelector('.price-now') || f.el.querySelector('.price');
       pre.textContent = precio ? precio.textContent.trim() : '';
 
       b.appendChild(num); b.appendChild(nom); b.appendChild(pre);
@@ -4886,8 +4968,8 @@ ${DATOS_ACTIVO ? `
     /* El precio se copia con su marcado: si hay oferta trae el de hoy y el de antes tachado, y
        ese par ya está calculado en la fila. Volver a calcularlo aquí sería tener dos sitios
        donde equivocarse con un céntimo. */
-    var h6 = row.querySelector('h6');
-    fichaPrecio.innerHTML = h6 ? h6.innerHTML : '';
+    var precio = row.querySelector('.price');
+    fichaPrecio.innerHTML = precio ? precio.innerHTML : '';
 
     var agotado = row.classList.contains('is-sold-out');
     var flag = row.querySelector('.sold-out-flag');
@@ -5098,6 +5180,8 @@ ${DATOS_ACTIVO ? `
 
 })();
 </script>
+
+${JSONLD}
 
 </body>
 </html>
