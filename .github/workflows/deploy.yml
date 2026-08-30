@@ -36,9 +36,10 @@ jobs:
   desplegar:
     runs-on: ubuntu-latest
 
-    # El entorno es lo que exige tu aprobacion manual antes de cada despliegue, si le
-    # configuras "Required reviewers" en Settings > Environments. Sin eso, el push publica solo.
-    environment: produccion
+    # Sin entorno ni revisores: la configuracion se quiere simple. Lo que decide si un run
+    # publica o solo ensaya es la variable DESPLIEGUE_REAL, mas abajo. Si algun dia quieres
+    # aprobacion manual antes de cada despliegue, se anade "environment: produccion" aqui y se
+    # le ponen Required reviewers en Settings > Environments.
 
     steps:
       # gen.mjs comprueba que el nombre de la carpeta que contiene 1-proyecto aparezca en
