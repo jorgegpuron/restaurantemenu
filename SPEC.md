@@ -5808,3 +5808,70 @@ Ahora se guarda igual todo lo que vale —no se pierde el trabajo bueno por una 
 el aviso nombra el plato que ha fallado. **La casilla vacía sigue siendo válida y silenciosa:**
 es la manera de decir «vuelve al precio de la carta», y avisar de eso sería regañar a alguien
 por hacer justo lo que quería.
+
+---
+
+## El primer tabulador vuelve a ser «saltar al contenido» (31 Aug 2026)
+
+Al abrir la carta, la página bajaba 23 píxeles sola y el primer `Tab` de quien navega con
+teclado caía en una flecha del carrusel, en mitad del documento. El enlace de saltar al
+contenido quedaba **el quinto**, después de recorrer la página entera y dar la vuelta. Un
+enlace para saltar al que hay que llegar saltando no sirve para nada.
+
+**La causa, aislada con una prueba:** el cambio de idioma recentraba el chip activo con
+`scrollIntoView({block:'nearest', inline:'center'})`, y eso se ejecuta también al arrancar.
+`scrollIntoView` no sólo mueve el contenedor: mueve la página si hace falta, y de paso mueve el
+punto desde el que el navegador empieza a tabular. Neutralizándolo, `scrollY` se queda en 0 y
+el primer `Tab` cae donde debe. Medido antes y después:
+
+```
+tal cual            scrollY=23   tab1=flecha carrusel, tab2=juego, tab3=WhatsApp
+sin scrollIntoView  scrollY= 0   tab1=saltar al contenido, tab2..4=tamaño de texto
+```
+
+**El arreglo ya estaba escrito 1.200 líneas más arriba.** `selectTab` movía la barra a mano
+—`nav.scrollLeft`— justo por este motivo, y su comentario lo explicaba. Se saca a
+`centrarChip()` y lo llaman los dos sitios: la regla es la misma y dos copias se separan.
+
+Comprobado además que no se pierde lo que hacía: al elegir una pestaña lejana la barra sigue
+moviéndose (scrollLeft 0 → 1.472), y al cambiar de idioma el chip activo sigue a la vista sin
+que la página dé ningún salto.
+
+---
+
+## Source Serif viaja con el tamaño óptico fijo: 70 KB menos (31 Aug 2026)
+
+El subconjunto latino pesaba **122.360 bytes** y ahora **50.824**. Son casi 70 KB en cada
+visita nueva, la mitad de toda la tipografía de la carta.
+
+El eje óptico hace que la letra cambie de forma según el tamaño al que se pinte —más abierta en
+pequeño, más fina en grande— y para poder hacerlo la fuente viaja con todas las formas dentro.
+
+**Lo primero que se probó fue recortar el rango, y no sirve.** La carta usa Source Serif entre
+11 y 18,2 px, así que pedir `opsz@11..19` en vez de `8..60` parecía gratis. Medido: Google
+**no recorta el eje**. Los dos pesan exactamente 122.360 bytes. O se fija en un valor o no hay
+ahorro.
+
+**Y de los valores, sólo sirven los que la fuente tiene definidos.** Medido uno a uno:
+
+| se pide | se recibe |
+|---|---|
+| `opsz@12` | 52.416 bytes |
+| `opsz@13` | **122.360** — la variable entera, sin avisar |
+| `opsz@14` | 50.824 bytes |
+| `opsz@15` | **122.360** — igual |
+| `opsz@16` | 52.212 bytes |
+
+Se elige **14** porque es el tamaño del texto de los platos, que es casi toda la letra de la
+carta: ahí el dibujo es idéntico, 0,00 % de diferencia medida. A 13 y 15 px se mueve un 1 %, y
+en el tamaño de letra más grande —18,2 px— un 4,7 %, que es texto que alguien ha agrandado a
+propósito y donde una letra un pelo más ancha no es un defecto.
+
+**Y en la carta de verdad no se mueve nada.** Comparadas las dos fuentes sobre la página
+compilada, con una sonda que comprueba que la fuente ha cambiado de verdad —408 px contra 390 px
+en la misma frase— y midiendo después 250 descripciones a dos anchos de pantalla y con los dos
+tamaños de letra: **cero líneas cambian de sitio y la página mide exactamente lo mismo**.
+
+**Bricolage se queda con su rango.** Sus títulos van de 20 a 44 px, tiene `font-optical-sizing:
+auto` puesto a mano en dos sitios y ahí el eje sí está haciendo su trabajo. Recortarle el rango
+tampoco ahorraría nada: medido, 76.888 bytes pida lo que se pida.

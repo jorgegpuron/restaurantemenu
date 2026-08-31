@@ -36,7 +36,21 @@ verificarTemas();
 
    El <noscript> es para quien navegue sin JavaScript: ahí el onload no se dispara nunca y sin
    esta segunda etiqueta se quedaría con la tipografía del sistema para siempre. */
-export const HOJA_FUENTES = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@8..60,400..600&display=swap';
+/* Source Serif pide su tamano optico FIJO en 14 y no como rango. Es 70 KB en cada visita
+   nueva: el subconjunto latino pasa de 122.360 bytes a 50.824.
+   El eje optico hace que la letra cambie de forma segun el tamano al que se pinte —mas abierta
+   en pequeno, mas fina en grande—, y para poder hacerlo la fuente tiene que viajar con todas
+   las formas dentro. Medido: Google NO recorta el rango. Pedir 11..19 en vez de 8..60 pesa
+   exactamente lo mismo, 122.360 bytes. O se fija en un valor o no hay ahorro.
+   Y de los valores, solo sirven los que la fuente tiene definidos: 12, 14 y 16 se sirven
+   recortados; 13 y 15 devuelven la variable entera, los 122 KB, sin avisar.
+   Se elige 14 porque es el tamano del texto de los platos, que es casi toda la letra de la
+   carta: ahi el dibujo es identico al de antes, 0,00% de diferencia medida. A 13 y 15 px se
+   mueve un 1%, y en el tamano de letra mas grande —18,2 px— un 4,7%, que es texto que alguien
+   ha agrandado a proposito y donde una letra un pelo mas ancha no es un defecto.
+   Bricolage se queda con su rango: sus titulos van de 20 a 44 px y ahi el eje optico si esta
+   haciendo su trabajo. */
+export const HOJA_FUENTES = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@14,400..600&display=swap';
 const HOJA_FUENTES_HTML = HOJA_FUENTES.replace(/&/g, '&amp;');
 
 /* El juego: la hoja se pide de entrada y sin bloquear. Ahí no hay foto de portada con la que
@@ -3683,6 +3697,35 @@ ${sheet}
   var content = document.querySelector('.tab-content');
   var links = [].slice.call(nav.querySelectorAll('.nav-link'));
 
+  /* Centrar un chip en la barra: sólo en horizontal, y a mano.
+   *
+   * scrollIntoView con block nearest mueve tambien la PAGINA en vertical si la barra
+   * esta fuera de vista, y eso competia con el scroll que viene despues: dos desplazamientos
+   * suaves a la vez en la misma caja y gana el que quiera el navegador. Aqui se toca
+   * scrollLeft de la barra y no se puede mover nada mas.
+   *
+   * Y hay un segundo motivo, que costo una auditoria descubrir. Al arrancar, el cambio de
+   * idioma recentraba el chip con scrollIntoView: la pagina bajaba 23 px sola y, peor, el
+   * navegador movia ahi el punto desde el que empieza a tabular. El primer Tab de quien navega
+   * con teclado caia en una flecha del carrusel, en mitad del documento, y el enlace de
+   * «saltar al contenido» quedaba el quinto, despues de dar la vuelta entera. Un enlace para
+   * saltar al que hay que llegar saltando no sirve de nada.
+   *
+   * Aislado con una prueba: neutralizando ese scrollIntoView, scrollY se queda en 0 y el
+   * primer Tab cae donde debe. Por eso esto es una funcion y no dos copias: la regla es la
+   * misma en los dos sitios y dos copias se separan. */
+  function centrarChip(btn) {
+    if (!btn) return;
+    var caja = nav.getBoundingClientRect();
+    var chip = btn.getBoundingClientRect();
+    var centrado = nav.scrollLeft + (chip.left - caja.left) - (caja.width - chip.width) / 2;
+    var maxL = nav.scrollWidth - nav.clientWidth;
+    var destinoL = Math.max(0, Math.min(centrado, maxL));
+    if (Math.abs(destinoL - nav.scrollLeft) > 1) {
+      nav.scrollLeft = destinoL;   // lo anima el CSS de .nav-pills, si toca
+    }
+  }
+
   function selectTab(targetId, opts) {
     var btn = nav.querySelector('.nav-link[data-target="' + targetId + '"]');
     var pane = document.getElementById(targetId);
@@ -3710,18 +3753,7 @@ ${sheet}
       else item.removeAttribute('aria-current');
     });
 
-    /* Sólo en horizontal, y a mano. scrollIntoView con block:'nearest' tambien mueve la
-       pagina en vertical si la barra esta fuera de vista, y eso competia con el scroll que
-       viene despues: dos desplazamientos suaves a la vez en la misma caja y gana el que
-       quiera el navegador. Aqui se toca scrollLeft de la barra y no se puede mover nada mas. */
-    var caja = nav.getBoundingClientRect();
-    var chip = btn.getBoundingClientRect();
-    var centrado = nav.scrollLeft + (chip.left - caja.left) - (caja.width - chip.width) / 2;
-    var maxL = nav.scrollWidth - nav.clientWidth;
-    var destinoL = Math.max(0, Math.min(centrado, maxL));
-    if (Math.abs(destinoL - nav.scrollLeft) > 1) {
-      nav.scrollLeft = destinoL;   // lo anima el CSS de .nav-pills, si toca
-    }
+    centrarChip(btn);
 
     // a new category always starts at the top of its list, never mid-scroll in the old one
     if (opts && opts.align !== false) {
@@ -4958,10 +4990,7 @@ ${DATOS_ACTIVO ? `
 
     // the category names just changed width — remeasure the scroller and re-centre the chip
     syncScroller();
-    var activeChip = nav.querySelector('.nav-item.active .nav-link');
-    if (activeChip && activeChip.scrollIntoView) {
-      activeChip.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
-    }
+    centrarChip(nav.querySelector('.nav-item.active .nav-link'));
   }
 
 
