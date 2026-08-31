@@ -5,7 +5,7 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **31 ago 2026** · desde **PC 1** · build publicado `1788174305124`
+> Última actualización: **31 ago 2026** · desde **PC 1** · build publicado `1788176301627`
 
 ---
 
@@ -20,55 +20,47 @@ La carta está publicada y verificada en <https://socialcard.es/tinge_of_turmeri
 ## Qué se hizo en la última sesión
 
 Una pasada de QA a fondo sobre la carta publicada —navegador real, entradas hostiles, red
-caída, estado corrupto, cinco anchos— y los cinco arreglos que salieron de ella.
+caída, estado corrupto, cinco anchos— y **todo lo que salió de ella, arreglado y desplegado**.
 
 - **Muerto el bucle de recargas.** Con el almacenamiento del navegador bloqueado y una build
   recién publicada, la carta se recargaba sola cada 2,5 s para siempre: 8 cargas en 20 s.
-  Ahora, 2, las mismas que en una sesión normal.
-- **El buscador dejó de dar resultados incoherentes.** Agrupa el mismo plato en un resultado
-  —un plato ocupa varias filas porque además de su pestaña está en Vegano y en Sin gluten— y
-  separa en dos bloques: «Platos» y «También en estas secciones». sopa 14→12, biryani 34→28,
-  papadum 4→2, curry 49 intacto. INP 136→104 ms.
-- **Un plato agotado lo está en todas sus filas.** Antes, agotar el Papadum de Aperitivos lo
-  dejaba disponible y al precio viejo en Vegano. Lo expande el panel al guardar, y las
-  casillas hermanas se mueven juntas en pantalla —sin eso, desmarcar sería imposible.
-- **La carta dice por qué el sin gluten y el vegano cuestan más.** Aviso en las dos pestañas,
-  en los tres idiomas.
-- **Un precio mal escrito ya no se pierde en silencio** en el panel: se guarda lo que vale y
-  el aviso nombra el plato que falló.
+  Ahora 2, las mismas que en una sesión normal.
+- **El buscador ya no da resultados incoherentes.** Agrupa el mismo plato en un resultado,
+  separa en «Platos» y «También en estas secciones», perdona erratas y **entiende sinónimos**:
+  `chili` encuentra las guindillas, `nata` encuentra los malai, `carne picada` los kheema.
+- **Un plato agotado lo está en todas sus filas**, no sólo en la pestaña donde se marcó.
+- **La carta dice por qué el sin gluten y el vegano cuestan más.**
+- **Un precio mal escrito ya no se pierde en silencio** en el panel.
+- **El primer tabulador vuelve a ser el de saltar al contenido**, y la página no se mueve sola
+  al cargar.
+- **Source Serif adelgaza 70 KB** por visita nueva, sin mover una sola línea de la carta.
+- **Y los menores:** la categoría abierta va en la dirección y «atrás» vuelve a la anterior en
+  vez de salir; el punto del carrusel cumple el mínimo de 24 px; `/admin/<ruta rota>` da la
+  página de la carta; `estado-EJEMPLO.json` deja de servirse por HTTP.
 
-Verificado en producción: carta 27/27, buscador 35/35, aviso 10/10, panel 14/14.
+Verificado en producción, no sólo en local: carta 27/27, buscador 35/35, teclado 14/14,
+menores 33/33, aviso 10/10, y las dos reglas nuevas del servidor comprobadas por HTTP.
 
 ---
 
 ## Qué queda pendiente
 
-1. **El primer tabulador no llega al enlace de saltar al contenido.** `scrollIntoView` sobre
-   el chip activo (`gen.mjs:4929`) desplaza la página 23 px al cargar y mueve el punto desde
-   el que el navegador empieza a tabular. Se arregla moviendo la barra a mano, como ya se hace
-   en `gen.mjs:3719`. Aislado con una prueba: sin ese `scrollIntoView`, el primer Tab cae donde
-   debe.
-2. **El interior del panel no se ha auditado nunca.** Está tras un alta de contraseña, y
+1. **El interior del panel no se ha auditado nunca.** Está tras un alta de contraseña, y
    introducir credenciales es lo único que el asistente no hace. Lo que sí se puede probar son
-   sus funciones sueltas: `panel-test.php` y `hermanas-test.php` lo hacen sacándolas del
-   fichero con una expresión regular, sin levantar el panel.
-3. **Source Serif pide un eje óptico que no se usa.** La petición lleva `opsz@8..60`; sin él,
-   122.360 bytes pasan a 50.824. **71 KB en cada visita nueva.**
-4. **`chili` no encuentra nada en español**: aquí esos platos se llaman `guindilla`. No es
-   errata —eso ya está resuelto—, es sinónimo, y pide un diccionario de equivalencias.
-5. **No hay bebidas ni postres** y nada se lo dice al comensal: `vino` devuelve 0.
-6. **Menores del QA:** los puntos del carrusel miden 22 px (mínimo 24); `/admin/<ruta rota>`
-   da el 404 de Apache y no el de la carta; `estado.json` en 500 deja un error rojo en consola;
-   `estado-EJEMPLO.json` se publica sin necesidad; las anclas `#pills-...` no abren su pestaña;
-   el botón «atrás» sale de la carta.
-7. **El pie termina en el anuncio del proveedor.** Decisión tomada y consciente — se queda.
+   sus funciones sueltas: `panel-test.php` y `hermanas-test.php` las sacan del fichero con una
+   expresión regular y las ejecutan sin levantar el panel.
+2. **No hay bebidas ni postres** y nada se lo dice al comensal: quien busca `vino` recibe el
+   mismo cero que quien teclea cualquier cosa.
+3. **El pie termina en el anuncio del proveedor.** Decisión tomada y consciente — se queda.
 
 El LCP en móvil está donde puede estar: lo que queda es TTFB del alojamiento (~830 ms), no
 código. Cloudflare se valoró y se descartó. No volver a tocar rendimiento sin un dato nuevo.
 
-**Y una que ya no es pregunta:** los 63 platos con el mismo nombre y distinto precio según la
-pestaña **son a propósito** —el sin gluten y el vegano se preparan aparte—. Está en `SPEC.md`.
-Quien los iguale estará bajando precios que el restaurante ha subido a propósito.
+**Dos cosas que NO son pendientes y conviene no volver a abrir.** Los 63 platos con el mismo
+nombre y distinto precio según la pestaña **son a propósito**: el sin gluten y el vegano se
+preparan aparte. Y el error rojo de consola cuando `estado.json` devuelve 500 **no tiene
+arreglo**: lo escribe el navegador al fallar la petición y no hay JavaScript que lo calle. Las
+dos están razonadas en `SPEC.md`.
 
 ---
 
