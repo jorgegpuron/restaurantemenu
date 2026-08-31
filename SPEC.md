@@ -5664,3 +5664,75 @@ una foto» esperaba 700 ms fijos, y con la red frenada el `domcontentloaded` lle
 la ventana se cruzaba con el giro del carrusel a los cinco segundos. Ahora espera a que la
 primera foto esté pintada y cuenta entonces. Medido: la segunda foto arranca a 5,15 s, la
 primera termina a 1,45 s — el diferido nunca estuvo roto, la regla lo estaba.
+
+---
+
+## El buscador deja de repetir platos y separa el ruido de sección (31 Aug 2026)
+
+Buscar «sopa» devolvía catorce resultados: ocho sopas y seis aperitivos. Y de esos catorce,
+sólo nueve eran platos distintos —«Sopa de lentejas» salía tres veces seguidas—. Dos problemas
+con la misma cara.
+
+**De filas a platos.** Un plato ocupa varias filas de la carta: además de su pestaña de comida
+está en Vegano y en Sin gluten, y algunos salen en cinco sitios. Son 312 filas y 183 nombres.
+El buscador recorría filas. Ahora agrupa por **nombre y precio**, y enseña una entrada por
+plato con todas sus secciones debajo: «Papadum — Aperitivos y sopas · Vegano».
+
+El precio entra en la identidad a propósito. «Pollo Tikka» vale 8,00 € de entrante y 19,95 € en
+el biryani: son dos platos distintos con el mismo nombre, y juntarlos enseñaría un precio que no
+es el de ninguno. El efecto secundario está medido y se asume: **63 platos figuran con el mismo
+nombre y distinto precio según la pestaña** —la sopa de lentejas vale 7,00 € en Aperitivos y
+8,00 € en Sin gluten— y ésos siguen saliendo dos veces. Con dos precios delante, enseñar uno
+solo sería mentir. Si esa diferencia de precio es deliberada, lo que falta no es código: es que
+la carta lo diga.
+
+**Agotado sólo si lo están todas sus filas.** Mientras quede una copia disponible el plato se
+puede pedir; tacharlo sería quitarle al comensal algo que la cocina tiene.
+
+**Dos bloques con rótulo.** Lo que casa en el NOMBRE va arriba bajo «Platos»; lo que casa sólo
+por el rótulo de su pestaña o su grupo va debajo, bajo «También en estas secciones». Ponerlo
+detrás sin decir nada —que es lo que se hacía— seguía siendo una lista de catorce en la que seis
+no eran sopa y nada explicaba por qué estaban ahí.
+
+No se pueden quitar y ya está, que es lo primero que uno piensa: **«curry» casa en el nombre de
+dos platos de los cuarenta y nueve que devuelve, y «biryani» de ninguno de los treinta y cuatro**.
+Ésa es exactamente la búsqueda que arregló mirar el contexto. Por eso el rótulo aparece **sólo
+cuando hay de las dos clases**: si todo viene del contexto, la lista ES la respuesta y un rótulo
+que la separe de nada sólo estorba. Medido después: «sopa» 6 + 6 con rótulos, «biryani» 28 sin
+ninguno, «curry» 49 intacto.
+
+**El rótulo comparte selector con `.sheet-label`** en vez de copiar sus medidas. Es el mismo
+rótulo, en la misma hoja, a la misma distancia de lo que encabeza; dos reglas gemelas se separan
+a la tercera vez que alguien toca una sola.
+
+**Los contadores de los chips también cuentan platos.** El propio código dice que un contador que
+promete 53 y entrega 10 es peor que no poner contador; con la lista agrupada y el chip contando
+filas, ese descuadre se lo habría hecho él solo. Comprobado: promete 53, entrega 53.
+
+**Coste.** INP de 136 ms a 104 ms: agrupar cuesta menos que crear los nodos que sobraban.
+
+---
+
+## El bucle de recargas cuando el navegador no deja escribir (31 Aug 2026)
+
+La carta compara su marca con `version.json` y se recarga una vez cuando hay carta nueva. Para no
+repetir, apuntaba en `sessionStorage` que ya lo había hecho.
+
+Hay navegadores que no dejan escribir ahí: Safari en privado, Chrome con las cookies bloqueadas,
+la carta abierta dentro de otra app. Allí el `try` se tragaba el fallo, la nota no se guardaba
+nunca, y como `version.json` seguía diciendo que hay carta nueva, **esto recargaba cada dos
+segundos y medio para siempre**. Medido con el almacenamiento bloqueado: **ocho cargas de página
+en veinte segundos**. Y ocurría justo después de publicar un cambio, que es cuando más se mira.
+
+**Segundo cerrojo, y no necesita permiso de nadie:** el navegador sabe si esta carga ha sido ella
+misma una recarga (`PerformanceNavigationTiming.type`). Si venimos de recargar y la versión sigue
+sin cuadrar, es que recargar no ha servido —el servidor está dando la página vieja— y no va a
+servir la próxima vez tampoco. Se deja estar: en el peor caso el comensal ve la carta de hace un
+rato, que es infinitamente mejor que no ver ninguna.
+
+Se descartó apagar la recarga cuando no hay almacenamiento: con eso, quien navega en privado no
+vería nunca un cambio de precio. Y se descartó marcar la recarga en la URL (`?v=`), que funciona
+pero ensucia la dirección de todo el mundo para arreglar el caso de unos pocos.
+
+Medido después: 2 cargas en veinte segundos con el almacenamiento bloqueado, las mismas que en
+una sesión normal. La recarga útil sigue ocurriendo; la novena, la décima y la infinita, no.

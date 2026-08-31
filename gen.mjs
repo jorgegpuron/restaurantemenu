@@ -472,6 +472,9 @@ const RUNTIME_STRINGS = HIGHLIGHTS.concat([
   'Nothing matches inside the filters.',
   'Clear filters',
   'and {n} more. Narrow the search.',
+  /* los dos rotulos que parten los resultados del buscador */
+  'Dishes',
+  'Also in these sections',
   'Sold out today',
   'Search dish or number',
   'Photo of the restaurant',
@@ -3043,7 +3046,12 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 }
 .sheet-close:active{transform:scale(.92)}
 .sheet-close:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
-.sheet-label{
+/* El rótulo que parte los resultados del buscador en «Platos» y «También en estas secciones».
+   Comparte selector con .sheet-label y no copia sus medidas: es el mismo rótulo, en la misma
+   hoja, a la misma distancia de lo que encabeza. Dos reglas gemelas se separan a la tercera
+   vez que alguien toca una sola. */
+.sheet-label,
+.ds-grupo{
   margin:var(--s3) 0 4px;
   color:var(--muted);
   font-family:var(--title-font);
@@ -3053,6 +3061,8 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   text-transform:uppercase;
   letter-spacing:.1em;
 }
+/* El primero va pegado al buscador: el hueco de arriba ya lo pone la caja de resultados. */
+.ds-grupo:first-child{margin-top:0}
 .sheet-list{list-style:none;margin:0;padding:0}
 .sheet-list li + li .sheet-item{border-top:1px solid var(--hairline)}
 .sheet-item{
@@ -4790,14 +4800,38 @@ ${DATOS_ACTIVO ? `
 
      Una sola recarga por sesion. Si el servidor no tuviera las cabeceras puestas, recargar
      devolveria otra vez la version vieja y el movil entraria en bucle; con el tope, en el
-     peor caso se queda como estaba. */
+     peor caso se queda como estaba.
+
+     Y el tope tiene DOS cerrojos, porque el primero solo no bastaba.
+
+     El bueno es la nota en sessionStorage. Pero hay navegadores que no dejan escribirla:
+     Safari en privado, Chrome con las cookies bloqueadas, la carta abierta dentro de otra
+     app. Alli el try se tragaba el fallo, la nota no se guardaba nunca, y como version.json
+     seguia diciendo que hay carta nueva, esto recargaba cada dos segundos y medio para
+     siempre. Medido con el almacenamiento bloqueado: ocho cargas de pagina en veinte
+     segundos. La carta quedaba inservible justo despues de publicar un cambio, que es
+     cuando mas se mira.
+
+     El segundo cerrojo no necesita permiso de nadie: el navegador sabe si ESTA carga ha
+     sido ella misma una recarga. Si venimos de recargar y la version sigue sin cuadrar, es
+     que recargar no ha servido —el servidor esta dando la pagina vieja— y no va a servir la
+     proxima vez tampoco. Se deja estar: en el peor caso el comensal ve la carta de hace un
+     rato, que es infinitamente mejor que no ver ninguna. */
   var RECARGA = '${CLAVE('recargada')}';
+
+  function vengoDeRecargar() {
+    try {
+      var e = performance.getEntriesByType('navigation')[0];
+      return !!e && e.type === 'reload';
+    } catch (err) { return false; }
+  }
 
   function comprobarVersion() {
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (v) {
         if (!v || !v.build || v.build === ${JSON.stringify(BUILD)}) return;
+        if (vengoDeRecargar()) return;
         var ya = false;
         try { ya = sessionStorage.getItem(RECARGA) === v.build; } catch (e) {}
         if (ya) return;
@@ -5180,6 +5214,46 @@ ${DATOS_ACTIVO ? `
     return ((f.chip ? f.chip.textContent : '') + ' ' + (f.grupo ? f.grupo.textContent : ''));
   }
 
+  /* ---- de filas a platos ----
+   *
+   * Un plato ocupa varias filas. Ademas de su pestana de comida esta en Vegano y en Sin gluten,
+   * y hay platos que salen en cinco sitios: 312 filas en la carta son 183 nombres distintos.
+   * El buscador recorria filas, asi que «sopa» devolvia catorce resultados que eran nueve platos
+   * y «Sopa de lentejas» aparecia tres veces seguidas. El contador decia catorce, tambien.
+   *
+   * Se juntan por NOMBRE y PRECIO. El precio tiene que entrar en la cuenta: «Pollo Tikka» vale
+   * 8,00 de entrante y 19,95 en el biryani, y son dos platos distintos que se llaman igual;
+   * juntarlos ensenaria un precio que no es el de ninguno de los dos.
+   *
+   * El efecto secundario esta medido y se asume: 63 platos figuran con el mismo nombre y
+   * distinto precio segun la pestana —la sopa de lentejas vale 7,00 en Aperitivos y 8,00 en
+   * Sin gluten—, y esos siguen saliendo dos veces. Con dos precios delante, ensenar uno solo
+   * seria mentir. Lo que hay que decidir es si esos precios estan bien, y eso no lo arregla
+   * un buscador.
+   *
+   * Dos niveles de mapa y no una clave pegada con un separador: no hay separador que no pueda
+   * aparecer dentro de un nombre de plato, y Object.create(null) evita que un plato llamado
+   * como una propiedad de Object se lleve por delante la cuenta. */
+  function dsPrecioTexto(f) {
+    var p = f.el.querySelector('.price-now') || f.el.querySelector('.price');
+    return p ? p.textContent.trim() : '';
+  }
+
+  function dsAgrupar(filas) {
+    var mapa = Object.create(null);
+    var salida = [];
+    for (var i = 0; i < filas.length; i++) {
+      var f = filas[i];
+      var nombre = f.nombre.textContent;
+      var precio = dsPrecioTexto(f);
+      var porPrecio = mapa[nombre] || (mapa[nombre] = Object.create(null));
+      if (porPrecio[precio]) { porPrecio[precio].filas.push(f); continue; }
+      porPrecio[precio] = { primera: f, filas: [f], precio: precio };
+      salida.push(porPrecio[precio]);
+    }
+    return salida;
+  }
+
   /* ---- las erratas ----
    *
    * Media carta está en indio transcrito, y son justo las palabras que un cliente de aquí no
@@ -5277,16 +5351,19 @@ ${DATOS_ACTIVO ? `
       }
     }
 
+    /* Cuenta PLATOS, no filas, por lo mismo que la lista: el chip decía 53 y la lista entregaba
+       48 en cuanto se dejaron de repetir los platos que están en varias pestañas. De los dos
+       números, el que sobra es el del chip. */
     dsChips.forEach(function (chip) {
       var k = chip.dataset.filter;
-      var n = 0;
+      var suyas = [];
       for (var i = 0; i < DS.length; i++) {
         var f = DS[i];
         if (f.el.hidden || !dsPasa(f, k)) continue;
-        if (k === 'vegan' ? f.vegan : k === 'gf' ? f.gf : dsOferta(f)) n++;
+        if (k === 'vegan' ? f.vegan : k === 'gf' ? f.gf : dsOferta(f)) suyas.push(f);
       }
       var hueco = chip.querySelector('.n');
-      if (hueco) hueco.textContent = n;
+      if (hueco) hueco.textContent = dsAgrupar(suyas).length;
     });
 
     /* Chips de etiqueta. Existen sólo mientras algún plato lleve esa etiqueta; el contador es
@@ -5314,15 +5391,15 @@ ${DATOS_ACTIVO ? `
         });
         caja.appendChild(chip);
       }
-      var total = 0, dentro = 0;
+      var total = 0, dentro = [];
       for (var j = 0; j < DS.length; j++) {
         if (DS[j].el.hidden || dsTag(DS[j]) !== tag) continue;
         total++;
-        if (dsPasa(DS[j], 'tag')) dentro++;
+        if (dsPasa(DS[j], 'tag')) dentro.push(DS[j]);
       }
       chip.hidden = total === 0;
       chip.querySelector('.t').textContent = tr(tag);
-      chip.querySelector('.n').textContent = dentro;
+      chip.querySelector('.n').textContent = dsAgrupar(dentro).length;
       if (dsFiltros.tag === tag && total > 0) vivo = true;
     });
     /* Si el panel quita la etiqueta que estaba filtrando, el filtro se suelta solo: si no, la
@@ -5387,31 +5464,51 @@ ${DATOS_ACTIVO ? `
     }
 
     /* Primero lo que coincide en el NOMBRE del plato, después lo que sólo coincide por su
-       pestaña o su grupo.
+       pestaña o su grupo — y con un rótulo delante que lo diga.
        Sin esto, mirar el contexto —que es lo que hizo encontrable «biryani»— traía un efecto
        secundario feo: «sopas» devolvía Papadum, Papadum especiado y Surtido de encurtidos en
        los tres primeros puestos, porque su pestaña se llama «Aperitivos y sopas». Quien busca
        sopa recibía papadums antes que sopa.
-       Estable a propósito: dentro de cada grupo se conserva el orden de la carta, que es el
+
+       Ponerlos detrás no bastaba: seguían siendo catorce resultados de los que seis no eran
+       sopa, y nada en pantalla decía por qué estaban ahí. Ahora van bajo su propio rótulo,
+       «También en estas secciones», y el que busca sopa ve dónde acaban las sopas.
+
+       No se pueden quitar y ya está, que es lo primero que uno piensa: «curry» sólo casa en el
+       nombre de dos platos de los cuarenta y nueve que devuelve, y «biryani» de ninguno de los
+       treinta y cuatro. Esa es exactamente la búsqueda que arregló mirar el contexto. Por eso
+       el rótulo aparece sólo cuando hay de las dos clases: si todo viene del contexto, la
+       lista ES la respuesta y un rótulo que la separe de nada sólo estorba.
+
+       Estable a propósito: dentro de cada bloque se conserva el orden de la carta, que es el
        que lleva el número de plato y el que el camarero tiene delante. */
+    var bloqueA, bloqueB = [];
     if (t) {
       /* La misma regla vale para los resultados que llegaron perdonando una errata: delante los
          que casan en el nombre. Cambia sólo con qué se pregunta. */
       var enElNombre = porErrata
         ? function (f) { return dsCasaPorErrata(f.nombre.textContent, t, dsTolerancia(t)); }
         : function (f) { return casa(f.nombre.textContent) || f.num.indexOf(t) !== -1; };
-      var porNombre = [], porContexto = [];
-      for (var iOrd = 0; iOrd < enc.length; iOrd++) {
-        var fOrd = enc[iOrd];
-        (enElNombre(fOrd) ? porNombre : porContexto).push(fOrd);
+      /* Se agrupa ANTES de clasificar. Al revés, un plato cuyo número casa en una pestaña y no
+         en otra acabaría partido en los dos bloques, con el mismo nombre en cada uno. */
+      var grupos = dsAgrupar(enc);
+      bloqueA = [];
+      for (var iOrd = 0; iOrd < grupos.length; iOrd++) {
+        var gOrd = grupos[iOrd], acierta = false;
+        for (var iFil = 0; iFil < gOrd.filas.length; iFil++) {
+          if (enElNombre(gOrd.filas[iFil])) { acierta = true; break; }
+        }
+        (acierta ? bloqueA : bloqueB).push(gOrd);
       }
-      enc = porNombre.concat(porContexto);
+    } else {
+      bloqueA = dsAgrupar(enc);
     }
+    var cuantos = bloqueA.length + bloqueB.length;
 
-    dsTotal.textContent = fill(tr(enc.length === 1 ? '{n} dish' : '{n} dishes'), { n: enc.length });
+    dsTotal.textContent = fill(tr(cuantos === 1 ? '{n} dish' : '{n} dishes'), { n: cuantos });
     dsHits.textContent = '';
 
-    if (!enc.length) {
+    if (!cuantos) {
       /* Un vacio tiene dos causas y el cliente no sabe cual le ha tocado: o ese plato no
          existe, o lo escondio un filtro que puso hace treinta segundos. Si hay filtros
          puestos se dice, y se ofrece quitarlos. Si no, no se ofrece nada. */
@@ -5430,43 +5527,76 @@ ${DATOS_ACTIVO ? `
       return;
     }
 
-    enc.slice(0, TOPE).forEach(function (f) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'ds-hit' + (dsAgotado(f) ? ' is-off' : '');
+    var conRotulos = bloqueA.length > 0 && bloqueB.length > 0;
+    var puestos = dsPintarBloque(bloqueA, tr('Dishes'), conRotulos, TOPE);
+    puestos += dsPintarBloque(bloqueB, tr('Also in these sections'), conRotulos, TOPE - puestos);
 
-      var num = document.createElement('span');
-      num.className = 'ds-hit-num';
-      num.textContent = f.num;
-
-      var nom = document.createElement('span');
-      nom.className = 'ds-hit-name';
-      nom.appendChild(document.createTextNode(f.nombre.textContent));
-      var marcas = f.el.querySelector('.diet-marks');
-      if (marcas) nom.appendChild(marcas.cloneNode(true));
-
-      var donde = document.createElement('span');
-      donde.className = 'ds-hit-where';
-      donde.textContent = (f.chip ? f.chip.textContent : '') +
-        (dsAgotado(f) ? ' - ' + tr('Sold out today') : '');
-      nom.appendChild(donde);
-
-      var pre = document.createElement('span');
-      pre.className = 'ds-hit-price';
-      var precio = f.el.querySelector('.price-now') || f.el.querySelector('.price');
-      pre.textContent = precio ? precio.textContent.trim() : '';
-
-      b.appendChild(num); b.appendChild(nom); b.appendChild(pre);
-      b.addEventListener('click', function () { dsSaltar(f); });
-      dsHits.appendChild(b);
-    });
-
-    if (enc.length > TOPE) {
+    if (cuantos > puestos) {
       var mas = document.createElement('p');
       mas.className = 'ds-empty';
-      mas.textContent = fill(tr('and {n} more. Narrow the search.'), { n: enc.length - TOPE });
+      mas.textContent = fill(tr('and {n} more. Narrow the search.'), { n: cuantos - puestos });
       dsHits.appendChild(mas);
     }
+  }
+
+  /* El rótulo se pone sólo si detrás va a caber algo: con el tope en sesenta, un bloque que se
+     queda entero fuera no deja un título encabezando el vacío. */
+  function dsPintarBloque(lista, titulo, conRotulo, hueco) {
+    if (!lista.length || hueco <= 0) return 0;
+    if (conRotulo) {
+      var r = document.createElement('p');
+      r.className = 'ds-grupo';
+      r.textContent = titulo;
+      dsHits.appendChild(r);
+    }
+    var n = Math.min(lista.length, hueco);
+    for (var i = 0; i < n; i++) dsPintarHit(lista[i]);
+    return n;
+  }
+
+  function dsPintarHit(g) {
+    var f = g.primera;
+
+    /* Agotado sólo si lo están TODAS sus filas. Mientras quede una disponible el plato se
+       puede pedir, y tacharlo sería quitarle al comensal algo que la cocina tiene. */
+    var agotado = true;
+    for (var iA = 0; iA < g.filas.length; iA++) {
+      if (!dsAgotado(g.filas[iA])) { agotado = false; break; }
+    }
+
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ds-hit' + (agotado ? ' is-off' : '');
+
+    var num = document.createElement('span');
+    num.className = 'ds-hit-num';
+    num.textContent = f.num;
+
+    var nom = document.createElement('span');
+    nom.className = 'ds-hit-name';
+    nom.appendChild(document.createTextNode(f.nombre.textContent));
+    var marcas = f.el.querySelector('.diet-marks');
+    if (marcas) nom.appendChild(marcas.cloneNode(true));
+
+    /* Todas las secciones donde vive, no sólo la primera: es lo que convierte tres resultados
+       repetidos en uno que además dice por dónde buscarlo en la carta. */
+    var sitios = [];
+    for (var iS = 0; iS < g.filas.length; iS++) {
+      var s = g.filas[iS].chip ? g.filas[iS].chip.textContent : '';
+      if (s && sitios.indexOf(s) === -1) sitios.push(s);
+    }
+    var donde = document.createElement('span');
+    donde.className = 'ds-hit-where';
+    donde.textContent = sitios.join(' · ') + (agotado ? ' - ' + tr('Sold out today') : '');
+    nom.appendChild(donde);
+
+    var pre = document.createElement('span');
+    pre.className = 'ds-hit-price';
+    pre.textContent = g.precio;
+
+    b.appendChild(num); b.appendChild(nom); b.appendChild(pre);
+    b.addEventListener('click', function () { dsSaltar(f); });
+    dsHits.appendChild(b);
   }
 
   /* Tocar un resultado abre su pestana, cierra la hoja y deja el plato en pantalla. El

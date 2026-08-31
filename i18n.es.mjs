@@ -636,6 +636,8 @@ export const ui = {
   'Popular': 'Popular',
   'Must try': 'Hay que probarlo',
   'Veggie favourite': 'Favorito veggie',
+  'Dishes': 'Platos',
+  'Also in these sections': 'También en estas secciones',
   'Sold out today': 'Agotado hoy',
   '{pct}% off': '{pct}% dto.',
   'Today we make it easy! Enjoy {pct}% off selected dishes.':
