@@ -5547,3 +5547,58 @@ entera en el LCP —3,8 s en su medida contra 2,6 en la mía—, o sea en el via
 Lo que las tres mediciones dicen a la vez, y es lo único que hay que retener: **el LCP de esta
 carta lo manda el TTFB, y el TTFB lo manda el hosting.** Del código ya no queda ninguna palanca
 de ese tamaño.
+
+## Dos de las tres fotos desaparecían en escritorio (31 Aug 2026)
+
+Lo encontró la suite de pruebas contra producción, no una medición de rendimiento: tres 404 en
+la consola que en local no salían.
+
+```
+404 .../assets/hero/444ec7dad88c5e4a-1600.webp
+404 .../assets/hero/c148c5b104481ea8-1600.webp
+```
+
+Y el síntoma, comprobado a 1440 px:
+
+| | foto 1 | foto 2 | foto 3 |
+|---|---|---|---|
+| escritorio | ok | **OCULTA** | **OCULTA** |
+| móvil | ok | ok | ok |
+
+### La causa
+
+El panel reduce las subidas a **1600 px como máximo**. Una foto que llegó con 1565 no genera la
+variante de 1600, y hace bien: ampliarla sería inventar píxeles y pesar más por una imagen que
+no mejora. `hero_con_variantes()` la daba por completa, y con razón — tiene todos los anchos que
+le corresponden.
+
+Pero **la carta anunciaba siempre la escalera entera**, los seis anchos, para cualquier foto que
+estuviera en `heroWebp`. En una pantalla ancha el navegador pedía el de 1600, recibía un 404, y
+el manejador de error escondía la diapositiva. En silencio.
+
+En móvil no se veía nunca, porque ahí no se pide el escalón grande. Por eso ni PageSpeed ni las
+pruebas de móvil lo cazaron: **el fallo vivía justo donde no estábamos mirando.**
+
+### El arreglo, en dos capas
+
+**En origen.** `heroWebp` deja de ser una lista de nombres y pasa a ser un mapa nombre → anchos
+que esa foto tiene de verdad. La carta anuncia exactamente eso. Los tres sitios que montan una
+foto —el preload de la cabecera, el script que va detrás del marco y el runtime— leen los anchos
+de la misma función, `window.__anchos`, escrita una vez en la cabecera en lugar de tres veces.
+
+**Y una red debajo.** Si una foto falla igualmente, ya no se esconde: se tira la variante WebP y
+se reintenta con el original. Sólo si eso también falla se recoge la diapositiva.
+
+La red no es adorno: cubre el rato entre desplegar esto y la primera vez que alguien abra el
+panel, porque hasta entonces el estado sigue trayendo la lista vieja. Comprobado con el formato
+antiguo puesto a mano: las dos fotos que antes desaparecían ahora caen al original y se ven.
+
+### Lo que se comprueba ahora y antes no
+
+Una suite nueva que carga la carta a **seis anchos y densidades** —1440, 1440 a 2x, 768, 390 a
+3x, el móvil de Lighthouse y 320— y exige dos cosas en cada uno: que ninguna diapositiva quede
+oculta o sin pintar, y que no haya ni un 404 de foto. Doce comprobaciones.
+
+Con un juego de pruebas hecho a propósito para el caso: tres fotos con originales de 1620, 1565
+y 1400 px, o sea una con los seis anchos y dos sin el grande. Antes del arreglo, ese juego
+reproduce el fallo; después, las tres se ven en los seis tamaños.

@@ -426,12 +426,26 @@ function hero_completar_pendientes(array $hero, float $presupuesto = 8.0): int {
 }
 
 /** Las fotos que tienen la escalera completa. Es lo que la carta necesita saber. */
+/* Devuelve, por cada foto, QUÉ ANCHOS tiene de verdad en disco. No una lista de nombres: un
+   mapa nombre → anchos.
+ *
+ * La diferencia no es cosmética, y costó un fallo en producción. El panel reduce las subidas a
+ * 1600 px COMO MÁXIMO, así que una foto que llegó con 1565 no genera la variante de 1600 —y
+ * hace bien, ampliarla sería inventar píxeles—. Pero la carta anunciaba siempre los seis anchos
+ * de la escalera, incluido uno que para esa foto no existía. En una pantalla ancha el navegador
+ * pedía el de 1600, recibía un 404, y la diapositiva desaparecía sin decir nada. En móvil no se
+ * veía, porque ahí nunca se pide el escalón grande.
+ *
+ * Con el mapa, la carta anuncia exactamente lo que hay.
+ */
 function hero_con_variantes(array $hero): array {
   $out = [];
   foreach ($hero as $nombre) {
     if (!is_string($nombre)) continue;
     $previstos = hero_anchos_previstos($nombre);
-    if ($previstos && !array_diff($previstos, hero_variantes_en_disco($nombre))) $out[] = $nombre;
+    if ($previstos && !array_diff($previstos, hero_variantes_en_disco($nombre))) {
+      $out[$nombre] = array_values($previstos);
+    }
   }
   return $out;
 }

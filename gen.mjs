@@ -896,10 +896,28 @@ const html = `<!DOCTYPE html>
      La petición se lanza aquí y no en el script grande de abajo, que ocupa 88 KB y hay que
      leerlo entero antes de llegar a su primera línea. Lanzada desde la cabecera sale mientras
      el navegador sigue montando la página, y la portada —que es el elemento más grande de la
-     primera pantalla— se pide antes. -->
+     primera pantalla— se pide antes.
+
+     __anchos y __srcset se definen aquí porque los usan los TRES sitios que montan una foto de
+     portada —este preload, el script que va detrás del marco y el runtime del final—, y los
+     tres tienen que anunciar exactamente lo mismo. Escritos una vez, no tres.
+
+     __anchos devuelve los anchos que una foto tiene DE VERDAD. El panel reduce las subidas a
+     1600 como máximo, así que una foto que llegó con 1565 px no tiene la variante de 1600 —y
+     hace bien, ampliarla sería inventar píxeles—. Cuando la carta anunciaba la escalera entera,
+     el navegador de un escritorio pedía el ancho que faltaba, recibía un 404 y la diapositiva
+     desaparecía sin decir nada. En móvil no se veía, porque ahí nunca se pide el escalón grande.
+
+     El estado puede traer heroWebp de dos formas. La nueva es un mapa nombre → anchos y es la
+     que manda. La vieja era una lista de nombres, y para ésa se supone la escalera entera: es
+     lo que hacía antes, y lo que la protege ahora es que una foto que falla se reintenta con el
+     original en vez de esconderse. El panel reescribe el estado con el mapa la primera vez que
+     alguien lo abre. -->
 <script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
 try{window.__estado=fetch('estado.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
-window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var w=s.heroWebp||[];if(w.indexOf&&w.indexOf(f)!==-1){var b=f.replace(/\\.[^.]+$/,'');l.imageSrcset=${JSON.stringify(HERO_ANCHOS)}.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ');l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
+window.__anchos=function(s,f){var w=s&&s.heroWebp;if(!w||!f)return null;if(Array.isArray(w))return w.indexOf(f)!==-1?${JSON.stringify(HERO_ANCHOS)}:null;var a=w[f];return(a&&a.length)?a:null};
+window.__srcset=function(f,anchos){var b=f.replace(/\\.[^.]+$/,'');return anchos.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ')};
+window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var a=window.__anchos(s,f);if(a){l.imageSrcset=window.__srcset(f,a);l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${CLIENTE.titulo}</title>
@@ -3370,16 +3388,30 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
                 /* La portada ya está: le toca a la tipografía. */
                 pedirFuentes();
               });
-              img.addEventListener('error', function () { li.hidden = true; pedirFuentes(); });
-              var w = (s && s.heroWebp) || [];
-              if (w.indexOf && w.indexOf(f) !== -1) {
+              img.addEventListener('error', function () {
+                /* Antes de rendirse: si la foto venía de una variante WebP, se tira la variante
+                   y se reintenta con el original. Una foto que no carga NO puede desaparecer de
+                   la portada; ya pasó una vez —ver el mapa de anchos en el panel— y no se
+                   arregla sólo confiando en que los ficheros estén. */
+                if (!img.dataset.reintentado && img.parentNode && img.parentNode.tagName === 'PICTURE') {
+                  img.dataset.reintentado = '1';
+                  var pic0 = img.parentNode;
+                  pic0.parentNode.insertBefore(img, pic0);
+                  pic0.remove();
+                  img.removeAttribute('src');
+                  img.src = 'assets/hero/' + f;
+                  return;
+                }
+                li.hidden = true;
+                pedirFuentes();
+              });
+              /* Los anchos que esta foto tiene DE VERDAD. Ver window.__anchos en la cabecera. */
+              var a = window.__anchos ? window.__anchos(s, f) : null;
+              if (a) {
                 var pic = document.createElement('picture');
                 var src = document.createElement('source');
                 src.type = 'image/webp';
-                var b = f.replace(/\\.[^.]+$/, '');
-                src.srcset = ${JSON.stringify(HERO_ANCHOS)}.map(function (n) {
-                  return 'assets/hero/' + b + '-' + n + '.webp ' + n + 'w';
-                }).join(', ');
+                src.srcset = window.__srcset(f, a);
                 src.sizes = ${JSON.stringify(HERO_SIZES)};
                 pic.appendChild(src);
                 pic.appendChild(img);
@@ -4406,9 +4438,6 @@ ${DATOS_ACTIVO ? `
   var heroFirma = '';
   var heroDecidido = false;
   var heroN = 0;
-  /* Los anchos en que el panel guarda cada portada. La lista es la misma de config.php: si
-     cambia allí, cambia aquí. */
-  var HERO_ANCHOS = ${JSON.stringify(HERO_ANCHOS)};
   /* Las fotos 2 a 5, sin pedir todavía. Cada elemento es la función que las pide. */
   var heroDiferidas = [];
 
@@ -4499,7 +4528,6 @@ ${DATOS_ACTIVO ? `
     heroFig.classList.toggle('is-single', heroN === 1);
     if (!heroN) return;
 
-    var conVariantes = (estado && Array.isArray(estado.heroWebp)) ? estado.heroWebp : [];
     heroDiferidas.length = 0;
 
     /* El punto de cada foto, aparte: lo montan los dos caminos —la foto adelantada y las que
@@ -4534,8 +4562,24 @@ ${DATOS_ACTIVO ? `
       if (i === 0) img.setAttribute('fetchpriority', 'high');
       if (img.complete && img.src) img.classList.add('is-ready');
       else img.addEventListener('load', function () { img.classList.add('is-ready'); });
-      /* Una foto que no carga no deja un icono roto: se queda el gris del hueco. */
-      img.addEventListener('error', function () { li.hidden = true; });
+      /* Antes de rendirse: si venía de una variante WebP, se tira la variante y se reintenta con
+         el original. Sólo si eso también falla se recoge la diapositiva y se queda el gris del
+         hueco, que es mejor que un icono roto.
+         Esto no es precaución de más: hubo un momento en que la carta anunciaba un ancho que
+         para algunas fotos no existía, y el manejador de error las hacía desaparecer en
+         escritorio sin dejar rastro. El mapa de anchos lo arregla en origen; esto es la red. */
+      img.addEventListener('error', function () {
+        if (!img.dataset.reintentado && img.parentNode && img.parentNode.tagName === 'PICTURE') {
+          img.dataset.reintentado = '1';
+          var viejo = img.parentNode;
+          viejo.parentNode.insertBefore(img, viejo);
+          viejo.remove();
+          img.removeAttribute('src');
+          img.src = 'assets/hero/' + archivo;
+          return;
+        }
+        li.hidden = true;
+      });
       li.appendChild(img);
       heroTrack.appendChild(li);
 
@@ -4551,14 +4595,14 @@ ${DATOS_ACTIVO ? `
         /* Prioridad baja: aunque por lo que sea acabe pidiendose a la vez que la primera, el
            navegador sabe cual de las dos importa. La que se ve es la otra. */
         if (i > 0) img.setAttribute('fetchpriority', 'low');
-        if (conVariantes.indexOf(archivo) !== -1) {
+        /* Los anchos que esta foto tiene de verdad, no los de la escalera entera. Ver
+           window.__anchos en la cabecera y hero_con_variantes() en el panel. */
+        var anchos = window.__anchos ? window.__anchos(estado, archivo) : null;
+        if (anchos) {
           var pic = document.createElement('picture');
           var src = document.createElement('source');
           src.type = 'image/webp';
-          var base = archivo.replace(/\\.[^.]+$/, '');
-          src.srcset = HERO_ANCHOS.map(function (w) {
-            return 'assets/hero/' + base + '-' + w + '.webp ' + w + 'w';
-          }).join(', ');
+          src.srcset = window.__srcset(archivo, anchos);
           /* El MISMO valor que usa el preload de la cabecera. Ver HERO_SIZES. */
           src.sizes = ${JSON.stringify(HERO_SIZES)};
           li.insertBefore(pic, img);
