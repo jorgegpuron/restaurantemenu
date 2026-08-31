@@ -280,6 +280,23 @@ if (!String(CLIENTE.base || '').includes(carpetaCliente)) {
     "pon la direccion publica de ESTE restaurante en cliente.mjs");
 }
 
+/* 4. La nota fiscal.
+ *
+ * Una carta que enseña precios sin decir si llevan impuesto está incompleta, y en una copia
+ * para un cliente nuevo es de las cosas que no se echan de menos hasta que alguien reclama.
+ * Por eso revienta el build en vez de emitir la carta sin ella: es el mismo criterio que el
+ * nombre heredado del restaurante anterior.
+ *
+ * No se pone un valor por defecto a propósito. Un «IGIC incluido» de fábrica acabaría
+ * publicado tal cual en un restaurante de Madrid, y una nota fiscal equivocada es peor que
+ * ninguna. Hay que decidirlo. */
+if (!String(CLIENTE.impuesto || '').trim()) {
+  abortar(
+    "cliente.mjs: falta `impuesto`, la nota fiscal que va al pie de los precios.",
+    "escribe la frase entera en cliente.mjs — «Prices include IGIC» en Canarias, «Prices "
+    + "include VAT» en la peninsula — y traducela en la seccion ui de cada i18n");
+}
+
 const md = readFileSync(new URL('./menu.md', import.meta.url), 'utf8');
 
 /** @type {Record<string, {note: string, items: {id:string,name:string,desc:string,price:string}[]}>} */
@@ -792,7 +809,7 @@ const leyendaAlergenos = hayAlergenosDeclarados ? '' : `            <p class="le
    Deliberadamente pequeña y apagada: es una obligación legal, no información con la que se
    elija un plato, y cada milímetro que ocupe se lo quita a la carta. El asterisco la marca
    como nota al pie sin necesidad de repetirlo en las 312 filas. */
-const notaIgic = `          <p class="nota-igic">${T('Prices include IGIC', 'ui')}</p>`;
+const notaIgic = `          <p class="nota-igic">${T(CLIENTE.impuesto, 'ui')}</p>`;
 
 const leyenda = !(leyendaMarcas || leyendaAlergenos) ? notaIgic :
   String.fromCharCode(10) + notaIgic + String.fromCharCode(10)

@@ -65,6 +65,20 @@ export const CLIENTE = {
      restaurante desde el panel. Si cambia las fotos, este nombre deja de existir y el enlace
      vuelve a compartirse sin imagen. Se comprueba abriendo la URL en el navegador. */
   imagenSocial: 'assets/hero/13e8475aef8d2630.jpg',
+
+  /* La nota fiscal del pie de los precios. OBLIGATORIA: el build revienta si falta.
+   *
+   * Va aquí y no en el motor porque el impuesto no es el mismo en todas partes. En Canarias
+   * es el IGIC; en la península sería el IVA, y fuera de España otra cosa con otro nombre.
+   * Un cliente nuevo que copie esta carpeta tiene que decidirlo, y la guarda del build está
+   * para que no se le olvide: es exactamente el mismo mecanismo que impide publicar con el
+   * nombre o la dirección del restaurante anterior.
+   *
+   * Es la frase entera y no sólo las siglas, porque se lee sola al pie de la columna de
+   * precios y no hay ningún asterisco arriba al que remitirse.
+   *
+   * Se traduce: tiene que existir como clave en la sección ui de cada diccionario. */
+  impuesto: 'Prices include IGIC',
 };
 
 /* Se usa en todas partes como CLAVE('tema'), CLAVE('lang')... Una sola función y ni un literal

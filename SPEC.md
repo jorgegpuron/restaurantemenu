@@ -5602,3 +5602,28 @@ oculta o sin pintar, y que no haya ni un 404 de foto. Doce comprobaciones.
 Con un juego de pruebas hecho a propósito para el caso: tres fotos con originales de 1620, 1565
 y 1400 px, o sea una con los seis anchos y dos sin el grande. Antes del arreglo, ese juego
 reproduce el fallo; después, las tres se ven en los seis tamaños.
+
+## La nota fiscal, y por qué la decide el cliente y no el motor (31 Aug 2026)
+
+Una carta que enseña 312 precios sin decir si llevan impuesto está incompleta. Se añade al pie
+de la columna de precios, a la derecha y en el mismo borde: medido a 375, el canto derecho de la
+nota y el de la columna coinciden en el mismo píxel; en escritorio, también.
+
+**11px y `--muted`.** 4,63:1 sobre la tarjeta en el tema por defecto, 6,69:1 en onice. Es el
+suelo del proyecto y no se baja de ahí: por debajo de 11 no es discreción, es letra que no se
+puede leer, y una nota de impuestos tiene que poder leerse aunque no llame.
+
+**Una vez y no en las 312 filas.** Repetirla por plato sería justo lo contrario de discreta.
+
+**Empezó con un asterisco y se lo quitó.** «* IGIC incluido» era una llamada al pie que no
+llamaba a nada: ninguno de los 312 precios lleva asterisco arriba, así que el lector lo busca y
+no lo encuentra. Peor aún, en la pestaña de currys «Incluido» ya significa otra cosa —la salsa
+no cuesta extra— a una pantalla de distancia. Ahora dice la frase entera: «Precios con IGIC
+incluido», que se explica sola y no remite a nada.
+
+**Vive en `cliente.mjs`, no aquí, y el build revienta si falta.** El impuesto no es el mismo en
+todas partes: en Canarias es el IGIC, en la península el IVA. Un cliente nuevo que copie esta
+carpeta tiene que decidirlo, y la guarda está para que no se le olvide — el mismo mecanismo que
+impide publicar con el nombre del restaurante anterior. No hay valor por defecto a propósito: un
+«IGIC incluido» de fábrica acabaría publicado tal cual en un restaurante de Madrid, y una nota
+fiscal equivocada es peor que ninguna.
