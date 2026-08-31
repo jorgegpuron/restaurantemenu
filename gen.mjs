@@ -354,6 +354,43 @@ for (const raw of md.split(/\r?\n/)) {
 const missing = GROUPS.flatMap(([, subs]) => subs.map(([c]) => c)).filter((c) => !categories[c]);
 if (missing.length) throw new Error('categories not found in menu.md: ' + missing.join(' | '));
 
+/* ---- los identificadores permanentes ----
+ *
+ * Viven en carta.json, que es la fuente; menu.md no los lleva porque es un formato de
+ * lectura. Aqui se cruzan los dos por orden y por nombre, plato a plato, y si no cuadran se
+ * aborta: significa que alguien toco carta.json sin pasar por node importar.mjs, y compilar
+ * con un menu.md desfasado repartiria los IDs a los platos equivocados — fotos, precios y
+ * agotados del plato de al lado, sin un solo error. Mejor no compilar. */
+const CARTA_IDS = (() => {
+  const ruta = new URL('./carta.json', import.meta.url);
+  if (!existsSync(ruta)) {
+    abortar('No hay carta.json: es la fuente de la carta y de sus identificadores.',
+      'si esta carpeta es una copia nueva, escribe la carta en carta.json; si es Tinge, algo la ha borrado');
+  }
+  const j = JSON.parse(readFileSync(ruta, 'utf8'));
+  const porCat = {};
+  for (const t of j.pestanas) {
+    for (const g of t.grupos) {
+      const catEn = Array.isArray(g.categoria) ? g.categoria[0] : g.categoria;
+      porCat[catEn] = {
+        categoryId: g.categoryId,
+        platos: g.platos.map((p) => ({ dishId: p.dishId, nombre: p.nombre[0] })),
+      };
+    }
+  }
+  return porCat;
+})();
+for (const [cat, info] of Object.entries(CARTA_IDS)) {
+  const its = (categories[cat] || { items: [] }).items;
+  const cuadra = its.length === info.platos.length
+    && its.every((it, i) => it.name === info.platos[i].nombre);
+  if (!cuadra) {
+    abortar('menu.md no cuadra con carta.json en la categoria ' + JSON.stringify(cat) + '.',
+      'ejecuta: node importar.mjs  y vuelve a compilar');
+  }
+  its.forEach((it, i) => { it.dishId = info.platos[i].dishId; it.catId = info.categoryId; });
+}
+
 
 for (const [copia, original] of Object.entries(CATEGORIAS_DUPLICADAS)) {
   const a = categories[original];
@@ -605,18 +642,25 @@ const renderItem = (it, showSlot, icon, catName) => {
 
   const included = /^included$/i.test(it.price);
   const priceCell = included ? T('Included', 'ui') : esc(money(it.price));
-  // the key the panel writes into estado.json — category + name, so the gluten-free copy of a
-  // dish can sell out, be highlighted or be repriced on its own
-  const key = esc(catName + ' :: ' + it.name);
-  /* El identificador corto del contador de consultas. Sale de la MISMA clave, así que el panel
-     lo rehace con substr(sha1(clave),0,8) sin guardar ninguna tabla de equivalencias. Ocho
-     caracteres bastan: con 312 platos, la probabilidad de que dos choquen es de una entre
-     cuatrocientos millones, y el build lo comprueba de todos modos.
+  /* La clave que el panel escribe en estado.json es el dishId: permanente y opaco, para que
+     renombrar o traducir un plato no le quite su foto, su precio ni su agotado. data-legacy
+     lleva la clave vieja (categoria + nombre) SOLO para leer estados anteriores a la
+     migracion: un estado.json guardado con el panel viejo sigue aplicandose, y se retira
+     cuando la compatibilidad caduque. data-catid es la categoria por identificador, para las
+     ofertas por categoria; data-cat se queda por lo mismo que data-legacy. */
+  const key = it.dishId;
+  const legacy = esc(catName + ' :: ' + it.name);
+  /* El identificador corto del contador de consultas. Sale del dishId, así que el panel lo
+     rehace con substr(sha1(dishId),0,8) sin guardar ninguna tabla de equivalencias — y las
+     líneas antiguas del registro, que llevan el hash de la clave vieja, las resuelve el
+     panel con el hash de data-legacy. Ocho caracteres hexadecimales bastan: con 312 platos,
+     la probabilidad de que dos choquen es de una entre cuatrocientos millones, y el build lo
+     comprueba de todos modos.
 
-     Va el hash y no la clave porque la clave lleva espacios y dos puntos, y esto viaja en el
-     cuerpo de una petición y acaba en una línea de un registro. */
-  const vid = vistaId(catName + ' :: ' + it.name);
-  return `                    <div class="single-menu-items" data-key="${key}" data-vid="${vid}" data-cat="${esc(catName)}"${included ? '' : ` data-price="${esc(it.price)}"`}>
+     Va el hash y no la clave porque esto viaja en el cuerpo de una petición y acaba en una
+     línea de un registro. */
+  const vid = vistaId(it.dishId);
+  return `                    <div class="single-menu-items" data-key="${key}" data-legacy="${legacy}" data-vid="${vid}" data-cat="${esc(catName)}" data-catid="${it.catId}"${included ? '' : ` data-price="${esc(it.price)}"`}>
                       <div class="details">${column}
                         <div class="menu-content">
                           <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}</h3>
@@ -4268,20 +4312,27 @@ ${sheet}
     var on = offerOn();
     var cats = (on && cfg) ? cfg.cats : [];
     var keys = (on && cfg) ? cfg.keys : [];
+    /* Por identificador, y con caida a las claves viejas: un estado guardado por el panel
+       anterior a la migracion sigue teniendo su oferta. La caida se retira con data-legacy. */
     function enOferta(row) {
-      return cats.indexOf(row.dataset.cat) !== -1 || keys.indexOf(row.dataset.key) !== -1;
+      return cats.indexOf(row.dataset.catid) !== -1 || cats.indexOf(row.dataset.cat) !== -1
+          || keys.indexOf(row.dataset.key) !== -1 || keys.indexOf(row.dataset.legacy) !== -1;
     }
 
     document.querySelectorAll('.single-menu-items[data-key]').forEach(function (row) {
       var key = row.dataset.key;
+      /* La clave de antes de la migracion. Un estado.json escrito por el panel viejo sigue
+         indexado por «categoria :: nombre»; se mira primero el dishId y despues aquella. */
+      var leg = row.dataset.legacy;
+      var de = function (m) { return m[key] !== undefined ? m[key] : m[leg]; };
 
-      row.classList.toggle('is-sold-out', hoy !== null && out[key] === hoy);
+      row.classList.toggle('is-sold-out', hoy !== null && de(out) === hoy);
 
       /* La marca de que hay foto. El nombre de archivo se guarda en la fila para que la ficha
          no tenga que volver a mirar el estado, y el icono se pone o se quita aquí: render() se
          llama otra vez cada vez que el panel cambia algo, así que una foto puesta a mediodía
          aparece sin recargar. */
-      var foto = fotos[key];
+      var foto = de(fotos);
       if (foto) row.dataset.foto = foto; else delete row.dataset.foto;
       /* Sólo se ofrece a abrirse el que tiene foto. Y el papel de botón va con la foto: sin ella
          la fila vuelve a ser texto, y un lector de pantalla no anuncia un botón que no hace nada. */
@@ -4309,7 +4360,7 @@ ${sheet}
       // destacado
       var alto = row.querySelector('.item-tag-high');
       if (alto) {
-        var etiqueta = tags[key];
+        var etiqueta = de(tags);
         if (etiqueta && TR[etiqueta]) {
           alto.textContent = tr(etiqueta);
           alto.dataset.tag = etiqueta;          // la clave, para los filtros de la hoja
@@ -4325,7 +4376,7 @@ ${sheet}
       var precio = row.querySelector('.price');
       var base = row.dataset.price;
       if (precio && base) {
-        var vigente = precios[key] ? Number(precios[key]) : Number(base);
+        var vigente = de(precios) ? Number(de(precios)) : Number(base);
         if (!isFinite(vigente)) vigente = Number(base);
         if (enOferta(row)) {
           /* En céntimos enteros: 4.35 × 0.8 en coma flotante da 3.4799…, que toFixed pinta
@@ -6217,7 +6268,12 @@ writeFileSync(
 const catalogue = GROUPS.flatMap(([tab, subs]) =>
   subs.flatMap(([cat, sublabel]) =>
     categories[cat].items.map((it) => ({
-      key: cat + ' :: ' + it.name,
+      key: it.dishId,
+      /* La clave con la que el panel viejo escribio estado.json. El panel la usa para migrar
+         un estado antiguo y para resolver las lineas historicas del contador de consultas;
+         no es publica: admin/.htaccess deniega los .json. */
+      legacy: cat + ' :: ' + it.name,
+      catId: it.catId,
       id: it.id,
       name: it.name,
       tab,
@@ -6237,6 +6293,21 @@ writeFileSync(
   new URL('./server/admin/temas.json', import.meta.url),
   JSON.stringify({ porDefecto: TEMA_POR_DEFECTO, temas: temasParaPanel() }, null, 1),
 );
+
+/* Los ocho caracteres del contador de consultas no pueden chocar: ni entre platos, ni con
+   los hashes de las claves viejas, que siguen vivos en los registros mensuales ya escritos.
+   Dos platos con el mismo vid sumarian sus consultas en el mismo cajon sin que nadie lo viera. */
+{
+  const visto = new Map();
+  for (const p of catalogue) {
+    for (const v of [vistaId(p.key), vistaId(p.legacy)]) {
+      if (visto.has(v) && visto.get(v) !== p.key) {
+        throw new Error('vid repetido entre platos distintos: ' + v);
+      }
+      visto.set(v, p.key);
+    }
+  }
+}
 
 /* Directo a server/admin/, como temas.json: el catálogo se sube desde ahí y tenerlo en la
    raíz obligaba a un movimiento a mano que tarde o temprano se olvida. */

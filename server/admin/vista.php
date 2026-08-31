@@ -54,7 +54,10 @@ if (!is_array($lista)) {
 $vale = false;
 foreach ($lista as $p) {
   if (!is_array($p) || !isset($p['key'])) continue;
-  if (substr(sha1((string) $p['key']), 0, 8) === $id) { $vale = true; break; }
+  /* El hash de la clave vieja se acepta durante la compatibilidad: una carta cacheada de
+     antes de la migracion sigue contando sus consultas. Se retira con data-legacy. */
+  if (substr(sha1((string) $p['key']), 0, 8) === $id
+      || (isset($p['legacy']) && substr(sha1((string) $p['legacy']), 0, 8) === $id)) { $vale = true; break; }
 }
 if (!$vale) {
   http_response_code(204);

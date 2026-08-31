@@ -5964,3 +5964,70 @@ de JavaScript. Lo escribe el navegador al fallar la petición, y una promesa ate
 no lo calla. No hay nada que arreglar en la página: es el navegador contando un fallo real del
 servidor, en un escenario que sólo ocurre si el alojamiento se rompe. Queda escrito aquí para que
 nadie vuelva a intentarlo.
+
+---
+
+## Identificadores permanentes en la carta, el panel y el estado (31 Aug 2026)
+
+La identidad de un plato era la cadena «categoría :: nombre»: renombrarlo le quitaba su foto,
+su precio y su agotado sin un solo aviso. Ahora la identidad es el `dishId` de `carta.json`
+(y `categoryId` para las categorías), y todo lo demás cuelga de ella.
+
+**Cómo viaja.** Cada fila lleva `data-key` (dishId), `data-catid`, y —sólo mientras dure la
+compatibilidad— `data-legacy` con la clave vieja y `data-cat` con el nombre de categoría.
+`platos.json` lleva `key` (dishId), `legacy` y `catId`: ese fichero es también **el mapa
+verificable clave vieja → ID**, y no es público (el `.htaccess` de admin/ deniega los .json).
+El contador de consultas pasa a `sha1(dishId)`; las líneas históricas se resuelven por el hash
+de la clave vieja y `vista.php` acepta ambos durante la compatibilidad.
+
+**La migración del estado es EXPLÍCITA, nunca silenciosa.** El panel detecta un estado de la
+época 1, enseña la vista previa (renombres, consolidaciones, desconocidas, heredados), guarda
+copia, pide confirmación, migra y verifica releyendo. Hasta que una persona confirme, **el
+fichero conserva su época**: un guardado normal del panel convierte todo de vuelta a claves
+viejas al escribir. Restaurar `anterior.json` deshace la migración entera, y una copia antigua
+restaurada se detecta como época 1 y vuelve a ofrecer la migración.
+
+**Colisiones: se bloquea todo y no se pierde nada.** Si la clave vieja y su dishId conviven
+con valores IDÉNTICOS, se consolidan sin conflicto. Con valores DISTINTOS, la migración se
+niega a existir **y los guardados quedan bloqueados** —elegir un valor a ciegas perdería el
+otro—. El panel enseña las colisiones en rojo; se resuelven a mano y todo se desbloquea solo.
+Probado con `guardar_estado` de verdad: con la colisión viva devuelve false y el fichero queda
+intacto byte a byte.
+
+**Alias de compatibilidad al guardar en esquema 2.** Cada entrada dishId se escribe con su
+gemela de clave vieja al lado (mismo valor), y las ofertas llevan id y nombre. Es lo que hace
+que las cuatro combinaciones funcionen igual — probadas las cuatro, fila a fila:
+
+| | estado viejo | estado nuevo |
+|---|---|---|
+| **HTML viejo** (caché) | ✓ base | ✓ por los alias |
+| **HTML nuevo** | ✓ por data-legacy | ✓ por dishId |
+
+Y el panel viejo (despliegue parcial) ve todo por los alias; su guardado deja un esquema 1
+limpio y re-migrable, sin perder valores. Un `platos.json` viejo con panel nuevo degrada a
+mapas vacíos: las claves viejas se reconocen y nada se pierde.
+
+**`hidden` es un campo HEREDADO, no un conflicto.** Resto del escaparate antiguo, sin lector
+ni escritor (verificado). Viaja intacto, se enseña como heredado, no bloquea nada. Su limpieza
+será otra decisión explícita.
+
+### Caducidad de la compatibilidad — condiciones, y son CONJUNTAS
+
+`data-legacy`, `data-cat`, los alias del estado y la doble validación de `vista.php` se
+retiran sólo cuando se cumpla TODO esto a la vez:
+
+1. Producción lleva **al menos 30 días** con el estado en esquema 2.
+2. Se han desplegado **al menos dos versiones** posteriores a la migración.
+3. El `estado.json` real está **confirmado** como esquema 2 (visto, no supuesto).
+4. Las copias antiguas de `admin/copias/` **se restauran y re-migran** correctamente.
+
+La retirada será **otra migración explícita**, con su copia y sus pruebas. Nada de esto caduca
+solo por fecha: una carta cacheada no sabe qué día es.
+
+### gen.mjs es CRLF, y es la excepción documentada
+
+Medido: todo el proyecto es LF salvo `gen.mjs`, CRLF desde su origen y así guardado en el
+historial. No se normaliza a propósito —serían miles de líneas de diff mecánico tapando los
+cambios de verdad—. `.gitattributes` declara `whitespace=cr-at-eol` para que `git diff
+--check` señale los espacios colgantes reales sin acusar al retorno de carro; comprobado
+empíricamente que un espacio real sigue saltando.

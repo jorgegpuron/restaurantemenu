@@ -143,6 +143,10 @@ function plato_hermanas(array $lista): array {
 
 function estado_vacio(): array {
   return [
+    /* La version del formato. 2 = las claves de plato son dishId y las de categoria catId;
+       sin el campo, o con 1, es el formato anterior: el panel lo lee tal cual y ofrece la
+       migracion explicita — ver estado_analizar(). */
+    'esquema' => 2,
     'soldOut' => [],
     'tags'    => [],
     'offer'   => ['on' => false, 'cats' => [], 'keys' => [], 'percent' => 20, 'from' => 600, 'to' => 720, 'days' => [1,2,3,4,5,6,7]],
@@ -570,7 +574,158 @@ function fotos_borrar(string $nombre, array $fotos): bool {
 function leer_estado(): array {
   $raw = @file_get_contents(ESTADO_PATH);
   $e = $raw === false ? [] : (json_decode($raw, true) ?: []);
-  return array_replace(estado_vacio(), is_array($e) ? $e : []);
+  $hay = is_array($e) && $e !== [];
+  $r = array_replace(estado_vacio(), $hay ? $e : []);
+  /* La plantilla trae esquema 2, pero un fichero real ANTERIOR al campo es esquema 1: sin
+     esta linea, el array_replace le regalaba el 2 de la plantilla a un estado sin migrar y
+     la migracion explicita nunca se ofrecia. Sin fichero, es una instalacion nueva: 2. */
+  $r['esquema'] = $hay ? (int) ($e['esquema'] ?? 1) : 2;
+  return $r;
+}
+
+/* ---------------------------------------------------------------- identificadores permanentes
+ *
+ * Un estado.json anterior a los dishId indexa por "categoria :: nombre". La politica, decidida
+ * y sin excepciones:
+ *
+ *   - NADA se migra en silencio. El fichero conserva su esquema hasta que una persona pasa por
+ *     la migracion explicita del panel: copia, vista previa, confirmacion y verificacion.
+ *   - Una COLISION —la clave vieja y su dishId conviven con valores DISTINTOS— bloquea la
+ *     migracion Y los guardados: no se escribe nada hasta revisarla a mano. Con valores
+ *     identicos no hay colision: se consolida.
+ *   - Una clave que no es ni dishId ni clave vieja NO se pierde nunca: viaja intacta y se
+ *     ensena como desconocida.
+ *   - `hidden` es un campo HEREDADO sin consumidor (el escaparate antiguo): ni bloquea, ni se
+ *     borra. Su limpieza sera otra decision explicita.
+ *
+ * Tres funciones y ninguna escribe en disco:
+ *   estado_analizar   que pasaria al migrar: renombres, consolidaciones, desconocidas,
+ *                     colisiones, heredados, y la prevision (solo si no hay colisiones).
+ *   estado_vista      la vista en memoria con la que trabaja el panel: claves dishId primero.
+ *   estado_claves_al_guardar
+ *                     al escribir: si el fichero sigue en esquema 1, TODO vuelve a claves
+ *                     viejas (el fichero no cambia de epoca por un guardado normal); si ya es
+ *                     esquema 2, cada entrada dishId lleva al lado su ALIAS con la clave vieja
+ *                     y las ofertas llevan id y nombre, para que una carta cacheada de antes
+ *                     de la migracion siga viendo agotados, precios, etiquetas, fotos y
+ *                     ofertas. Los alias caducan con la compatibilidad, nunca solos. */
+function estado_analizar(array $estado, array $porKey, array $mapaLegacy, array $catIdDe): array {
+  $r = ['esquema' => (int) ($estado['esquema'] ?? 1), 'renombres' => 0, 'consolidadas' => 0,
+        'desconocidas' => [], 'colisiones' => [], 'heredados' => [], 'prevision' => null];
+  $prev = $estado;
+  foreach (['soldOut', 'prices', 'tags', 'fotos'] as $campo) {
+    if (!is_array($estado[$campo] ?? null)) continue;
+    $nuevo = [];
+    foreach ($estado[$campo] as $k => $v) {
+      $k = (string) $k;
+      if (isset($porKey[$k])) { $nuevo[$k] = $v; continue; }
+      if (isset($mapaLegacy[$k])) {
+        $id = $mapaLegacy[$k];
+        if (array_key_exists($id, $estado[$campo]) && $estado[$campo][$id] !== $v) {
+          $r['colisiones'][] = $campo . ': ' . $k . ' vale ' . json_encode($v, JSON_UNESCAPED_UNICODE)
+            . ' pero su dishId ' . $id . ' vale ' . json_encode($estado[$campo][$id], JSON_UNESCAPED_UNICODE);
+          $nuevo[$k] = $v;   // en la prevision no valdra, pero aqui no se pierde nada
+          continue;
+        }
+        if (array_key_exists($id, $estado[$campo])) $r['consolidadas']++; else $r['renombres']++;
+        $nuevo[$id] = $v;
+        continue;
+      }
+      $r['desconocidas'][] = $campo . ': ' . $k;
+      $nuevo[$k] = $v;
+    }
+    $prev[$campo] = $nuevo;
+  }
+  if (is_array($estado['offer']['keys'] ?? null)) {
+    $keys = [];
+    foreach ($estado['offer']['keys'] as $k) {
+      $k = (string) $k;
+      if (isset($porKey[$k])) $keys[$k] = true;
+      elseif (isset($mapaLegacy[$k])) { $keys[$mapaLegacy[$k]] = true; $r['renombres']++; }
+      else { $keys[$k] = true; $r['desconocidas'][] = 'offer.keys: ' . $k; }
+    }
+    $prev['offer']['keys'] = array_keys($keys);
+  }
+  if (is_array($estado['offer']['cats'] ?? null)) {
+    $idsValidos = array_flip($catIdDe);
+    $cats = [];
+    foreach ($estado['offer']['cats'] as $c) {
+      $c = (string) $c;
+      if (isset($idsValidos[$c])) $cats[$c] = true;
+      elseif (isset($catIdDe[$c])) { $cats[$catIdDe[$c]] = true; $r['renombres']++; }
+      else { $cats[$c] = true; $r['desconocidas'][] = 'offer.cats: ' . $c; }
+    }
+    $prev['offer']['cats'] = array_keys($cats);
+  }
+  if (!empty($estado['hidden']) && array_filter((array) $estado['hidden'])) {
+    $r['heredados'][] = 'hidden: campo del escaparate antiguo, sin consumidor en el codigo actual; viaja intacto';
+  }
+  $prev['esquema'] = 2;
+  $r['prevision'] = $r['colisiones'] ? null : $prev;
+  return $r;
+}
+
+function estado_vista(array $estado, array $porKey, array $mapaLegacy, array $catIdDe): array {
+  $an = estado_analizar($estado, $porKey, $mapaLegacy, $catIdDe);
+  if ($an['prevision'] !== null) {
+    $v = $an['prevision'];
+    $v['esquema'] = (int) ($estado['esquema'] ?? 1);   // la vista NO cambia la epoca del fichero
+    return $v;
+  }
+  /* Con colisiones, los guardados estan bloqueados: la vista prefiere el dishId solo para
+     ENSENAR algo coherente, y el fichero queda intacto. */
+  foreach (['soldOut', 'prices', 'tags', 'fotos'] as $campo) {
+    if (!is_array($estado[$campo] ?? null)) continue;
+    $nuevo = [];
+    foreach ($estado[$campo] as $k => $v) {
+      $k = (string) $k;
+      $id = isset($porKey[$k]) ? $k : ($mapaLegacy[$k] ?? $k);
+      if (!array_key_exists($id, $nuevo)) $nuevo[$id] = $v;
+    }
+    $estado[$campo] = $nuevo;
+  }
+  return $estado;
+}
+
+function estado_claves_al_guardar(array $estado, array $porKey, array $mapaLegacy, array $catIdDe): array {
+  $v2 = ((int) ($estado['esquema'] ?? 1)) >= 2;
+  $legacyDe = [];
+  foreach ($mapaLegacy as $vieja => $id) $legacyDe[$id] = $vieja;
+  $nombreDe = array_flip($catIdDe);
+  foreach (['soldOut', 'prices', 'tags', 'fotos'] as $campo) {
+    if (!is_array($estado[$campo] ?? null)) continue;
+    $out = [];
+    foreach ($estado[$campo] as $k => $v) {
+      $k = (string) $k;
+      if ($v2) {
+        $out[$k] = $v;
+        if (isset($legacyDe[$k]) && !array_key_exists($legacyDe[$k], $estado[$campo])) $out[$legacyDe[$k]] = $v;
+      } else {
+        $out[$legacyDe[$k] ?? $k] = $v;
+      }
+    }
+    $estado[$campo] = $out;
+  }
+  if (is_array($estado['offer']['keys'] ?? null)) {
+    $out = [];
+    foreach ($estado['offer']['keys'] as $k) {
+      $k = (string) $k;
+      if ($v2) { $out[$k] = true; if (isset($legacyDe[$k])) $out[$legacyDe[$k]] = true; }
+      else $out[$legacyDe[$k] ?? $k] = true;
+    }
+    $estado['offer']['keys'] = array_keys($out);
+  }
+  if (is_array($estado['offer']['cats'] ?? null)) {
+    $out = [];
+    foreach ($estado['offer']['cats'] as $c) {
+      $c = (string) $c;
+      if ($v2) { $out[$c] = true; if (isset($nombreDe[$c])) $out[$nombreDe[$c]] = true; }
+      else $out[$nombreDe[$c] ?? $c] = true;
+    }
+    $estado['offer']['cats'] = array_keys($out);
+  }
+  if (!$v2) unset($estado['esquema']);   // el fichero sigue siendo de su epoca, sin marcas nuevas
+  return $estado;
 }
 
 /* Escritura atómica: a un temporal y luego rename. Si el proceso se corta a medias queda el
@@ -579,6 +734,12 @@ function leer_estado(): array {
    (dos pestañas, la tablet de cocina y el móvil) se pisaban el .tmp entre el write y el
    rename y podía publicarse un archivo a medias. */
 function guardar_estado(array $estado): bool {
+  /* Con una colision viva (la clave vieja y su dishId con valores distintos) NO se escribe
+     NADA: cualquier guardado consolidaria un valor y perderia el otro en silencio. El aviso
+     rojo del panel dice cuales son; se resuelven a mano y esto vuelve a abrir. */
+  global $migraColisiones, $porKey, $mapaLegacy, $catIdDe;
+  if (!empty($migraColisiones)) return false;
+  $estado = estado_claves_al_guardar($estado, $porKey ?? [], $mapaLegacy ?? [], $catIdDe ?? []);
   /* Antes de tocar el disco, la foto de como estaba. Ver copia_de_seguridad(). */
   copia_de_seguridad($estado);
   $estado['actualizado'] = gmdate('c');
@@ -1123,6 +1284,16 @@ $cats    = [];
 $catsEs  = [];   // clave inglesa de la categoría -> rótulo en español, como en la carta
 foreach ($lista as $p) { $cats[$p['cat']] = ($cats[$p['cat']] ?? 0) + 1; $catsEs[$p['cat']] = $p['group']; }
 $hermanas = plato_hermanas($lista);
+/* Los mapas de la migracion a identificadores permanentes. platos.json trae, por plato, la
+   clave nueva (key = dishId) y la vieja (legacy = "categoria :: nombre"), y por categoria su
+   catId. Con eso un estado.json guardado por el panel anterior se traduce al leerlo. */
+$catIdDe = [];      // nombre interno de categoria -> categoryId
+$mapaLegacy = [];   // clave vieja -> dishId
+foreach ($lista as $p) {
+  if (isset($p['catId']) && $p['catId'] !== '') $catIdDe[$p['cat']] = (string) $p['catId'];
+  if (isset($p['legacy']) && $p['legacy'] !== '') $mapaLegacy[(string) $p['legacy']] = (string) $p['key'];
+}
+$migraColisiones = []; $migraAnalisis = ['esquema' => 2, 'colisiones' => []];
 $tabsEn = [];    // clave inglesa de la pestaña -> rótulo en español
 foreach ($lista as $p) { $tabsEn[$p['tab_en']] = $p['tab']; }
 $catTab = [];    // clave de grupo -> clave inglesa de su pestaña
@@ -1380,8 +1551,38 @@ if ($post_tirado) {
 }
 
 if ($csrfOk) {
-  $estado = leer_estado();
+  $estadoCrudo = leer_estado();
+  $migraAnalisis = estado_analizar($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
+  $migraColisiones = $migraAnalisis['colisiones'];
+  $estado = estado_vista($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
   $hoy = fecha_servicio();
+
+  /* --- la migracion explicita a identificadores permanentes --- */
+  if (isset($_POST['migrar_estado'])) {
+    if ($migraAnalisis['esquema'] >= 2) {
+      $aviso = 'El estado ya usa identificadores permanentes: no hay nada que migrar.';
+    } elseif ($migraColisiones) {
+      $error = 'No se migra: hay colisiones que necesitan revision manual. No se ha cambiado nada.';
+    } elseif ($migraAnalisis['prevision'] === null) {
+      $error = 'La prevision no se pudo calcular. No se ha cambiado nada.';
+    } elseif (guardar_estado($migraAnalisis['prevision'])) {
+      /* Verificacion inmediata: se relee del disco y se vuelve a analizar. */
+      $rel = estado_analizar(leer_estado(), $porKey, $mapaLegacy, $catIdDe);
+      if ($rel['esquema'] === 2 && !$rel['colisiones']) {
+        $aviso = 'Estado migrado a identificadores permanentes y verificado. '
+               . 'La copia de justo antes esta en Marca > Copias (anterior.json): restaurarla deshace la migracion.';
+        registrar_acceso('migracion de estado a esquema 2: verificada');
+      } else {
+        $error = 'La verificacion posterior no cuadra: restaura anterior.json desde Marca > Copias.';
+      }
+      $estadoCrudo = leer_estado();
+      $migraAnalisis = estado_analizar($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
+      $migraColisiones = $migraAnalisis['colisiones'];
+      $estado = estado_vista($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
+    } else {
+      $error = 'No se ha podido escribir estado.json. No se ha cambiado nada.';
+    }
+  }
 
   /* ---------------------------------------------------------------- fotos de plato
    * Llega por fetch desde la lista de platos y contesta JSON, no una página: la lista tiene 312
@@ -1481,6 +1682,10 @@ if ($csrfOk) {
            de AHORA a anterior.json. Deshacer una restauracion es, por tanto, otra restauracion:
            nadie se queda sin salida por haber pulsado el boton equivocado. */
         $estado = array_replace(estado_vacio(), $vuelta);
+        /* La copia manda: si es de antes de los identificadores, se restaura COMO esquema 1 y
+           el panel vuelve a ofrecer la migracion explicita. Sin esto, estado_vacio() le
+           regalaba el esquema 2 de la plantilla y la copia vieja quedaba mal etiquetada. */
+        $estado['esquema'] = (int) ($vuelta['esquema'] ?? 1);
         if (guardar_estado($estado)) {
           $aviso = $encontrada === 'anterior.json'
                  ? 'Deshecho el ultimo guardado. La carta vuelve a como estaba antes de el.'
@@ -1746,13 +1951,17 @@ if ($csrfOk) {
   /* --- oferta --- */
   if (isset($_POST['guardar_oferta'])) {
     $pestana = 'ofertas';
-    $catsSel = array_values(array_filter((array) ($_POST['cat'] ?? []), function ($c) use ($cats) {
-      return is_string($c) && isset($cats[$c]);
+    /* Las categorias viajan por su categoryId, no por su nombre: renombrar una categoria no
+       puede apagarle la oferta. Se valida contra los ids que existen en la carta de ahora. */
+    $idsCat = array_flip($catIdDe);
+    $catsSel = array_values(array_filter((array) ($_POST['cat'] ?? []), function ($c) use ($idsCat) {
+      return is_string($c) && isset($idsCat[$c]);
     }));
     // platos sueltos: los de una categoría ya marcada entera no se guardan dos veces
     $keysSel = array_values(array_filter(array_unique((array) ($_POST['oferta_plato'] ?? [])),
       function ($k) use ($porKey, $catsSel) {
-        return is_string($k) && isset($porKey[$k]) && !in_array($porKey[$k]['cat'], $catsSel, true);
+        return is_string($k) && isset($porKey[$k])
+            && !in_array((string) ($porKey[$k]['catId'] ?? ''), $catsSel, true);
       }));
     $dias = array_values(array_filter(array_map('intval', (array) ($_POST['dia'] ?? [])), function ($d) {
       return $d >= 1 && $d <= 7;
@@ -1934,7 +2143,14 @@ if ($csrfOk) {
 }
 
 /* ---------------------------------------------------------------- datos para la vista */
-$estado   = leer_estado();
+$estadoCrudo    = leer_estado();
+$migraAnalisis  = estado_analizar($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
+$migraColisiones = $migraAnalisis['colisiones'];
+$estado         = estado_vista($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
+if ($migraColisiones) {
+  registrar_acceso('estado con colisiones dishId/clave vieja: ' . count($migraColisiones)
+    . ' - guardados bloqueados');
+}
 
 /* Las fotos de portada que se subieron antes de que existieran las variantes se ponen al día
    solas, por visita al panel y con un presupuesto de tiempo. Ver hero_completar_pendientes():
@@ -1998,7 +2214,7 @@ $listaKeys = array_flip(array_column($lista, 'key'));
 $agotados = array_intersect_key($agotados, $listaKeys);
 /* «Corriendo ahora mismo» sólo si la oferta rebaja algo que se vea. */
 $oferta_corriendo = $oferta_corriendo && (
-  array_intersect((array) $oferta['cats'], array_keys($catsVisibles))
+  array_intersect((array) $oferta['cats'], array_values($catIdDe))
   || array_intersect((array) $oferta['keys'], array_keys($listaKeys))
 );
 $juego    = is_array($estado['game']) ? array_replace(estado_vacio()['game'], $estado['game']) : estado_vacio()['game'];
@@ -2074,6 +2290,18 @@ if (DATOS_ACTIVO && $dentro) {
      mantener. Un plato que se fue de la carta desaparece de la tabla, y sus consultas con el. */
   $porVid = [];
   foreach ($lista as $p) $porVid[substr(sha1((string) $p["key"]), 0, 8)] = $p;
+  /* Las lineas escritas antes de la migracion llevan el hash de la clave vieja: se vuelcan al
+     cajon del dishId para que el historial de un plato sea UNA fila y no dos. */
+  $vidCanon = [];
+  foreach ($lista as $p) {
+    if (!empty($p['legacy'])) $vidCanon[substr(sha1((string) $p['legacy']), 0, 8)] = substr(sha1((string) $p['key']), 0, 8);
+  }
+  foreach ($vserie as $dia => $ids) {
+    $m = [];
+    foreach ($ids as $id => $n) { $c = $vidCanon[$id] ?? $id; $m[$c] = ($m[$c] ?? 0) + (int) $n; }
+    arsort($m);
+    $vserie[$dia] = $m;
+  }
   $dt["vid"] = $porVid;
   /* Los mismos tres periodos que las tarjetas de arriba, contados igual, para que el porcentaje
      se pueda leer contra la cifra que tiene al lado. */
@@ -3569,6 +3797,35 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <div class="msg bad">No encuentro <code>platos.json</code>. Súbelo junto a este archivo.</div>
   <?php else: ?>
 
+  <?php if (!empty($migraColisiones)): ?>
+    <div class="msg bad">
+      <strong>Colisiones entre claves antiguas y sus identificadores — los guardados están bloqueados.</strong><br>
+      La misma cosa tiene dos valores distintos y elegir uno a ciegas perdería el otro. Se resuelve
+      a mano (corrigiendo <code>estado.json</code> o restaurando una copia) y esto se desbloquea solo.<br>
+      <?php foreach (array_slice($migraColisiones, 0, 6) as $c): ?>· <?= h($c) ?><br><?php endforeach; ?>
+    </div>
+  <?php elseif (($migraAnalisis['esquema'] ?? 2) < 2): ?>
+    <div class="msg" style="background:#fff6e0;border:1px solid #d9b24a">
+      <strong>Este estado usa las claves antiguas («categoría :: nombre»).</strong>
+      Migrar a identificadores permanentes hace que renombrar un plato no le quite su foto, su
+      precio ni su agotado. Vista previa:
+      <?= (int) $migraAnalisis['renombres'] ?> clave(s) a renombrar,
+      <?= (int) $migraAnalisis['consolidadas'] ?> ya consolidada(s),
+      <?= count($migraAnalisis['desconocidas']) ?> desconocida(s) que viajarán intactas<?php
+        if ($migraAnalisis['desconocidas']): ?> (<?= h(implode(' · ', array_slice($migraAnalisis['desconocidas'], 0, 4))) ?>)<?php endif;
+        if ($migraAnalisis['heredados']): ?>; campo heredado: <?= h(implode(' · ', $migraAnalisis['heredados'])) ?><?php endif; ?>.
+      Antes de escribir se guarda copia en Marca &gt; Copias, y restaurar
+      <code>anterior.json</code> deshace la migración entera.
+      <form method="post" style="margin-top:8px">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <button class="save" name="migrar_estado" value="1" type="submit"
+                onclick="return confirm('¿Migrar el estado a identificadores permanentes? Se guarda copia antes.')">
+          Migrar ahora
+        </button>
+      </form>
+    </div>
+  <?php endif; ?>
+
   <!-- Botones, no enlaces: las cinco pestañas viven en el mismo documento y se cambian sin
        recargar, igual que las categorías de la carta. Con <a href="?t=..."> cada toque era una
        página nueva — parpadeo en blanco, scroll al principio y medio segundo de espera. -->
@@ -4276,7 +4533,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <div class="cats">
           <?php foreach ($catsVisibles as $c => $n): ?>
             <label>
-              <input type="checkbox" name="cat[]" value="<?= h($c) ?>"<?= in_array($c, (array) $oferta['cats'], true) ? ' checked' : '' ?>>
+              <input type="checkbox" name="cat[]" value="<?= h($catIdDe[$c] ?? $c) ?>"<?= in_array($catIdDe[$c] ?? $c, (array) $oferta['cats'], true) ? ' checked' : '' ?>>
               <span><?= h($catsEs[$c] ?? $c) ?><em><?= (int) $n ?> plato<?= $n === 1 ? '' : 's' ?></em></span>
             </label>
           <?php endforeach; ?>
@@ -4303,11 +4560,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           $tabActual = $p['tab'];
           echo '<h2 class="sec osec">' . h($tabActual) . '</h2><div class="sec-body osec-body">';
         endif;
-        $porCat = in_array($p['cat'], (array) $oferta['cats'], true);
+        $porCat = in_array((string) ($p['catId'] ?? ''), (array) $oferta['cats'], true);
         $suelto = in_array($p['key'], (array) $oferta['keys'], true);
         $sinPrecio = $p['price'] === ''; ?>
         <div class="row orow<?= $porCat ? ' por-categoria' : '' ?><?= $suelto ? ' is-oferta' : '' ?><?= $sinPrecio ? ' sin-precio' : '' ?>"
-             data-cat="<?= h($p['cat']) ?>"
+             data-cat="<?= h($p['catId'] ?? $p['cat']) ?>"
              data-name="<?= h(mb_strtolower($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
           <label class="tick">
             <input type="checkbox" name="oferta_plato[]" value="<?= h($p['key']) ?>"

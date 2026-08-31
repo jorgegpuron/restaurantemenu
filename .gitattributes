@@ -1,5 +1,13 @@
 # Ni una conversión de fin de línea, en ninguna dirección. Git en Windows viene con
-# core.autocrlf activado y al hacer checkout dejaría gen.mjs en CRLF; como el HTML se emite
-# desde sus plantillas, la carta cambiaría de bytes sin que nadie haya tocado una línea.
-# Todo el proyecto es LF hoy y así se queda. Se guarda lo que hay y se devuelve lo que hay.
+# core.autocrlf activado y una conversión al hacer checkout cambiaría los bytes de lo que se
+# emite desde plantillas sin que nadie haya tocado una línea.
+# Los finales de línea reales del proyecto, medidos el 31 ago 2026: TODO es LF salvo
+# gen.mjs, que es CRLF desde su origen y así está guardado en el historial. No se normaliza
+# a propósito: serían miles de líneas de diff mecánico tapando los cambios de verdad.
+# Se guarda lo que hay y se devuelve lo que hay.
 * -text
+
+# gen.mjs es CRLF desde su origen y con `* -text` se guarda tal cual. Sin esta linea,
+# `git diff --check` acusa cada linea nueva de «trailing whitespace» por su propio retorno de carro,
+# y ese ruido tapa los espacios colgantes de verdad.
+gen.mjs whitespace=cr-at-eol
