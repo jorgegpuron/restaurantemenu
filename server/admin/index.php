@@ -3322,9 +3322,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php if (SUPERADMIN_HASH !== ''): ?>
           <p class="sub" style="margin-bottom:8px">Primero, la contraseña de superadministrador:
             sin ella nadie puede reclamar este panel.</p>
-          <input type="password" name="super" placeholder="Contraseña de superadministrador" autocomplete="off" required autofocus>
+          <input type="password" name="super" placeholder="Contraseña de superadministrador" aria-label="Contraseña de superadministrador" autocomplete="off" required autofocus>
         <?php endif; ?>
-        <input type="password" name="nueva" placeholder="Contraseña nueva (mín. 8)" autocomplete="new-password" required<?= SUPERADMIN_HASH === '' ? ' autofocus' : '' ?>>
+        <input type="password" name="nueva" placeholder="Contraseña nueva (mín. 8)" aria-label="Contraseña nueva, mínimo 8 caracteres" autocomplete="new-password" required<?= SUPERADMIN_HASH === '' ? ' autofocus' : '' ?>>
         <button type="submit">Guardar contraseña</button>
       </form>
     <?php endif; ?>
@@ -3361,7 +3361,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
       <form method="post">
         <div class="clave-campo">
-          <input type="password" name="clave" placeholder="Contraseña" autocomplete="current-password" required autofocus>
+          <input type="password" name="clave" placeholder="Contraseña" aria-label="Contraseña" autocomplete="current-password" required autofocus>
           <span class="clave-mascara" aria-hidden="true"></span>
         </div>
         <button type="submit">Entrar</button>

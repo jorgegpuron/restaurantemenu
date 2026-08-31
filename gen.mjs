@@ -792,7 +792,7 @@ const leyendaAlergenos = hayAlergenosDeclarados ? '' : `            <p class="le
    Deliberadamente pequeña y apagada: es una obligación legal, no información con la que se
    elija un plato, y cada milímetro que ocupe se lo quita a la carta. El asterisco la marca
    como nota al pie sin necesidad de repetirlo en las 312 filas. */
-const notaIgic = `          <p class="nota-igic">${T('IGIC included', 'ui')}</p>`;
+const notaIgic = `          <p class="nota-igic">${T('Prices include IGIC', 'ui')}</p>`;
 
 const leyenda = !(leyendaMarcas || leyendaAlergenos) ? notaIgic :
   String.fromCharCode(10) + notaIgic + String.fromCharCode(10)
@@ -1950,7 +1950,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-size:calc(11px * var(--escala));
   letter-spacing:.02em;
 }
-.nota-igic::before{content:"* "}
+
 /* The notice is the half the restaurant actually leans on when someone asks, so it carries
    the weight: full-strength ink at 16:1 rather than the muted whisper the marks get. */
 .legend-allergens{
@@ -2223,7 +2223,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--accent-ink);
   color:var(--surface);
   font-family:var(--title-font);
-  font-size:calc(10px * var(--escala));
+  font-size:calc(11px * var(--escala));
   font-weight:600;
   line-height:16px;
   letter-spacing:.1em;
@@ -2263,7 +2263,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--chip);
   color:var(--muted);
   font-family:var(--title-font);
-  font-size:calc(10px * var(--escala));
+  font-size:calc(11px * var(--escala));
   font-weight:600;
   line-height:16px;
   letter-spacing:.1em;
@@ -3594,7 +3594,11 @@ ${leyenda}
   <div class="sheet-backdrop" data-close></div>
   <div class="sheet-panel">
     <div class="sheet-head">
-      <h2 id="sheet-title">${T('Categories', 'ui')}</h2>
+      <!-- El mismo rotulo que el boton que la abre. Decia «Categorias» mientras el boton
+           decia «Buscar platos»: la etiqueta y el destino no coincidian, que es el fallo mas
+           puro de consistencia y ocurria en el control mas pulsado del movil. La lista de
+           categorias sigue estando, debajo del campo, que es donde estaba. -->
+      <h2 id="sheet-title">${T('Search dishes', 'ui')}</h2>
       <button type="button" class="sheet-close" data-close${TL('Close categories')}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>
       </button>
@@ -3617,7 +3621,7 @@ ${veganNames.size ? `        <button type="button" class="ds-chip" data-filter="
     </div>
 
     <div class="ds-results" id="ds-results" hidden>
-      <p class="ds-total" id="ds-total"></p>
+      <p class="ds-total" id="ds-total" role="status" aria-live="polite"></p>
       <div id="ds-hits"></div>
     </div>
 
@@ -5052,7 +5056,12 @@ ${DATOS_ACTIVO ? `
     closeTimer = setTimeout(finish, 400); // transitionend can be skipped on a hidden tab
   }
 
-  fab.addEventListener('click', function () { openSheet(false); });
+  /* true y no false: el boton dice «Buscar platos», asi que abre con el foco en el campo y
+     el teclado a la vista. SPEC decidio lo contrario —«en un movil eso levanta el teclado y
+     tapa media hoja antes de que nadie haya pedido escribir»— y esa decision era correcta
+     CUANDO EL BOTON DECIA «Categorias»: nadie habia pedido escribir. Ahora el rotulo lo pide
+     por el. Un boton que promete buscar y abre una lista es peor que un teclado de mas. */
+  fab.addEventListener('click', function () { openSheet(true); });
 
   var lupa = document.getElementById('nav-search');
   if (lupa) lupa.addEventListener('click', function () { openSheet(true); });
@@ -5250,14 +5259,48 @@ ${DATOS_ACTIVO ? `
     dsRes.hidden = !activo;
     if (!activo) { dsHits.textContent = ''; dsTotal.textContent = ''; return; }
 
+    /* El singular, cuando se escribe en plural.
+     *
+     * Los platos se llaman «Sopa de pollo», no «Sopas», así que buscar «sopas» no casaba con
+     * ningún nombre y sólo casaba con el rótulo de la pestaña: catorce resultados encabezados
+     * por papadums. Se prueba también sin la ese final.
+     *
+     * Sólo la ese, y sólo a partir de cuatro letras: es la marca de plural del castellano y
+     * del inglés, y por debajo de cuatro recorta palabras enteras —«mas» pasaría a «ma»—.
+     * No se intenta nada más listo: un lematizador de verdad no cabe en una carta y fallaría
+     * con «arroz» o con los nombres en indio, que son la mitad de esta carta. */
+    var tSing = (t.length >= 4 && t.charAt(t.length - 1) === 's') ? t.slice(0, -1) : '';
+    var casa = function (txt) {
+      var p = dsPlano(txt);
+      return p.indexOf(t) !== -1 || (tSing !== '' && p.indexOf(tSing) !== -1);
+    };
+
     var enc = DS.filter(function (f) {
       if (f.el.hidden) return false;                // oculto desde el panel
       if (!dsPasa(f)) return false;
       if (!t) return true;
-      return dsPlano(f.nombre.textContent).indexOf(t) !== -1
+      return casa(f.nombre.textContent)
         || f.num.indexOf(t) !== -1
-        || dsPlano(dsContexto(f)).indexOf(t) !== -1;
+        || casa(dsContexto(f));
     });
+
+    /* Primero lo que coincide en el NOMBRE del plato, después lo que sólo coincide por su
+       pestaña o su grupo.
+       Sin esto, mirar el contexto —que es lo que hizo encontrable «biryani»— traía un efecto
+       secundario feo: «sopas» devolvía Papadum, Papadum especiado y Surtido de encurtidos en
+       los tres primeros puestos, porque su pestaña se llama «Aperitivos y sopas». Quien busca
+       sopa recibía papadums antes que sopa.
+       Estable a propósito: dentro de cada grupo se conserva el orden de la carta, que es el
+       que lleva el número de plato y el que el camarero tiene delante. */
+    if (t) {
+      var porNombre = [], porContexto = [];
+      for (var iOrd = 0; iOrd < enc.length; iOrd++) {
+        var fOrd = enc[iOrd];
+        var enNombre = casa(fOrd.nombre.textContent) || fOrd.num.indexOf(t) !== -1;
+        (enNombre ? porNombre : porContexto).push(fOrd);
+      }
+      enc = porNombre.concat(porContexto);
+    }
 
     dsTotal.textContent = fill(tr(enc.length === 1 ? '{n} dish' : '{n} dishes'), { n: enc.length });
     dsHits.textContent = '';
