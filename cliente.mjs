@@ -104,9 +104,10 @@ export const IDIOMAS_CLIENTE = [
  * Iconos disponibles, y no hay mas: appetizers, soup, vegetarian, meat, salad, flame,
  * leaf, lentils, rice, bread, fries, special, kids, bowl, drop.
  * ------------------------------------------------------------------ */
-/* An optional line under the tab's first heading. Only Vegan has one. */
+/* An optional line under the tab's first heading. Written by importar.mjs from carta.mjs. */
 export const TAB_INTRO = {
-  'Vegan': 'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk.',
+  'Gluten Free': 'Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.',
+  'Vegan': 'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk. Some of these dishes cost a little more than in their original section.',
 };
 
 /* ------------------------------------------------------------------ *

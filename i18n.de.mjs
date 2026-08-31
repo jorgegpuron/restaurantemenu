@@ -503,8 +503,8 @@ export const groups = {
   'Vegetarian': 'Vegetarisch',
   'Meat & Seafood': 'Fleisch & Meeresfrüchte',
   'Choose Your Ingredient': 'Zutat wählen',
-  'Classic sauces': 'Sauce wählen (inklusive) · Klassisch',
-  'South Indian sauces': 'Sauce wählen (inklusive) · Südindisch',
+  'Classic sauces': 'Klassische Saucen',
+  'South Indian sauces': 'Südindische Saucen',
   'Vegetable Dishes': 'Gemüsegerichte',
   'Indian Lentil Dishes': 'Indische Linsengerichte',
   'Classic Biryani': 'Klassisches Biryani',
@@ -526,6 +526,8 @@ export const groups = {
 };
 
 export const ui = {
+  'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk. Some of these dishes cost a little more than in their original section.': 'Zubereitet mit veganen Alternativen wie pflanzlicher Butter, Sahne, Joghurt und Milch. Einige dieser Gerichte kosten etwas mehr als in ihrem ursprünglichen Bereich.',
+  'Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.': 'Getrennt zubereitet, um Gluten zu vermeiden. Einige dieser Gerichte kosten etwas mehr als in ihrem ursprünglichen Bereich.',
   'Indian Restaurant Menu': 'Indisches Restaurant',
   'Special menus': 'Spezielle Karten',
   'Categories': 'Kategorien',
@@ -623,7 +625,6 @@ export const ui = {
   'Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.':
     'Fragen Sie unser Personal nach den 14 Allergenen. Die Symbole für vegan und glutenfrei ersetzen diese Information nicht.',
   'South Indian Restaurant Menu': 'Südindische Küche',
-  'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk.': 'Zubereitet mit veganen Alternativen wie pflanzlicher Butter, Sahne, Joghurt und Milch.',
   'Bestseller': 'Bestseller',
   'Most loved': 'Liebling der Gäste',
   'Signature': 'Hausspezialität',

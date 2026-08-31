@@ -5736,3 +5736,75 @@ pero ensucia la dirección de todo el mundo para arreglar el caso de unos pocos.
 
 Medido después: 2 cargas en veinte segundos con el almacenamiento bloqueado, las mismas que en
 una sesión normal. La recarga útil sigue ocurriendo; la novena, la décima y la infinita, no.
+
+---
+
+## Que la versión sin gluten o vegana cueste más es a propósito (31 Aug 2026)
+
+**Decisión del restaurante, tomada el 31 de agosto de 2026.** 63 platos figuran con el mismo
+nombre y distinto precio según la pestaña: la sopa de lentejas vale 7,00 € en Aperitivos y
+8,00 € en Sin gluten; la pakora de cebolla, 5,50 € en Entrantes y 6,50 € en Vegano. **No es un
+error de datos.** Esas versiones se preparan aparte y cuestan más.
+
+Queda escrito aquí para que nadie vuelva a «arreglarlas»: quien las iguale estará bajando
+precios que el restaurante ha subido a propósito.
+
+**Lo que sí faltaba era decírselo al comensal.** Veía dos precios para lo que parece el mismo
+plato y no tenía manera de saber por qué, y el buscador —que ahora junta el mismo plato en un
+solo resultado— los deja uno debajo del otro, que es donde peor se ve. Las pestañas Sin gluten
+y Vegano llevan ya su línea de aviso:
+
+> **Importante** · Se cocinan aparte para evitar el gluten. Algunos de estos platos cuestan un
+> poco más que en su sección original.
+
+Va por el mecanismo que ya existía —`intro` de la pestaña en `carta.mjs`, que `importar.mjs`
+lleva a `TAB_INTRO` y a las tres traducciones—, no por una excepción escrita a mano en el
+motor. Dice **«algunos»** y no «todos» a propósito: de los 63, hay 9 que existen a varios
+precios en las dos partes y no se puede afirmar la regla entera sin mentir en esos.
+
+---
+
+## El mismo plato, agotado en una pestaña y disponible en otra (31 Aug 2026)
+
+Un plato ocupa varias filas: además de su pestaña de comida está en Sin gluten y en Vegano.
+Cada fila tiene su clave y `estado.json` va por clave. Comprobado antes del arreglo: marcado
+`Papadum` agotado y a 1,50 €, su copia en Vegano seguía **disponible y a 1,00 €**, y el
+buscador enseñaba «Papadum [AGOTADO]» y «Papadum [disponible]» en la misma lista. 23 platos con
+filas espejo.
+
+**Se arregla donde se escribe, no donde se lee.** El panel expande a todas las filas del plato
+lo que se marca en una: `plato_hermanas()` agrupa por **nombre y precio de carta**. El precio
+tiene que entrar —«Pollo Tikka» vale 8,00 € de entrante y 19,95 € en el biryani, y no es el
+mismo plato— y tiene que ser el de la CARTA y no el de ahora, porque si fuera el de ahora,
+cambiarle el precio a una fila la separaría de sus hermanas justo cuando más falta hace que
+sigan juntas.
+
+Se descartó arreglarlo en la carta, al leer: habría que escribir la misma regla de identidad
+dos veces, en PHP y en JavaScript, y dos reglas gemelas se separan. Y no hacía falta: el estado
+publicado tenía cero agotados y cero precios cambiados, así que no hay nada viejo que curar, y
+la lista de agotados se vacía sola cada día a las 6:00.
+
+**Las casillas hermanas se marcan juntas en el navegador, y esto no es adorno.** Si sólo se
+expandiera al guardar, DESmarcar sería imposible: al quitar una casilla, la hermana seguiría
+marcada y el servidor volvería a tachar el plato. Con las dos moviéndose juntas, quitar una las
+quita todas — y además el que guarda ve lo que va a pasar antes de que pase.
+
+**Los precios se extienden igual, pero no se pisan.** Si alguien ha escrito a mano dos precios
+distintos para el mismo plato, se guardan los dos y se avisa por su nombre: quien decide si eso
+es un error es el restaurante, no el panel.
+
+De paso muere `$repetidos`, que contaba los nombres repetidos desde hacía meses y no usaba el
+resultado para nada. Alguien vio el problema y se quedó a mitad.
+
+---
+
+## Un precio mal escrito ya no se pierde en silencio (31 Aug 2026)
+
+`precios_publicar` descartaba con `continue` lo que no fuera un número y el mensaje seguía
+diciendo «Publicado: N precios». Quien escribe `9,5O` con una letra O en vez de un cero veía el
+aviso verde, se iba, y el plato se quedaba al precio de la carta sin que nada se lo dijera.
+
+Ahora se guarda igual todo lo que vale —no se pierde el trabajo bueno por una casilla mala— y
+el aviso nombra el plato que ha fallado. **La casilla vacía sigue siendo válida y silenciosa:**
+es la manera de decir «vuelve al precio de la carta», y avisar de eso sería regañar a alguien
+por hacer justo lo que quería.

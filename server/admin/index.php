@@ -113,6 +113,34 @@ function tema_por_defecto(): string {
   return !empty($d['porDefecto']) ? (string) $d['porDefecto'] : 'marino';
 }
 
+/* ------------------------------------------------------ el mismo plato, en varias filas
+ *
+ * Un plato ocupa varias filas de la carta: además de su pestaña de comida está en Sin gluten
+ * y en Vegano, y alguno sale en cinco sitios. Cada fila tiene su propia clave y el estado va
+ * por clave, así que agotar el Papadum de Aperitivos dejaba el de Vegano disponible y al
+ * precio viejo. Comprobado en la carta publicada: 23 platos con filas espejo, y el comensal
+ * viendo el mismo plato agotado y disponible a la vez.
+ *
+ * Son el mismo plato los que comparten NOMBRE y PRECIO DE CARTA. El precio tiene que entrar:
+ * «Pollo Tikka» vale 8,00 de entrante y 19,95 en el biryani, y no es el mismo plato. Y es el
+ * precio de la CARTA, no el que haya puesto el panel: si fuera el de ahora, cambiarle el
+ * precio a una fila la separaría de sus hermanas justo cuando más falta hace que sigan juntas.
+ *
+ * Devuelve clave => todas las claves de ese plato, la suya incluida. Las filas sin hermanas
+ * no salen: quien pregunte por ellas se queda con su propia clave y no paga nada. */
+function plato_hermanas(array $lista): array {
+  $porPlato = [];
+  foreach ($lista as $p) {
+    $porPlato[$p['name'] . "\0" . $p['price']][] = $p['key'];
+  }
+  $out = [];
+  foreach ($porPlato as $claves) {
+    if (count($claves) < 2) continue;
+    foreach ($claves as $k) $out[$k] = $claves;
+  }
+  return $out;
+}
+
 function estado_vacio(): array {
   return [
     'soldOut' => [],
@@ -1094,8 +1122,7 @@ $validas = array_keys($porKey);
 $cats    = [];
 $catsEs  = [];   // clave inglesa de la categoría -> rótulo en español, como en la carta
 foreach ($lista as $p) { $cats[$p['cat']] = ($cats[$p['cat']] ?? 0) + 1; $catsEs[$p['cat']] = $p['group']; }
-$repetidos = [];
-foreach ($lista as $p) { $repetidos[$p['name']] = ($repetidos[$p['name']] ?? 0) + 1; }
+$hermanas = plato_hermanas($lista);
 $tabsEn = [];    // clave inglesa de la pestaña -> rótulo en español
 foreach ($lista as $p) { $tabsEn[$p['tab_en']] = $p['tab']; }
 $catTab = [];    // clave de grupo -> clave inglesa de su pestaña
@@ -1669,14 +1696,26 @@ if ($csrfOk) {
   if (isset($_POST['guardar_agotados'])) {
     $pestana = 'agotados';
     $nuevo = [];
+    $marcados = 0;
     foreach (array_unique((array) ($_POST['agotado'] ?? [])) as $k) {
-      if (is_string($k) && in_array($k, $validas, true)) $nuevo[$k] = $hoy;
+      if (!is_string($k) || !in_array($k, $validas, true)) continue;
+      $marcados++;
+      /* Un plato agotado lo está en todas sus filas. Ver plato_hermanas: si no, el mismo
+         Papadum salía tachado en Aperitivos y disponible en Vegano. */
+      foreach ($hermanas[$k] ?? [$k] as $h) $nuevo[$h] = $hoy;
     }
     $estado['soldOut'] = $nuevo;
+    /* Las casillas se marcan solas entre hermanas en el navegador, así que esto casi nunca
+       tiene nada que contar. Casi: sin JavaScript, o marcando desde el buscador de la lista,
+       aquí es donde se completa, y entonces hay que decirlo o el que guarda ve más tachones
+       de los que puso. */
+    $filasExtra = count($nuevo) - $marcados;
     if (guardar_estado($estado)) {
       $aviso = count($nuevo) === 0
         ? 'Guardado: hoy no hay nada agotado.'
-        : 'Guardado: ' . count($nuevo) . ' plato(s) agotados. Se limpia solo mañana a las ' . CORTE_HORA . ':00.';
+        : 'Guardado: ' . $marcados . ' plato(s) agotados'
+          . ($filasExtra > 0 ? ', y ' . $filasExtra . ' fila(s) más de esos mismos platos en Sin gluten o Vegano' : '')
+          . '. Se limpia solo mañana a las ' . CORTE_HORA . ':00.';
     } else {
       $error = 'No se ha podido escribir estado.json. Revisa los permisos de la carpeta.';
     }
@@ -1777,18 +1816,50 @@ if ($csrfOk) {
   if (isset($_POST['precios_publicar'])) {
     $pestana = 'precios';
     $nuevos = [];
+    /* Lo que no era un numero se descartaba en silencio y el mensaje seguia diciendo
+       «Publicado». Quien escribe 9,5O con una letra O en vez de un cero veia el aviso verde,
+       se iba, y el plato se quedaba al precio de la carta. Ahora se guarda igual lo que vale
+       —no se pierde el trabajo bueno por una casilla mala— pero se dice cual fallo.
+       El campo VACIO no es un error: es la forma de decir «vuelve al precio de la carta». */
+    $malos = [];
     foreach ((array) ($_POST['precio'] ?? []) as $k => $v) {
       if (!isset($porKey[$k]) || $porKey[$k]['price'] === '') continue;
       $v = str_replace(',', '.', trim((string) $v));
-      if ($v === '' || !is_numeric($v) || (float) $v <= 0) continue;
+      if ($v === '') continue;
+      if (!is_numeric($v) || (float) $v <= 0) { $malos[$porKey[$k]['name']] = true; continue; }
       $v = number_format((float) $v, 2, '.', '');
       if ($v !== $porKey[$k]['price']) $nuevos[$k] = $v;     // sólo se guarda lo que difiere
     }
+
+    /* Un precio puesto a un plato vale para todas sus filas: es el mismo plato. Ver
+       plato_hermanas. Si alguien ha escrito a mano DOS precios distintos para el mismo plato
+       no se le pisa ninguno y se avisa: quien decide si eso es un error es el restaurante. */
+    $extendidos = [];
+    $choque = [];
+    foreach ($nuevos as $k => $v) {
+      foreach ($hermanas[$k] ?? [] as $h) {
+        if ($h === $k) continue;
+        if (!isset($nuevos[$h])) $extendidos[$h] = $v;
+        elseif ($nuevos[$h] !== $v) $choque[$porKey[$k]['name']] = true;
+      }
+    }
+    $nuevos = $nuevos + $extendidos;
+
     $estado['prices'] = $nuevos;
     if (guardar_estado($estado)) {
       $aviso = count($nuevos) === 0
         ? 'Publicado: todos los precios vuelven a ser los de la carta.'
-        : 'Publicado: ' . count($nuevos) . ' precio(s) distintos de la carta.';
+        : 'Publicado: ' . count($nuevos) . ' precio(s) distintos de la carta'
+          . (count($extendidos) > 0 ? ', contando ' . count($extendidos) . ' fila(s) del mismo plato en Sin gluten o Vegano' : '')
+          . '.';
+      if ($malos) {
+        $aviso .= ' NO se ha guardado el precio de ' . implode(', ', array_keys($malos))
+                . ': lo escrito ahí no es un precio. Vuelve a intentarlo con ese.';
+      }
+      if ($choque) {
+        $aviso .= ' Ojo: ' . implode(', ', array_keys($choque))
+                . ' ha quedado con dos precios distintos en pestañas distintas. Si no es a propósito, corrígelo.';
+      }
     } else {
       $error = 'No se ha podido escribir estado.json.';
     }
@@ -3558,7 +3629,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         $on = isset($agotados[$p['key']]); ?>
         <div class="row<?= $on ? ' is-out' : '' ?>" data-name="<?= h(mb_strtolower($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
           <label class="tick">
-            <input type="checkbox" name="agotado[]" value="<?= h($p['key']) ?>"<?= $on ? ' checked' : '' ?>>
+            <input type="checkbox" name="agotado[]" value="<?= h($p['key']) ?>"<?= $on ? ' checked' : '' ?>
+                   <?= isset($hermanas[$p['key']]) ? 'data-plato="' . h($p['name'] . ' ' . $p['price']) . '"' : '' ?>>
             <span class="sr">Agotado hoy: <?= h($p['name']) ?></span>
           </label>
           <span class="num"><?= h($p['id']) ?></span>
@@ -3675,9 +3747,30 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         document.getElementById('estado-txt').classList.toggle('dirty', sucio);
       }
 
+      /* Las filas del mismo plato se marcan y se desmarcan juntas.
+         Un plato está en su pestaña de comida y otra vez en Sin gluten o en Vegano, y son el
+         mismo plato: si la cocina se queda sin él, se queda sin él en las tres. El servidor
+         lo completa igual al guardar, pero hacerlo aquí es lo que permite DESmarcarlo: si la
+         casilla hermana se quedara marcada, el servidor volvería a tacharlo y quitar el
+         agotado sería imposible. */
+      function marcarHermanas(cb) {
+        var plato = cb.dataset.plato;
+        if (!plato) return;
+        document.querySelectorAll('input[name="agotado[]"][data-plato="' + plato.replace(/"/g, '\\"') + '"]')
+          .forEach(function (otra) {
+            if (otra === cb || otra.checked === cb.checked) return;
+            otra.checked = cb.checked;
+            var suFila = otra.closest('.row');
+            if (suFila) suFila.classList.toggle('is-out', otra.checked);
+          });
+      }
+
       form.addEventListener('change', function (e) {
         var row = e.target.closest('.row');
-        if (row && e.target.name === 'agotado[]') row.classList.toggle('is-out', e.target.checked);
+        if (row && e.target.name === 'agotado[]') {
+          row.classList.toggle('is-out', e.target.checked);
+          marcarHermanas(e.target);
+        }
         sucio = true;
         refrescar();
       });
@@ -4328,6 +4421,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             <span class="pviejo">€<?= h($f['actual']) ?></span>
             <input class="pnuevo" type="text" inputmode="decimal"
                    name="precio[<?= h($f['key']) ?>]" value="<?= h($f['nuevo']) ?>"
+                   <?= isset($hermanas[$f['key']]) ? 'data-plato="' . h($f['name'] . ' ' . $f['carta']) . '"' : '' ?>
                    aria-label="Precio nuevo de <?= h($f['name']) ?>">
           </div>
         <?php endforeach; if ($tabActual !== null) echo '</div>'; ?>
@@ -4337,6 +4431,23 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <button class="save" name="precios_publicar" value="1" type="submit">Publicar precios</button>
         </div>
       </form>
+
+      <script>
+        /* El mismo plato está en varias filas —su pestaña de comida y otra vez en Sin gluten o
+           en Vegano— y el precio se escribe una sola vez. Se copia mientras se teclea, para que
+           quien lo cambia VEA que las dos filas se mueven; el servidor lo completa igual al
+           guardar, pero enterarse al publicar es enterarse tarde. */
+        document.addEventListener('input', function (e) {
+          var campo = e.target;
+          if (!campo.classList || !campo.classList.contains('pnuevo')) return;
+          var plato = campo.dataset.plato;
+          if (!plato) return;
+          document.querySelectorAll('.pnuevo[data-plato="' + plato.replace(/"/g, '\\"') + '"]')
+            .forEach(function (otro) {
+              if (otro !== campo) otro.value = campo.value;
+            });
+        });
+      </script>
 
     <?php else: ?>
       <p class="hint">

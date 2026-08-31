@@ -503,8 +503,8 @@ export const groups = {
   'Vegetarian': 'Vegetarianos',
   'Meat & Seafood': 'Carne y marisco',
   'Choose Your Ingredient': 'Elige el ingrediente',
-  'Classic sauces': 'Elige la salsa (incluida) · Clásicas',
-  'South Indian sauces': 'Elige la salsa (incluida) · Del sur de la India',
+  'Classic sauces': 'Salsas clásicas',
+  'South Indian sauces': 'Salsas del sur de la India',
   'Vegetable Dishes': 'Platos de verdura',
   'Indian Lentil Dishes': 'Lentejas indias',
   'Classic Biryani': 'Biryani clásico',
@@ -526,6 +526,8 @@ export const groups = {
 };
 
 export const ui = {
+  'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk. Some of these dishes cost a little more than in their original section.': 'Preparado utilizando alternativas veganas como mantequilla, crema, yogur y leche de origen vegetal. Algunos de estos platos cuestan un poco más que en su sección original.',
+  'Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.': 'Se cocinan aparte para evitar el gluten. Algunos de estos platos cuestan un poco más que en su sección original.',
   'Indian Restaurant Menu': 'Restaurante indio',
   'Special menus': 'Cartas especiales',
   'Categories': 'Categorías',
@@ -629,7 +631,6 @@ export const ui = {
     'Consulta al personal sobre los 14 alérgenos. Los iconos vegano y sin gluten no sustituyen esta información.',
   'Tinge of Turmeric — Indian restaurant menu.': 'Tinge of Turmeric — carta de restaurante indio.',
   'South Indian Restaurant Menu': 'Cocina del Sur de India',
-  'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk.': 'Preparado utilizando alternativas veganas como mantequilla, crema, yogur y leche de origen vegetal.',
   'Bestseller': 'Más vendido',
   'Most loved': 'El favorito',
   'Signature': 'Plato insignia',

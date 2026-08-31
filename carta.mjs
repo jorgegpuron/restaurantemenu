@@ -1100,6 +1100,9 @@ export const CARTA = [
   {
     pestana: ['Gluten Free', 'Sin gluten', 'Glutenfrei'],
     icono: 'gf',
+    intro: ['Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.',
+            'Se cocinan aparte para evitar el gluten. Algunos de estos platos cuestan un poco más que en su sección original.',
+            'Getrennt zubereitet, um Gluten zu vermeiden. Einige dieser Gerichte kosten etwas mehr als in ihrem ursprünglichen Bereich.'],
     grupos: [
       {
         categoria: 'Gluten Free - Soups',
@@ -1507,9 +1510,9 @@ export const CARTA = [
   {
     pestana: ['Vegan', 'Vegano', 'Vegan'],
     icono: 'vegetarian',
-    intro: ['Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk.',
-            'Preparado utilizando alternativas veganas como mantequilla, crema, yogur y leche de origen vegetal.',
-            'Zubereitet mit veganen Alternativen wie pflanzlicher Butter, Sahne, Joghurt und Milch.'],
+    intro: ['Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk. Some of these dishes cost a little more than in their original section.',
+            'Preparado utilizando alternativas veganas como mantequilla, crema, yogur y leche de origen vegetal. Algunos de estos platos cuestan un poco más que en su sección original.',
+            'Zubereitet mit veganen Alternativen wie pflanzlicher Butter, Sahne, Joghurt und Milch. Einige dieser Gerichte kosten etwas mehr als in ihrem ursprünglichen Bereich.'],
     grupos: [
       {
         categoria: 'Vegan - Appetizers',
