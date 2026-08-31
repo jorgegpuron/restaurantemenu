@@ -100,20 +100,20 @@ Each category contains a Markdown table with: `id`, `name`, `description`, `pric
 
 | id | name | description | price |
 |---|---|---|---:|
-| 55 | Chicken | Choose a spice level and curry sauce. | 12.95 |
-| 56 | Lamb | Choose a spice level and curry sauce. | 14.95 |
-| 57 | Lamb Tikka | Choose a spice level and curry sauce. | 15.95 |
-| 58 | Fish | Choose a spice level and curry sauce. | 13.95 |
-| 59 | Prawns | Choose a spice level and curry sauce. | 14.95 |
-| 60 | King Prawns | Choose a spice level and curry sauce. | 16.95 |
-| 61 | Mixed Special (Chicken, Lamb & Prawns) | Choose a spice level and curry sauce. | 18.95 |
-| 62 | Mixed Vegetables | Choose a spice level and curry sauce. | 11.95 |
-| 63 | Mushrooms | Choose a spice level and curry sauce. | 11.95 |
-| 64 | Paneer (Indian Cottage Cheese) | Choose a spice level and curry sauce. | 13.95 |
-| 65 | Tofu (Prepared from Soymilk) | Choose a spice level and curry sauce. | 14.95 |
-| 66 | Kathal (Raw Jackfruit) | Choose a spice level and curry sauce. | 14.95 |
-| 67 | Soy (Processed Soy Bean) | Choose a spice level and curry sauce. | 14.95 |
-| 69 | Vegan Meat (Soy Based) | Choose a spice level and curry sauce. | 15.95 |
+| 55 | Chicken |  | 12.95 |
+| 56 | Lamb |  | 14.95 |
+| 57 | Lamb Tikka |  | 15.95 |
+| 58 | Fish |  | 13.95 |
+| 59 | Prawns |  | 14.95 |
+| 60 | King Prawns |  | 16.95 |
+| 61 | Mixed Special (Chicken, Lamb & Prawns) |  | 18.95 |
+| 62 | Mixed Vegetables |  | 11.95 |
+| 63 | Mushrooms |  | 11.95 |
+| 64 | Paneer (Indian Cottage Cheese) |  | 13.95 |
+| 65 | Tofu (Prepared from Soymilk) |  | 14.95 |
+| 66 | Kathal (Raw Jackfruit) |  | 14.95 |
+| 67 | Soy (Processed Soy Bean) |  | 14.95 |
+| 69 | Vegan Meat (Soy Based) |  | 15.95 |
 
 ## Curries - Sauces
 

@@ -2194,6 +2194,15 @@ $CUENTAS = [
   .chapa strong{color:var(--ink);font-variant-numeric:tabular-nums}
   .chapa-id{font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
   .chapa-mal{color:var(--mal,#b3261e);font-weight:600}
+  /* En la pantalla de acceso la chapa NO cae sobre la tarjeta crema: .page-login no tiene
+     fondo, así que queda sobre la tinta del body. Ahí --ink sobre --ink da 1,00:1 y la fecha
+     simplemente no está — justo el dato que se viene a mirar después de subir, y el único
+     momento en que se mira es antes de entrar. --metal existe para esto: es el metal aclarado
+     lo justo para leerse sobre el fondo oscuro. La opacidad se quita porque encima del metal
+     volvería a bajar el contraste que acabamos de recuperar. */
+  .page-login .chapa{color:var(--metal)}
+  .page-login .chapa strong{color:var(--surface)}
+  .page-login .chapa-id{color:var(--metal);opacity:1}
   .head .sub a{color:var(--accent-ink)}
 
   /* ---------- pestañas ---------- */

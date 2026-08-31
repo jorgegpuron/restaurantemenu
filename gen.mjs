@@ -581,7 +581,11 @@ const renderItem = (it, showSlot, icon, catName) => {
                       <div class="details">${column}
                         <div class="menu-content">
                           <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}</h3>
-                          <p>${T(it.desc, 'descriptions')}</p>
+${/* Un plato sin descripción no deja un <p> vacío: dejaría su interlínea de hueco bajo el
+      nombre y la fila quedaría más alta que sus vecinas sin decir nada a cambio. Aparece en
+      los catorce ingredientes de currys, donde la instrucción la lleva la nota del grupo y
+      repetirla plato a plato eran catorce copias de la misma frase. */''}
+${it.desc ? `                          <p>${T(it.desc, 'descriptions')}</p>` : '                          <!-- sin descripción: la instrucción va en la nota del grupo -->'}
                         </div>
                       </div>
                       <p class="price">${priceCell}</p>
@@ -2138,7 +2142,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
   background:var(--accent-ink);color:var(--surface);
-  font-family:var(--title-font);font-size:calc(10px * var(--escala));font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  font-family:var(--title-font);font-size:calc(11px * var(--escala));font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
 
 /* ---------- grid ---------- */
@@ -3386,7 +3390,12 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
               var li = document.createElement('li');
               li.className = 'hero-slide';
               var img = document.createElement('img');
-              img.alt = ${JSON.stringify(TL_TXT('Photo of the restaurant'))};
+              /* Numerada como las otras dos, aunque ésta la pinte el arranque temprano y no el
+                 runtime: si no, un lector de pantalla oía «Foto del restaurante» en la primera
+                 y «Foto 2 de 3» en las siguientes. En el idioma de la casa, como el resto de
+                 este bloque; el runtime la reetiqueta al cambiar de idioma. */
+              img.alt = ${JSON.stringify(TL_TXT('Photo {n} of {total}'))}
+                .replace('{n}', 1).replace('{total}', s.hero.length);
               /* sync y no async: esta foto es el elemento mas grande de la primera
                  pantalla, y con async el navegador puede pintar la pagina sin ella y
                  encajarla en un fotograma posterior. Es justo el retraso que marca el LCP. */
@@ -3540,9 +3549,15 @@ ${leyenda}
   </div>
 </div>
 
+<!-- En movil este boton es la UNICA puerta a la hoja, y la hoja lleva dentro el buscador
+     ademas de las categorias. La lupa de la barra sale solo desde 768, donde este boton no
+     existe: son la misma puerta a distinto ancho, y por eso no se anade una segunda aqui.
+     Lo que se corrige es el rotulo, que prometia menos de lo que hay: alguien que busca un
+     plato concreto no tiene por que pulsar algo llamado «Categorias».
+     El icono lleva ahora la lupa delante de las rayas, en el mismo trazo de 1.75. -->
 <button class="menu-fab" type="button" id="menu-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="category-sheet">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l16 0"/><path d="M4 12l16 0"/><path d="M4 18l16 0"/></svg>
-  ${T('Categories', 'ui')}
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0"/><path d="M20 20l-4.5 -4.5"/></svg>
+  ${T('Search and categories', 'ui')}
 </button>
 
 <div class="sheet" id="category-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
@@ -4566,7 +4581,12 @@ ${DATOS_ACTIVO ? `
       var li = document.createElement('li');
       li.className = 'hero-slide';
       var img = document.createElement('img');
-      img.alt = tr('Photo of the restaurant');
+      /* Numeradas y no las tres iguales. Un lector de pantalla recorre el carril y oía «Foto
+         del restaurante» tres veces seguidas, que no distingue nada y no dice cuántas quedan.
+         El build no puede describir lo que se ve —las fotos las sube el restaurante desde el
+         panel y cambian—, así que lo honesto es situarlas: es la misma cadena que ya usan los
+         puntos del carrusel. */
+      img.alt = fill(tr('Photo {n} of {total}'), { n: i + 1, total: fotos.length });
       img.decoding = i === 0 ? 'sync' : 'async';
       if (i === 0) img.setAttribute('fetchpriority', 'high');
       if (img.complete && img.src) img.classList.add('is-ready');
@@ -4691,7 +4711,9 @@ ${DATOS_ACTIVO ? `
     window.addEventListener('resize', function () { heroIr(heroActual); });
     document.addEventListener('totm:lang', function () {
       var imgs = heroTrack.querySelectorAll('img');
-      for (var i = 0; i < imgs.length; i++) imgs[i].alt = tr('Photo of the restaurant');
+      for (var i = 0; i < imgs.length; i++) {
+        imgs[i].alt = fill(tr('Photo {n} of {total}'), { n: i + 1, total: imgs.length });
+      }
     });
   }
 
@@ -5054,6 +5076,13 @@ ${DATOS_ACTIVO ? `
          .item-tags. El nombre del plato es el hijo DIRECTO del h3. */
       nombre: fila.querySelector('h3 > .i18n') || fila.querySelector('h3'),
       num: ((fila.querySelector('.item-id') || {}).textContent || '').trim(),
+      /* El rótulo del grupo al que pertenece la fila. Se guarda el ELEMENTO y no su texto,
+         igual que el nombre y el chip, porque el cambio de idioma reescribe el textContent
+         en sitio: guardar la cadena dejaría el índice hablando en el idioma de la carga. */
+      grupo: (function () {
+        var g = fila.closest('.menu-group');
+        return g ? g.querySelector('.menu-group-title') : null;
+      })(),
       vegan: !!fila.querySelector('.diet-vegan'),
       gf: !!fila.querySelector('.diet-gf'),
     };
@@ -5068,6 +5097,19 @@ ${DATOS_ACTIVO ? `
       out += d.charAt(i);
     }
     return out;
+  }
+
+  /* Lo que rodea al plato: el nombre de su pestaña y el de su grupo.
+   *
+   * Sin esto, las dos palabras que más se teclean en una carta india no encontraban nada:
+   * «biryani» devolvía 0 con diecisiete en la carta, y «curry» devolvía 2 con treinta y tres.
+   * El motivo es que ninguno de los dos está en el NOMBRE de los platos —los biryanis se
+   * llaman Pollo, Cordero, Pescado— sino sólo en el rótulo de la pestaña, que no se miraba.
+   *
+   * Se lee del DOM en cada búsqueda y no se cachea, para que siga al idioma activo: el
+   * cambio de idioma reescribe esos mismos nodos. */
+  function dsContexto(f) {
+    return ((f.chip ? f.chip.textContent : '') + ' ' + (f.grupo ? f.grupo.textContent : ''));
   }
 
   /* has-offer lo pone render() en el .price del precio, no en la fila: la oferta es del precio. */
@@ -5182,7 +5224,9 @@ ${DATOS_ACTIVO ? `
       if (f.el.hidden) return false;                // oculto desde el panel
       if (!dsPasa(f)) return false;
       if (!t) return true;
-      return dsPlano(f.nombre.textContent).indexOf(t) !== -1 || f.num.indexOf(t) !== -1;
+      return dsPlano(f.nombre.textContent).indexOf(t) !== -1
+        || f.num.indexOf(t) !== -1
+        || dsPlano(dsContexto(f)).indexOf(t) !== -1;
     });
 
     dsTotal.textContent = fill(tr(enc.length === 1 ? '{n} dish' : '{n} dishes'), { n: enc.length });

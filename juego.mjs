@@ -67,6 +67,23 @@ export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, tit
 ${FONTS}
 <style>
 ${TOKENS}
+/* El vocabulario propio del juego.
+ *
+ * Hasta ahora el juego pintaba con --offer, que en la carta significa UNA cosa —precio
+ * rebajado— y aquí significaba cinco: pulsa esto, esto te penaliza, se acaba el tiempo, esto
+ * es una etiqueta, y este eres tú. El resultado es que el botón que quieres pulsar y la ficha
+ * que debes esquivar eran del mismo color.
+ *
+ * Se parte en dos, y el reparto no es arbitrario: el rojo se queda donde el rojo ya significa
+ * algo para todo el mundo —peligro— y la acción se muda al acento del tema, que además cambia
+ * con la paleta que elija el restaurante, cosa que --offer no hacía.
+ *
+ * Ambos salen de tokens del tema: no hay un color nuevo inventado, y la guarda de contraste
+ * del build sigue midiendo los mismos pares. */
+:root{
+  --juego-go:var(--accent-ink);      /* pulsar, lograr, tu marca: lo que empuja hacia delante */
+  --juego-peligro:var(--offer);      /* la bomba, el hielo y el tiempo agotándose */
+}
 *,*::before,*::after{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -193,10 +210,10 @@ h1{
 .punto[data-t='gold'] .ficha{background:#f2c14e;color:#7a4a06}
 .punto[data-t='ice'] .ficha{background:#cfe9f2;color:#0d5b73}
 .punto[data-t='bomb'] .ficha{
-  background:var(--offer);color:var(--surface);
+  background:var(--juego-peligro);color:var(--surface);
   box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--surface) 88%,transparent);
 }
-.punto[data-t='ice'] .val,.punto[data-t='bomb'] .val{color:var(--offer)}
+.punto[data-t='ice'] .val,.punto[data-t='bomb'] .val{color:var(--juego-peligro)}
 /* Entran una detras de otra, despues del cartel: 40ms de diferencia, lo justo para que se lea
    como una fila que se monta y no como cuatro cosas sueltas. */
 .punto{animation:sube 240ms var(--ease-out) both}
@@ -232,7 +249,7 @@ h1{
   animation:colgar 620ms cubic-bezier(.28,1.2,.5,1) both;
 }
 .placa .rot{
-  font-family:var(--title-font);font-size:10px;font-weight:800;letter-spacing:.2em;
+  font-family:var(--title-font);font-size:11px;font-weight:800;letter-spacing:.2em;
   text-transform:uppercase;color:var(--metal);white-space:nowrap;
 }
 .placa .n{
@@ -294,13 +311,13 @@ h1{
 #s-intro h1 em{
   font-style:normal;display:inline-block;
   transform:rotate(-3deg);
-  color:var(--surface);background:var(--offer);
+  color:var(--surface);background:var(--juego-go);
   padding:0 .18em;border-radius:.14em;
 }
 @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #s-intro .actions{margin-top:var(--s4)}
 /* Flex de verdad: sin él el gap no existe y el SVG cae a la línea base del texto. */
-#btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--offer)}
+#btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--juego-go)}
 #btn-play svg{width:21px;height:21px;flex:0 0 auto}
 #btn-play .i18n{line-height:1}
 @media (prefers-reduced-motion:reduce){ .mascota,.eyebrow-record,.punto,.placa{animation:none} }
@@ -349,7 +366,7 @@ h1{
 .hud-item.der{align-items:flex-end}
 .hud-item.centro{align-items:center;gap:0}
 .hud-item.centro .hud-val{font-size:56px;letter-spacing:-.03em}
-.hud-lbl{font-family:var(--title-font);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.hud-lbl{font-family:var(--title-font);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
 .hud-val{font-family:var(--title-font);font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .hud-val.pop{animation:pop var(--t-press) var(--ease-out)}
 @keyframes pop{from{transform:scale(1.28)}to{transform:scale(1)}}
@@ -364,7 +381,7 @@ h1{
   border-radius:inherit;background:var(--ink);
 }
 /* los últimos cinco segundos: la barra se pone crema, que sobre el teal es lo que más salta */
-.bar.warn > i{background:var(--offer)}
+.bar.warn > i{background:var(--juego-peligro)}
 
 /* ---------- tablero ---------- */
 .board{
@@ -396,7 +413,7 @@ h1{
   padding:0;border:0;
   border-radius:50%;
   background:var(--surface);
-  color:var(--offer);
+  color:var(--juego-go);
   cursor:pointer;
   opacity:1;
   transition:opacity var(--t-fast) var(--ease-out);
@@ -420,7 +437,7 @@ h1{
    distinguir un rojo de un crema a toda velocidad para no perderlo todo. */
 .spot.bomb{
   width:67.2px;height:67.2px;margin:-33.6px 0 0 -33.6px;   /* 64 x 1.05, el 5% exacto */
-  background:var(--offer);color:var(--surface);
+  background:var(--juego-peligro);color:var(--surface);
   box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--surface) 88%,transparent);
 }
 .spot.bomb svg{width:36px;height:36px}
@@ -431,8 +448,8 @@ h1{
    pero se pierde entre las fichas; esto dice QUE HA PASADO desde el rabillo del ojo. */
 .hud-val.boom{animation:boom 420ms var(--ease-out)}
 @keyframes boom{
-  0%{color:var(--offer);transform:scale(1.25)}
-  60%{color:var(--offer);transform:scale(1)}
+  0%{color:var(--juego-go);transform:scale(1.25)}
+  60%{color:var(--juego-go);transform:scale(1)}
   100%{color:inherit;transform:scale(1)}
 }
 .float.boom{font-size:24px}
@@ -472,7 +489,7 @@ h1{
 }
 /* El puesto en curso, marcado. Sin esto, en una pantalla con tres filas iguales hay que leer
    los numeros para saber cual es la tuya. */
-.fila.tuya{background:var(--offer);color:var(--surface)}
+.fila.tuya{background:var(--juego-go);color:var(--surface)}
 .fila .pos{width:1.1em;opacity:.55;font-weight:600;font-variant-numeric:tabular-nums}
 .fila .pts{font-weight:800;font-variant-numeric:tabular-nums;min-width:2.4em}
 .fila .quien{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -497,14 +514,14 @@ h1{
   font-family:var(--title-font);font-size:15px;font-weight:600;min-height:48px;cursor:pointer}
 
 /* Batir el récord: lo único que celebra, y no da nada. */
-.eyebrow-record{color:var(--offer);animation:sube 240ms var(--ease-out) both}
+.eyebrow-record{color:var(--juego-go);animation:sube 240ms var(--ease-out) both}
 #s-end{gap:0}
 .tally{
   margin:14px 0 0;font-family:var(--title-font);font-size:clamp(72px,32vw,132px);font-weight:800;
   line-height:.86;letter-spacing:-.05em;font-variant-numeric:tabular-nums;
 }
 /* El récord de la partida, en el rojo de la casa. El rótulo se queda en crema sobre la banda. */
-.tally.record{color:var(--offer)}
+.tally.record{color:var(--juego-go)}
 .tally small{display:block;margin-top:10px;font-family:var(--body-font);font-size:16px;
   font-weight:400;letter-spacing:0;color:var(--ink)}
 #s-end .actions{margin-top:var(--s4)}
@@ -520,7 +537,7 @@ h1{
 #s-count .eyebrow,#s-end .eyebrow{
   display:inline-block;
   transform:rotate(-3deg);
-  background:var(--offer);color:var(--surface);
+  background:var(--juego-go);color:var(--surface);
   padding:.3em .55em;border-radius:.14em;
 }
 #s-count .eyebrow{font-size:15px;letter-spacing:.2em;padding:.28em .6em}
@@ -542,7 +559,7 @@ h1{
   background:color-mix(in srgb,var(--ink) 22%,transparent);
   transition:background-color var(--t-fast) var(--ease-out);
 }
-.rayas i.on{background:var(--offer)}
+.rayas i.on{background:var(--juego-go)}
 
 @media (prefers-reduced-motion:reduce){
   .spot,.spot.viaje{transition:opacity var(--t-fast) ease}
