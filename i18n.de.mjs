@@ -545,6 +545,7 @@ export const ui = {
   'Previous photo': 'Vorheriges Foto',
   'Next photo': 'Nächstes Foto',
   'Search dishes': 'Gerichte suchen',
+  'IGIC included': 'IGIC inbegriffen',
   'Text size': 'Textgröße',
   'Normal text': 'Normaler Text',
   'Large text': 'Großer Text',

@@ -786,8 +786,17 @@ const leyendaAlergenos = hayAlergenosDeclarados ? '' : `            <p class="le
 
 /* Empieza por salto y NO acaba en salto; la plantilla pone el resto. Asi la carta de quien ya
    tenia leyenda no se mueve ni una linea, y la de quien no la tenia tampoco. */
-const leyenda = !(leyendaMarcas || leyendaAlergenos) ? '' :
-  String.fromCharCode(10) + '          <div class="menu-legend">' + String.fromCharCode(10)
+/* La nota del impuesto. Va suelta y ANTES de la leyenda, no dentro: así cae justo debajo del
+   último precio de la pestaña, que es donde se busca. Alineada a la derecha, en la misma
+   columna que los precios a los que se refiere.
+   Deliberadamente pequeña y apagada: es una obligación legal, no información con la que se
+   elija un plato, y cada milímetro que ocupe se lo quita a la carta. El asterisco la marca
+   como nota al pie sin necesidad de repetirlo en las 312 filas. */
+const notaIgic = `          <p class="nota-igic">${T('IGIC included', 'ui')}</p>`;
+
+const leyenda = !(leyendaMarcas || leyendaAlergenos) ? notaIgic :
+  String.fromCharCode(10) + notaIgic + String.fromCharCode(10)
+  + '          <div class="menu-legend">' + String.fromCharCode(10)
   + [leyendaMarcas, leyendaAlergenos].filter(Boolean).join(String.fromCharCode(10))
   + String.fromCharCode(10) + '          </div>';
 
@@ -1930,6 +1939,18 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 .legend-item{display:inline-flex;align-items:center;gap:6px}
 .legend-caveat{flex:1 1 260px;min-width:0}
+/* La nota del IGIC. A la derecha, en la columna de los precios que explica, y en el tamaño
+   mínimo que el proyecto se permite: 11px. Por debajo de eso no es discreción, es letra que
+   no se puede leer, y esto tiene que poder leerse aunque no llame. El asterisco va pegado al
+   texto porque es una llamada, no una viñeta. */
+.nota-igic{
+  margin:var(--s2) 0 0;
+  text-align:right;
+  color:var(--muted);
+  font-size:calc(11px * var(--escala));
+  letter-spacing:.02em;
+}
+.nota-igic::before{content:"* "}
 /* The notice is the half the restaurant actually leans on when someone asks, so it carries
    the weight: full-strength ink at 16:1 rather than the muted whisper the marks get. */
 .legend-allergens{

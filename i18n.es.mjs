@@ -545,6 +545,7 @@ export const ui = {
   'Previous photo': 'Foto anterior',
   'Next photo': 'Foto siguiente',
   'Search dishes': 'Buscar platos',
+  'IGIC included': 'IGIC incluido',
   'Text size': 'Tamaño del texto',
   'Normal text': 'Texto normal',
   'Large text': 'Texto grande',
