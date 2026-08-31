@@ -5627,3 +5627,40 @@ carpeta tiene que decidirlo, y la guarda está para que no se le olvide — el m
 impide publicar con el nombre del restaurante anterior. No hay valor por defecto a propósito: un
 «IGIC incluido» de fábrica acabaría publicado tal cual en un restaurante de Madrid, y una nota
 fiscal equivocada es peor que ninguna.
+
+---
+
+## El buscador tolera erratas, pero sólo cuando no encuentra nada (31 Aug 2026)
+
+`nan` no encontraba `Naan`. El buscador entendía plurales desde la última tanda, pero no una
+letra de menos, y en una carta india el comensal escribe lo que oyó: `tika`, `tanduri`,
+`paner`, `biriani`, `vindalu`, `corma`, `papadam`. Ninguna de esas siete devolvía un plato.
+
+**Distancia de edición, con dos guardas.** Se compara la consulta contra cada palabra del
+nombre y del contexto —pestaña y grupo— y se acepta si difieren en pocas letras. Las guardas
+son las que hacen que esto no estropee lo que ya funcionaba:
+
+1. **Sólo se activa si la búsqueda normal da cero.** Mientras haya resultados exactos, el
+   buscador se comporta exactamente igual que antes: mismas coincidencias, mismo orden. Una
+   errata no puede colarse por delante de una palabra que sí está en la carta.
+2. **La tolerancia depende de la longitud.** Una letra hasta seis caracteres, dos a partir de
+   siete. Se probó en seco contra el vocabulario real —157 palabras— antes de tocar el
+   proyecto: con dos letras de margen para palabras cortas, `vino` devolvía seis platos
+   (`vindaloo`, `pollo`, `mango`...). Un comensal que busca vino y recibe pollo al vindaloo
+   está peor que recibiendo cero.
+
+**Coste.** El algoritmo es cuadrático, pero corta en cuanto la fila entera supera el margen, y
+descarta por longitud antes de empezar. Sobre 312 platos y sólo en el caso de cero resultados:
+577 ms por vuelta completa, tecleo incluido. No se nota.
+
+**Lo que sigue sin encontrarse, y está bien.** `chili` no devuelve nada en español porque en la
+carta española esos platos se llaman `guindilla`: no es una errata, es otra palabra. En inglés,
+donde `chilli` sí existe, `chili` devuelve ocho. Esto es un problema de sinónimos y se resuelve
+—si se resuelve— con un diccionario, no con distancia de edición.
+
+**La prueba del diferido de portadas se ancló a la foto, no al reloj.** Al comprobar que esto no
+rompía nada apareció un fallo que no era del buscador: la comprobación «al cargar sólo se pide
+una foto» esperaba 700 ms fijos, y con la red frenada el `domcontentloaded` llega tan tarde que
+la ventana se cruzaba con el giro del carrusel a los cinco segundos. Ahora espera a que la
+primera foto esté pintada y cuenta entonces. Medido: la segunda foto arranca a 5,15 s, la
+primera termina a 1,45 s — el diferido nunca estuvo roto, la regla lo estaba.

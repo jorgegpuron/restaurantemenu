@@ -5180,6 +5180,61 @@ ${DATOS_ACTIVO ? `
     return ((f.chip ? f.chip.textContent : '') + ' ' + (f.grupo ? f.grupo.textContent : ''));
   }
 
+  /* ---- las erratas ----
+   *
+   * Media carta está en indio transcrito, y son justo las palabras que un cliente de aquí no
+   * sabe cómo se escriben: naan, tikka, tandoori, paneer, vindaloo, korma, papadum. Buscar
+   * «nan» daba cero con quince naans en la carta, y eso es lo peor que puede hacer un buscador:
+   * decirle a alguien que no hay algo que sí está.
+   *
+   * Distancia de edición: cuántas letras hay que cambiar, meter o quitar para llegar de una
+   * palabra a la otra. «nan» a «naan» es una. Se compara PALABRA CONTRA PALABRA y no la frase
+   * entera, que si no «nan» contra «Naan de ajo» no significa nada.
+   *
+   * El corte por filas es lo que la hace barata: en cuanto una fila entera supera el máximo, ya
+   * no hay vuelta atrás y se abandona. Con 157 palabras distintas en la carta, ni se nota.
+   */
+  function dsDistancia(a, b, max) {
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    var prev = [];
+    for (var k = 0; k <= b.length; k++) prev[k] = k;
+    for (var i = 1; i <= a.length; i++) {
+      var fila = [i];
+      var mejor = i;
+      for (var j = 1; j <= b.length; j++) {
+        var c = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+        fila[j] = Math.min(prev[j] + 1, fila[j - 1] + 1, prev[j - 1] + c);
+        if (fila[j] < mejor) mejor = fila[j];
+      }
+      if (mejor > max) return max + 1;
+      prev = fila;
+    }
+    return prev[b.length];
+  }
+
+  /* Cuántas letras se le perdonan a una palabra, según lo larga que sea.
+   *
+   * Una y sólo una hasta seis letras; dos a partir de siete. No es un número elegido a ojo:
+   * probado contra el vocabulario real de esta carta, con dos se arreglan además «tanduri» y
+   * «vindalu», y con dos aplicadas a palabras cortas empiezan a salir resultados inventados
+   * —«vino», que aquí no existe porque no hay bebidas, devolvía seis platos—. Un buscador que
+   * responde a lo que no hay es peor que uno que no perdona erratas. */
+  function dsTolerancia(t) { return t.length >= 7 ? 2 : 1; }
+
+  /* Las palabras de un texto, ya sin acentos y sin lo que no sea letra ni número. */
+  function dsPalabras(txt) {
+    return dsPlano(txt).split(/[^a-z0-9]+/).filter(function (w) { return w.length >= 3; });
+  }
+
+  /* ¿Alguna palabra de este texto está a un paso de lo tecleado? */
+  function dsCasaPorErrata(txt, t, max) {
+    var ws = dsPalabras(txt);
+    for (var i = 0; i < ws.length; i++) {
+      if (dsDistancia(t, ws[i], max) <= max) return true;
+    }
+    return false;
+  }
+
   /* has-offer lo pone render() en el .price del precio, no en la fila: la oferta es del precio. */
   function dsOferta(f) { return !!f.el.querySelector('.price.has-offer'); }
   function dsAgotado(f) { return f.el.classList.contains('is-sold-out'); }
@@ -5313,6 +5368,24 @@ ${DATOS_ACTIVO ? `
         || casa(dsContexto(f));
     });
 
+    /* Si no hay NADA, y sólo entonces, se vuelve a mirar perdonando una errata. Ver
+       dsDistancia: es la diferencia entre decirle a alguien que no hay naan y enseñarle los
+       quince que hay.
+       Sólo cuando la búsqueda normal se queda a cero, y esto importa por dos razones: lo que ya
+       funciona no cambia de orden ni de contenido, y el coste —comparar lo tecleado contra las
+       palabras de la carta— se paga únicamente en el caso en el que, si no, no se enseñaría
+       nada. Desde tres letras: por debajo, perdonar una letra es perdonar la palabra entera. */
+    var porErrata = false;
+    if (t && !enc.length && t.length >= 3) {
+      var max = dsTolerancia(t);
+      var conErrata = DS.filter(function (f) {
+        if (f.el.hidden) return false;
+        if (!dsPasa(f)) return false;
+        return dsCasaPorErrata(f.nombre.textContent, t, max) || dsCasaPorErrata(dsContexto(f), t, max);
+      });
+      if (conErrata.length) { enc = conErrata; porErrata = true; }
+    }
+
     /* Primero lo que coincide en el NOMBRE del plato, después lo que sólo coincide por su
        pestaña o su grupo.
        Sin esto, mirar el contexto —que es lo que hizo encontrable «biryani»— traía un efecto
@@ -5322,11 +5395,15 @@ ${DATOS_ACTIVO ? `
        Estable a propósito: dentro de cada grupo se conserva el orden de la carta, que es el
        que lleva el número de plato y el que el camarero tiene delante. */
     if (t) {
+      /* La misma regla vale para los resultados que llegaron perdonando una errata: delante los
+         que casan en el nombre. Cambia sólo con qué se pregunta. */
+      var enElNombre = porErrata
+        ? function (f) { return dsCasaPorErrata(f.nombre.textContent, t, dsTolerancia(t)); }
+        : function (f) { return casa(f.nombre.textContent) || f.num.indexOf(t) !== -1; };
       var porNombre = [], porContexto = [];
       for (var iOrd = 0; iOrd < enc.length; iOrd++) {
         var fOrd = enc[iOrd];
-        var enNombre = casa(fOrd.nombre.textContent) || fOrd.num.indexOf(t) !== -1;
-        (enNombre ? porNombre : porContexto).push(fOrd);
+        (enElNombre(fOrd) ? porNombre : porContexto).push(fOrd);
       }
       enc = porNombre.concat(porContexto);
     }
