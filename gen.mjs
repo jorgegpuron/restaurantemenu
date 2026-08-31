@@ -59,6 +59,11 @@ export const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"
      con los preconnect en la cabecera:  99 89 89 88 89 89   → mediana 89, LCP 3,72 s
      con los preconnect diferidos:       99 99 99 99 99 99   → mediana 99, LCP 2,18 s
 
+   OJO CON ESAS CIFRAS: son de laboratorio, sin latencia. En producción, donde el TTFB son 830
+   ms y se lleva el 63% del LCP, la misma mejora vale 161 ms y no 1,8 s —2.762 a 2.601, medido
+   antes y después del despliegue—. La dirección es la correcta y el mecanismo funciona; el
+   tamaño no se puede prometer desde el laboratorio.
+
    Dos apretones de manos TLS contra dos dominios ajenos, arrancados en el mismo instante en
    que el navegador está pidiendo el documento, el estado y la foto, no son gratis: compiten
    por las mismas conexiones y por el mismo hilo justo en la ventana que decide el LCP. Y no

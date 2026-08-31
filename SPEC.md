@@ -5509,3 +5509,41 @@ escanea el QR:
 Y en Lighthouse: móvil de 89 a 99, **escritorio 100**. Accesibilidad, buenas prácticas, SEO y
 navegación agéntica en 100 en las dos plataformas, antes y después. 47 pruebas funcionales en
 verde y cero errores de consola.
+
+### Corrección: aquellos 1,5 s eran del laboratorio, no de producción (31 Aug 2026)
+
+El apartado de arriba dice que los `preconnect` costaban 1,5 s de LCP. **Es una cifra de
+laboratorio y no vale como cifra de producción.** Medido en socialcard.es, cuatro pasadas antes
+y cuatro después del despliegue:
+
+| | laboratorio | producción |
+|---|---|---|
+| LCP antes | 3.718 ms | 2.762 ms |
+| LCP después | 1.878 ms | **2.601 ms** |
+| diferencia | **−1.840 ms** | **−161 ms** |
+| nota antes / después | 89 → 99 | 94 → 95 |
+
+El cambio es el mismo y va en la misma dirección; lo que cambia es cuánto pesa. El laboratorio
+no tiene latencia —el TTFB son 10 ms— así que la competencia entre peticiones era casi todo el
+LCP y quitarla movía casi todo. En producción el TTFB son 830 ms, el 63% del LCP observado, y
+eso no lo toca ninguno de los dos cambios.
+
+El mecanismo sí funciona, y se ve en la traza de producción: la portada acaba a 1.253 ms y la
+hoja de tipografías empieza a 1.256. Ya no compiten. Pero lo que se gana con ello, aquí, son 161
+ms y no 1,8 s.
+
+**La lección, para la próxima vez que este registro dé una cifra:** un laboratorio sin latencia
+exagera todo lo que arregla contención de red, y en la misma proporción en que el TTFB real es
+grande. Las cifras de laboratorio sirven para decidir entre A y B —que es para lo que se usaron,
+y bien— pero no para prometer un resultado.
+
+### Y una tercera cifra, que tampoco es ninguna de las dos
+
+PageSpeed, medido por el cliente desde su navegador, da **89** donde yo mido **95** contra la
+misma URL el mismo día. Las dos son correctas: PageSpeed mide desde los servidores de Google y
+yo desde aquí, y a este hosting no se llega igual desde los dos sitios. La diferencia estaba
+entera en el LCP —3,8 s en su medida contra 2,6 en la mía—, o sea en el viaje.
+
+Lo que las tres mediciones dicen a la vez, y es lo único que hay que retener: **el LCP de esta
+carta lo manda el TTFB, y el TTFB lo manda el hosting.** Del código ya no queda ninguna palanca
+de ese tamaño.
