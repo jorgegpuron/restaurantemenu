@@ -1,3 +1,16 @@
+/* ============================== RESPALDO CONGELADO ==============================
+ *
+ * ESTE FICHERO YA NO ES LA FUENTE DE LA CARTA Y NO LO LEE NADIE.
+ *
+ * La fuente es carta.json, que lleva ademas los identificadores permanentes de
+ * cada plato (dishId) y categoria (categoryId). Editar este fichero no cambia
+ * nada en la carta publicada: importar.mjs lee carta.json.
+ *
+ * Se conserva como respaldo de la conversion del 31 de agosto de 2026, verificada
+ * campo a campo (312 platos, 40 categorias, 13 pestañas, ningun dato perdido).
+ * Cuando la migracion multicliente este comprobada de punta a punta, se retira.
+ * ================================================================================ */
+
 /* La carta de Tinge of Turmeric.
  *
  * Fuente: la página oficial de la carta de Tinge of Turmeric, extraída el 2026-08-20.

@@ -1,0 +1,5321 @@
+{
+  "esquema": "carta/1",
+  "pestanas": [
+    {
+      "pestana": [
+        "Appetizers & Soups",
+        "Aperitivos y sopas",
+        "Kleinigkeiten & Suppen"
+      ],
+      "icono": "soup",
+      "grupos": [
+        {
+          "categoryId": "c_1618a501e9",
+          "categoria": "Appetizers",
+          "subtitulo": [
+            "Appetizers",
+            "Aperitivos",
+            "Kleinigkeiten"
+          ],
+          "icono": "appetizers",
+          "platos": [
+            {
+              "dishId": "d_67fbda48e5",
+              "numero": "01",
+              "nombre": [
+                "Papadum",
+                "Papadum",
+                "Papadum"
+              ],
+              "descripcion": [
+                "Crisp lentil wafer.",
+                "Oblea crujiente de lenteja.",
+                "Knuspriger Linsenfladen."
+              ],
+              "precio": "1.00"
+            },
+            {
+              "dishId": "d_e8934d6343",
+              "numero": "02",
+              "nombre": [
+                "Spicy Papadum",
+                "Papadum especiado",
+                "Papadum mit Gewürzen"
+              ],
+              "descripcion": [
+                "Crisp lentil wafer seasoned with spices.",
+                "Oblea crujiente de lenteja con especias.",
+                "Knuspriger Linsenfladen mit Gewürzen."
+              ],
+              "precio": "1.00"
+            },
+            {
+              "dishId": "d_38b94b0a3c",
+              "numero": "03",
+              "nombre": [
+                "Pickle Tray",
+                "Surtido de encurtidos",
+                "Pickle-Auswahl"
+              ],
+              "descripcion": [
+                "Selection of chutneys, pickles and onions.",
+                "Selección de chutneys, encurtidos y cebolla.",
+                "Auswahl an Chutneys, Pickles und Zwiebeln."
+              ],
+              "precio": "3.00"
+            },
+            {
+              "dishId": "d_b696f2916f",
+              "numero": "04",
+              "nombre": [
+                "Pick Any Individual Sauce or Pickle",
+                "Salsa o encurtido a elegir",
+                "Sauce oder Pickle nach Wahl"
+              ],
+              "descripcion": [
+                "Choose mango, mint, onions, spiced onions, tamarind sauce or lime pickle.",
+                "A elegir entre mango, menta, cebolla, cebolla especiada, salsa de tamarindo o encurtido de lima.",
+                "Zur Wahl: Mango, Minze, Zwiebeln, gewürzte Zwiebeln, Tamarindensauce oder Limetten-Pickle."
+              ],
+              "precio": "1.10"
+            },
+            {
+              "dishId": "d_0a37fce2ff",
+              "numero": "05",
+              "nombre": [
+                "Plain Natural Yogurt",
+                "Yogur natural",
+                "Naturjoghurt"
+              ],
+              "descripcion": [
+                "Plain natural yogurt.",
+                "Yogur natural sin azúcar.",
+                "Naturjoghurt ohne Zucker."
+              ],
+              "precio": "2.00"
+            },
+            {
+              "dishId": "d_fcde8fcc79",
+              "numero": "06",
+              "nombre": [
+                "Mix Raita",
+                "Raita de verduras",
+                "Gemüse-Raita"
+              ],
+              "descripcion": [
+                "Yogurt with onion and vegetables.",
+                "Yogur con cebolla y verduras.",
+                "Joghurt mit Zwiebeln und Gemüse."
+              ],
+              "precio": "3.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_7f5469339d",
+          "categoria": "Soups",
+          "subtitulo": [
+            "Soups",
+            "Sopas",
+            "Suppen"
+          ],
+          "icono": "soup",
+          "platos": [
+            {
+              "dishId": "d_7ab0a52fb3",
+              "numero": "07",
+              "nombre": [
+                "Lentil Soup",
+                "Sopa de lentejas",
+                "Linsensuppe"
+              ],
+              "descripcion": [
+                "Comforting soup made with mixed lentils.",
+                "Sopa reconfortante de lentejas variadas.",
+                "Wärmende Suppe aus gemischten Linsen."
+              ],
+              "precio": "7.00"
+            },
+            {
+              "dishId": "d_8c8d4dbad9",
+              "numero": "08",
+              "nombre": [
+                "Tomato Soup",
+                "Sopa de tomate",
+                "Tomatensuppe"
+              ],
+              "descripcion": [
+                "Creamy tomato soup seasoned with spices.",
+                "Crema de tomate con especias.",
+                "Cremige Tomatensuppe mit Gewürzen."
+              ],
+              "precio": "6.50"
+            },
+            {
+              "dishId": "d_c3aad7864c",
+              "numero": "09",
+              "nombre": [
+                "Chicken Soup",
+                "Sopa de pollo",
+                "Hühnersuppe"
+              ],
+              "descripcion": [
+                "Chicken soup with a light, comforting broth.",
+                "Sopa de pollo con un caldo ligero y reconfortante.",
+                "Hühnersuppe mit leichter, wärmender Brühe."
+              ],
+              "precio": "7.50"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Starters",
+        "Entrantes",
+        "Vorspeisen"
+      ],
+      "icono": "appetizers",
+      "grupos": [
+        {
+          "categoryId": "c_b4b2f03cae",
+          "categoria": "Starters - Vegetarian",
+          "subtitulo": [
+            "Vegetarian",
+            "Vegetarianos",
+            "Vegetarisch"
+          ],
+          "icono": "vegetarian",
+          "platos": [
+            {
+              "dishId": "d_d413818022",
+              "numero": "10",
+              "nombre": [
+                "Onion Pakora",
+                "Pakora de cebolla",
+                "Zwiebel-Pakora"
+              ],
+              "descripcion": [
+                "Crispy onion fritters in chickpea batter.",
+                "Buñuelos crujientes de cebolla en rebozado de garbanzo.",
+                "Knusprige Zwiebelkrapfen im Kichererbsenteig."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_18a379a2b0",
+              "numero": "11",
+              "nombre": [
+                "Spinach Pakora",
+                "Pakora de espinacas",
+                "Spinat-Pakora"
+              ],
+              "descripcion": [
+                "Crispy spinach fritters in chickpea batter.",
+                "Buñuelos crujientes de espinaca en rebozado de garbanzo.",
+                "Knusprige Spinatkrapfen im Kichererbsenteig."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_56e5d7b894",
+              "numero": "12",
+              "nombre": [
+                "Raw Plantain Pakora",
+                "Pakora de plátano macho",
+                "Kochbananen-Pakora"
+              ],
+              "descripcion": [
+                "Plantain fritters in a spiced chickpea batter.",
+                "Buñuelos de plátano macho en rebozado de garbanzo especiado.",
+                "Kochbananenkrapfen im gewürzten Kichererbsenteig."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_cce80df2af",
+              "numero": "13",
+              "nombre": [
+                "Vegetable Samosa",
+                "Samosa de verduras",
+                "Gemüse-Samosa"
+              ],
+              "descripcion": [
+                "Fried pastry filled with spiced vegetables.",
+                "Empanadilla frita rellena de verduras especiadas.",
+                "Frittierte Teigtasche mit gewürztem Gemüse."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_a75ee43b76",
+              "numero": "14",
+              "nombre": [
+                "Katori Chaat",
+                "Katori Chaat",
+                "Katori Chaat"
+              ],
+              "descripcion": [
+                "Crisp baskets with potato, chickpeas, yogurt, chutneys and sev.",
+                "Cestitas crujientes con patata, garbanzos, yogur, chutneys y sev.",
+                "Knusprige Körbchen mit Kartoffel, Kichererbsen, Joghurt, Chutneys und Sev."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_177dc9ef87",
+              "numero": "15",
+              "nombre": [
+                "Aloo Tikki Chaat",
+                "Aloo Tikki Chaat",
+                "Aloo Tikki Chaat"
+              ],
+              "descripcion": [
+                "Potato patties topped with yogurt, chutneys and sev.",
+                "Tortitas de patata con yogur, chutneys y sev.",
+                "Kartoffelplätzchen mit Joghurt, Chutneys und Sev."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_b655303e7c",
+              "numero": "16",
+              "nombre": [
+                "Paneer 65",
+                "Paneer 65",
+                "Paneer 65"
+              ],
+              "descripcion": [
+                "Spicy South Indian-style fried paneer with curry leaves.",
+                "Paneer frito picante al estilo del sur de la India, con hojas de curry.",
+                "Scharf frittierter Paneer nach südindischer Art mit Curryblättern."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_d3be505e84",
+              "numero": "17",
+              "nombre": [
+                "Tandoori Malai Broccoli",
+                "Brócoli Tandoori Malai",
+                "Tandoori Malai Brokkoli"
+              ],
+              "descripcion": [
+                "Tandoori broccoli finished in a creamy garlic-butter sauce.",
+                "Brócoli al tandoor terminado en una salsa cremosa de ajo y mantequilla.",
+                "Brokkoli aus dem Tandoor in cremiger Knoblauch-Butter-Sauce."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_0e66215118",
+              "numero": "18",
+              "nombre": [
+                "Chutney Bombs",
+                "Bombas de chutney",
+                "Chutney-Bällchen"
+              ],
+              "descripcion": [
+                "Crisp paneer-and-potato bites with chutney inside.",
+                "Bocaditos crujientes de paneer y patata rellenos de chutney.",
+                "Knusprige Paneer-Kartoffel-Bällchen mit Chutney-Füllung."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_fd6199fc2a",
+              "numero": "19",
+              "nombre": [
+                "Cauliflower Wings",
+                "Alitas de coliflor",
+                "Blumenkohl-Wings"
+              ],
+              "descripcion": [
+                "Spiced, crumbed cauliflower florets fried until crisp.",
+                "Ramilletes de coliflor especiados y empanados, fritos hasta quedar crujientes.",
+                "Gewürzte, panierte Blumenkohlröschen, knusprig frittiert."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_dbf08f2080",
+              "numero": "20",
+              "nombre": [
+                "Veg Platter",
+                "Surtido vegetariano",
+                "Vegetarische Platte"
+              ],
+              "descripcion": [
+                "Selection of Onion Pakora, Spinach Pakora, Raw Plantain Pakora, Tandoori Broccoli and Cauliflower Wings.",
+                "Selección de Onion Pakora, Spinach Pakora, Raw Plantain Pakora, Tandoori Broccoli y Cauliflower Wings.",
+                "Auswahl an Onion Pakora, Spinach Pakora, Raw Plantain Pakora, Tandoori Broccoli und Cauliflower Wings."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_43f4d9d011",
+          "categoria": "Starters - Meat & Seafood",
+          "subtitulo": [
+            "Meat & Seafood",
+            "Carne y marisco",
+            "Fleisch & Meeresfrüchte"
+          ],
+          "icono": "meat",
+          "platos": [
+            {
+              "dishId": "d_b31499b3c8",
+              "numero": "21",
+              "nombre": [
+                "Meat Samosa",
+                "Samosa de carne",
+                "Fleisch-Samosa"
+              ],
+              "descripcion": [
+                "Fried pastry filled with seasoned meat and peas.",
+                "Empanadilla frita rellena de carne especiada y guisantes.",
+                "Frittierte Teigtasche mit gewürztem Fleisch und Erbsen."
+              ],
+              "precio": "6.50"
+            },
+            {
+              "dishId": "d_c0ada9e082",
+              "numero": "22",
+              "nombre": [
+                "Chicken Pakora",
+                "Pakora de pollo",
+                "Hähnchen-Pakora"
+              ],
+              "descripcion": [
+                "Marinated chicken pieces fried in a spiced coating.",
+                "Trozos de pollo marinados y fritos en rebozado especiado.",
+                "Mariniertes Hähnchen in gewürzter Panade frittiert."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_f8b3f943dd",
+              "numero": "23",
+              "nombre": [
+                "How 65 - Chicken or Fish",
+                "65 picante — pollo o pescado",
+                "Scharfes 65 — Hähnchen oder Fisch"
+              ],
+              "descripcion": [
+                "Fiery South Indian-style 65 preparation with curry leaves.",
+                "Preparación «65» del sur de la India, muy picante, con hojas de curry.",
+                "Feurige Zubereitung „65\" nach südindischer Art mit Curryblättern."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_deca88a6c9",
+              "numero": "24a",
+              "nombre": [
+                "Top Up Puri - Chicken",
+                "Puri con pollo",
+                "Puri mit Hähnchen"
+              ],
+              "descripcion": [
+                "Spiced chicken served over fried puri.",
+                "Pollo especiado servido sobre puri frito.",
+                "Gewürztes Hähnchen auf frittiertem Puri."
+              ],
+              "precio": "7.50"
+            },
+            {
+              "dishId": "d_19e1e31997",
+              "numero": "24b",
+              "nombre": [
+                "Top Up Puri - Chicken Chaat",
+                "Puri con chaat de pollo",
+                "Puri mit Hähnchen-Chaat"
+              ],
+              "descripcion": [
+                "Chicken chaat served over fried puri.",
+                "Chaat de pollo servido sobre puri frito.",
+                "Hähnchen-Chaat auf frittiertem Puri."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_9e7d3bbdf7",
+              "numero": "24c",
+              "nombre": [
+                "Top Up Puri - Prawns",
+                "Puri con gambas",
+                "Puri mit Garnelen"
+              ],
+              "descripcion": [
+                "Spiced prawns served over fried puri.",
+                "Gambas especiadas servidas sobre puri frito.",
+                "Gewürzte Garnelen auf frittiertem Puri."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_5a33c9e1d6",
+              "numero": "25",
+              "nombre": [
+                "Fish Pakora",
+                "Pakora de pescado",
+                "Fisch-Pakora"
+              ],
+              "descripcion": [
+                "Boneless fish pieces marinated and fried.",
+                "Tacos de pescado sin espinas, marinados y fritos.",
+                "Marinierte Fischstücke ohne Gräten, frittiert."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_fdd25ecdf4",
+              "numero": "26",
+              "nombre": [
+                "Chicken Tikka",
+                "Pollo Tikka",
+                "Hähnchen Tikka"
+              ],
+              "descripcion": [
+                "Yogurt-and-spice marinated boneless chicken.",
+                "Pollo deshuesado marinado en yogur y especias.",
+                "In Joghurt und Gewürzen mariniertes Hähnchen ohne Knochen."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_e17e016b2f",
+              "numero": "27",
+              "nombre": [
+                "Cheese Chicken Tikka",
+                "Pollo Tikka con queso",
+                "Hähnchen Tikka mit Käse"
+              ],
+              "descripcion": [
+                "Chicken tikka enriched with cheese.",
+                "Pollo Tikka enriquecido con queso.",
+                "Hähnchen Tikka mit Käse verfeinert."
+              ],
+              "precio": "9.00"
+            },
+            {
+              "dishId": "d_395693ec0f",
+              "numero": "28",
+              "nombre": [
+                "Mint Tikka",
+                "Tikka a la menta",
+                "Tikka mit Minze"
+              ],
+              "descripcion": [
+                "Chicken tikka marinated with mint, herbs and yogurt.",
+                "Pollo Tikka marinado con menta, hierbas y yogur.",
+                "Hähnchen Tikka mariniert mit Minze, Kräutern und Joghurt."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_2c09fee30f",
+              "numero": "29",
+              "nombre": [
+                "Malai Tikka",
+                "Malai Tikka",
+                "Malai Tikka"
+              ],
+              "descripcion": [
+                "Creamy chicken tikka with cheese and yogurt.",
+                "Pollo Tikka cremoso con queso y yogur.",
+                "Cremiges Hähnchen Tikka mit Käse und Joghurt."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_78cc509e4f",
+              "numero": "30",
+              "nombre": [
+                "Seekh Kebab",
+                "Seekh Kebab",
+                "Seekh Kebab"
+              ],
+              "descripcion": [
+                "Seasoned minced meat grilled on skewers.",
+                "Carne picada especiada, asada en brocheta.",
+                "Gewürztes Hackfleisch am Spieß gegrillt."
+              ],
+              "precio": "9.00"
+            },
+            {
+              "dishId": "d_44a5918885",
+              "numero": "31",
+              "nombre": [
+                "Garlic Prawns",
+                "Gambas al ajillo",
+                "Knoblauchgarnelen"
+              ],
+              "descripcion": [
+                "Prawns cooked with garlic and sauce.",
+                "Gambas salteadas con ajo y su salsa.",
+                "Garnelen mit Knoblauch und Sauce gebraten."
+              ],
+              "precio": "8.95"
+            },
+            {
+              "dishId": "d_475f3e3cd6",
+              "numero": "32",
+              "nombre": [
+                "Tikka Platter",
+                "Surtido de Tikka",
+                "Tikka-Platte"
+              ],
+              "descripcion": [
+                "Selection of Chicken Tikka, Cheese Chicken Tikka, Pudina Tikka and Malai Tikka.",
+                "Selección de Chicken Tikka, Cheese Chicken Tikka, Pudina Tikka y Malai Tikka.",
+                "Auswahl an Chicken Tikka, Cheese Chicken Tikka, Pudina Tikka und Malai Tikka."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_170b7fa051",
+              "numero": "33",
+              "nombre": [
+                "Meat Kebab Platter",
+                "Surtido de kebabs de carne",
+                "Fleisch-Kebab-Platte"
+              ],
+              "descripcion": [
+                "Selection of Lamb Tikka, Seekh Kebab and Lamb Chops.",
+                "Selección de Lamb Tikka, Seekh Kebab y Lamb Chops.",
+                "Auswahl an Lamb Tikka, Seekh Kebab und Lamb Chops."
+              ],
+              "precio": "19.95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Salads",
+        "Ensaladas",
+        "Salate"
+      ],
+      "icono": "salad",
+      "grupos": [
+        {
+          "categoryId": "c_6438032e18",
+          "categoria": "Salads",
+          "platos": [
+            {
+              "dishId": "d_e31291393c",
+              "numero": "34",
+              "nombre": [
+                "Garden Salad",
+                "Ensalada de la huerta",
+                "Gartensalat"
+              ],
+              "descripcion": [
+                "Mixed greens with onion, carrot, tomato and cucumber.",
+                "Brotes verdes con cebolla, zanahoria, tomate y pepino.",
+                "Blattsalate mit Zwiebel, Karotte, Tomate und Gurke."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_34b6f01b4e",
+              "numero": "35",
+              "nombre": [
+                "Sprouts",
+                "Ensalada de brotes",
+                "Sprossensalat"
+              ],
+              "descripcion": [
+                "Protein-rich sprouted legumes with greens and onion.",
+                "Legumbres germinadas, ricas en proteína, con brotes verdes y cebolla.",
+                "Proteinreiche Keimlinge mit Blattsalat und Zwiebel."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_c8f9050f42",
+              "numero": "36",
+              "nombre": [
+                "Turmeric Quinoa & Chickpea Salad",
+                "Ensalada de quinoa con cúrcuma y garbanzos",
+                "Kurkuma-Quinoa-Salat mit Kichererbsen"
+              ],
+              "descripcion": [
+                "Turmeric quinoa with chickpeas, fresh vegetables and herbs.",
+                "Quinoa a la cúrcuma con garbanzos, verduras frescas y hierbas.",
+                "Kurkuma-Quinoa mit Kichererbsen, frischem Gemüse und Kräutern."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_6f65f06bf8",
+              "numero": "37",
+              "nombre": [
+                "Chicken Tikka",
+                "Pollo Tikka",
+                "Hähnchen Tikka"
+              ],
+              "descripcion": [
+                "Chicken tikka with greens and mixed vegetables.",
+                "Pollo Tikka con brotes verdes y verduras variadas.",
+                "Hähnchen Tikka mit Blattsalat und gemischtem Gemüse."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_9f19d9f4df",
+              "numero": "38",
+              "nombre": [
+                "Tandoori Prawns",
+                "Gambas Tandoori",
+                "Tandoori-Garnelen"
+              ],
+              "descripcion": [
+                "Tandoori prawns with greens and mixed vegetables.",
+                "Gambas al tandoor con brotes verdes y verduras variadas.",
+                "Tandoori-Garnelen mit Blattsalat und gemischtem Gemüse."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_4793ddbacd",
+              "numero": "39",
+              "nombre": [
+                "Tandoori Paneer",
+                "Paneer Tandoori",
+                "Tandoori-Paneer"
+              ],
+              "descripcion": [
+                "Tandoori paneer with greens and vegetables; tofu available.",
+                "Paneer al tandoor con brotes verdes y verduras; disponible con tofu.",
+                "Tandoori-Paneer mit Blattsalat und Gemüse; auch mit Tofu."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_523ab16390",
+              "numero": "40",
+              "nombre": [
+                "Crunchy Vegan Meat",
+                "Carne vegana crujiente",
+                "Knuspriges veganes Fleisch"
+              ],
+              "descripcion": [
+                "Soy-based vegan protein with greens and vegetables.",
+                "Proteína vegana de soja con brotes verdes y verduras.",
+                "Veganes Sojaprotein mit Blattsalat und Gemüse."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_55af83357e",
+              "numero": "41",
+              "nombre": [
+                "Tandoori Jackfruit",
+                "Yaca Tandoori",
+                "Tandoori-Jackfrucht"
+              ],
+              "descripcion": [
+                "Tandoori-marinated jackfruit with greens and vegetables.",
+                "Yaca marinada al tandoor con brotes verdes y verduras.",
+                "Tandoori-marinierte Jackfrucht mit Blattsalat und Gemüse."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Sizzlers",
+        "A la plancha",
+        "Vom heißen Eisen"
+      ],
+      "icono": "flame",
+      "grupos": [
+        {
+          "categoryId": "c_cb3389c70f",
+          "categoria": "Sizzlers",
+          "platos": [
+            {
+              "dishId": "d_57be67b81f",
+              "numero": "42",
+              "nombre": [
+                "Chicken Tikka",
+                "Pollo Tikka",
+                "Hähnchen Tikka"
+              ],
+              "descripcion": [
+                "Marinated boneless chicken served sizzling.",
+                "Pollo deshuesado marinado, servido en plancha caliente.",
+                "Mariniertes Hähnchen ohne Knochen, heiß serviert."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_5b4fade098",
+              "numero": "43",
+              "nombre": [
+                "Chicken Shashlik",
+                "Shashlik de pollo",
+                "Hähnchen-Shashlik"
+              ],
+              "descripcion": [
+                "Chicken, onion and peppers tossed in the house seasoning.",
+                "Pollo, cebolla y pimiento salteados con el adobo de la casa.",
+                "Hähnchen, Zwiebel und Paprika in der Hausmarinade gebraten."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_68d683b672",
+              "numero": "44",
+              "nombre": [
+                "Tandoori Chicken (with bone)",
+                "Pollo Tandoori (con hueso)",
+                "Tandoori-Hähnchen (mit Knochen)"
+              ],
+              "descripcion": [
+                "Tandoori-marinated chicken leg quarters.",
+                "Cuartos traseros de pollo marinados al tandoor.",
+                "Tandoori-marinierte Hähnchenkeulen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_1756105bb1",
+              "numero": "45",
+              "nombre": [
+                "Seekh Kebab",
+                "Seekh Kebab",
+                "Seekh Kebab"
+              ],
+              "descripcion": [
+                "Minced meat kebabs cooked in the tandoor.",
+                "Brochetas de carne picada hechas en el tandoor.",
+                "Hackfleischspieße aus dem Tandoor."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_ed4710a28e",
+              "numero": "46",
+              "nombre": [
+                "Lamb Tikka",
+                "Cordero Tikka",
+                "Lamm Tikka"
+              ],
+              "descripcion": [
+                "Marinated lamb cubes cooked in the tandoor.",
+                "Tacos de cordero marinados y hechos en el tandoor.",
+                "Marinierte Lammwürfel aus dem Tandoor."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_29f977da4c",
+              "numero": "47",
+              "nombre": [
+                "Lamb Shashlik",
+                "Shashlik de cordero",
+                "Lamm-Shashlik"
+              ],
+              "descripcion": [
+                "Lamb, onion and peppers tossed in the house seasoning.",
+                "Cordero, cebolla y pimiento salteados con el adobo de la casa.",
+                "Lamm, Zwiebel und Paprika in der Hausmarinade gebraten."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_3b6853f3ce",
+              "numero": "48",
+              "nombre": [
+                "Fish Shashlik",
+                "Shashlik de pescado",
+                "Fisch-Shashlik"
+              ],
+              "descripcion": [
+                "Fish, onion and peppers tossed in the house seasoning.",
+                "Pescado, cebolla y pimiento salteados con el adobo de la casa.",
+                "Fisch, Zwiebel und Paprika in der Hausmarinade gebraten."
+              ],
+              "precio": "19.95"
+            },
+            {
+              "dishId": "d_05466403f5",
+              "numero": "49",
+              "nombre": [
+                "King Prawn (with shell)",
+                "Langostinos (con cáscara)",
+                "Riesengarnelen (mit Schale)"
+              ],
+              "descripcion": [
+                "Large shell-on prawns marinated and cooked tandoori-style.",
+                "Langostinos con cáscara, marinados y hechos al tandoor.",
+                "Große Garnelen mit Schale, mariniert und im Tandoor gegart."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_19392c40e7",
+              "numero": "50",
+              "nombre": [
+                "Tandoori Mix Grill",
+                "Parrillada Tandoori",
+                "Tandoori-Grillplatte"
+              ],
+              "descripcion": [
+                "Selection of Chicken Tikka, Lamb Tikka, Tandoori Chicken, Seekh Kebab and King Prawns.",
+                "Selección de Chicken Tikka, Lamb Tikka, Tandoori Chicken, Seekh Kebab y King Prawns.",
+                "Auswahl an Chicken Tikka, Lamb Tikka, Tandoori Chicken, Seekh Kebab und King Prawns."
+              ],
+              "precio": "21.95"
+            },
+            {
+              "dishId": "d_5f0c197daf",
+              "numero": "51",
+              "nombre": [
+                "Paneer Shashlik",
+                "Shashlik de paneer",
+                "Paneer-Shashlik"
+              ],
+              "descripcion": [
+                "Paneer, onion and peppers in the house seasoning.",
+                "Paneer, cebolla y pimiento con el adobo de la casa.",
+                "Paneer, Zwiebel und Paprika in der Hausmarinade."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_7a0d95e9b0",
+              "numero": "52",
+              "nombre": [
+                "Soy Shashlik",
+                "Shashlik de soja",
+                "Soja-Shashlik"
+              ],
+              "descripcion": [
+                "Marinated soy, onion and peppers served sizzling.",
+                "Soja marinada con cebolla y pimiento, en plancha caliente.",
+                "Marinierte Soja mit Zwiebel und Paprika, heiß serviert."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_4d9104d016",
+              "numero": "53",
+              "nombre": [
+                "Tandoori Malai Soya",
+                "Soja Tandoori Malai",
+                "Tandoori Malai Soja"
+              ],
+              "descripcion": [
+                "Tandoori soy in a creamy garlic-butter sauce.",
+                "Soja al tandoor en salsa cremosa de ajo y mantequilla.",
+                "Soja aus dem Tandoor in cremiger Knoblauch-Butter-Sauce."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_0e6c0e9303",
+              "numero": "54",
+              "nombre": [
+                "Kathal Shashlik",
+                "Shashlik de Kathal",
+                "Kathal-Shashlik"
+              ],
+              "descripcion": [
+                "Tandoori jackfruit with onion and peppers.",
+                "Yaca al tandoor con cebolla y pimiento.",
+                "Tandoori-Jackfrucht mit Zwiebel und Paprika."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_a9563aff52",
+              "numero": "",
+              "nombre": [
+                "Extra Sauce",
+                "Salsa extra",
+                "Extra Sauce"
+              ],
+              "descripcion": [
+                "Choose Tikka Masala, Butter Masala, Korma, Curry or Madras.",
+                "A elegir entre Tikka Masala, Butter Masala, Korma, Curry o Madras.",
+                "Zur Wahl: Tikka Masala, Butter Masala, Korma, Curry oder Madras."
+              ],
+              "precio": "5.00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Curries",
+        "Currys",
+        "Currys"
+      ],
+      "icono": "bowl",
+      "grupos": [
+        {
+          "categoryId": "c_a12c5eb067",
+          "categoria": "Curries - Ingredients",
+          "subtitulo": [
+            "Choose Your Ingredient",
+            "Elige el ingrediente",
+            "Zutat wählen"
+          ],
+          "icono": "bowl",
+          "nota": [
+            "Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall. Select one sauce from the next section.",
+            "Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall. Elige después una salsa de la lista siguiente.",
+            "Schärfegrade: mild, leicht, mittel, Madras, Vindaloo und Phall. Wählen Sie anschließend eine Sauce aus der folgenden Liste."
+          ],
+          "platos": [
+            {
+              "dishId": "d_9528ee4fa6",
+              "numero": "55",
+              "nombre": [
+                "Chicken",
+                "Pollo",
+                "Hähnchen"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_bd6e5ad90d",
+              "numero": "56",
+              "nombre": [
+                "Lamb",
+                "Cordero",
+                "Lamm"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_ec2260016d",
+              "numero": "57",
+              "nombre": [
+                "Lamb Tikka",
+                "Cordero Tikka",
+                "Lamm Tikka"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_5822364a4c",
+              "numero": "58",
+              "nombre": [
+                "Fish",
+                "Pescado",
+                "Fisch"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_785141c232",
+              "numero": "59",
+              "nombre": [
+                "Prawns",
+                "Gambas",
+                "Garnelen"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_75103fb86e",
+              "numero": "60",
+              "nombre": [
+                "King Prawns",
+                "Langostinos",
+                "Riesengarnelen"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_8dd24d1bbf",
+              "numero": "61",
+              "nombre": [
+                "Mixed Special (Chicken, Lamb & Prawns)",
+                "Especial mixto (pollo, cordero y gambas)",
+                "Gemischt Spezial (Hähnchen, Lamm und Garnelen)"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_224238ccba",
+              "numero": "62",
+              "nombre": [
+                "Mixed Vegetables",
+                "Verduras variadas",
+                "Gemischtes Gemüse"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_3e40c62b4e",
+              "numero": "63",
+              "nombre": [
+                "Mushrooms",
+                "Champiñones",
+                "Champignons"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_c18101a48b",
+              "numero": "64",
+              "nombre": [
+                "Paneer (Indian Cottage Cheese)",
+                "Paneer (queso fresco indio)",
+                "Paneer (indischer Frischkäse)"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_cb9ba468a1",
+              "numero": "65",
+              "nombre": [
+                "Tofu (Prepared from Soymilk)",
+                "Tofu (elaborado con leche de soja)",
+                "Tofu (aus Sojamilch)"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_57a668e140",
+              "numero": "66",
+              "nombre": [
+                "Kathal (Raw Jackfruit)",
+                "Kathal (yaca verde)",
+                "Kathal (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_106a989690",
+              "numero": "67",
+              "nombre": [
+                "Soy (Processed Soy Bean)",
+                "Soja (texturizada)",
+                "Soja (texturiert)"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_bb2496c3c5",
+              "numero": "69",
+              "nombre": [
+                "Vegan Meat (Soy Based)",
+                "Carne vegana (a base de soja)",
+                "Veganes Fleisch (auf Sojabasis)"
+              ],
+              "descripcion": [
+                "Choose a spice level and curry sauce.",
+                "Elige el nivel de picante y la salsa.",
+                "Schärfegrad und Currysauce wählen."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_724fe3c351",
+          "categoria": "Curries - Sauces",
+          "subtitulo": [
+            "Classic sauces",
+            "Salsas clásicas",
+            "Klassische Saucen"
+          ],
+          "icono": "drop",
+          "platos": [
+            {
+              "dishId": "d_bebd6f291f",
+              "numero": "",
+              "nombre": [
+                "Butter Masala",
+                "Butter Masala",
+                "Butter Masala"
+              ],
+              "descripcion": [
+                "Creamy, buttery and gently sweet sauce.",
+                "Salsa cremosa y mantecosa, ligeramente dulce.",
+                "Cremige, buttrige und leicht süße Sauce."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_ada114e042",
+              "numero": "",
+              "nombre": [
+                "Balti",
+                "Balti",
+                "Balti"
+              ],
+              "descripcion": [
+                "Onion-and-pepper curry traditionally served in a balti bowl.",
+                "Curry de cebolla y pimiento, servido tradicionalmente en cazuela balti.",
+                "Curry mit Zwiebel und Paprika, traditionell in der Balti-Schale serviert."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_b6f9929ac4",
+              "numero": "",
+              "nombre": [
+                "Curry",
+                "Curry",
+                "Curry"
+              ],
+              "descripcion": [
+                "Smooth turmeric-forward house curry.",
+                "Curry suave de la casa, con la cúrcuma por delante.",
+                "Mildes Hauscurry mit deutlicher Kurkumanote."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_0c65c4c193",
+              "numero": "",
+              "nombre": [
+                "Tikka Masala",
+                "Tikka Masala",
+                "Tikka Masala"
+              ],
+              "descripcion": [
+                "Creamy tomato-based sauce with nuts and mild sweetness.",
+                "Salsa cremosa de tomate con frutos secos y un punto dulce.",
+                "Cremige Tomatensauce mit Nüssen und milder Süße."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_5b066cd968",
+              "numero": "",
+              "nombre": [
+                "Jalfrezi",
+                "Jalfrezi",
+                "Jalfrezi"
+              ],
+              "descripcion": [
+                "Stir-fried onion and peppers with a spicy finish.",
+                "Cebolla y pimiento salteados con un final picante.",
+                "Zwiebel und Paprika gebraten, mit scharfem Abgang."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_9b4becc1ea",
+              "numero": "",
+              "nombre": [
+                "Dhansak",
+                "Dhansak",
+                "Dhansak"
+              ],
+              "descripcion": [
+                "Lentil-based curry balancing sweet, sour and spice.",
+                "Curry de lentejas que equilibra dulce, ácido y picante.",
+                "Linsencurry im Gleichgewicht aus süß, sauer und scharf."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_c5b4c855ff",
+              "numero": "",
+              "nombre": [
+                "Korma",
+                "Korma",
+                "Korma"
+              ],
+              "descripcion": [
+                "Mild creamy curry with coconut, nuts and spices.",
+                "Curry suave y cremoso con coco, frutos secos y especias.",
+                "Mildes, cremiges Curry mit Kokos, Nüssen und Gewürzen."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_26e5291dd5",
+              "numero": "",
+              "nombre": [
+                "Bhuna",
+                "Bhuna",
+                "Bhuna"
+              ],
+              "descripcion": [
+                "Reduced onion-and-spice sauce with caramelised depth.",
+                "Salsa reducida de cebolla y especias, con fondo caramelizado.",
+                "Eingekochte Zwiebel-Gewürz-Sauce mit karamelliger Tiefe."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_ef97dfaca8",
+              "numero": "",
+              "nombre": [
+                "Saag",
+                "Saag",
+                "Saag"
+              ],
+              "descripcion": [
+                "Slow-cooked greens and spices.",
+                "Verdura de hoja cocinada a fuego lento con especias.",
+                "Blattgemüse mit Gewürzen, langsam geschmort."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_7f6b61f7df",
+              "numero": "",
+              "nombre": [
+                "Kashmiri",
+                "Kashmiri",
+                "Kashmiri"
+              ],
+              "descripcion": [
+                "Creamy coconut-and-nut curry with aromatic spices.",
+                "Curry cremoso de coco y frutos secos con especias aromáticas.",
+                "Cremiges Kokos-Nuss-Curry mit aromatischen Gewürzen."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_658df06640",
+              "numero": "",
+              "nombre": [
+                "Dopiaza",
+                "Dopiaza",
+                "Dopiaza"
+              ],
+              "descripcion": [
+                "Onion-rich curry using onions at two stages.",
+                "Curry muy cebollero: la cebolla entra en dos tiempos.",
+                "Zwiebelreiches Curry — die Zwiebel kommt in zwei Stufen dazu."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_37816c3331",
+              "numero": "",
+              "nombre": [
+                "Kashmiri Rogan Josh",
+                "Kashmiri Rogan Josh",
+                "Kashmiri Rogan Josh"
+              ],
+              "descripcion": [
+                "Slow-cooked onion, fennel and Kashmiri chilli curry.",
+                "Curry a fuego lento de cebolla, hinojo y chile de Cachemira.",
+                "Langsam geschmortes Curry mit Zwiebel, Fenchel und Kaschmir-Chili."
+              ],
+              "precio": "included"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_254ac751ef",
+          "categoria": "South Indian Curries - Sauces",
+          "subtitulo": [
+            "South Indian sauces",
+            "Salsas del sur de la India",
+            "Südindische Saucen"
+          ],
+          "icono": "drop",
+          "platos": [
+            {
+              "dishId": "d_20d65e532c",
+              "numero": "",
+              "nombre": [
+                "Kadai",
+                "Kadai",
+                "Kadai"
+              ],
+              "descripcion": [
+                "Tomato, onion and pepper curry with aromatic spices.",
+                "Curry de tomate, cebolla y pimiento con especias aromáticas.",
+                "Curry aus Tomate, Zwiebel und Paprika mit aromatischen Gewürzen."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_6e36e2fc04",
+              "numero": "",
+              "nombre": [
+                "Madras",
+                "Madras",
+                "Madras"
+              ],
+              "descripcion": [
+                "Tangy tomato-and-onion curry with a chilli-forward profile.",
+                "Curry ácido de tomate y cebolla, con el picante por delante.",
+                "Säuerliches Tomaten-Zwiebel-Curry mit deutlicher Schärfe."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_ffeb11d2ce",
+              "numero": "",
+              "nombre": [
+                "Garlic Chilli",
+                "Ajo y guindilla",
+                "Knoblauch und Chili"
+              ],
+              "descripcion": [
+                "House-style garlic and chilli curry with peppers.",
+                "Curry de ajo y guindilla de la casa, con pimiento.",
+                "Knoblauch-Chili-Curry nach Art des Hauses, mit Paprika."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_6d33be1424",
+              "numero": "",
+              "nombre": [
+                "Chettinad",
+                "Chettinad",
+                "Chettinad"
+              ],
+              "descripcion": [
+                "Peppery South Indian curry with coconut and aromatic spices.",
+                "Curry del sur de la India, con mucha pimienta, coco y especias aromáticas.",
+                "Pfeffriges südindisches Curry mit Kokos und aromatischen Gewürzen."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_e18d25254f",
+              "numero": "",
+              "nombre": [
+                "Hyderabadi Handi",
+                "Hyderabadi Handi",
+                "Hyderabadi Handi"
+              ],
+              "descripcion": [
+                "Slow-cooked creamy yogurt curry with nuts, herbs and spices.",
+                "Curry cremoso de yogur a fuego lento, con frutos secos, hierbas y especias.",
+                "Cremiges Joghurtcurry, langsam geschmort, mit Nüssen, Kräutern und Gewürzen."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_146c342349",
+              "numero": "",
+              "nombre": [
+                "Malabar",
+                "Malabar",
+                "Malabar"
+              ],
+              "descripcion": [
+                "Milder curry with coconut, yogurt, tamarind and curry leaves.",
+                "Curry más suave con coco, yogur, tamarindo y hojas de curry.",
+                "Milderes Curry mit Kokos, Joghurt, Tamarinde und Curryblättern."
+              ],
+              "precio": "included"
+            },
+            {
+              "dishId": "d_46b8316861",
+              "numero": "",
+              "nombre": [
+                "Goan Vindaloo",
+                "Vindaloo de Goa",
+                "Vindaloo aus Goa"
+              ],
+              "descripcion": [
+                "Spicy garlic-and-vinegar curry with Portuguese influence.",
+                "Curry picante de ajo y vinagre, de raíz portuguesa.",
+                "Scharfes Knoblauch-Essig-Curry portugiesischen Ursprungs."
+              ],
+              "precio": "included"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Specialities",
+        "Especialidades",
+        "Spezialitäten"
+      ],
+      "icono": "special",
+      "grupos": [
+        {
+          "categoryId": "c_91cbce1411",
+          "categoria": "House Specialities",
+          "platos": [
+            {
+              "dishId": "d_956e9b8c7b",
+              "numero": "70",
+              "nombre": [
+                "Mango Chicken",
+                "Pollo al mango",
+                "Hähnchen in Mangosauce"
+              ],
+              "descripcion": [
+                "Chicken in a creamy, lightly spiced mango sauce.",
+                "Pollo en salsa cremosa de mango, ligeramente especiada.",
+                "Hähnchen in cremiger, leicht gewürzter Mangosauce."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_3b43efabed",
+              "numero": "71",
+              "nombre": [
+                "Butter Chicken",
+                "Butter Chicken",
+                "Butter Chicken"
+              ],
+              "descripcion": [
+                "Chicken tikka simmered in a creamy, mildly sweet sauce.",
+                "Pollo Tikka cocinado en una salsa cremosa y algo dulce.",
+                "Hähnchen Tikka in cremiger, leicht süßer Sauce geschmort."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_c6275c2c59",
+              "numero": "72",
+              "nombre": [
+                "Kheema Peas",
+                "Kheema con guisantes",
+                "Kheema mit Erbsen"
+              ],
+              "descripcion": [
+                "Minced meat cooked with peas, tomato, onion and spices.",
+                "Carne picada guisada con guisantes, tomate, cebolla y especias.",
+                "Hackfleisch mit Erbsen, Tomate, Zwiebel und Gewürzen geschmort."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_3dddeacde4",
+              "numero": "73",
+              "nombre": [
+                "Bhindi Gosht (Lamb)",
+                "Bhindi Gosht (cordero)",
+                "Bhindi Gosht (Lamm)"
+              ],
+              "descripcion": [
+                "Lamb and okra in a spiced onion-tomato gravy.",
+                "Cordero y okra en salsa especiada de cebolla y tomate.",
+                "Lamm und Okra in gewürzter Zwiebel-Tomaten-Sauce."
+              ],
+              "precio": "16.95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Vegetables & Lentils",
+        "Verduras y lentejas",
+        "Gemüse & Linsen"
+      ],
+      "icono": "leaf",
+      "grupos": [
+        {
+          "categoryId": "c_e5af865c2e",
+          "categoria": "Vegetable Dishes",
+          "subtitulo": [
+            "Vegetable Dishes",
+            "Platos de verdura",
+            "Gemüsegerichte"
+          ],
+          "icono": "leaf",
+          "platos": [
+            {
+              "dishId": "d_df5511e657",
+              "numero": "74",
+              "nombre": [
+                "Bombay Aloo",
+                "Bombay Aloo",
+                "Bombay Aloo"
+              ],
+              "descripcion": [
+                "Potatoes cooked with onion, tomato and spices.",
+                "Patata guisada con cebolla, tomate y especias.",
+                "Kartoffeln mit Zwiebel, Tomate und Gewürzen geschmort."
+              ],
+              "precio": "10.95"
+            },
+            {
+              "dishId": "d_f7d61f43f8",
+              "numero": "75",
+              "nombre": [
+                "Aloo Gobhi",
+                "Aloo Gobhi",
+                "Aloo Gobhi"
+              ],
+              "descripcion": [
+                "Potato and cauliflower with ground spices.",
+                "Patata y coliflor con especias molidas.",
+                "Kartoffel und Blumenkohl mit gemahlenen Gewürzen."
+              ],
+              "precio": "10.95"
+            },
+            {
+              "dishId": "d_1d58b54535",
+              "numero": "76",
+              "nombre": [
+                "Saag Aloo",
+                "Saag Aloo",
+                "Saag Aloo"
+              ],
+              "descripcion": [
+                "Potatoes cooked with spinach and aromatic spices.",
+                "Patata guisada con espinacas y especias aromáticas.",
+                "Kartoffeln mit Spinat und aromatischen Gewürzen geschmort."
+              ],
+              "precio": "10.95"
+            },
+            {
+              "dishId": "d_7692ca4190",
+              "numero": "77",
+              "nombre": [
+                "Chana Masala",
+                "Chana Masala",
+                "Chana Masala"
+              ],
+              "descripcion": [
+                "Chickpeas cooked with onion, tomato and spices.",
+                "Garbanzos guisados con cebolla, tomate y especias.",
+                "Kichererbsen mit Zwiebel, Tomate und Gewürzen geschmort."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_0a6305c1f4",
+              "numero": "78",
+              "nombre": [
+                "Aubergine Bharta",
+                "Bharta de berenjena",
+                "Auberginen-Bharta"
+              ],
+              "descripcion": [
+                "Tandoor-roasted aubergine in a spiced onion-tomato base.",
+                "Berenjena asada al tandoor sobre base especiada de cebolla y tomate.",
+                "Im Tandoor geröstete Aubergine auf gewürzter Zwiebel-Tomaten-Basis."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_be3af9ae84",
+              "numero": "79",
+              "nombre": [
+                "Bhindi Masala",
+                "Bhindi Masala",
+                "Bhindi Masala"
+              ],
+              "descripcion": [
+                "Okra cooked with chopped onion, tomato and spices.",
+                "Okra salteada con cebolla picada, tomate y especias.",
+                "Okra mit gehackter Zwiebel, Tomate und Gewürzen gebraten."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_0c1b2dbe0b",
+              "numero": "80",
+              "nombre": [
+                "Malai Kofta",
+                "Malai Kofta",
+                "Malai Kofta"
+              ],
+              "descripcion": [
+                "Potato-and-paneer dumplings in a creamy sauce.",
+                "Albóndigas de patata y paneer en salsa cremosa.",
+                "Kartoffel-Paneer-Bällchen in cremiger Sauce."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_8b71ffbc96",
+              "numero": "81",
+              "nombre": [
+                "Mutter Paneer",
+                "Mutter Paneer",
+                "Mutter Paneer"
+              ],
+              "descripcion": [
+                "Paneer and green peas in a spiced onion-tomato sauce; tofu available.",
+                "Paneer y guisantes en salsa especiada de cebolla y tomate; disponible con tofu.",
+                "Paneer und Erbsen in gewürzter Zwiebel-Tomaten-Sauce; auch mit Tofu."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_9b02ab84a4",
+              "numero": "82",
+              "nombre": [
+                "Palak Paneer",
+                "Palak Paneer",
+                "Palak Paneer"
+              ],
+              "descripcion": [
+                "Paneer in spinach purée and spices; tofu available.",
+                "Paneer en puré de espinacas con especias; disponible con tofu.",
+                "Paneer in Spinatpüree mit Gewürzen; auch mit Tofu."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_00dc87509b",
+              "numero": "83",
+              "nombre": [
+                "Navratan Korma",
+                "Navratan Korma",
+                "Navratan Korma"
+              ],
+              "descripcion": [
+                "Mixed vegetables, fruit and nuts in a creamy korma sauce; tofu available.",
+                "Verduras, fruta y frutos secos en salsa Korma cremosa; disponible con tofu.",
+                "Gemüse, Obst und Nüsse in cremiger Korma-Sauce; auch mit Tofu."
+              ],
+              "precio": "14.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_742074416a",
+          "categoria": "Indian Lentil Dishes",
+          "subtitulo": [
+            "Indian Lentil Dishes",
+            "Lentejas indias",
+            "Indische Linsengerichte"
+          ],
+          "icono": "lentils",
+          "platos": [
+            {
+              "dishId": "d_5c4442fbb2",
+              "numero": "84",
+              "nombre": [
+                "Yellow Dal Tadka",
+                "Dal Tadka amarillo",
+                "Gelbes Dal Tadka"
+              ],
+              "descripcion": [
+                "Yellow lentils finished with a fragrant tadka.",
+                "Lentejas amarillas terminadas con un tadka aromático.",
+                "Gelbe Linsen, vollendet mit aromatischem Tadka."
+              ],
+              "precio": "10.95"
+            },
+            {
+              "dishId": "d_6d7fb86913",
+              "numero": "85",
+              "nombre": [
+                "Dal Makhani",
+                "Dal Makhani",
+                "Dal Makhani"
+              ],
+              "descripcion": [
+                "Black lentils cooked with tomato, cream, butter and spices.",
+                "Lentejas negras guisadas con tomate, nata, mantequilla y especias.",
+                "Schwarze Linsen mit Tomate, Sahne, Butter und Gewürzen."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_f6d711556d",
+              "numero": "86",
+              "nombre": [
+                "Palak Dal (Spinach)",
+                "Palak Dal (espinacas)",
+                "Palak Dal (Spinat)"
+              ],
+              "descripcion": [
+                "Lentils cooked with spinach and a seasoned tadka.",
+                "Lentejas guisadas con espinacas y un tadka especiado.",
+                "Linsen mit Spinat und gewürztem Tadka."
+              ],
+              "precio": "12.95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Biryani",
+        "Biryani",
+        "Biryani"
+      ],
+      "icono": "rice",
+      "grupos": [
+        {
+          "categoryId": "c_a37951a9ea",
+          "categoria": "Classic Biryani",
+          "subtitulo": [
+            "Classic Biryani",
+            "Biryani clásico",
+            "Klassisches Biryani"
+          ],
+          "icono": "rice",
+          "nota": [
+            "Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.",
+            "Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall.",
+            "Schärfegrade: mild, leicht, mittel, Madras, Vindaloo und Phall."
+          ],
+          "platos": [
+            {
+              "dishId": "d_d26c4919a0",
+              "numero": "87",
+              "nombre": [
+                "Chicken",
+                "Pollo",
+                "Hähnchen"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with chicken.",
+                "Biryani de basmati aromático con pollo.",
+                "Duftendes Basmati-Biryani mit Hähnchen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_303a5cafbf",
+              "numero": "88",
+              "nombre": [
+                "Chicken Tikka",
+                "Pollo Tikka",
+                "Hähnchen Tikka"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with chicken tikka.",
+                "Biryani de basmati aromático con pollo Tikka.",
+                "Duftendes Basmati-Biryani mit Hähnchen Tikka."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_b1d5bdbfa7",
+              "numero": "89",
+              "nombre": [
+                "Lamb",
+                "Cordero",
+                "Lamm"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with lamb.",
+                "Biryani de basmati aromático con cordero.",
+                "Duftendes Basmati-Biryani mit Lamm."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_47c2ad43e0",
+              "numero": "90",
+              "nombre": [
+                "Lamb Tikka",
+                "Cordero Tikka",
+                "Lamm Tikka"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with lamb tikka.",
+                "Biryani de basmati aromático con cordero Tikka.",
+                "Duftendes Basmati-Biryani mit Lamm Tikka."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_b8d63066fe",
+              "numero": "91",
+              "nombre": [
+                "Fish",
+                "Pescado",
+                "Fisch"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with fish.",
+                "Biryani de basmati aromático con pescado.",
+                "Duftendes Basmati-Biryani mit Fisch."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_3418d3b271",
+              "numero": "92",
+              "nombre": [
+                "King Prawns",
+                "Langostinos",
+                "Riesengarnelen"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with king prawns.",
+                "Biryani de basmati aromático con langostinos.",
+                "Duftendes Basmati-Biryani mit Riesengarnelen."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_9091462ac6",
+              "numero": "93",
+              "nombre": [
+                "Mixed Special (Chicken, Lamb & Prawn)",
+                "Especial mixto (pollo, cordero y gambas)",
+                "Gemischt Spezial (Hähnchen, Lamm und Garnelen)"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with chicken, lamb and prawn.",
+                "Biryani de basmati aromático con pollo, cordero y gambas.",
+                "Duftendes Basmati-Biryani mit Hähnchen, Lamm und Garnelen."
+              ],
+              "precio": "19.95"
+            },
+            {
+              "dishId": "d_5b3f1fa3a3",
+              "numero": "94",
+              "nombre": [
+                "Mix Vegetables",
+                "Verduras variadas",
+                "Gemischtes Gemüse"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with mixed vegetables.",
+                "Biryani de basmati aromático con verduras variadas.",
+                "Duftendes Basmati-Biryani mit gemischtem Gemüse."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_e45e000801",
+              "numero": "95",
+              "nombre": [
+                "Mushrooms",
+                "Champiñones",
+                "Champignons"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with mushrooms.",
+                "Biryani de basmati aromático con champiñones.",
+                "Duftendes Basmati-Biryani mit Champignons."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_b78cf30cc1",
+              "numero": "96",
+              "nombre": [
+                "Paneer",
+                "Paneer",
+                "Paneer"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with paneer.",
+                "Biryani de basmati aromático con paneer.",
+                "Duftendes Basmati-Biryani mit Paneer."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_6d192d0bb7",
+              "numero": "97",
+              "nombre": [
+                "Soy",
+                "Soja",
+                "Soja"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with soy.",
+                "Biryani de basmati aromático con soja.",
+                "Duftendes Basmati-Biryani mit Soja."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_7c0e20d304",
+              "numero": "98",
+              "nombre": [
+                "Kathal (Raw Jackfruit)",
+                "Kathal (yaca verde)",
+                "Kathal (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Fragrant basmati biryani with raw jackfruit.",
+                "Biryani de basmati aromático con yaca verde.",
+                "Duftendes Basmati-Biryani mit grüner Jackfrucht."
+              ],
+              "precio": "16.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_68d5828e27",
+          "categoria": "Butter Masala Biryani",
+          "subtitulo": [
+            "Butter Masala Biryani",
+            "Biryani Butter Masala",
+            "Butter-Masala-Biryani"
+          ],
+          "icono": "rice",
+          "platos": [
+            {
+              "dishId": "d_0a06bd8090",
+              "numero": "99",
+              "nombre": [
+                "Chicken Tikka",
+                "Pollo Tikka",
+                "Hähnchen Tikka"
+              ],
+              "descripcion": [
+                "Creamy butter-masala biryani with chicken tikka.",
+                "Biryani cremoso Butter Masala con pollo Tikka.",
+                "Cremiges Butter-Masala-Biryani mit Hähnchen Tikka."
+              ],
+              "precio": "19.95"
+            },
+            {
+              "dishId": "d_81ff8f1491",
+              "numero": "100",
+              "nombre": [
+                "Lamb Tikka",
+                "Cordero Tikka",
+                "Lamm Tikka"
+              ],
+              "descripcion": [
+                "Creamy butter-masala biryani with lamb tikka.",
+                "Biryani cremoso Butter Masala con cordero Tikka.",
+                "Cremiges Butter-Masala-Biryani mit Lamm Tikka."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_04047de3fd",
+              "numero": "101",
+              "nombre": [
+                "Paneer",
+                "Paneer",
+                "Paneer"
+              ],
+              "descripcion": [
+                "Creamy butter-masala biryani with paneer.",
+                "Biryani cremoso Butter Masala con paneer.",
+                "Cremiges Butter-Masala-Biryani mit Paneer."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_b8f1a74138",
+              "numero": "102",
+              "nombre": [
+                "Mixed Special (Chicken, Lamb & Prawn)",
+                "Especial mixto (pollo, cordero y gambas)",
+                "Gemischt Spezial (Hähnchen, Lamm und Garnelen)"
+              ],
+              "descripcion": [
+                "Creamy butter-masala biryani with chicken, lamb and prawn.",
+                "Biryani cremoso Butter Masala con pollo, cordero y gambas.",
+                "Cremiges Butter-Masala-Biryani mit Hähnchen, Lamm und Garnelen."
+              ],
+              "precio": "21.95"
+            },
+            {
+              "dishId": "d_edf2904525",
+              "numero": "103",
+              "nombre": [
+                "Soy",
+                "Soja",
+                "Soja"
+              ],
+              "descripcion": [
+                "Creamy butter-masala biryani with soy.",
+                "Biryani cremoso Butter Masala con soja.",
+                "Cremiges Butter-Masala-Biryani mit Soja."
+              ],
+              "precio": "18.95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Breads",
+        "Panes",
+        "Brote"
+      ],
+      "icono": "bread",
+      "grupos": [
+        {
+          "categoryId": "c_6600e4f448",
+          "categoria": "Naan Bread",
+          "subtitulo": [
+            "Naan Bread",
+            "Naan",
+            "Naan"
+          ],
+          "icono": "bread",
+          "nota": [
+            "All naans are egg-free.",
+            "Todos los naan se elaboran sin huevo.",
+            "Alle Naan werden ohne Ei zubereitet."
+          ],
+          "platos": [
+            {
+              "dishId": "d_9d796de954",
+              "numero": "104",
+              "nombre": [
+                "Plain Naan",
+                "Naan natural",
+                "Naan natur"
+              ],
+              "descripcion": [
+                "Classic tandoor-baked naan.",
+                "Naan clásico hecho en el tandoor.",
+                "Klassisches Naan aus dem Tandoor."
+              ],
+              "precio": "3.95"
+            },
+            {
+              "dishId": "d_d7577de638",
+              "numero": "105",
+              "nombre": [
+                "Butter Naan",
+                "Naan con mantequilla",
+                "Naan mit Butter"
+              ],
+              "descripcion": [
+                "Naan finished with butter.",
+                "Naan pincelado con mantequilla.",
+                "Naan mit Butter bestrichen."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_181dde31d1",
+              "numero": "106",
+              "nombre": [
+                "Garlic Naan",
+                "Naan de ajo",
+                "Knoblauch-Naan"
+              ],
+              "descripcion": [
+                "Naan flavoured with garlic.",
+                "Naan al ajo.",
+                "Naan mit Knoblauch."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_eb10906554",
+              "numero": "107",
+              "nombre": [
+                "Onion Naan",
+                "Naan de cebolla",
+                "Zwiebel-Naan"
+              ],
+              "descripcion": [
+                "Naan flavoured with onion.",
+                "Naan con cebolla.",
+                "Naan mit Zwiebeln."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_ed9d04bc36",
+              "numero": "108",
+              "nombre": [
+                "Chilli Naan",
+                "Naan de guindilla",
+                "Chili-Naan"
+              ],
+              "descripcion": [
+                "Naan with chilli.",
+                "Naan con guindilla.",
+                "Naan mit Chili."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_7b9ac9f4f1",
+              "numero": "109",
+              "nombre": [
+                "Garlic Coriander Naan",
+                "Naan de ajo y cilantro",
+                "Naan mit Knoblauch und Koriander"
+              ],
+              "descripcion": [
+                "Naan with garlic and coriander.",
+                "Naan con ajo y cilantro.",
+                "Naan mit Knoblauch und Koriander."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_ca89719012",
+              "numero": "110",
+              "nombre": [
+                "Cheese Naan",
+                "Naan de queso",
+                "Käse-Naan"
+              ],
+              "descripcion": [
+                "Naan filled or topped with cheese.",
+                "Naan relleno o cubierto de queso.",
+                "Naan mit Käse gefüllt oder überbacken."
+              ],
+              "precio": "5.00"
+            },
+            {
+              "dishId": "d_683b8997cf",
+              "numero": "111",
+              "nombre": [
+                "Garlic Cheese Naan",
+                "Naan de queso y ajo",
+                "Naan mit Käse und Knoblauch"
+              ],
+              "descripcion": [
+                "Cheese naan with garlic.",
+                "Naan de queso con ajo.",
+                "Käse-Naan mit Knoblauch."
+              ],
+              "precio": "5.00"
+            },
+            {
+              "dishId": "d_20cd44859a",
+              "numero": "112",
+              "nombre": [
+                "Garlic Chilli Naan",
+                "Naan de ajo y guindilla",
+                "Naan mit Knoblauch und Chili"
+              ],
+              "descripcion": [
+                "Naan with garlic and chilli.",
+                "Naan con ajo y guindilla.",
+                "Naan mit Knoblauch und Chili."
+              ],
+              "precio": "5.25"
+            },
+            {
+              "dishId": "d_bcea456bd4",
+              "numero": "113",
+              "nombre": [
+                "Cheese Chilli Naan",
+                "Naan de queso y guindilla",
+                "Naan mit Käse und Chili"
+              ],
+              "descripcion": [
+                "Cheese naan with chilli.",
+                "Naan de queso con guindilla.",
+                "Käse-Naan mit Chili."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_6f1e76503c",
+              "numero": "114",
+              "nombre": [
+                "Garlic Cheese Chilli Naan",
+                "Naan de ajo, queso y guindilla",
+                "Naan mit Knoblauch, Käse und Chili"
+              ],
+              "descripcion": [
+                "Naan with garlic, cheese and chilli.",
+                "Naan con ajo, queso y guindilla.",
+                "Naan mit Knoblauch, Käse und Chili."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_b22515b583",
+              "numero": "115",
+              "nombre": [
+                "Peshwari Naan (Coco and Sugar)",
+                "Naan Peshwari (coco y azúcar)",
+                "Peshwari-Naan (Kokos und Zucker)"
+              ],
+              "descripcion": [
+                "Sweet naan with coconut and sugar.",
+                "Naan dulce con coco y azúcar.",
+                "Süßes Naan mit Kokos und Zucker."
+              ],
+              "precio": "5.00"
+            },
+            {
+              "dishId": "d_42bc061752",
+              "numero": "116",
+              "nombre": [
+                "Kheema Naan (Minced Lamb)",
+                "Naan Kheema (cordero picado)",
+                "Kheema-Naan (Lammhack)"
+              ],
+              "descripcion": [
+                "Naan stuffed with minced lamb.",
+                "Naan relleno de cordero picado.",
+                "Naan gefüllt mit Lammhack."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_b5d3c31349",
+              "numero": "117",
+              "nombre": [
+                "Garlic Kheema Naan (Minced Lamb, Garlic)",
+                "Naan Kheema con ajo (cordero picado)",
+                "Kheema-Naan mit Knoblauch (Lammhack)"
+              ],
+              "descripcion": [
+                "Minced-lamb naan with garlic.",
+                "Naan de cordero picado con ajo.",
+                "Lammhack-Naan mit Knoblauch."
+              ],
+              "precio": "5.75"
+            },
+            {
+              "dishId": "d_5b06932010",
+              "numero": "118",
+              "nombre": [
+                "Special Kheema Naan (Minced Lamb, Cheese)",
+                "Naan Kheema especial (cordero picado y queso)",
+                "Kheema-Naan Spezial (Lammhack und Käse)"
+              ],
+              "descripcion": [
+                "Minced-lamb naan with cheese.",
+                "Naan de cordero picado con queso.",
+                "Lammhack-Naan mit Käse."
+              ],
+              "precio": "5.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_209d39a1a4",
+          "categoria": "Flat Breads",
+          "subtitulo": [
+            "Flat Breads",
+            "Panes planos",
+            "Fladenbrote"
+          ],
+          "icono": "bread",
+          "platos": [
+            {
+              "dishId": "d_d86a2ac20c",
+              "numero": "119",
+              "nombre": [
+                "Tandoori Roti",
+                "Roti Tandoori",
+                "Tandoori-Roti"
+              ],
+              "descripcion": [
+                "Wheat flatbread cooked in the tandoor.",
+                "Pan plano de trigo hecho en el tandoor.",
+                "Weizenfladenbrot aus dem Tandoor."
+              ],
+              "precio": "3.95"
+            },
+            {
+              "dishId": "d_589257ddd4",
+              "numero": "120",
+              "nombre": [
+                "Garlic Tandoori Roti",
+                "Roti Tandoori de ajo",
+                "Tandoori-Roti mit Knoblauch"
+              ],
+              "descripcion": [
+                "Tandoori roti with garlic.",
+                "Roti al tandoor con ajo.",
+                "Tandoori-Roti mit Knoblauch."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_b322d8b141",
+              "numero": "121",
+              "nombre": [
+                "Garlic Chilli Tandoori Roti",
+                "Roti Tandoori de ajo y guindilla",
+                "Tandoori-Roti mit Knoblauch und Chili"
+              ],
+              "descripcion": [
+                "Tandoori roti with garlic and chilli.",
+                "Roti al tandoor con ajo y guindilla.",
+                "Tandoori-Roti mit Knoblauch und Chili."
+              ],
+              "precio": "5.25"
+            },
+            {
+              "dishId": "d_f478208f0f",
+              "numero": "122",
+              "nombre": [
+                "Plain Chapati",
+                "Chapati natural",
+                "Chapati natur"
+              ],
+              "descripcion": [
+                "Unleavened wheat flatbread cooked on a griddle.",
+                "Pan plano de trigo sin levadura, hecho a la plancha.",
+                "Ungesäuertes Weizenfladenbrot von der Platte."
+              ],
+              "precio": "3.00"
+            },
+            {
+              "dishId": "d_eae7a8a2b6",
+              "numero": "123",
+              "nombre": [
+                "Butter Chapati",
+                "Chapati con mantequilla",
+                "Chapati mit Butter"
+              ],
+              "descripcion": [
+                "Chapati finished with butter.",
+                "Chapati pincelado con mantequilla.",
+                "Chapati mit Butter bestrichen."
+              ],
+              "precio": "3.25"
+            },
+            {
+              "dishId": "d_c0a73333ac",
+              "numero": "124",
+              "nombre": [
+                "Garlic Chapati",
+                "Chapati de ajo",
+                "Chapati mit Knoblauch"
+              ],
+              "descripcion": [
+                "Chapati with garlic.",
+                "Chapati con ajo.",
+                "Chapati mit Knoblauch."
+              ],
+              "precio": "3.50"
+            },
+            {
+              "dishId": "d_a5928de8be",
+              "numero": "125",
+              "nombre": [
+                "Aloo Paratha (Stuffed with Spiced Potatoes)",
+                "Aloo Paratha (relleno de patata especiada)",
+                "Aloo Paratha (gefüllt mit gewürzten Kartoffeln)"
+              ],
+              "descripcion": [
+                "Layered flatbread stuffed with spiced potato.",
+                "Pan plano hojaldrado relleno de patata especiada.",
+                "Blättriges Fladenbrot mit gewürzter Kartoffelfüllung."
+              ],
+              "precio": "4.90"
+            },
+            {
+              "dishId": "d_a440fef633",
+              "numero": "126",
+              "nombre": [
+                "Stuffed Paratha (Spiced Potato & Paneer)",
+                "Paratha relleno (patata especiada y paneer)",
+                "Gefülltes Paratha (Kartoffel und Paneer)"
+              ],
+              "descripcion": [
+                "Layered flatbread stuffed with potato and paneer.",
+                "Pan plano hojaldrado relleno de patata y paneer.",
+                "Blättriges Fladenbrot mit Kartoffel- und Paneerfüllung."
+              ],
+              "precio": "5.50"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Rice & Fries",
+        "Arroces y patatas",
+        "Reis & Pommes"
+      ],
+      "icono": "fries",
+      "grupos": [
+        {
+          "categoryId": "c_5c77d634f6",
+          "categoria": "Indian Rice",
+          "subtitulo": [
+            "Indian Rice",
+            "Arroz basmati",
+            "Basmatireis"
+          ],
+          "icono": "rice",
+          "nota": [
+            "All rice dishes use Indian basmati rice.",
+            "Todos los arroces se preparan con basmati indio.",
+            "Alle Reisgerichte werden mit indischem Basmatireis zubereitet."
+          ],
+          "platos": [
+            {
+              "dishId": "d_f6714a5bce",
+              "numero": "127",
+              "nombre": [
+                "Plain Boiled Rice",
+                "Arroz basmati hervido",
+                "Basmatireis"
+              ],
+              "descripcion": [
+                "Steamed basmati rice.",
+                "Arroz basmati al vapor.",
+                "Gedämpfter Basmatireis."
+              ],
+              "precio": "4.00"
+            },
+            {
+              "dishId": "d_a3fb2df0df",
+              "numero": "128",
+              "nombre": [
+                "Pilao Rice",
+                "Arroz Pilao",
+                "Pilao-Reis"
+              ],
+              "descripcion": [
+                "Basmati rice cooked with spices.",
+                "Arroz basmati cocinado con especias.",
+                "Basmatireis mit Gewürzen."
+              ],
+              "precio": "4.25"
+            },
+            {
+              "dishId": "d_6bc9b42c81",
+              "numero": "129",
+              "nombre": [
+                "Cumin Rice",
+                "Arroz al comino",
+                "Reis mit Kreuzkümmel"
+              ],
+              "descripcion": [
+                "Basmati rice flavoured with cumin.",
+                "Arroz basmati al comino.",
+                "Basmatireis mit Kreuzkümmel."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_e6c7c2a247",
+              "numero": "130",
+              "nombre": [
+                "Garlic Rice",
+                "Arroz al ajo",
+                "Knoblauchreis"
+              ],
+              "descripcion": [
+                "Basmati rice flavoured with garlic.",
+                "Arroz basmati al ajo.",
+                "Basmatireis mit Knoblauch."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_f0a7734a64",
+              "numero": "131",
+              "nombre": [
+                "Onion Rice",
+                "Arroz con cebolla",
+                "Reis mit Zwiebeln"
+              ],
+              "descripcion": [
+                "Basmati rice with onion.",
+                "Arroz basmati con cebolla.",
+                "Basmatireis mit Zwiebeln."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_8b992f842a",
+              "numero": "132",
+              "nombre": [
+                "Egg Rice",
+                "Arroz con huevo",
+                "Reis mit Ei"
+              ],
+              "descripcion": [
+                "Basmati rice with egg.",
+                "Arroz basmati con huevo.",
+                "Basmatireis mit Ei."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_c86e923d79",
+              "numero": "133",
+              "nombre": [
+                "Green Peas Pulao Rice",
+                "Arroz Pulao con guisantes",
+                "Pulao-Reis mit Erbsen"
+              ],
+              "descripcion": [
+                "Pulao rice with green peas.",
+                "Arroz Pulao con guisantes.",
+                "Pulao-Reis mit grünen Erbsen."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_c8b736f2d5",
+              "numero": "134",
+              "nombre": [
+                "Lemon Rice",
+                "Arroz al limón",
+                "Zitronenreis"
+              ],
+              "descripcion": [
+                "Basmati rice with lemon.",
+                "Arroz basmati al limón.",
+                "Basmatireis mit Zitrone."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_498b4cea9f",
+              "numero": "135",
+              "nombre": [
+                "Mushroom Rice",
+                "Arroz con champiñones",
+                "Reis mit Champignons"
+              ],
+              "descripcion": [
+                "Basmati rice with mushrooms.",
+                "Arroz basmati con champiñones.",
+                "Basmatireis mit Champignons."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_b88793806f",
+              "numero": "136",
+              "nombre": [
+                "Mixed Vegetable Rice",
+                "Arroz con verduras",
+                "Reis mit Gemüse"
+              ],
+              "descripcion": [
+                "Basmati rice with mixed vegetables.",
+                "Arroz basmati con verduras variadas.",
+                "Basmatireis mit gemischtem Gemüse."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_efbc9a8fa1",
+              "numero": "137",
+              "nombre": [
+                "Coco Rice",
+                "Arroz con coco",
+                "Kokosreis"
+              ],
+              "descripcion": [
+                "Basmati rice with coconut.",
+                "Arroz basmati con coco.",
+                "Basmatireis mit Kokos."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_d886f846ca",
+              "numero": "138",
+              "nombre": [
+                "Kheema Rice",
+                "Arroz Kheema",
+                "Kheema-Reis"
+              ],
+              "descripcion": [
+                "Basmati rice with seasoned minced meat.",
+                "Arroz basmati con carne picada especiada.",
+                "Basmatireis mit gewürztem Hackfleisch."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_c44756bf17",
+              "numero": "139",
+              "nombre": [
+                "Special Rice (Prawns with Vegetables)",
+                "Arroz especial (gambas y verduras)",
+                "Reis Spezial (Garnelen und Gemüse)"
+              ],
+              "descripcion": [
+                "Basmati rice with prawns and vegetables.",
+                "Arroz basmati con gambas y verduras.",
+                "Basmatireis mit Garnelen und Gemüse."
+              ],
+              "precio": "7.50"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_64789f4a3a",
+          "categoria": "Fries",
+          "subtitulo": [
+            "Fries",
+            "Patatas",
+            "Pommes frites"
+          ],
+          "icono": "fries",
+          "platos": [
+            {
+              "dishId": "d_153fbafa13",
+              "numero": "140",
+              "nombre": [
+                "French Fries",
+                "Patatas fritas",
+                "Pommes frites"
+              ],
+              "descripcion": [
+                "Classic fries.",
+                "Patatas fritas clásicas.",
+                "Klassische Pommes frites."
+              ],
+              "precio": "3.50"
+            },
+            {
+              "dishId": "d_b0e407a8a1",
+              "numero": "141",
+              "nombre": [
+                "Masala Fries",
+                "Patatas fritas Masala",
+                "Masala-Pommes"
+              ],
+              "descripcion": [
+                "Fries seasoned with masala spices.",
+                "Patatas fritas con especias masala.",
+                "Pommes frites mit Masala-Gewürzen."
+              ],
+              "precio": "4.50"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Kids",
+        "Niños",
+        "Für Kinder"
+      ],
+      "icono": "kids",
+      "grupos": [
+        {
+          "categoryId": "c_890eed59a6",
+          "categoria": "Kids Menu",
+          "nota": [
+            "Only served for children under 9 years.",
+            "Solo para menores de 9 años.",
+            "Nur für Kinder unter 9 Jahren."
+          ],
+          "platos": [
+            {
+              "dishId": "d_a5177b8d72",
+              "numero": "142",
+              "nombre": [
+                "French Omelette and Chips",
+                "Tortilla francesa con patatas",
+                "Omelett mit Pommes frites"
+              ],
+              "descripcion": [
+                "French omelette served with chips.",
+                "Tortilla francesa con patatas fritas.",
+                "Omelett mit Pommes frites."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_c3bb109025",
+              "numero": "143",
+              "nombre": [
+                "Chicken Nuggets and Chips",
+                "Nuggets de pollo con patatas",
+                "Hähnchen-Nuggets mit Pommes frites"
+              ],
+              "descripcion": [
+                "Chicken nuggets served with chips.",
+                "Nuggets de pollo con patatas fritas.",
+                "Hähnchen-Nuggets mit Pommes frites."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_dc6554ab96",
+              "numero": "144",
+              "nombre": [
+                "Chicken Tikka with Chips or Rice",
+                "Pollo Tikka con patatas o arroz",
+                "Hähnchen Tikka mit Pommes oder Reis"
+              ],
+              "descripcion": [
+                "Diced chicken tikka with chips or rice.",
+                "Pollo Tikka en dados con patatas fritas o arroz.",
+                "Hähnchen Tikka in Würfeln, mit Pommes oder Reis."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_794eee4fc4",
+              "numero": "145",
+              "nombre": [
+                "Chicken Korma with Chips or Rice",
+                "Pollo Korma con patatas o arroz",
+                "Hähnchen Korma mit Pommes oder Reis"
+              ],
+              "descripcion": [
+                "Mild creamy chicken korma with chips or rice.",
+                "Pollo Korma suave y cremoso con patatas fritas o arroz.",
+                "Mildes, cremiges Hähnchen Korma mit Pommes oder Reis."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_7c0740b3a5",
+              "numero": "146",
+              "nombre": [
+                "Chicken Tikka Masala with Chips or Rice",
+                "Pollo Tikka Masala con patatas o arroz",
+                "Hähnchen Tikka Masala mit Pommes oder Reis"
+              ],
+              "descripcion": [
+                "Mild chicken tikka masala with chips or rice.",
+                "Pollo Tikka Masala suave con patatas fritas o arroz.",
+                "Mildes Hähnchen Tikka Masala mit Pommes oder Reis."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_f265e22126",
+              "numero": "147",
+              "nombre": [
+                "Chicken Curry with Chips or Rice",
+                "Pollo al curry con patatas o arroz",
+                "Hähnchen-Curry mit Pommes oder Reis"
+              ],
+              "descripcion": [
+                "Mild chicken curry with chips or rice.",
+                "Pollo al curry suave con patatas fritas o arroz.",
+                "Mildes Hähnchencurry mit Pommes oder Reis."
+              ],
+              "precio": "8.50"
+            },
+            {
+              "dishId": "d_8529364500",
+              "numero": "148",
+              "nombre": [
+                "Paneer Tikka Masala with Chips or Rice",
+                "Paneer Tikka Masala con patatas o arroz",
+                "Paneer Tikka Masala mit Pommes oder Reis"
+              ],
+              "descripcion": [
+                "Mild paneer tikka masala with chips or rice.",
+                "Paneer Tikka Masala suave con patatas fritas o arroz.",
+                "Mildes Paneer Tikka Masala mit Pommes oder Reis."
+              ],
+              "precio": "8.50"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Gluten Free",
+        "Sin gluten",
+        "Glutenfrei"
+      ],
+      "icono": "gf",
+      "intro": [
+        "Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.",
+        "Se cocinan aparte para evitar el gluten. Algunos de estos platos cuestan un poco más que en su sección original.",
+        "Getrennt zubereitet, um Gluten zu vermeiden. Einige dieser Gerichte kosten etwas mehr als in ihrem ursprünglichen Bereich."
+      ],
+      "grupos": [
+        {
+          "categoryId": "c_19c14e5604",
+          "categoria": "Gluten Free - Soups",
+          "subtitulo": [
+            "Soups",
+            "Sopas",
+            "Suppen"
+          ],
+          "icono": "soup",
+          "platos": [
+            {
+              "dishId": "d_77a4a995da",
+              "numero": "",
+              "nombre": [
+                "Lentil Soup",
+                "Sopa de lentejas",
+                "Linsensuppe"
+              ],
+              "descripcion": [
+                "Gluten-free lentil soup.",
+                "Sopa de lentejas sin gluten.",
+                "Glutenfreie Linsensuppe."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_20c94720b7",
+              "numero": "",
+              "nombre": [
+                "Tomato Soup",
+                "Sopa de tomate",
+                "Tomatensuppe"
+              ],
+              "descripcion": [
+                "Gluten-free tomato soup.",
+                "Crema de tomate sin gluten.",
+                "Glutenfreie Tomatensuppe."
+              ],
+              "precio": "7.50"
+            },
+            {
+              "dishId": "d_4c184b17dc",
+              "numero": "",
+              "nombre": [
+                "Chicken Soup",
+                "Sopa de pollo",
+                "Hühnersuppe"
+              ],
+              "descripcion": [
+                "Gluten-free chicken soup.",
+                "Sopa de pollo sin gluten.",
+                "Glutenfreie Hühnersuppe."
+              ],
+              "precio": "8.50"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_44a0bbdc58",
+          "categoria": "Gluten Free - Salads",
+          "subtitulo": [
+            "Salads",
+            "Ensaladas",
+            "Salate"
+          ],
+          "icono": "salad",
+          "platos": [
+            {
+              "dishId": "d_79c6fe5c8f",
+              "numero": "",
+              "nombre": [
+                "Garden Salad",
+                "Ensalada de la huerta",
+                "Gartensalat"
+              ],
+              "descripcion": [
+                "Fresh mixed salad.",
+                "Ensalada fresca variada.",
+                "Frischer gemischter Salat."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_dab865b1a5",
+              "numero": "",
+              "nombre": [
+                "Sprouts Salad",
+                "Ensalada de brotes",
+                "Sprossensalat"
+              ],
+              "descripcion": [
+                "Sprouted-legume salad.",
+                "Ensalada de legumbres germinadas.",
+                "Salat aus gekeimten Hülsenfrüchten."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_d6ddc5cf58",
+              "numero": "",
+              "nombre": [
+                "Turmeric Quinoa & Chickpea Salad",
+                "Ensalada de quinoa con cúrcuma y garbanzos",
+                "Kurkuma-Quinoa-Salat mit Kichererbsen"
+              ],
+              "descripcion": [
+                "Quinoa and chickpea salad with turmeric.",
+                "Ensalada de quinoa y garbanzos con cúrcuma.",
+                "Quinoa-Kichererbsen-Salat mit Kurkuma."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_b136214180",
+              "numero": "",
+              "nombre": [
+                "Tandoori Paneer Salad",
+                "Ensalada de paneer Tandoori",
+                "Salat mit Tandoori-Paneer"
+              ],
+              "descripcion": [
+                "Salad with tandoori paneer.",
+                "Ensalada con paneer al tandoor.",
+                "Salat mit Tandoori-Paneer."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_323e3d4943",
+              "numero": "",
+              "nombre": [
+                "Tandoori Prawns Salad",
+                "Ensalada de gambas Tandoori",
+                "Salat mit Tandoori-Garnelen"
+              ],
+              "descripcion": [
+                "Salad with tandoori prawns.",
+                "Ensalada con gambas al tandoor.",
+                "Salat mit Tandoori-Garnelen."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_84bd8122d2",
+          "categoria": "Gluten Free - Starters",
+          "subtitulo": [
+            "Starters",
+            "Entrantes",
+            "Vorspeisen"
+          ],
+          "icono": "meat",
+          "platos": [
+            {
+              "dishId": "d_5d4b1890bc",
+              "numero": "",
+              "nombre": [
+                "Katori Chaat",
+                "Katori Chaat",
+                "Katori Chaat"
+              ],
+              "descripcion": [
+                "Gluten-free chaat preparation.",
+                "Chaat en versión sin gluten.",
+                "Chaat in glutenfreier Zubereitung."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_fc6307aedf",
+              "numero": "",
+              "nombre": [
+                "Aloo Tikki Chaat",
+                "Aloo Tikki Chaat",
+                "Aloo Tikki Chaat"
+              ],
+              "descripcion": [
+                "Gluten-free potato tikki chaat.",
+                "Chaat de tikki de patata sin gluten.",
+                "Glutenfreies Kartoffel-Tikki-Chaat."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_14421bdf50",
+              "numero": "",
+              "nombre": [
+                "Cauliflower Wings",
+                "Alitas de coliflor",
+                "Blumenkohl-Wings"
+              ],
+              "descripcion": [
+                "Gluten-free cauliflower wings.",
+                "Alitas de coliflor sin gluten.",
+                "Glutenfreie Blumenkohl-Wings."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_13cf863554",
+              "numero": "",
+              "nombre": [
+                "Chutney Bombs",
+                "Bombas de chutney",
+                "Chutney-Bällchen"
+              ],
+              "descripcion": [
+                "Gluten-free paneer-and-potato bites.",
+                "Bocaditos de paneer y patata sin gluten.",
+                "Glutenfreie Paneer-Kartoffel-Bällchen."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_dff9670ed8",
+              "numero": "",
+              "nombre": [
+                "Tandoori Malai Broccoli",
+                "Brócoli Tandoori Malai",
+                "Tandoori Malai Brokkoli"
+              ],
+              "descripcion": [
+                "Gluten-free tandoori broccoli.",
+                "Brócoli al tandoor sin gluten.",
+                "Glutenfreier Tandoori-Brokkoli."
+              ],
+              "precio": "10.00"
+            },
+            {
+              "dishId": "d_6328302ddb",
+              "numero": "",
+              "nombre": [
+                "Fish Pakora",
+                "Pakora de pescado",
+                "Fisch-Pakora"
+              ],
+              "descripcion": [
+                "Gluten-free fried fish starter.",
+                "Entrante de pescado frito sin gluten.",
+                "Glutenfreie Vorspeise mit frittiertem Fisch."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_3739e88336",
+              "numero": "",
+              "nombre": [
+                "Garlic Prawns",
+                "Gambas al ajillo",
+                "Knoblauchgarnelen"
+              ],
+              "descripcion": [
+                "Garlic prawns.",
+                "Gambas al ajillo.",
+                "Knoblauchgarnelen."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_720f226e89",
+              "numero": "",
+              "nombre": [
+                "Gluten Free Puri - Chicken",
+                "Puri sin gluten con pollo",
+                "Glutenfreies Puri mit Hähnchen"
+              ],
+              "descripcion": [
+                "Chicken served with gluten-free fried puri.",
+                "Pollo servido con puri frito sin gluten.",
+                "Hähnchen mit glutenfreiem frittiertem Puri."
+              ],
+              "precio": "8.95"
+            },
+            {
+              "dishId": "d_c8cc0fe0b5",
+              "numero": "",
+              "nombre": [
+                "Gluten Free Puri - Prawns",
+                "Puri sin gluten con gambas",
+                "Glutenfreies Puri mit Garnelen"
+              ],
+              "descripcion": [
+                "Prawns served with gluten-free fried puri.",
+                "Gambas servidas con puri frito sin gluten.",
+                "Garnelen mit glutenfreiem frittiertem Puri."
+              ],
+              "precio": "9.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_c31c573649",
+          "categoria": "Gluten Free - Curries",
+          "subtitulo": [
+            "Curries",
+            "Currys",
+            "Currys"
+          ],
+          "icono": "bowl",
+          "nota": [
+            "Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo.",
+            "Salsas clásicas: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag y Kashmiri Rogan Josh. Salsas del sur de la India: Kadai, Madras, ajo y guindilla, Hyderabadi Handi, Chettinad, Malabar y Vindaloo de Goa.",
+            "Klassische Saucen: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag und Kashmiri Rogan Josh. Südindische Saucen: Kadai, Madras, Knoblauch-Chili, Hyderabadi Handi, Chettinad, Malabar und Vindaloo aus Goa."
+          ],
+          "platos": [
+            {
+              "dishId": "d_83a164981f",
+              "numero": "",
+              "nombre": [
+                "Chicken",
+                "Pollo",
+                "Hähnchen"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_a25fe149a4",
+              "numero": "",
+              "nombre": [
+                "Lamb",
+                "Cordero",
+                "Lamm"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_24821ff85c",
+              "numero": "",
+              "nombre": [
+                "Fish",
+                "Pescado",
+                "Fisch"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_61c70e1840",
+              "numero": "",
+              "nombre": [
+                "Prawns",
+                "Gambas",
+                "Garnelen"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_f0c90dc862",
+              "numero": "",
+              "nombre": [
+                "King Prawns",
+                "Langostinos",
+                "Riesengarnelen"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_b3833eeddb",
+              "numero": "",
+              "nombre": [
+                "Paneer",
+                "Paneer",
+                "Paneer"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_d34ec44e92",
+              "numero": "",
+              "nombre": [
+                "Mixed Vegetables",
+                "Verduras variadas",
+                "Gemischtes Gemüse"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_437df3506e",
+              "numero": "",
+              "nombre": [
+                "Mushrooms",
+                "Champiñones",
+                "Champignons"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_60184873db",
+              "numero": "",
+              "nombre": [
+                "Kathal (Raw Jackfruit)",
+                "Kathal (yaca verde)",
+                "Kathal (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Choose a gluten-free curry sauce.",
+                "Elige una salsa de curry sin gluten.",
+                "Eine glutenfreie Currysauce wählen."
+              ],
+              "precio": "16.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_2c2ff3a794",
+          "categoria": "Gluten Free - Sizzlers",
+          "subtitulo": [
+            "Sizzlers",
+            "A la plancha",
+            "Vom heißen Eisen"
+          ],
+          "icono": "flame",
+          "platos": [
+            {
+              "dishId": "d_13f9bf1cb8",
+              "numero": "",
+              "nombre": [
+                "Fish Shashlik Sizzler",
+                "Shashlik de pescado a la plancha",
+                "Fisch-Shashlik vom heißen Eisen"
+              ],
+              "descripcion": [
+                "Gluten-free fish shashlik.",
+                "Shashlik de pescado sin gluten.",
+                "Glutenfreies Fisch-Shashlik."
+              ],
+              "precio": "21.95"
+            },
+            {
+              "dishId": "d_cf856b09ea",
+              "numero": "",
+              "nombre": [
+                "Paneer Shashlik Sizzler",
+                "Shashlik de paneer a la plancha",
+                "Paneer-Shashlik vom heißen Eisen"
+              ],
+              "descripcion": [
+                "Gluten-free paneer shashlik.",
+                "Shashlik de paneer sin gluten.",
+                "Glutenfreies Paneer-Shashlik."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_5d0bcae446",
+              "numero": "",
+              "nombre": [
+                "Kathal Shashlik Sizzler",
+                "Shashlik de Kathal a la plancha",
+                "Kathal-Shashlik vom heißen Eisen"
+              ],
+              "descripcion": [
+                "Gluten-free jackfruit shashlik.",
+                "Shashlik de yaca sin gluten.",
+                "Glutenfreies Jackfrucht-Shashlik."
+              ],
+              "precio": "18.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_17f493e1a1",
+          "categoria": "Gluten Free - Biryani",
+          "subtitulo": [
+            "Biryani",
+            "Biryani",
+            "Biryani"
+          ],
+          "icono": "rice",
+          "platos": [
+            {
+              "dishId": "d_e3ccef592b",
+              "numero": "",
+              "nombre": [
+                "Chicken",
+                "Pollo",
+                "Hähnchen"
+              ],
+              "descripcion": [
+                "Gluten-free biryani with chicken.",
+                "Biryani sin gluten con pollo.",
+                "Glutenfreies Biryani mit Hähnchen."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_e151bab784",
+              "numero": "",
+              "nombre": [
+                "Lamb",
+                "Cordero",
+                "Lamm"
+              ],
+              "descripcion": [
+                "Gluten-free biryani with lamb.",
+                "Biryani sin gluten con cordero.",
+                "Glutenfreies Biryani mit Lamm."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_79327d0107",
+              "numero": "",
+              "nombre": [
+                "Fish",
+                "Pescado",
+                "Fisch"
+              ],
+              "descripcion": [
+                "Gluten-free biryani with fish.",
+                "Biryani sin gluten con pescado.",
+                "Glutenfreies Biryani mit Fisch."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_22c22b7dca",
+              "numero": "",
+              "nombre": [
+                "King Prawns",
+                "Langostinos",
+                "Riesengarnelen"
+              ],
+              "descripcion": [
+                "Gluten-free biryani with king prawns.",
+                "Biryani sin gluten con langostinos.",
+                "Glutenfreies Biryani mit Riesengarnelen."
+              ],
+              "precio": "19.95"
+            },
+            {
+              "dishId": "d_4e54dbe172",
+              "numero": "",
+              "nombre": [
+                "Paneer",
+                "Paneer",
+                "Paneer"
+              ],
+              "descripcion": [
+                "Gluten-free biryani with paneer.",
+                "Biryani sin gluten con paneer.",
+                "Glutenfreies Biryani mit Paneer."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_2b18739caf",
+              "numero": "",
+              "nombre": [
+                "Mixed Vegetables",
+                "Verduras variadas",
+                "Gemischtes Gemüse"
+              ],
+              "descripcion": [
+                "Gluten-free vegetable biryani.",
+                "Biryani de verduras sin gluten.",
+                "Glutenfreies Gemüse-Biryani."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_4e14792bea",
+              "numero": "",
+              "nombre": [
+                "Mushrooms",
+                "Champiñones",
+                "Champignons"
+              ],
+              "descripcion": [
+                "Gluten-free mushroom biryani.",
+                "Biryani de champiñones sin gluten.",
+                "Glutenfreies Champignon-Biryani."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_18207ee668",
+              "numero": "",
+              "nombre": [
+                "Kathal (Raw Jackfruit)",
+                "Kathal (yaca verde)",
+                "Kathal (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Gluten-free jackfruit biryani.",
+                "Biryani de yaca sin gluten.",
+                "Glutenfreies Jackfrucht-Biryani."
+              ],
+              "precio": "18.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_56c0ce935f",
+          "categoria": "Gluten Free - Vegetable & Lentil Dishes",
+          "subtitulo": [
+            "Vegetable & Lentil Dishes",
+            "Verduras y lentejas",
+            "Gemüse & Linsen"
+          ],
+          "icono": "lentils",
+          "platos": [
+            {
+              "dishId": "d_d3e5aa1215",
+              "numero": "",
+              "nombre": [
+                "Bombay Aloo",
+                "Bombay Aloo",
+                "Bombay Aloo"
+              ],
+              "descripcion": [
+                "Gluten-free potato dish.",
+                "Plato de patata sin gluten.",
+                "Glutenfreies Kartoffelgericht."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_664a824f15",
+              "numero": "",
+              "nombre": [
+                "Aloo Gobhi",
+                "Aloo Gobhi",
+                "Aloo Gobhi"
+              ],
+              "descripcion": [
+                "Gluten-free potato and cauliflower dish.",
+                "Plato de patata y coliflor sin gluten.",
+                "Glutenfreies Gericht mit Kartoffel und Blumenkohl."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_3556b02d0c",
+              "numero": "",
+              "nombre": [
+                "Saag Aloo",
+                "Saag Aloo",
+                "Saag Aloo"
+              ],
+              "descripcion": [
+                "Gluten-free spinach and potato dish.",
+                "Plato de espinacas y patata sin gluten.",
+                "Glutenfreies Gericht mit Spinat und Kartoffel."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_d02a266b07",
+              "numero": "",
+              "nombre": [
+                "Chana Masala",
+                "Chana Masala",
+                "Chana Masala"
+              ],
+              "descripcion": [
+                "Gluten-free chickpea curry.",
+                "Curry de garbanzos sin gluten.",
+                "Glutenfreies Kichererbsencurry."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_1334cf7806",
+              "numero": "",
+              "nombre": [
+                "Bhindi Masala",
+                "Bhindi Masala",
+                "Bhindi Masala"
+              ],
+              "descripcion": [
+                "Gluten-free okra dish.",
+                "Plato de okra sin gluten.",
+                "Glutenfreies Okragericht."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_2d7ad9433f",
+              "numero": "",
+              "nombre": [
+                "Malai Kofta",
+                "Malai Kofta",
+                "Malai Kofta"
+              ],
+              "descripcion": [
+                "Gluten-free malai kofta.",
+                "Malai Kofta sin gluten.",
+                "Glutenfreies Malai Kofta."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_7117ea67f7",
+              "numero": "",
+              "nombre": [
+                "Mutter Paneer",
+                "Mutter Paneer",
+                "Mutter Paneer"
+              ],
+              "descripcion": [
+                "Gluten-free paneer and peas.",
+                "Paneer con guisantes sin gluten.",
+                "Glutenfreier Paneer mit Erbsen."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_ed3bb00b8d",
+              "numero": "",
+              "nombre": [
+                "Palak Paneer",
+                "Palak Paneer",
+                "Palak Paneer"
+              ],
+              "descripcion": [
+                "Gluten-free paneer and spinach.",
+                "Paneer con espinacas sin gluten.",
+                "Glutenfreier Paneer mit Spinat."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_92de3c78b2",
+              "numero": "",
+              "nombre": [
+                "Navratan Korma",
+                "Navratan Korma",
+                "Navratan Korma"
+              ],
+              "descripcion": [
+                "Gluten-free mixed vegetable korma.",
+                "Korma de verduras sin gluten.",
+                "Glutenfreies Gemüse-Korma."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_8e8f990d43",
+              "numero": "",
+              "nombre": [
+                "Yellow Dal Tadka",
+                "Dal Tadka amarillo",
+                "Gelbes Dal Tadka"
+              ],
+              "descripcion": [
+                "Gluten-free yellow lentils.",
+                "Lentejas amarillas sin gluten.",
+                "Glutenfreie gelbe Linsen."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_303cc01d8b",
+              "numero": "",
+              "nombre": [
+                "Dal Makhani",
+                "Dal Makhani",
+                "Dal Makhani"
+              ],
+              "descripcion": [
+                "Gluten-free black lentils.",
+                "Lentejas negras sin gluten.",
+                "Glutenfreie schwarze Linsen."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_8233cafe29",
+              "numero": "",
+              "nombre": [
+                "Palak Dal (Spinach)",
+                "Palak Dal (espinacas)",
+                "Palak Dal (Spinat)"
+              ],
+              "descripcion": [
+                "Gluten-free spinach lentils.",
+                "Lentejas con espinacas sin gluten.",
+                "Glutenfreie Linsen mit Spinat."
+              ],
+              "precio": "14.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_0e30ac9c19",
+          "categoria": "Gluten Free - Rice, Fries & Breads",
+          "subtitulo": [
+            "Rice, Fries & Breads",
+            "Arroz, patatas y panes",
+            "Reis, Pommes & Brote"
+          ],
+          "icono": "rice",
+          "platos": [
+            {
+              "dishId": "d_04f0e0d653",
+              "numero": "",
+              "nombre": [
+                "Plain Boiled Rice",
+                "Arroz basmati hervido",
+                "Basmatireis"
+              ],
+              "descripcion": [
+                "Steamed basmati rice.",
+                "Arroz basmati al vapor.",
+                "Gedämpfter Basmatireis."
+              ],
+              "precio": "4.00"
+            },
+            {
+              "dishId": "d_5db898cffa",
+              "numero": "",
+              "nombre": [
+                "Pilao Rice",
+                "Arroz Pilao",
+                "Pilao-Reis"
+              ],
+              "descripcion": [
+                "Spiced basmati rice.",
+                "Arroz basmati especiado.",
+                "Gewürzter Basmatireis."
+              ],
+              "precio": "4.25"
+            },
+            {
+              "dishId": "d_eb0cc08fc5",
+              "numero": "",
+              "nombre": [
+                "Cumin Rice",
+                "Arroz al comino",
+                "Reis mit Kreuzkümmel"
+              ],
+              "descripcion": [
+                "Cumin basmati rice.",
+                "Arroz basmati al comino.",
+                "Basmatireis mit Kreuzkümmel."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_e7e189b9ca",
+              "numero": "",
+              "nombre": [
+                "Garlic Rice",
+                "Arroz al ajo",
+                "Knoblauchreis"
+              ],
+              "descripcion": [
+                "Garlic basmati rice.",
+                "Arroz basmati al ajo.",
+                "Basmatireis mit Knoblauch."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_de00fbb4cd",
+              "numero": "",
+              "nombre": [
+                "Onion Rice",
+                "Arroz con cebolla",
+                "Reis mit Zwiebeln"
+              ],
+              "descripcion": [
+                "Onion basmati rice.",
+                "Arroz basmati con cebolla.",
+                "Basmatireis mit Zwiebeln."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_2c6d458f4d",
+              "numero": "",
+              "nombre": [
+                "Egg Rice",
+                "Arroz con huevo",
+                "Reis mit Ei"
+              ],
+              "descripcion": [
+                "Basmati rice with egg.",
+                "Arroz basmati con huevo.",
+                "Basmatireis mit Ei."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_7141010018",
+              "numero": "",
+              "nombre": [
+                "Green Peas Pulao Rice",
+                "Arroz Pulao con guisantes",
+                "Pulao-Reis mit Erbsen"
+              ],
+              "descripcion": [
+                "Pea pulao rice.",
+                "Arroz Pulao con guisantes.",
+                "Pulao-Reis mit Erbsen."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_d588b8a34c",
+              "numero": "",
+              "nombre": [
+                "Lemon Rice",
+                "Arroz al limón",
+                "Zitronenreis"
+              ],
+              "descripcion": [
+                "Lemon basmati rice.",
+                "Arroz basmati al limón.",
+                "Basmatireis mit Zitrone."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_0d5b8a3132",
+              "numero": "",
+              "nombre": [
+                "Mushroom Rice",
+                "Arroz con champiñones",
+                "Reis mit Champignons"
+              ],
+              "descripcion": [
+                "Mushroom basmati rice.",
+                "Arroz basmati con champiñones.",
+                "Basmatireis mit Champignons."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_f5c27380aa",
+              "numero": "",
+              "nombre": [
+                "Mixed Vegetable Rice",
+                "Arroz con verduras",
+                "Reis mit Gemüse"
+              ],
+              "descripcion": [
+                "Vegetable basmati rice.",
+                "Arroz basmati con verduras.",
+                "Basmatireis mit Gemüse."
+              ],
+              "precio": "4.95"
+            },
+            {
+              "dishId": "d_4f9a54be78",
+              "numero": "",
+              "nombre": [
+                "Coco Rice",
+                "Arroz con coco",
+                "Kokosreis"
+              ],
+              "descripcion": [
+                "Coconut basmati rice.",
+                "Arroz basmati con coco.",
+                "Basmatireis mit Kokos."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_2728911b11",
+              "numero": "",
+              "nombre": [
+                "Special Rice (Prawns & Veg)",
+                "Arroz especial (gambas y verduras)",
+                "Reis Spezial (Garnelen und Gemüse)"
+              ],
+              "descripcion": [
+                "Rice with prawns and vegetables.",
+                "Arroz con gambas y verduras.",
+                "Reis mit Garnelen und Gemüse."
+              ],
+              "precio": "7.50"
+            },
+            {
+              "dishId": "d_bf37bb6179",
+              "numero": "",
+              "nombre": [
+                "French Fries",
+                "Patatas fritas",
+                "Pommes frites"
+              ],
+              "descripcion": [
+                "Gluten-free fries.",
+                "Patatas fritas sin gluten.",
+                "Glutenfreie Pommes frites."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_ab97fe38e1",
+              "numero": "",
+              "nombre": [
+                "Masala Fries",
+                "Patatas fritas Masala",
+                "Masala-Pommes"
+              ],
+              "descripcion": [
+                "Gluten-free masala-seasoned fries.",
+                "Patatas fritas con especias masala, sin gluten.",
+                "Glutenfreie Pommes mit Masala-Gewürzen."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_fd8684811d",
+              "numero": "",
+              "nombre": [
+                "Gluten Free Chapati",
+                "Chapati sin gluten",
+                "Glutenfreies Chapati"
+              ],
+              "descripcion": [
+                "Gluten-free chapati.",
+                "Chapati sin gluten.",
+                "Glutenfreies Chapati."
+              ],
+              "precio": "3.95"
+            },
+            {
+              "dishId": "d_52d733e7b5",
+              "numero": "",
+              "nombre": [
+                "Vegan Gluten Free Chapati",
+                "Chapati vegano sin gluten",
+                "Veganes glutenfreies Chapati"
+              ],
+              "descripcion": [
+                "Vegan and gluten-free chapati.",
+                "Chapati vegano y sin gluten.",
+                "Veganes und glutenfreies Chapati."
+              ],
+              "precio": "4.50"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_ffc23dc12c",
+          "categoria": "Gluten Free - Special Dishes",
+          "subtitulo": [
+            "Special Dishes",
+            "Platos especiales",
+            "Spezialgerichte"
+          ],
+          "icono": "special",
+          "platos": [
+            {
+              "dishId": "d_4e37dd8084",
+              "numero": "",
+              "nombre": [
+                "Kheema Peas",
+                "Kheema con guisantes",
+                "Kheema mit Erbsen"
+              ],
+              "descripcion": [
+                "Minced meat and peas, gluten-free preparation.",
+                "Carne picada con guisantes, elaboración sin gluten.",
+                "Hackfleisch mit Erbsen, glutenfrei zubereitet."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_5e700f204f",
+              "numero": "",
+              "nombre": [
+                "Bhindi Gosht",
+                "Bhindi Gosht",
+                "Bhindi Gosht"
+              ],
+              "descripcion": [
+                "Lamb and okra, gluten-free preparation.",
+                "Cordero con okra, elaboración sin gluten.",
+                "Lamm mit Okra, glutenfrei zubereitet."
+              ],
+              "precio": "17.95"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pestana": [
+        "Vegan",
+        "Vegano",
+        "Vegan"
+      ],
+      "icono": "vegetarian",
+      "intro": [
+        "Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk. Some of these dishes cost a little more than in their original section.",
+        "Preparado utilizando alternativas veganas como mantequilla, crema, yogur y leche de origen vegetal. Algunos de estos platos cuestan un poco más que en su sección original.",
+        "Zubereitet mit veganen Alternativen wie pflanzlicher Butter, Sahne, Joghurt und Milch. Einige dieser Gerichte kosten etwas mehr als in ihrem ursprünglichen Bereich."
+      ],
+      "grupos": [
+        {
+          "categoryId": "c_b63f1ca2cc",
+          "categoria": "Vegan - Appetizers",
+          "subtitulo": [
+            "Appetizers",
+            "Aperitivos",
+            "Kleinigkeiten"
+          ],
+          "icono": "appetizers",
+          "platos": [
+            {
+              "dishId": "d_80748fcbcd",
+              "numero": "",
+              "nombre": [
+                "Papadum",
+                "Papadum",
+                "Papadum"
+              ],
+              "descripcion": [
+                "Crisp lentil wafer.",
+                "Oblea crujiente de lenteja.",
+                "Knuspriger Linsenfladen."
+              ],
+              "precio": "1.00"
+            },
+            {
+              "dishId": "d_6beedb4e3e",
+              "numero": "",
+              "nombre": [
+                "Spicy Papadum",
+                "Papadum especiado",
+                "Papadum mit Gewürzen"
+              ],
+              "descripcion": [
+                "Spiced crisp lentil wafer.",
+                "Oblea crujiente de lenteja con especias.",
+                "Knuspriger Linsenfladen mit Gewürzen."
+              ],
+              "precio": "1.00"
+            },
+            {
+              "dishId": "d_34149322b3",
+              "numero": "",
+              "nombre": [
+                "Vegan Pickle Tray",
+                "Surtido de encurtidos vegano",
+                "Vegane Pickle-Auswahl"
+              ],
+              "descripcion": [
+                "Mango, vegan mint sauce and onions.",
+                "Mango, salsa vegana de menta y cebolla.",
+                "Mango, vegane Minzsauce und Zwiebeln."
+              ],
+              "precio": "4.00"
+            },
+            {
+              "dishId": "d_f7184acd19",
+              "numero": "",
+              "nombre": [
+                "Vegan Mix Raita",
+                "Raita vegana de verduras",
+                "Veganes Gemüse-Raita"
+              ],
+              "descripcion": [
+                "Plant-based raita.",
+                "Raita de base vegetal.",
+                "Raita auf pflanzlicher Basis."
+              ],
+              "precio": "4.50"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_53f2d5e9c0",
+          "categoria": "Vegan - Soups",
+          "subtitulo": [
+            "Soups",
+            "Sopas",
+            "Suppen"
+          ],
+          "icono": "soup",
+          "platos": [
+            {
+              "dishId": "d_79e37f6dfc",
+              "numero": "",
+              "nombre": [
+                "Lentil Soup",
+                "Sopa de lentejas",
+                "Linsensuppe"
+              ],
+              "descripcion": [
+                "Plant-based lentil soup.",
+                "Sopa de lentejas de base vegetal.",
+                "Linsensuppe auf pflanzlicher Basis."
+              ],
+              "precio": "8.00"
+            },
+            {
+              "dishId": "d_dac962fde9",
+              "numero": "",
+              "nombre": [
+                "Tomato Soup",
+                "Sopa de tomate",
+                "Tomatensuppe"
+              ],
+              "descripcion": [
+                "Plant-based tomato soup.",
+                "Crema de tomate de base vegetal.",
+                "Tomatensuppe auf pflanzlicher Basis."
+              ],
+              "precio": "7.50"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_1dcc212e75",
+          "categoria": "Vegan - Salads",
+          "subtitulo": [
+            "Salads",
+            "Ensaladas",
+            "Salate"
+          ],
+          "icono": "salad",
+          "platos": [
+            {
+              "dishId": "d_ed1bee1021",
+              "numero": "",
+              "nombre": [
+                "Garden Salad",
+                "Ensalada de la huerta",
+                "Gartensalat"
+              ],
+              "descripcion": [
+                "Fresh mixed salad.",
+                "Ensalada fresca variada.",
+                "Frischer gemischter Salat."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_cccc0cbc4f",
+              "numero": "",
+              "nombre": [
+                "Sprouts Salad",
+                "Ensalada de brotes",
+                "Sprossensalat"
+              ],
+              "descripcion": [
+                "Sprouted-legume salad.",
+                "Ensalada de legumbres germinadas.",
+                "Salat aus gekeimten Hülsenfrüchten."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_c871d17b08",
+              "numero": "",
+              "nombre": [
+                "Turmeric Quinoa & Chickpea",
+                "Quinoa con cúrcuma y garbanzos",
+                "Kurkuma-Quinoa mit Kichererbsen"
+              ],
+              "descripcion": [
+                "Turmeric quinoa and chickpea salad.",
+                "Ensalada de quinoa a la cúrcuma con garbanzos.",
+                "Kurkuma-Quinoa-Salat mit Kichererbsen."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_38d3e49fd9",
+              "numero": "",
+              "nombre": [
+                "Tofu Salad",
+                "Ensalada de tofu",
+                "Tofu-Salat"
+              ],
+              "descripcion": [
+                "Salad with tofu.",
+                "Ensalada con tofu.",
+                "Salat mit Tofu."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_608de6774a",
+              "numero": "",
+              "nombre": [
+                "Crunchy Vegan Meat Salad",
+                "Ensalada de carne vegana crujiente",
+                "Salat mit knusprigem veganem Fleisch"
+              ],
+              "descripcion": [
+                "Salad with soy-based vegan protein.",
+                "Ensalada con proteína vegana de soja.",
+                "Salat mit veganem Sojaprotein."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_d4b9f06e4a",
+              "numero": "",
+              "nombre": [
+                "Tandoori Jackfruit Salad",
+                "Ensalada de yaca Tandoori",
+                "Salat mit Tandoori-Jackfrucht"
+              ],
+              "descripcion": [
+                "Salad with tandoori jackfruit.",
+                "Ensalada con yaca al tandoor.",
+                "Salat mit Tandoori-Jackfrucht."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_9023e668ab",
+          "categoria": "Vegan - Starters",
+          "subtitulo": [
+            "Starters",
+            "Entrantes",
+            "Vorspeisen"
+          ],
+          "icono": "vegetarian",
+          "platos": [
+            {
+              "dishId": "d_9d949a88d9",
+              "numero": "",
+              "nombre": [
+                "Onion Pakora",
+                "Pakora de cebolla",
+                "Zwiebel-Pakora"
+              ],
+              "descripcion": [
+                "Vegan onion fritters.",
+                "Buñuelos veganos de cebolla.",
+                "Vegane Zwiebelkrapfen."
+              ],
+              "precio": "6.50"
+            },
+            {
+              "dishId": "d_833736d37e",
+              "numero": "",
+              "nombre": [
+                "Spinach Pakora",
+                "Pakora de espinacas",
+                "Spinat-Pakora"
+              ],
+              "descripcion": [
+                "Vegan spinach fritters.",
+                "Buñuelos veganos de espinaca.",
+                "Vegane Spinatkrapfen."
+              ],
+              "precio": "7.00"
+            },
+            {
+              "dishId": "d_cf7231daf5",
+              "numero": "",
+              "nombre": [
+                "Raw Plantain Pakora",
+                "Pakora de plátano macho",
+                "Kochbananen-Pakora"
+              ],
+              "descripcion": [
+                "Vegan plantain fritters.",
+                "Buñuelos veganos de plátano macho.",
+                "Vegane Kochbananenkrapfen."
+              ],
+              "precio": "7.00"
+            },
+            {
+              "dishId": "d_c267a915e3",
+              "numero": "",
+              "nombre": [
+                "Vegetable Samosa",
+                "Samosa de verduras",
+                "Gemüse-Samosa"
+              ],
+              "descripcion": [
+                "Vegan vegetable samosa.",
+                "Samosa vegana de verduras.",
+                "Vegane Gemüse-Samosa."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_564f07e6b9",
+              "numero": "",
+              "nombre": [
+                "Katori Chaat",
+                "Katori Chaat",
+                "Katori Chaat"
+              ],
+              "descripcion": [
+                "Chaat topped with plant-based yogurt and chutneys.",
+                "Chaat con yogur vegetal y chutneys.",
+                "Chaat mit pflanzlichem Joghurt und Chutneys."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_90259cc6a4",
+              "numero": "",
+              "nombre": [
+                "Aloo Tikki Chaat",
+                "Aloo Tikki Chaat",
+                "Aloo Tikki Chaat"
+              ],
+              "descripcion": [
+                "Potato patties with plant-based yogurt, chutneys and sev.",
+                "Tortitas de patata con yogur vegetal, chutneys y sev.",
+                "Kartoffelplätzchen mit pflanzlichem Joghurt, Chutneys und Sev."
+              ],
+              "precio": "9.95"
+            },
+            {
+              "dishId": "d_7a686f9d05",
+              "numero": "",
+              "nombre": [
+                "Cauliflower Wings",
+                "Alitas de coliflor",
+                "Blumenkohl-Wings"
+              ],
+              "descripcion": [
+                "Crispy cauliflower with vegan garlic mayonnaise.",
+                "Coliflor crujiente con mayonesa vegana de ajo.",
+                "Knuspriger Blumenkohl mit veganer Knoblauchmayonnaise."
+              ],
+              "precio": "9.00"
+            },
+            {
+              "dishId": "d_0fcd83b4d2",
+              "numero": "",
+              "nombre": [
+                "Soy Puri",
+                "Puri de soja",
+                "Soja-Puri"
+              ],
+              "descripcion": [
+                "Soy filling served with fried puri.",
+                "Relleno de soja servido con puri frito.",
+                "Sojafüllung mit frittiertem Puri."
+              ],
+              "precio": "9.00"
+            },
+            {
+              "dishId": "d_392e2852d0",
+              "numero": "",
+              "nombre": [
+                "Vegan Platter",
+                "Surtido vegano",
+                "Vegane Platte"
+              ],
+              "descripcion": [
+                "Mixed vegan starter platter.",
+                "Surtido de entrantes veganos.",
+                "Gemischte vegane Vorspeisenplatte."
+              ],
+              "precio": "19.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_420cd2a6b7",
+          "categoria": "Vegan - Curries",
+          "subtitulo": [
+            "Curries",
+            "Currys",
+            "Currys"
+          ],
+          "icono": "bowl",
+          "nota": [
+            "Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo. Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.",
+            "Salsas clásicas: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag y Kashmiri Rogan Josh. Salsas del sur de la India: Kadai, Madras, ajo y guindilla, Hyderabadi Handi, Chettinad, Malabar y Vindaloo de Goa. Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall.",
+            "Klassische Saucen: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag und Kashmiri Rogan Josh. Südindische Saucen: Kadai, Madras, Knoblauch-Chili, Hyderabadi Handi, Chettinad, Malabar und Vindaloo aus Goa. Schärfegrade: mild, leicht, mittel, Madras, Vindaloo und Phall."
+          ],
+          "platos": [
+            {
+              "dishId": "d_a263fa33d3",
+              "numero": "",
+              "nombre": [
+                "Vegan Meat (Soy Based)",
+                "Carne vegana (a base de soja)",
+                "Veganes Fleisch (auf Sojabasis)"
+              ],
+              "descripcion": [
+                "Choose sauce and spice level.",
+                "Elige la salsa y el nivel de picante.",
+                "Sauce und Schärfegrad wählen."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_f7efcd76e8",
+              "numero": "",
+              "nombre": [
+                "Tofu",
+                "Tofu",
+                "Tofu"
+              ],
+              "descripcion": [
+                "Choose sauce and spice level.",
+                "Elige la salsa y el nivel de picante.",
+                "Sauce und Schärfegrad wählen."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_b331a8db63",
+              "numero": "",
+              "nombre": [
+                "Traditional Soy (Processed Bean)",
+                "Soja tradicional (texturizada)",
+                "Traditionelle Soja (texturiert)"
+              ],
+              "descripcion": [
+                "Choose sauce and spice level.",
+                "Elige la salsa y el nivel de picante.",
+                "Sauce und Schärfegrad wählen."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_eb173d5c6d",
+              "numero": "",
+              "nombre": [
+                "Mixed Vegetables",
+                "Verduras variadas",
+                "Gemischtes Gemüse"
+              ],
+              "descripcion": [
+                "Choose sauce and spice level.",
+                "Elige la salsa y el nivel de picante.",
+                "Sauce und Schärfegrad wählen."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_5552d24588",
+              "numero": "",
+              "nombre": [
+                "Mushrooms",
+                "Champiñones",
+                "Champignons"
+              ],
+              "descripcion": [
+                "Choose sauce and spice level.",
+                "Elige la salsa y el nivel de picante.",
+                "Sauce und Schärfegrad wählen."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_73dae7ca5c",
+              "numero": "",
+              "nombre": [
+                "Kathal (Raw Jackfruit)",
+                "Kathal (yaca verde)",
+                "Kathal (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Choose sauce and spice level.",
+                "Elige la salsa y el nivel de picante.",
+                "Sauce und Schärfegrad wählen."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_d036594b47",
+          "categoria": "Vegan - Vegetable Dishes",
+          "subtitulo": [
+            "Vegetable Dishes",
+            "Platos de verdura",
+            "Gemüsegerichte"
+          ],
+          "icono": "leaf",
+          "platos": [
+            {
+              "dishId": "d_f1abfe457b",
+              "numero": "",
+              "nombre": [
+                "Bombay Aloo",
+                "Bombay Aloo",
+                "Bombay Aloo"
+              ],
+              "descripcion": [
+                "Vegan spiced potato dish.",
+                "Plato vegano de patata especiada.",
+                "Veganes Gericht mit gewürzten Kartoffeln."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_d58a9f5ad2",
+              "numero": "",
+              "nombre": [
+                "Aloo Gobhi",
+                "Aloo Gobhi",
+                "Aloo Gobhi"
+              ],
+              "descripcion": [
+                "Vegan potato and cauliflower dish.",
+                "Plato vegano de patata y coliflor.",
+                "Veganes Gericht mit Kartoffel und Blumenkohl."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_994cda81c7",
+              "numero": "",
+              "nombre": [
+                "Aloo Mutter",
+                "Aloo Mutter",
+                "Aloo Mutter"
+              ],
+              "descripcion": [
+                "Vegan potato and peas dish.",
+                "Plato vegano de patata y guisantes.",
+                "Veganes Gericht mit Kartoffel und Erbsen."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_85f4c3a74c",
+              "numero": "",
+              "nombre": [
+                "Saag Aloo",
+                "Saag Aloo",
+                "Saag Aloo"
+              ],
+              "descripcion": [
+                "Vegan spinach and potato dish.",
+                "Plato vegano de espinacas y patata.",
+                "Veganes Gericht mit Spinat und Kartoffel."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_f2247c15cf",
+              "numero": "",
+              "nombre": [
+                "Chana Masala",
+                "Chana Masala",
+                "Chana Masala"
+              ],
+              "descripcion": [
+                "Vegan chickpea curry.",
+                "Curry vegano de garbanzos.",
+                "Veganes Kichererbsencurry."
+              ],
+              "precio": "12.95"
+            },
+            {
+              "dishId": "d_3034fc6d04",
+              "numero": "",
+              "nombre": [
+                "Aubergine Bharta",
+                "Bharta de berenjena",
+                "Auberginen-Bharta"
+              ],
+              "descripcion": [
+                "Vegan roasted aubergine curry.",
+                "Curry vegano de berenjena asada.",
+                "Veganes Curry mit gerösteter Aubergine."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_6374aec288",
+              "numero": "",
+              "nombre": [
+                "Bhindi Masala",
+                "Bhindi Masala",
+                "Bhindi Masala"
+              ],
+              "descripcion": [
+                "Vegan okra dish.",
+                "Plato vegano de okra.",
+                "Veganes Okragericht."
+              ],
+              "precio": "13.95"
+            },
+            {
+              "dishId": "d_a93dcba1f8",
+              "numero": "",
+              "nombre": [
+                "Mutter Tofu",
+                "Mutter con tofu",
+                "Mutter mit Tofu"
+              ],
+              "descripcion": [
+                "Tofu and green peas.",
+                "Tofu con guisantes.",
+                "Tofu mit grünen Erbsen."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_af46588605",
+              "numero": "",
+              "nombre": [
+                "Palak Tofu",
+                "Palak con tofu",
+                "Palak mit Tofu"
+              ],
+              "descripcion": [
+                "Tofu with spinach.",
+                "Tofu con espinacas.",
+                "Tofu mit Spinat."
+              ],
+              "precio": "15.95"
+            },
+            {
+              "dishId": "d_1548c20a0c",
+              "numero": "",
+              "nombre": [
+                "Navratan Korma",
+                "Navratan Korma",
+                "Navratan Korma"
+              ],
+              "descripcion": [
+                "Plant-based mixed vegetable korma.",
+                "Korma de verduras de base vegetal.",
+                "Gemüse-Korma auf pflanzlicher Basis."
+              ],
+              "precio": "15.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_52fc52be3a",
+          "categoria": "Vegan - Indian Lentil Dishes",
+          "subtitulo": [
+            "Indian Lentil Dishes",
+            "Lentejas indias",
+            "Indische Linsengerichte"
+          ],
+          "icono": "lentils",
+          "platos": [
+            {
+              "dishId": "d_93f63d4c1e",
+              "numero": "",
+              "nombre": [
+                "Yellow Dal Tadka",
+                "Dal Tadka amarillo",
+                "Gelbes Dal Tadka"
+              ],
+              "descripcion": [
+                "Vegan yellow lentils with tadka.",
+                "Lentejas amarillas veganas con tadka.",
+                "Vegane gelbe Linsen mit Tadka."
+              ],
+              "precio": "11.95"
+            },
+            {
+              "dishId": "d_6cb408c3e7",
+              "numero": "",
+              "nombre": [
+                "Dal Makhani",
+                "Dal Makhani",
+                "Dal Makhani"
+              ],
+              "descripcion": [
+                "Plant-based black lentil dish.",
+                "Lentejas negras de base vegetal.",
+                "Schwarze Linsen auf pflanzlicher Basis."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_9d81379320",
+              "numero": "",
+              "nombre": [
+                "Palak Dal",
+                "Palak Dal",
+                "Palak Dal"
+              ],
+              "descripcion": [
+                "Vegan lentils with spinach.",
+                "Lentejas veganas con espinacas.",
+                "Vegane Linsen mit Spinat."
+              ],
+              "precio": "13.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_e88d6d65db",
+          "categoria": "Vegan - Special Biryani",
+          "subtitulo": [
+            "Special Biryani",
+            "Biryani especial",
+            "Biryani Spezial"
+          ],
+          "icono": "special",
+          "platos": [
+            {
+              "dishId": "d_51bedde9f9",
+              "numero": "",
+              "nombre": [
+                "Vegan Meat",
+                "Carne vegana",
+                "Veganes Fleisch"
+              ],
+              "descripcion": [
+                "Biryani with soy-based vegan protein.",
+                "Biryani con proteína vegana de soja.",
+                "Biryani mit veganem Sojaprotein."
+              ],
+              "precio": "19.95"
+            },
+            {
+              "dishId": "d_99f1feecb9",
+              "numero": "",
+              "nombre": [
+                "Tofu",
+                "Tofu",
+                "Tofu"
+              ],
+              "descripcion": [
+                "Biryani with tofu.",
+                "Biryani con tofu.",
+                "Biryani mit Tofu."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_d3ec0c2aa8",
+              "numero": "",
+              "nombre": [
+                "Soy",
+                "Soja",
+                "Soja"
+              ],
+              "descripcion": [
+                "Biryani with soy.",
+                "Biryani con soja.",
+                "Biryani mit Soja."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_afd2e81f9a",
+              "numero": "",
+              "nombre": [
+                "Mixed Vegetables",
+                "Verduras variadas",
+                "Gemischtes Gemüse"
+              ],
+              "descripcion": [
+                "Biryani with mixed vegetables.",
+                "Biryani con verduras variadas.",
+                "Biryani mit gemischtem Gemüse."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_e971d99c79",
+              "numero": "",
+              "nombre": [
+                "Mushrooms",
+                "Champiñones",
+                "Champignons"
+              ],
+              "descripcion": [
+                "Biryani with mushrooms.",
+                "Biryani con champiñones.",
+                "Biryani mit Champignons."
+              ],
+              "precio": "16.95"
+            },
+            {
+              "dishId": "d_aadaf5cff2",
+              "numero": "",
+              "nombre": [
+                "Kathal (Raw Jackfruit)",
+                "Kathal (yaca verde)",
+                "Kathal (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Biryani with raw jackfruit.",
+                "Biryani con yaca verde.",
+                "Biryani mit grüner Jackfrucht."
+              ],
+              "precio": "18.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_f99085e7e0",
+          "categoria": "Vegan - Butter Masala Biryani",
+          "subtitulo": [
+            "Butter Masala Biryani",
+            "Biryani Butter Masala",
+            "Butter-Masala-Biryani"
+          ],
+          "icono": "rice",
+          "platos": [
+            {
+              "dishId": "d_9dc3092968",
+              "numero": "",
+              "nombre": [
+                "Tofu",
+                "Tofu",
+                "Tofu"
+              ],
+              "descripcion": [
+                "Plant-based butter-masala biryani with tofu.",
+                "Biryani Butter Masala de base vegetal con tofu.",
+                "Butter-Masala-Biryani auf pflanzlicher Basis mit Tofu."
+              ],
+              "precio": "21.95"
+            },
+            {
+              "dishId": "d_f9eefba5eb",
+              "numero": "",
+              "nombre": [
+                "Soy",
+                "Soja",
+                "Soja"
+              ],
+              "descripcion": [
+                "Plant-based butter-masala biryani with soy.",
+                "Biryani Butter Masala de base vegetal con soja.",
+                "Butter-Masala-Biryani auf pflanzlicher Basis mit Soja."
+              ],
+              "precio": "21.95"
+            },
+            {
+              "dishId": "d_9514ad1890",
+              "numero": "",
+              "nombre": [
+                "Vegan Meat",
+                "Carne vegana",
+                "Veganes Fleisch"
+              ],
+              "descripcion": [
+                "Plant-based butter-masala biryani with vegan meat.",
+                "Biryani Butter Masala de base vegetal con carne vegana.",
+                "Butter-Masala-Biryani auf pflanzlicher Basis mit veganem Fleisch."
+              ],
+              "precio": "21.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_7d6e401ee1",
+          "categoria": "Vegan - Rice & Fries",
+          "subtitulo": [
+            "Rice & Fries",
+            "Arroces y patatas",
+            "Reis & Pommes"
+          ],
+          "icono": "rice",
+          "nota": [
+            "All rice dishes use Indian basmati rice.",
+            "Todos los arroces se preparan con basmati indio.",
+            "Alle Reisgerichte werden mit indischem Basmatireis zubereitet."
+          ],
+          "platos": [
+            {
+              "dishId": "d_3ba1aef740",
+              "numero": "",
+              "nombre": [
+                "Plain Boiled Rice",
+                "Arroz basmati hervido",
+                "Basmatireis"
+              ],
+              "descripcion": [
+                "Steamed basmati rice.",
+                "Arroz basmati al vapor.",
+                "Gedämpfter Basmatireis."
+              ],
+              "precio": "3.50"
+            },
+            {
+              "dishId": "d_ccbc6caf4b",
+              "numero": "",
+              "nombre": [
+                "Pilao Rice",
+                "Arroz Pilao",
+                "Pilao-Reis"
+              ],
+              "descripcion": [
+                "Spiced basmati rice.",
+                "Arroz basmati especiado.",
+                "Gewürzter Basmatireis."
+              ],
+              "precio": "4.00"
+            },
+            {
+              "dishId": "d_a2e9ec9287",
+              "numero": "",
+              "nombre": [
+                "Cumin Rice",
+                "Arroz al comino",
+                "Reis mit Kreuzkümmel"
+              ],
+              "descripcion": [
+                "Cumin basmati rice.",
+                "Arroz basmati al comino.",
+                "Basmatireis mit Kreuzkümmel."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_c6d6134a4e",
+              "numero": "",
+              "nombre": [
+                "Garlic Rice",
+                "Arroz al ajo",
+                "Knoblauchreis"
+              ],
+              "descripcion": [
+                "Garlic basmati rice.",
+                "Arroz basmati al ajo.",
+                "Basmatireis mit Knoblauch."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_e9f1491ebb",
+              "numero": "",
+              "nombre": [
+                "Onion Rice",
+                "Arroz con cebolla",
+                "Reis mit Zwiebeln"
+              ],
+              "descripcion": [
+                "Onion basmati rice.",
+                "Arroz basmati con cebolla.",
+                "Basmatireis mit Zwiebeln."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_a3da1f6293",
+              "numero": "",
+              "nombre": [
+                "Lemon Rice",
+                "Arroz al limón",
+                "Zitronenreis"
+              ],
+              "descripcion": [
+                "Lemon basmati rice.",
+                "Arroz basmati al limón.",
+                "Basmatireis mit Zitrone."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_52388ba23c",
+              "numero": "",
+              "nombre": [
+                "Mushroom Rice",
+                "Arroz con champiñones",
+                "Reis mit Champignons"
+              ],
+              "descripcion": [
+                "Mushroom basmati rice.",
+                "Arroz basmati con champiñones.",
+                "Basmatireis mit Champignons."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_a93500ab94",
+              "numero": "",
+              "nombre": [
+                "Mixed Vegetable Rice",
+                "Arroz con verduras",
+                "Reis mit Gemüse"
+              ],
+              "descripcion": [
+                "Vegetable basmati rice.",
+                "Arroz basmati con verduras.",
+                "Basmatireis mit Gemüse."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_88d2079d85",
+              "numero": "",
+              "nombre": [
+                "Coco Rice",
+                "Arroz con coco",
+                "Kokosreis"
+              ],
+              "descripcion": [
+                "Coconut basmati rice.",
+                "Arroz basmati con coco.",
+                "Basmatireis mit Kokos."
+              ],
+              "precio": "4.50"
+            },
+            {
+              "dishId": "d_7ce082db6c",
+              "numero": "",
+              "nombre": [
+                "French Fries",
+                "Patatas fritas",
+                "Pommes frites"
+              ],
+              "descripcion": [
+                "Classic fries.",
+                "Patatas fritas clásicas.",
+                "Klassische Pommes frites."
+              ],
+              "precio": "3.50"
+            },
+            {
+              "dishId": "d_c38aa11cf0",
+              "numero": "",
+              "nombre": [
+                "Masala Fries",
+                "Patatas fritas Masala",
+                "Masala-Pommes"
+              ],
+              "descripcion": [
+                "Masala-seasoned fries.",
+                "Patatas fritas con especias masala.",
+                "Pommes frites mit Masala-Gewürzen."
+              ],
+              "precio": "4.50"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_fd48821f26",
+          "categoria": "Vegan - Sizzlers",
+          "subtitulo": [
+            "Sizzlers",
+            "A la plancha",
+            "Vom heißen Eisen"
+          ],
+          "icono": "flame",
+          "platos": [
+            {
+              "dishId": "d_8e4b4eb670",
+              "numero": "",
+              "nombre": [
+                "Tandoori Malai Broccoli",
+                "Brócoli Tandoori Malai",
+                "Tandoori Malai Brokkoli"
+              ],
+              "descripcion": [
+                "Plant-based creamy tandoori broccoli.",
+                "Brócoli al tandoor con crema vegetal.",
+                "Cremiger Tandoori-Brokkoli auf pflanzlicher Basis."
+              ],
+              "precio": "14.95"
+            },
+            {
+              "dishId": "d_ce79551e5f",
+              "numero": "",
+              "nombre": [
+                "Tandoori Malai Soya",
+                "Soja Tandoori Malai",
+                "Tandoori Malai Soja"
+              ],
+              "descripcion": [
+                "Plant-based creamy tandoori soy.",
+                "Soja al tandoor con crema vegetal.",
+                "Cremige Tandoori-Soja auf pflanzlicher Basis."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_2da6837302",
+              "numero": "",
+              "nombre": [
+                "Tofu Shashlik",
+                "Shashlik de tofu",
+                "Tofu-Shashlik"
+              ],
+              "descripcion": [
+                "Tofu shashlik served sizzling.",
+                "Shashlik de tofu en plancha caliente.",
+                "Tofu-Shashlik, heiß serviert."
+              ],
+              "precio": "17.95"
+            },
+            {
+              "dishId": "d_2f57ba7e68",
+              "numero": "",
+              "nombre": [
+                "Soy Shashlik",
+                "Shashlik de soja",
+                "Soja-Shashlik"
+              ],
+              "descripcion": [
+                "Soy shashlik served sizzling.",
+                "Shashlik de soja en plancha caliente.",
+                "Soja-Shashlik, heiß serviert."
+              ],
+              "precio": "18.95"
+            },
+            {
+              "dishId": "d_1b7b25e2de",
+              "numero": "",
+              "nombre": [
+                "Kathal Shashlik (Raw Jackfruit)",
+                "Shashlik de Kathal (yaca verde)",
+                "Kathal-Shashlik (grüne Jackfrucht)"
+              ],
+              "descripcion": [
+                "Jackfruit shashlik served sizzling.",
+                "Shashlik de yaca en plancha caliente.",
+                "Jackfrucht-Shashlik, heiß serviert."
+              ],
+              "precio": "17.95"
+            }
+          ]
+        },
+        {
+          "categoryId": "c_811692fc10",
+          "categoria": "Vegan - Flat Breads",
+          "subtitulo": [
+            "Flat Breads",
+            "Panes planos",
+            "Fladenbrote"
+          ],
+          "icono": "bread",
+          "platos": [
+            {
+              "dishId": "d_e6f90a5229",
+              "numero": "",
+              "nombre": [
+                "Tandoori Roti",
+                "Roti Tandoori",
+                "Tandoori-Roti"
+              ],
+              "descripcion": [
+                "Vegan tandoori roti.",
+                "Roti al tandoor vegano.",
+                "Veganes Tandoori-Roti."
+              ],
+              "precio": "4.25"
+            },
+            {
+              "dishId": "d_fa81341ef7",
+              "numero": "",
+              "nombre": [
+                "Garlic Tandoori Roti",
+                "Roti Tandoori de ajo",
+                "Tandoori-Roti mit Knoblauch"
+              ],
+              "descripcion": [
+                "Vegan garlic tandoori roti.",
+                "Roti al tandoor vegano con ajo.",
+                "Veganes Tandoori-Roti mit Knoblauch."
+              ],
+              "precio": "4.75"
+            },
+            {
+              "dishId": "d_67a2ff5b96",
+              "numero": "",
+              "nombre": [
+                "Garlic Chilli Tandoori Roti",
+                "Roti Tandoori de ajo y guindilla",
+                "Tandoori-Roti mit Knoblauch und Chili"
+              ],
+              "descripcion": [
+                "Vegan garlic-chilli tandoori roti.",
+                "Roti al tandoor vegano con ajo y guindilla.",
+                "Veganes Tandoori-Roti mit Knoblauch und Chili."
+              ],
+              "precio": "5.50"
+            },
+            {
+              "dishId": "d_d30f4a5545",
+              "numero": "",
+              "nombre": [
+                "Cheese Tandoori Roti",
+                "Roti Tandoori de queso",
+                "Tandoori-Roti mit Käse"
+              ],
+              "descripcion": [
+                "Tandoori roti with vegan cheese.",
+                "Roti al tandoor con queso vegano.",
+                "Tandoori-Roti mit veganem Käse."
+              ],
+              "precio": "6.00"
+            },
+            {
+              "dishId": "d_27513ae391",
+              "numero": "",
+              "nombre": [
+                "Cheese Garlic Tandoori Roti",
+                "Roti Tandoori de queso y ajo",
+                "Tandoori-Roti mit Käse und Knoblauch"
+              ],
+              "descripcion": [
+                "Tandoori roti with vegan cheese and garlic.",
+                "Roti al tandoor con queso vegano y ajo.",
+                "Tandoori-Roti mit veganem Käse und Knoblauch."
+              ],
+              "precio": "6.25"
+            },
+            {
+              "dishId": "d_433ccd6f98",
+              "numero": "",
+              "nombre": [
+                "Cheese Garlic Chilli Tandoori Roti",
+                "Roti Tandoori de queso, ajo y guindilla",
+                "Tandoori-Roti mit Käse, Knoblauch und Chili"
+              ],
+              "descripcion": [
+                "Tandoori roti with vegan cheese, garlic and chilli.",
+                "Roti al tandoor con queso vegano, ajo y guindilla.",
+                "Tandoori-Roti mit veganem Käse, Knoblauch und Chili."
+              ],
+              "precio": "6.50"
+            },
+            {
+              "dishId": "d_5af112b358",
+              "numero": "",
+              "nombre": [
+                "Peshwari Tandoori Roti",
+                "Roti Tandoori Peshwari",
+                "Peshwari-Tandoori-Roti"
+              ],
+              "descripcion": [
+                "Sweet-style vegan tandoori roti.",
+                "Roti al tandoor vegano en versión dulce.",
+                "Veganes Tandoori-Roti in süßer Variante."
+              ],
+              "precio": "6.50"
+            },
+            {
+              "dishId": "d_bb63dbbb50",
+              "numero": "",
+              "nombre": [
+                "Plain Chapati",
+                "Chapati natural",
+                "Chapati natur"
+              ],
+              "descripcion": [
+                "Vegan plain chapati.",
+                "Chapati natural vegano.",
+                "Veganes Chapati natur."
+              ],
+              "precio": "3.25"
+            },
+            {
+              "dishId": "d_eff19c6189",
+              "numero": "",
+              "nombre": [
+                "Vegan Butter Chapati",
+                "Chapati con mantequilla vegana",
+                "Chapati mit veganer Butter"
+              ],
+              "descripcion": [
+                "Chapati with vegan butter.",
+                "Chapati con mantequilla vegana.",
+                "Chapati mit veganer Butter."
+              ],
+              "precio": "3.75"
+            },
+            {
+              "dishId": "d_22a65bf1f0",
+              "numero": "",
+              "nombre": [
+                "Garlic Chapati",
+                "Chapati de ajo",
+                "Chapati mit Knoblauch"
+              ],
+              "descripcion": [
+                "Vegan garlic chapati.",
+                "Chapati vegano al ajo.",
+                "Veganes Chapati mit Knoblauch."
+              ],
+              "precio": "3.95"
+            },
+            {
+              "dishId": "d_31822386d3",
+              "numero": "",
+              "nombre": [
+                "Aloo Paratha (Stuffed with Potatoes)",
+                "Aloo Paratha (relleno de patata)",
+                "Aloo Paratha (gefüllt mit Kartoffeln)"
+              ],
+              "descripcion": [
+                "Vegan paratha stuffed with potatoes.",
+                "Paratha vegano relleno de patata.",
+                "Veganes Paratha mit Kartoffelfüllung."
+              ],
+              "precio": "5.50"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,13 +1,19 @@
-/* Convierte carta.mjs en los ficheros que lee el build.
+/* Convierte carta.json en los ficheros que lee el build.
  *
  *   node importar.mjs
+ *
+ * carta.json es LA fuente de la carta desde la migración a identificadores estables. Cada
+ * plato lleva su `dishId` y cada categoría su `categoryId`, permanentes y opacos: renombrar,
+ * traducir, cambiar el precio o mover un plato no los toca. El número visible (`numero`) es
+ * contenido, no identidad. carta.mjs sigue en la carpeta como respaldo congelado de la
+ * conversión y no lo lee nadie.
  *
  * Escribe menu.md con los platos y reescribe las cinco secciones de catálogo de CADA
  * diccionario de idioma — names, descriptions, notes, tabs y groups. La sección `ui` NO se
  * toca en ninguno: son cadenas de interfaz que se mantienen a mano y que además llevan el
  * título y el rótulo del restaurante.
  *
- * Y comprueba que la estructura de carta.mjs cuadre con la de cliente.mjs. Son dos
+ * Y comprueba que la estructura de carta.json cuadre con la de cliente.mjs. Son dos
  * ficheros distintos porque uno es la carta y el otro es la identidad, pero las pestañas
  * tienen que decir lo mismo en los dos: si no, el build revienta más tarde y con un
  * mensaje peor. Cuando no cuadran, esto escupe el bloque exacto que hay que pegar.
@@ -28,7 +34,7 @@
  *      números de Tinge no son correlativos: la carta salta del 67 al 69, desdobla el 24
  *      en 24a/24b/24c, y las salsas, los ingredientes y las pestañas Sin gluten y Vegano
  *      no llevan número. Como el número se imprime al lado del plato y el buscador busca
- *      por él, inventarlo cambiaría lo que ve el comensal. Así que va escrito en carta.mjs
+ *      por él, inventarlo cambiaría lo que ve el comensal. Así que va escrito en carta.json
  *      y esto lo copia tal cual. Si un plato no trae número, se cae al contador de antes.
  *
  *   3. NOTAS DE CATEGORÍA. La frase que vale para todo un grupo («Todos los naan se
@@ -38,15 +44,63 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
-/* Import dinamico para poder decir que falta en cristiano. Con un import normal, un
-   restaurante sin carta.mjs recibe un ERR_MODULE_NOT_FOUND y a adivinar. */
-let CARTA;
-try {
-  ({ CARTA } = await import('./carta.mjs'));
-} catch (e) {
-  console.error('No hay carta.mjs en esta carpeta.');
-  console.error('Copia carta.EJEMPLO.mjs a carta.mjs y escribe dentro la carta del restaurante.');
+/* ---- carta.json: la fuente, y su validación ----
+   Se valida AQUÍ y no en gen.mjs porque éste es el único sitio que la lee: un fichero que
+   escribe un programa —el día que el panel edite la carta, lo hará— no puede darse por bueno
+   sin mirarlo. Cada error dice la ruta exacta del dato que falla. */
+const RUTA_CARTA = new URL('./carta.json', import.meta.url);
+if (!existsSync(RUTA_CARTA)) {
+  console.error('No hay carta.json en esta carpeta: es la única fuente de la carta.');
+  console.error('carta.mjs, si existe, es el respaldo congelado de la conversión y no vale como fuente.');
   process.exit(1);
+}
+let FUENTE;
+try {
+  FUENTE = JSON.parse(readFileSync(RUTA_CARTA, 'utf8'));
+} catch (e) {
+  console.error('carta.json no es JSON válido: ' + e.message);
+  process.exit(1);
+}
+if (FUENTE.esquema !== 'carta/1') {
+  console.error('carta.json: esquema desconocido ' + JSON.stringify(FUENTE.esquema)
+    + ' — este importador entiende "carta/1". No se adivina: revisa el fichero.');
+  process.exit(1);
+}
+/* La marca de las plantillas de alta: una carta de ejemplo no puede llegar a publicarse. */
+if (FUENTE.noPublicable) {
+  console.error('carta.json lleva la marca noPublicable: es una carta de ejemplo, no la del');
+  console.error('restaurante. Escribe la carta de verdad y quita la marca.');
+  process.exit(1);
+}
+if (!Array.isArray(FUENTE.pestanas) || !FUENTE.pestanas.length) {
+  console.error('carta.json: falta la lista `pestanas` o está vacía.');
+  process.exit(1);
+}
+const CARTA = FUENTE.pestanas;
+
+/* Los identificadores permanentes. Formato y unicidad se comprueban en cada pasada: un ID
+   repetido mezclaría fotos, precios y agotados de dos platos, que es exactamente la clase de
+   fallo silencioso que los IDs vienen a impedir. */
+{
+  const vistos = new Map();
+  const mal = [];
+  CARTA.forEach((t, ti) => t.grupos?.forEach((g, gi) => {
+    const donde = 'pestanas[' + ti + '].grupos[' + gi + ']';
+    if (!/^c_[0-9a-f]{10,}$/.test(g.categoryId || '')) mal.push(donde + ': categoryId ' + JSON.stringify(g.categoryId));
+    else if (vistos.has(g.categoryId)) mal.push(donde + ': categoryId repetido con ' + vistos.get(g.categoryId));
+    else vistos.set(g.categoryId, donde);
+    g.platos?.forEach((p, pi) => {
+      const dp = donde + '.platos[' + pi + ']';
+      if (!/^d_[0-9a-f]{10,}$/.test(p.dishId || '')) mal.push(dp + ': dishId ' + JSON.stringify(p.dishId));
+      else if (vistos.has(p.dishId)) mal.push(dp + ': dishId repetido con ' + vistos.get(p.dishId));
+      else vistos.set(p.dishId, dp);
+    });
+  }));
+  if (mal.length) {
+    console.error('carta.json: identificadores inválidos o repetidos:');
+    mal.slice(0, 12).forEach((m) => console.error('  ' + m));
+    process.exit(1);
+  }
 }
 
 const { IDIOMAS_CLIENTE } = await import('./cliente.mjs');
@@ -76,34 +130,13 @@ const texto = (v, donde) => {
 };
 
 /* ---- recorrer la carta una vez y sacar todo lo que hace falta ---- */
-/* Lo que va DESPUÉS del precio, que es donde chocaban las dos cartas que existen: una escribe
-   ahí el número de plato y la otra la lista de alérgenos.
-
-   Se distingue por forma, no por posición: un array son los alérgenos, y lo que aparezca antes
-   es el número. Detrás de los alérgenos van el premio y la medalla. Así conviven las dos y una
-   carta nueva puede llevar las cuatro cosas o ninguna.
-
-     [.., precio]                              nada más: el número lo pone el contador
-     [.., precio, "07"]                        con número escrito a mano
-     [.., precio, ["trigo"], "", ""]           con alérgenos
-     [.., precio, "07", ["trigo"], "1ª", "oro"]  con las cuatro */
+/* En carta.json cada plato es un objeto con nombre a las claras: `numero` es el número
+   visible (la cadena vacía significa «sin número», como las salsas y las pestañas Sin gluten
+   y Vegano; ausente, lo pone el contador), y alérgenos, premio y medalla van con su nombre.
+   El formato viejo por posición —el «resto» tras el precio— murió con carta.mjs. */
 const MEDALLAS = ['oro', 'bronce'];
 
-function extras(resto, donde) {
-  let id;
-  let i = 0;
-  if (resto.length && !Array.isArray(resto[0])) { id = String(resto[0]); i = 1; }
-  const alergenos = Array.isArray(resto[i]) ? resto[i] : [];
-  const premio = resto[i + 1] === undefined ? '' : String(resto[i + 1]);
-  const medalla = resto[i + 2] === undefined ? '' : String(resto[i + 2]);
-  if (medalla && !MEDALLAS.includes(medalla)) {
-    throw new Error(donde + ': la medalla ' + JSON.stringify(medalla) + ' no existe.'
-      + ' Las validas son: ' + MEDALLAS.join(', '));
-  }
-  return { id, alergenos, premio, medalla };
-}
-
-const platos = [];        // { cat, nombre[], desc[], precio, id }
+const platos = [];        // { cat, nombre[], desc[], precio, id, dishId }
 /* Los alergenos que el motor sabe pintar. Un nombre mal escrito no se pinta y no avisa, asi que
    se para aqui: es el unico sitio donde alguien lo esta mirando. */
 const CONOCIDOS = ['trigo', 'leche', 'huevo', 'soja', 'mostaza', 'apio', 'sulfitos',
@@ -123,11 +156,18 @@ for (const t of CARTA) {
       iconoSub: g.icono || null,
       nota: g.nota ? texto(g.nota, 'nota de ' + catEn) : null,
     });
-    for (const fila of g.platos) {
-      const nombre = texto(fila.slice(0, COLS), 'plato en ' + catEn);
-      const desc = texto(fila.slice(COLS, COLS * 2), 'descripción en ' + catEn);
-      platos.push({ cat: catEn, nombre, desc, precio: fila[COLS * 2],
-                    ...extras(fila.slice(COLS * 2 + 1), catEn) });
+    for (const p of g.platos) {
+      const nombre = texto(p.nombre, 'plato en ' + catEn);
+      const desc = texto(p.descripcion, 'descripción de ' + nombre[0] + ' en ' + catEn);
+      const medalla = p.medalla === undefined ? '' : String(p.medalla);
+      if (medalla && !MEDALLAS.includes(medalla)) {
+        throw new Error(catEn + ' / ' + nombre[0] + ': la medalla ' + JSON.stringify(medalla)
+          + ' no existe. Las validas son: ' + MEDALLAS.join(', '));
+      }
+      platos.push({ cat: catEn, nombre, desc, precio: p.precio,
+                    id: p.numero, dishId: p.dishId,
+                    alergenos: Array.isArray(p.alergenos) ? p.alergenos : [],
+                    premio: p.premio === undefined ? '' : String(p.premio), medalla });
     }
   }
 }
@@ -142,7 +182,7 @@ const unico = (filas, donde) => {
   for (const fila of filas) {
     const k = fila[0];
     /* Se guarda la fila ENTERA, con el inglés en la posición 0, para que el índice de un
-       idioma sea el mismo aquí que en carta.mjs: 0 inglés, 1 el primero de IDIOMAS_CLIENTE,
+       idioma sea el mismo aquí que en carta.json: 0 inglés, 1 el primero de IDIOMAS_CLIENTE,
        2 el segundo. Guardar sólo las traducciones desplazaba el índice en uno, y el español
        acababa escribiéndose con el texto alemán sin que nada reventara. */
     const a = m.get(k);
@@ -162,7 +202,7 @@ const tabs = unico(CARTA.map((t) => texto(t.pestana, 'pestaña')), 'tabs');
 const groups = unico(cats.filter((c) => c.sub).map((c) => c.sub), 'groups');
 
 if (choques.length) {
-  throw new Error('el mismo texto con dos traducciones distintas en carta.mjs:' + NL
+  throw new Error('el mismo texto con dos traducciones distintas en carta.json:' + NL
     + '  ' + [...new Set(choques)].join(NL + '  '));
 }
 
@@ -174,13 +214,13 @@ const hayExtras = platos.some((p) => p.alergenos.length || p.premio || p.medalla
 const raros = [...new Set(platos.flatMap((p) => p.alergenos)
   .filter((a) => !CONOCIDOS.includes(a)))];
 if (raros.length) {
-  throw new Error('alergenos que no existen en carta.mjs: ' + raros.join(', ') + NL
+  throw new Error('alergenos que no existen en carta.json: ' + raros.join(', ') + NL
     + '  los validos son: ' + CONOCIDOS.join(', '));
 }
 
-const md = ['# Carta — generada por importar.mjs desde carta.mjs', '',
+const md = ['# Carta — generada por importar.mjs desde carta.json', '',
   '> NO SE EDITA A MANO: cada `node importar.mjs` la reescribe entera.',
-  '> Los platos se cambian en carta.mjs.', '',
+  '> Los platos se cambian en carta.json.', '',
   '## Data format', '',
   'Each category contains a Markdown table with: `id`, `name`, `description`, `price`.', ''];
 let n = 0;
@@ -221,7 +261,7 @@ const seccion = (nombre, mapa, col, nota) => [
 
 /* La línea de intro de una pestaña vive en TAB_INTRO, pero el build la traduce por la
    sección ui, igual que cualquier otro texto de interfaz. Así que la escribe el importador
-   —sale de carta.mjs— y el resto de ui se queda como estaba, que es a mano. Sin esto el
+   —sale de carta.json— y el resto de ui se queda como estaba, que es a mano. Sin esto el
    build reventaba con «missing translations» señalando una cadena que nadie había escrito
    a mano en ningún sitio. */
 const uiConIntros = (bloque, col) => {
@@ -252,7 +292,7 @@ IDIOMAS_CLIENTE.forEach((idioma, i) => {
   }
 
   writeFileSync(ruta, [
-    '/* Catálogo en ' + idioma.name + '. Lo escribe importar.mjs desde carta.mjs: no editar a mano,',
+    '/* Catálogo en ' + idioma.name + '. Lo escribe importar.mjs desde carta.json: no editar a mano,',
     '   se sobrescribe. La sección ui de abajo sí es a mano — es interfaz, no carta. */',
     '',
     seccion('names', names, col, 'Los nombres de los platos.'),
@@ -323,8 +363,8 @@ console.log('idiomas    ' + escritos.join(' · ') + ' (ui intacta en cada uno)')
 console.log('catálogo   names ' + names.size + ' · descriptions ' + descs.size
   + ' · notes ' + notes.size + ' · tabs ' + tabs.size + ' · groups ' + groups.size);
 if (falta.length) {
-  console.log(NL + 'OJO: cliente.mjs no cuadra con carta.mjs. Pega esto en cliente.mjs:' + NL);
+  console.log(NL + 'OJO: cliente.mjs no cuadra con carta.json. Pega esto en cliente.mjs:' + NL);
   console.log(esperado);
 } else {
-  console.log('cliente.mjs cuadra con carta.mjs');
+  console.log('cliente.mjs cuadra con carta.json');
 }

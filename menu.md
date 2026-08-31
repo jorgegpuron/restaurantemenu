@@ -1,7 +1,7 @@
-# Carta — generada por importar.mjs desde carta.mjs
+# Carta — generada por importar.mjs desde carta.json
 
 > NO SE EDITA A MANO: cada `node importar.mjs` la reescribe entera.
-> Los platos se cambian en carta.mjs.
+> Los platos se cambian en carta.json.
 
 ## Data format
 

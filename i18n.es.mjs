@@ -1,4 +1,4 @@
-/* Catálogo en Español. Lo escribe importar.mjs desde carta.mjs: no editar a mano,
+/* Catálogo en Español. Lo escribe importar.mjs desde carta.json: no editar a mano,
    se sobrescribe. La sección ui de abajo sí es a mano — es interfaz, no carta. */
 
 /* Los nombres de los platos. */
