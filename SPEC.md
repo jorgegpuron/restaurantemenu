@@ -6031,3 +6031,96 @@ historial. No se normaliza a propósito —serían miles de líneas de diff mec�
 cambios de verdad—. `.gitattributes` declara `whitespace=cr-at-eol` para que `git diff
 --check` señale los espacios colgantes reales sin acusar al retorno de carro; comprobado
 empíricamente que un espacio real sigue saltando.
+
+
+---
+
+## El motor vive en motor/ y motor.lock dice exactamente qué es (31 Aug 2026)
+
+Hasta hoy el motor y el cliente compartían carpeta: para saber qué era reutilizable había que
+saberlo. Ahora la frontera es física — `motor/` es del motor, todo lo demás es del cliente — y
+está **firmada**: `motor.lock` (formato `motor.lock/1`) lista los 64 ficheros del motor y los
+2 envoltorios con su SHA-256, la versión, la fecha y las épocas de datos que entiende
+(`esquemaEstado: 2`, `esquemaCarta: carta/1`).
+
+**El orden del bloqueo es el mecanismo, y está medido.** Los envoltorios cargan primero
+SOLO el verificador (`entorno.mjs`, que no importa nada funcional) y el compilador después,
+con un import dinámico. Con el import estático de la primera versión, un módulo del motor
+alterado —pero sintácticamente válido— **ejecutaba su código antes de que el lock lo
+cantara**: se demostró con un `console.log` inyectado en `temas.mjs` que salía por consola
+antes del «CAMBIADO». Con los envoltorios corregidos, el mismo experimento imprime el
+«CAMBIADO» y cero rastro del módulo alterado. Matiz que sigue siendo cierto: un módulo
+AUSENTE que gen importe lo mata node en la resolución, con peor mensaje y el mismo aborto.
+
+**Lo que el lock es y lo que no es.** Es un control de integridad y de cambios: caza la
+personalización local olvidada, la copia a medias y el fichero colado. **No es una firma
+criptográfica**: quien puede editar el motor puede editar el verificador, y ningún fichero se
+protege de quien puede reescribirlo — esa defensa es git y la revisión de commits. Además,
+las rutas del lock se validan antes de usarse: ni absolutas, ni `..`, ni barra invertida, ni
+enlaces simbólicos, ni envoltorios fuera de los dos autorizados.
+
+El build **jamás** arregla un hash: regenerar el lock es una orden explícita
+(`node motor/lock.mjs --escribir`).
+
+**Los comandos no cambian nunca.** `node importar.mjs` y `node gen.mjs` siguen en la raíz como
+envoltorios de una línea, listados en el lock: son la interfaz estable del motor y el workflow
+no se ha tocado.
+
+**Las rutas se calculan una vez, en `motor/entorno.mjs`.** Raíz del motor, raíz del cliente
+(validada: sin `cliente.mjs` y `carta.json` no es un cliente y no se compila), salida y
+carpeta contenedora. Nadie más calcula rutas. El ensamblado de `2-subir/admin` mezcla dos
+orígenes y el orden importa: primero el código del panel (motor), después lo del cliente, que
+**pisa** a lo del motor si un nombre coincide.
+
+**El motor ya no lleva a Tinge dentro: cero menciones.** Las referencias funcionales se
+derivan del slug con bytes idénticos para este cliente: el evento `totm:lang` es ahora
+`${CLIENTE.slug}:lang`, los marcadores de historial `totmHoja`/`totmFicha` son
+`${slug}Hoja`/`${slug}Ficha`, y la cookie del panel `totm_admin` sale de `CLIENTE_SLUG`.
+Comprobado: HTML byte a byte idéntico salvo el sello.
+
+**`nota-igic` se queda, y está documentado por qué:** es sólo un nombre de clase histórico,
+sin una línea de lógica fiscal en el motor — el texto entero sale de `CLIENTE.impuesto` y
+funciona igual con IVA. Renombrarla cambiaría el HTML por estética.
+
+**Qué quedó fuera del motor, y por qué:** los dos `.htaccess` del servidor (llevan la ruta
+pública del cliente), `LEEME-SERVIDOR.txt` (ídem), la semilla `server/estado.json` (trae tema
+y reseñas propios), `titleIcon*.svg` (marca). El arte del juego y las banderas viajaron al
+motor: aquí está el original y el cliente no los toca.
+
+**Actualizar el motor es `node motor/actualizar.mjs --desde <carpeta>`**, local y sin
+internet a propósito. Se niega con el árbol de git sucio, con el motor actual personalizado
+(la lista se enseña, no se pierde) y con un origen que no cuadre con su propio lock.
+
+**Es transaccional.** La versión nueva se prepara y se re-verifica en una carpeta de trabajo
+junto a `motor/` (mismo volumen: un renombre entre volúmenes no está garantizado); el motor
+activo no se toca hasta que la copia está completa; el cambio son dos renombres; y si
+cualquier paso falla, el motor anterior vuelve entero, los tres ficheros de la raíz recuperan
+sus bytes y los temporales se limpian. Probado con fallos inyectados tras el swap y tras los
+envoltorios: el hash del árbol completo antes y después del fallo es idéntico.
+
+**El límite de escritura es por construcción, no por buenas intenciones.** Toda escritura,
+borrado o renombre pasa por una allowlist — `motor/**`, `motor.lock`, `gen.mjs`,
+`importar.mjs` y las dos carpetas de trabajo `.motor.*` que la propia transacción crea y
+retira—; cualquier otra ruta lanza. Los doce centinelas y los ficheros trampa (raíz, assets,
+server y documentación) quedan como evidencia, no como garantía.
+
+**La cookie del panel se deriva del slug con normalización anticolisión.** PHP exige letras y
+dígitos; un slug limpio usa su nombre tal cual (para el primer cliente, exactamente
+`totm_admin`, nadie pierde la sesión), y a cualquier slug que la limpieza altere se le añade
+un hash corto y estable del original — «restaurante-uno», «Restaurante Uno» y
+«restaurante_uno» normalizan igual y terminan en tres cookies distintas. Probado con seis
+casos, ñ y dígitos iniciales incluidos.
+
+### menu.md y los diccionarios: generados, pero PROPIEDAD DEL CLIENTE
+
+Clasificación exacta, porque «generado» a secas invitaba a pensar que eran del motor:
+
+| Fichero | Qué es | Fuente canónica | ¿Versionado? | ¿Puede sustituirlo una actualización del motor? |
+|---|---|---|---|---|
+| `menu.md` | generado, propiedad del cliente | `carta.json` | Sí | **No** — no está en la allowlist |
+| `i18n.*.mjs` (names, descriptions, notes, tabs, groups) | generado, propiedad del cliente | `carta.json` | Sí | **No** |
+| `i18n.*.mjs` (sección `ui`) | A MANO, propiedad del cliente | la propia sección | Sí | **No** |
+
+Los reescribe `node importar.mjs` **del cliente**, desde **su** `carta.json`, en **su** raíz.
+Una actualización del motor puede cambiar el importador; el contenido de estos ficheros sólo
+cambia cuando el cliente vuelve a ejecutar la importación sobre su propia carta.

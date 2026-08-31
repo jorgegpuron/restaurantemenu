@@ -34,7 +34,25 @@ header('Referrer-Policy: no-referrer');
 ini_set('session.use_strict_mode', '1');
 // Nombre propio y cookie acotada a admin/: en un hosting con varios sitios PHP bajo el mismo
 // dominio, un PHPSESSID en / se mezcla con el de cualquier otra aplicación.
-session_name('totm_admin');
+/* El nombre sale del slug del cliente (cliente.php, escrito por el build): dos paneles en
+   el mismo dominio no comparten cookie.
+
+   PHP exige un nombre de sesion de letras y digitos, asi que el slug se normaliza. Y la
+   normalizacion puede hacer chocar slugs distintos ("restaurante-uno" y "restaurante_uno"
+   quedarian iguales), asi que SOLO el slug que ya es limpio usa su nombre tal cual; a
+   cualquier otro se le añade un hash corto y estable del slug ORIGINAL, que separa lo que la
+   limpieza junto. Para un slug limpio como el del primer cliente, el resultado es exactamente
+   el valor historico y nadie pierde su sesion. Sin cliente.php: nombre neutro. */
+$slugPanel = defined('CLIENTE_SLUG') ? (string) CLIENTE_SLUG : '';
+$slugLimpio = preg_replace('/[^a-z0-9]/', '', strtolower($slugPanel));
+if ($slugPanel === '') {
+  session_name('carta_admin');
+} elseif ($slugLimpio === $slugPanel && $slugLimpio !== '') {
+  session_name($slugLimpio . '_admin');
+} else {
+  $base = $slugLimpio !== '' ? substr($slugLimpio, 0, 12) : 'carta';
+  session_name($base . '_' . substr(sha1($slugPanel), 0, 6) . '_admin');
+}
 session_start([
   'cookie_httponly' => true,
   'cookie_samesite' => 'Lax',
