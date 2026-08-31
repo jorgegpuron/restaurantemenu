@@ -2815,9 +2815,17 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   align-items:center;
   gap:8px;
   min-height:48px;
-  /* 29 y no 22 de relleno: el botón pasa de 148 a 162 de ancho (un 10%) para que el pulgar
-     lo acierte sin mirar, que es como se usa una carta con el móvil en una mano. */
-  padding:0 29px;
+  /* Ancho, a propósito. Es el único acceso a la carta entera desde el móvil —buscador y
+     categorías viven detrás de él— y se pulsa con una mano, mirando la mesa y no la pantalla.
+     El relleno pasó primero de 22 a 29 (148 → 162) y ahora a 40, y además lleva un mínimo:
+     el rótulo se acortó al cambiar a «Buscar platos» y sin el mínimo el botón habría
+     ENCOGIDO justo cuando se quería lo contrario.
+     El tope de 92vw es para el móvil estrecho: a 320 px, 260 fijos dejarían el botón pegado
+     a los dos cantos. */
+  padding:0 40px;
+  min-width:260px;
+  max-width:92vw;
+  justify-content:center;
   border:0;
   border-radius:999px;
   /* Del color de la marca, no crema: flotando sobre la tarjeta —que también es crema— el botón
@@ -3554,10 +3562,11 @@ ${leyenda}
      existe: son la misma puerta a distinto ancho, y por eso no se anade una segunda aqui.
      Lo que se corrige es el rotulo, que prometia menos de lo que hay: alguien que busca un
      plato concreto no tiene por que pulsar algo llamado «Categorias».
-     El icono lleva ahora la lupa delante de las rayas, en el mismo trazo de 1.75. -->
+     El icono es un plato visto desde arriba —dos circulos concentricos— en el mismo trazo de
+     1.75 que el resto del juego de iconos, no un glifo ni un emoji. -->
 <button class="menu-fab" type="button" id="menu-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="category-sheet">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0"/><path d="M20 20l-4.5 -4.5"/></svg>
-  ${T('Search and categories', 'ui')}
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M12 12m-4.5 0a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0"/></svg>
+  ${T('Search dishes', 'ui')}
 </button>
 
 <div class="sheet" id="category-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
