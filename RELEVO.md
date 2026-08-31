@@ -5,7 +5,7 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **31 ago 2026, 09:15** · desde **PC 2** · build publicado `1788167491269`
+> Última actualización: **31 ago 2026** · desde **PC 1** · build publicado `1788169742791`
 
 ---
 
@@ -15,29 +15,23 @@ Repositorio limpio y sincronizado con `origin/main`. Nada a medias, nada sin des
 
 La carta está publicada y verificada en <https://socialcard.es/tinge_of_turmeric/menu2/>.
 
-Los últimos ocho commits son de una tanda larga de calidad: dos pasadas de
-`/impeccable critique` (29/40 las dos) y los arreglos que salieron de ellas.
-
 ---
 
 ## Qué se hizo en la última sesión
 
-Por si el título del commit no basta:
+- **El buscador tolera erratas.** `nan` encuentra `Naan`, y con él `tika`, `tanduri`, `paner`,
+  `biriani`, `vindalu`, `corma` y `papadam`. Distancia de edición, pero **sólo cuando la
+  búsqueda normal da cero**: mientras haya resultados exactos nada cambia de orden ni de
+  contenido. La tolerancia crece con la palabra —una letra hasta seis caracteres, dos a partir
+  de siete— porque con dos en palabras cortas «vino» devolvía vindaloo, pollo y mango. El
+  porqué y la prueba en seco están en `SPEC.md`.
+- **La prueba del diferido de portadas se ancló a la foto, no al reloj.** `extra.py` esperaba
+  700 ms fijos; con la red frenada esa ventana se cruzaba con el giro del carrusel y acusaba un
+  fallo que no existía. Ahora espera a que la primera foto esté pintada. Medido: la segunda
+  arranca a 5,15 s, la primera termina a 1,45 s.
 
-- **La búsqueda encuentra.** Indexa el rótulo de pestaña y de grupo, no sólo el nombre del
-  plato: «biryani» pasó de 0 resultados a 34, «curry» de 2 a 49. Ordena poniendo delante las
-  coincidencias en el nombre, y entiende plurales quitando la ese final a partir de cuatro
-  letras — sin eso, «sopas» devolvía papadums.
-- **El botón del móvil cumple lo que promete.** Dice «Buscar platos», abre con el foco en el
-  campo y la hoja se titula igual. Esto **invierte una decisión de `SPEC.md`**, y el motivo
-  está escrito allí: la decisión de no levantar el teclado era correcta cuando el botón decía
-  «Categorías».
-- **La nota fiscal es obligatoria y la decide el cliente**, en `cliente.mjs`. El build revienta
-  si falta. No hay valor por defecto a propósito: un «IGIC» de fábrica acabaría publicado en un
-  restaurante de Madrid.
-- Chapa del panel legible, insignias a 11px, `alt` de portada numerados, el par de color del
-  juego separado, Currys sin sus 14 descripciones repetidas, `aria-live` en el buscador,
-  etiquetas en los campos de contraseña, contraste del hover del idioma, y `--r-chip`.
+Verificado **online, no sólo en local**: final 27/27, erratas 26/26, y las tres portadas se ven
+en escritorio y en móvil.
 
 ---
 
@@ -48,13 +42,19 @@ Por orden de lo que más duele:
 1. **El interior del panel no se ha auditado nunca.** Está tras un alta de contraseña, y
    introducir credenciales es algo que el asistente no hace. Todo lo que hay detrás del login
    sigue sin revisar en las dos pasadas de crítica.
-2. **`nan` no encuentra `naan`.** El buscador entiende plurales pero no erratas; haría falta
-   distancia de edición.
-3. **El juego tiene los dos únicos colores fuera de token** del proyecto (`#CFE9F2`, `#F2C14E`)
+2. **`chili` no encuentra nada en español**, porque en la carta esos platos se llaman
+   `guindilla`. No es una errata —eso ya está resuelto—, es un sinónimo. Haría falta un
+   diccionario de equivalencias, y hay que decidir si merece la pena.
+3. **Source Serif carga un eje óptico que no se usa:** 122.360 bytes donde bastan 50.824.
+   Son 71 KB de regalo en cada visita nueva. Ofrecido y sin decidir.
+4. **El juego tiene los dos únicos colores fuera de token** del proyecto (`#CFE9F2`, `#F2C14E`)
    y no se sabe si es deliberado: no está en `SPEC.md`.
-4. **No hay bebidas ni postres** en la carta, y nada se lo dice al comensal: quien busca «vino»
+5. **No hay bebidas ni postres** en la carta, y nada se lo dice al comensal: quien busca «vino»
    recibe el mismo cero que quien teclea cualquier cosa.
-5. **El pie termina en el anuncio del proveedor.** Decisión tomada y consciente — se queda.
+6. **El pie termina en el anuncio del proveedor.** Decisión tomada y consciente — se queda.
+
+El LCP en móvil está donde puede estar: lo que queda es TTFB del alojamiento (~830 ms), no
+código. Cloudflare se valoró y se descartó. No volver a tocar rendimiento sin un dato nuevo.
 
 ---
 
@@ -63,9 +63,12 @@ Por orden de lo que más duele:
 - **`node gen.mjs` con `EPERM` sobre `2-subir`**: es el servidor local. Aunque el docroot es la
   carpeta padre, al servir `2-subir/admin/index.php` PHP mueve ahí su directorio de trabajo y
   bloquea la carpeta. Parar el servidor → compilar → arrancar.
-- **`gen.mjs` borra `2-subir` entera**, y con ella `estado.json`. Hay que resembrarlo:
-  `cp 2-subir/estado-EJEMPLO.json 2-subir/estado.json`. Sin él, el servidor de PHP devuelve
-  **200 con el `index.html` dentro** en vez de 404, y la carta se queda muda sin avisar.
+- **`gen.mjs` borra `2-subir` entera**, y con ella `estado.json` **y `assets/hero/`**. Sin
+  fotos, tres comprobaciones de `final.py` fallan sin que nada esté roto. Resembrar con
+  `scripts/fixtures.php <ruta a 2-subir> si` antes de dar por buena ninguna medida de portada.
+- **`gh run list` sin filtrar devuelve el despliegue ANTERIOR** durante los primeros segundos.
+  Coger el `databaseId` de la ejecución cuyo `headSha` sea el del commit recién empujado, o se
+  mide contra lo que había antes.
 - **El panel del navegador se reporta `hidden` o con viewport 0×0** a menudo. Entonces las
   transiciones se congelan y `getBoundingClientRect` devuelve basura. Comprobar `innerWidth`
   antes de fiarse de cualquier medida.
@@ -73,6 +76,8 @@ Por orden de lo que más duele:
   que asuma 0–255 dará números falsos.
 - **Buscar `font-size:10px` no encuentra `font-size:calc(10px * var(--escala))`.** Ya costó un
   arreglo que fue a las insignias equivocadas.
+- **Las medidas de Lighthouse en local son bimodales** (89 y 99 con el mismo código). Tres
+  pasadas como mínimo y quedarse con la mediana, o no se está midiendo nada.
 
 ---
 
