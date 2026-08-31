@@ -116,7 +116,12 @@ export const TOKENS = cssTemas() + `:root{
   --s6:89px;
   --s7:144px;
 
-  /* Radius — three sizes, scaled to the surface each one wraps */
+  /* Radius — scaled to the surface each one wraps.
+     --r-chip es el pequeño, y llega tarde: hasta ahora las piezas menudas —las placas del
+     juego, sus tarjetas de puntuación— llevaban 13 y 14 escritos a mano, dos valores para
+     el mismo papel y ninguno perteneciente a ninguna escala. 13 es --s2, que ya es la
+     unidad pequeña del espaciado, así que la forma y el aire miden lo mismo. */
+  --r-chip:13px;
   --r-pill:999px;
   --r-sheet:21px;
   --r-card:34px;
@@ -1176,6 +1181,13 @@ h1,h2,h3,h4,p{margin:0}
 .lang-opt:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
 @media (hover:hover) and (pointer:fine){
   .lang-opt:hover{background:var(--chip)}
+  /* La opción ya elegida lleva el acento como color de texto, y ese acento sobre --chip da
+     4,46:1 — por debajo del 4,5 exigido. Sólo ocurre al pasar el ratón por encima de la
+     opción que ya está activa: es el cruce de dos estados, y por eso ninguna inspección del
+     navegador lo encontró; salió del análisis estático del CSS.
+     El resalte se aclara sólo para ese caso, mezclando el chip con el papel: el mismo acento
+     sobre ese fondo vuelve a pasar, y el hover se sigue notando. */
+  .lang-opt[aria-checked="true"]:hover{background:color-mix(in srgb,var(--chip) 45%,var(--surface))}
 }
 .lang-opt[aria-checked="true"]{color:var(--accent-ink);font-weight:600}
 .lang-check{width:17px;height:17px;color:var(--accent-ink);opacity:0}

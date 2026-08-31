@@ -149,7 +149,7 @@ body{
 /* Una sola regla para todas las banderas —el selector de idioma y el podio—, porque desde que
    salen de assets/banderas/ son el mismo fichero. 20x15 es su proporcion; con la 3:2 de antes
    salian aplastadas. */
-.bandera{width:20px;height:15px;border-radius:2px;flex:0 0 auto;
+.bandera{width:20px;height:15px;border-radius:3px;flex:0 0 auto;
   box-shadow:0 0 0 1px rgba(0,0,0,.22)}
 /* ---------- pantallas ---------- */
 .screen{
@@ -192,7 +192,7 @@ h1{
 }
 .punto{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:9px 2px 8px;border-radius:14px;
+  padding:9px 2px 8px;border-radius:var(--r-chip);
   background:color-mix(in srgb,var(--surface) 46%,transparent);
 }
 .punto .ficha{
@@ -242,7 +242,7 @@ h1{
 .placa{
   transform-origin:top center;
   background:var(--ink);color:var(--surface);
-  border-radius:13px;padding:9px var(--s3) 10px;
+  border-radius:var(--r-chip);padding:9px var(--s3) 10px;
   display:flex;align-items:center;gap:10px;max-width:calc(100vw - var(--s4));
   box-shadow:0 10px 22px -10px rgba(0,0,0,.5),
              inset 0 0 0 2px color-mix(in srgb,var(--metal) 55%,transparent);
