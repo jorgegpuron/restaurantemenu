@@ -2867,8 +2867,13 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   background:var(--surface);
   border-radius:var(--r-sheet) var(--r-sheet) 0 0;
   /* Aire de sobra al final: con sólo 21 la última categoría quedaba pegada al canto y parecía
-     que la lista seguía y estaba cortada. 55 dejan claro que ahí se acaba. */
-  padding:6px var(--s3) calc(var(--s5) + env(safe-area-inset-bottom));
+     que la lista seguía y estaba cortada. 55 dejan claro que ahí se acaba.
+     SIN relleno arriba: esos 6px eran una rendija. Este panel es el contenedor de scroll, y
+     una cabecera sticky con top:0 se ancla al borde INTERIOR del relleno, no al del panel:
+     quedaba una franja de 6px por encima de ella por la que se veía pasar la lista al bajar.
+     Los 6 se han mudado a la cabecera, que así se pega al canto y tapa. El aire que se ve
+     arriba es el mismo de antes: lo pone ahora el relleno de .sheet-head. */
+  padding:0 var(--s3) calc(var(--s5) + env(safe-area-inset-bottom));
   box-shadow:var(--lift-sheet);
   /* percentage, so it clears its own height whatever the content */
   transform:translateY(100%);
@@ -2896,7 +2901,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   content:"";
   position:absolute;
   left:50%;
-  top:7px;
+  /* 13 y no 7: el asa se mide desde el borde de la cabecera, y la cabecera ya no empieza 6px
+     dentro del panel sino en su canto. Los 13 desde arriba que se ven son los mismos. */
+  top:13px;
   transform:translateX(-50%);
   width:var(--s4);
   height:4px;
@@ -2934,8 +2941,10 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   z-index:3;
   display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
   margin:0 calc(var(--s3) * -1);
-  /* 7 + los 6 del relleno del panel = los 13 de aire que se ven en la esquina. */
-  padding:7px var(--s3) var(--s1);
+  /* Los 13 de aire de la esquina, ahora enteros aquí. Antes eran 7 aquí + 6 del relleno del
+     panel, y esos 6 dejaban una rendija por encima de la cabecera pegada por la que se veía
+     pasar la lista. El aire que se ve es el mismo; lo que cambia es quién lo pone. */
+  padding:13px var(--s3) var(--s1);
   background:var(--surface);
 }
 /* Un desvanecido bajo la cabecera para que el corte no sea una línea dura. */
