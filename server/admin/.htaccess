@@ -3,10 +3,23 @@ Options -Indexes
 
 # Aquí se teclea una contraseña: nunca por http. El sitio ya vive en https; esto sólo
 # recoge al que llega por un enlace viejo o escribe la dirección sin la s.
+#
+# Y la página de error, que hay que repetir aquí. Encender RewriteEngine en una carpeta hace
+# que mod_rewrite DEJE de heredar las reglas de la de arriba: por eso /admin/loquesea devolvía
+# el «404 Not Found» pelado de Apache, en Times New Roman, mientras el resto del sitio
+# enseñaba la página de la carta. Se repite la regla en vez de heredarla con
+# RewriteOptions InheritDownBefore, que también valdría: heredar aquí metería las reglas de
+# arriba en la única carpeta del sitio que pide contraseña, y esta carpeta se toca lo justo.
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteBase /tinge_of_turmeric/menu2/admin/
   RewriteCond %{HTTPS} !=on
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+  # Sólo lo que NO existe, igual que arriba. index.php, las fotos y las copias no se tocan.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /tinge_of_turmeric/menu2/404.php [L]
 </IfModule>
 
 # El .htaccess de la carpeta de arriba pone Referrer-Policy con «always set», y eso PISA la

@@ -118,3 +118,11 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
 </IfModule>
+
+# El estado de EJEMPLO no se sirve. Sube con la carta a propósito —es la semilla que se
+# renombra a mano la primera vez que se instala en un servidor, y por eso no se puede quitar
+# del build— pero nadie tiene por qué poder leerlo desde fuera: es un fichero de instalación
+# expuesto en una carta pública. Sigue estando en el disco para quien entre por FTP.
+<Files "estado-EJEMPLO.json">
+  Require all denied
+</Files>

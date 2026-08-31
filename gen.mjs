@@ -13,7 +13,7 @@ import {
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
 import {
   CLIENTE, CLAVE, IDIOMAS_CLIENTE,
-  TAB_INTRO, GROUPS, TAB_ICON, GROUP_ICON_BY_CAT, CATEGORIAS_DUPLICADAS,
+  TAB_INTRO, GROUPS, TAB_ICON, GROUP_ICON_BY_CAT, CATEGORIAS_DUPLICADAS, SINONIMOS,
 } from './cliente.mjs';
 
 /* Antes de escribir nada: si un tema deja un texto por debajo de su umbral WCAG, el build
@@ -2469,7 +2469,11 @@ html:not(.has-hero) .hero{display:none}
   display:flex;
   align-items:center;
   justify-content:center;
-  width:22px;
+  /* 24 y no 22. El punto que se ve mide 8px; lo que se toca es esta caja, y el mínimo de la
+     WCAG 2.5.8 son 24×24. Con 22 se salvaba por la excepción de separación —los círculos de
+     24 centrados en cada punto se tocaban sin solaparse— pero salvarse por dos píxeles y una
+     excepción no es cumplir. El dibujo no cambia: sólo crece la zona sensible. */
+  width:24px;
   height:32px;
   padding:0;
   border:0;
@@ -3761,7 +3765,67 @@ ${sheet}
       if (window.scrollY > top) window.scrollTo(0, top);   // lo anima el CSS de html
     }
     if (opts && opts.focus) btn.focus();
+    if (!(opts && opts.silencioso)) marcarEnLaUrl(targetId);
   }
+
+  /* ---- la categoría abierta, en la dirección ----
+   *
+   * Dos cosas que no había y que la gente da por hechas.
+   *
+   * Compartir. Quien manda «mira los panes de este sitio» manda una dirección que abre los
+   * aperitivos, porque la categoría no estaba escrita en ningún sitio. Ahora la carta lee la
+   * almohadilla al abrir y va a esa pestaña; una dirección inventada no rompe nada, se queda
+   * en la primera.
+   *
+   * El botón de atrás. Antes sacaba de la carta de un golpe: nadie había apuntado los cambios
+   * de pestaña en el historial, así que la primera vuelta atrás era la de salir. Con esto,
+   * atrás vuelve a la categoría anterior, que es lo que espera cualquiera que haya tocado
+   * cuatro pestañas seguidas. El precio asumido es que salir cuesta tantas vueltas como
+   * pestañas se hayan abierto; el navegador ya tiene su remedio —mantener pulsado el botón
+   * enseña la lista entera— y confundir «atrás» con «salir» es peor.
+   *
+   * replaceState la primera vez y pushState después: entrar en la carta no tiene por qué
+   * dejar dos entradas en el historial antes de haber tocado nada. */
+  function hayHojaAbierta() {
+    return !!document.querySelector('.sheet.is-open') ||
+           !!document.querySelector('#dish-sheet:not([hidden])');
+  }
+
+  var urlMarcada = false;
+  function marcarEnLaUrl(targetId) {
+    if (!window.history || !history.pushState) return;
+    if (('#' + targetId) === location.hash) return;
+    /* Con una hoja abierta se REEMPLAZA y no se apila, y esto no es un detalle: la hoja pone
+       su propia entrada de historial al abrirse y la quita con history.back() al cerrarse. Si
+       elegir una categoría desde la hoja apilara otra entrada encima, ese back() se llevaría
+       la de la categoría y dejaría la de la hoja colgando. La dirección se actualiza igual;
+       lo que no se toca es la pila. */
+    var modo = (!urlMarcada || hayHojaAbierta()) ? 'replaceState' : 'pushState';
+    try {
+      history[modo]({ tab: targetId }, '', '#' + targetId);
+      urlMarcada = true;
+    } catch (e) { /* file:// y poco más; la carta funciona igual */ }
+  }
+
+  window.addEventListener('popstate', function () {
+    /* Las hojas tienen su propia entrada y su propio manejador, al final del script: si hay
+       una abierta, atrás la cierra y aquí no se toca la categoría. Cambiar la pestaña por
+       debajo de una hoja abierta deja al comensal mirando otra cosa sin haberlo pedido. */
+    if (hayHojaAbierta()) return;
+    var id = location.hash.slice(1);
+    if (id) selectTab(id, { align: false, silencioso: true });
+  });
+
+  /* Al abrir: si la dirección trae una categoría, se abre ésa. Silencioso porque la dirección
+     ya la lleva escrita. Una almohadilla inventada no rompe nada: selectTab no encuentra la
+     pestaña y se queda la primera, que es lo que había antes de todo esto. */
+  (function () {
+    var id = location.hash.slice(1);
+    if (id && document.getElementById(id)) {
+      selectTab(id, { align: false, silencioso: true });
+      urlMarcada = true;
+    }
+  })();
 
   nav.addEventListener('click', function (e) {
     var btn = e.target.closest('.nav-link');
@@ -5263,6 +5327,23 @@ ${DATOS_ACTIVO ? `
    * Dos niveles de mapa y no una clave pegada con un separador: no hay separador que no pueda
    * aparecer dentro de un nombre de plato, y Object.create(null) evita que un plato llamado
    * como una propiedad de Object se lleve por delante la cuenta. */
+  /* El diccionario de sinónimos, servido como un mapa palabra -> grupo. Se monta una vez y no
+     en cada tecla: son nueve grupos hoy, pero la lista la escribe el restaurante y crece.
+     La consulta se compara ENTERA contra el grupo, no por trozos: «carne picada» funciona,
+     «carne» a secas no, y está bien que no — a secas no quiere decir kheema. */
+  var DS_SIN = (function () {
+    var mapa = Object.create(null);
+    var grupos = ${JSON.stringify(SINONIMOS)};
+    for (var i = 0; i < grupos.length; i++) {
+      for (var j = 0; j < grupos[i].length; j++) mapa[grupos[i][j]] = grupos[i];
+    }
+    return mapa;
+  })();
+
+  function dsSinonimos(t) {
+    return t ? DS_SIN[t] || null : null;
+  }
+
   function dsPrecioTexto(f) {
     var p = f.el.querySelector('.price-now') || f.el.querySelector('.price');
     return p ? p.textContent.trim() : '';
@@ -5460,9 +5541,27 @@ ${DATOS_ACTIVO ? `
      * No se intenta nada más listo: un lematizador de verdad no cabe en una carta y fallaría
      * con «arroz» o con los nombres en indio, que son la mitad de esta carta. */
     var tSing = (t.length >= 4 && t.charAt(t.length - 1) === 's') ? t.slice(0, -1) : '';
+
+    /* Las palabras que quieren decir lo mismo. Ver SINONIMOS en cliente.mjs: media carta está
+       en indio transcrito y el comensal busca por el ingrediente que conoce —«chili» donde la
+       carta dice «guindilla», «nata» donde dice «malai»—. Se busca la consulta y todas sus
+       equivalentes a la vez, así que una coincidencia por sinónimo en el nombre del plato
+       cuenta como lo que es: una coincidencia en el nombre, y va en el primer bloque. */
+    var terminos = [t];
+    if (tSing !== '') terminos.push(tSing);
+    var equis = dsSinonimos(t) || dsSinonimos(tSing);
+    if (equis) {
+      for (var iEq = 0; iEq < equis.length; iEq++) {
+        if (terminos.indexOf(equis[iEq]) === -1) terminos.push(equis[iEq]);
+      }
+    }
+
     var casa = function (txt) {
       var p = dsPlano(txt);
-      return p.indexOf(t) !== -1 || (tSing !== '' && p.indexOf(tSing) !== -1);
+      for (var i = 0; i < terminos.length; i++) {
+        if (terminos[i] && p.indexOf(terminos[i]) !== -1) return true;
+      }
+      return false;
     };
 
     var enc = DS.filter(function (f) {

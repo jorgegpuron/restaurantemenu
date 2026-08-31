@@ -104,6 +104,38 @@ export const IDIOMAS_CLIENTE = [
  * Iconos disponibles, y no hay mas: appetizers, soup, vegetarian, meat, salad, flame,
  * leaf, lentils, rice, bread, fries, special, kids, bowl, drop.
  * ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ * Palabras que quieren decir lo mismo, para el buscador.
+ *
+ * Media carta esta en indio transcrito, y el comensal de aqui busca por el ingrediente que
+ * conoce: escribe «chili» donde la carta dice «guindilla», «nata» donde dice «malai», «carne
+ * picada» donde dice «kheema». No es una errata —eso ya lo perdona el buscador— son dos
+ * nombres para la misma cosa, y un buscador que devuelve cero cuando el plato existe es lo
+ * peor que puede hacer.
+ *
+ * Cada linea es un grupo: escribir cualquiera de sus palabras busca todas. Va en los dos
+ * sentidos y no hace falta repetir el par al reves.
+ *
+ * NO se inventan: cada grupo salio de medir la carta. A la izquierda, palabras que devolvian
+ * cero o casi; a la derecha, lo que si esta escrito en los platos. Antes de anadir una linea,
+ * buscar las dos palabras en la carta y comprobar que hace falta — un sinonimo hacia una
+ * palabra que no existe no arregla nada y ensucia el buscador para siempre.
+ *
+ * Se compara la consulta ENTERA contra el grupo, no por trozos: «carne picada» funciona,
+ * «carne» a secas no, y esta bien que no: a secas no quiere decir kheema.
+ * ------------------------------------------------------------------ */
+export const SINONIMOS = [
+  ['chili', 'chilli', 'guindilla', 'picante'],   // chili daba 0, picante 1; guindilla da 8
+  ['okra', 'quimbombo', 'bhindi'],               // los dos primeros daban 0; bhindi da 4
+  ['carne picada', 'kheema', 'keema'],           // «carne picada» daba 0; kheema da 6
+  ['nata', 'crema', 'malai'],                    // nata y crema daban 0; malai da 8
+  ['brasa', 'plancha'],                          // brasa daba 0; plancha da 22
+  ['espinacas', 'saag', 'palak'],                // sueltos daban 4, 3 y 6: juntos son uno
+  ['garbanzos', 'chana'],                        // 3 y 2
+  ['coliflor', 'gobhi'],                         // 3 y 2
+  ['queso', 'paneer'],                           // 10 y 14
+];
+
 /* An optional line under the tab's first heading. Written by importar.mjs from carta.mjs. */
 export const TAB_INTRO = {
   'Gluten Free': 'Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.',

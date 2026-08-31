@@ -5875,3 +5875,92 @@ tamaños de letra: **cero líneas cambian de sitio y la página mide exactamente
 **Bricolage se queda con su rango.** Sus títulos van de 20 a 44 px, tiene `font-optical-sizing:
 auto` puesto a mano en dos sitios y ahí el eje sí está haciendo su trabajo. Recortarle el rango
 tampoco ahorraría nada: medido, 76.888 bytes pida lo que se pida.
+
+---
+
+## El buscador entiende sinónimos (31 Aug 2026)
+
+`chili` daba cero con ocho platos de guindilla en la carta. No es una errata —eso ya lo perdona
+la distancia de edición— son **dos nombres para la misma cosa**, y media carta está en indio
+transcrito: el comensal de aquí busca por el ingrediente que conoce.
+
+**La lista vive en `cliente.mjs`, no en el motor**, porque es vocabulario de este restaurante.
+Cada línea es un grupo y escribir cualquiera de sus palabras busca todas, en los dos sentidos.
+
+**Ninguna se inventó.** Se midieron 36 palabras que un comensal español teclearía y sólo se
+añadió grupo donde había un agujero de verdad, comprobando además que la palabra de destino
+existe en la carta. La mayoría no hacía falta: `patata` ya daba 36 resultados y `lentejas` 29,
+porque las descripciones las llevan escritas. Los nueve grupos que quedaron:
+
+| se escribe | daba | ahora |
+|---|---|---|
+| `chili`, `picante` | 0 y 1 | 9 |
+| `okra`, `quimbombo` | 0 | 4 |
+| `carne picada` | 0 | 6 |
+| `nata`, `crema` | 0 | 8 |
+| `brasa` | 0 | 22 |
+| `espinacas` + `saag` + `palak` | 4 sueltos | 11 |
+| `garbanzos` + `chana` | 3 y 2 | 5 |
+| `coliflor` + `gobhi` | 3 y 2 | 5 |
+| `queso` + `paneer` | 10 y 14 | 23 |
+
+**Se compara la consulta ENTERA contra el grupo, no por trozos.** «carne picada» funciona,
+«carne» a secas no, y está bien que no: a secas no quiere decir kheema.
+
+**Y no es un respaldo como las erratas, sino parte de la búsqueda normal.** Un sinónimo es un
+nombre de verdad del mismo plato, no un error de tecleo: si casa en el nombre, cuenta como
+coincidencia en el nombre y va en el primer bloque. Comprobado que no estropea lo que había:
+`guindilla` 9, `naan` 15, `curry` 49 y `sopa` 12, iguales que antes, y `vino` sigue en cero.
+
+---
+
+## La categoría abierta va en la dirección, y «atrás» ya no saca de la carta (31 Aug 2026)
+
+Dos cosas que faltaban y que todo el mundo da por hechas.
+
+**Compartir.** Quien mandaba «mira los panes de este sitio» mandaba una dirección que abría los
+aperitivos: la categoría no estaba escrita en ningún sitio. Ahora la carta lee la almohadilla al
+abrir y va a esa pestaña. Una almohadilla inventada no rompe nada: se queda en la primera.
+
+**El botón de atrás.** Antes sacaba de la carta de un golpe, porque nadie había apuntado los
+cambios de pestaña en el historial. Ahora atrás vuelve a la categoría anterior. **El precio está
+asumido:** salir cuesta tantas vueltas como pestañas se hayan abierto. El navegador ya tiene su
+remedio —mantener pulsado el botón enseña la lista entera— y confundir «atrás» con «salir» es
+peor que la molestia.
+
+**`replaceState` la primera vez y `pushState` después:** entrar en la carta no tiene por qué
+dejar dos entradas en el historial antes de haber tocado nada.
+
+**Y con una hoja abierta se reemplaza, no se apila.** Esto no es un detalle: la hoja pone su
+propia entrada al abrirse y la quita con `history.back()` al cerrarse. Si elegir una categoría
+desde la hoja apilara otra entrada encima, ese `back()` se llevaría la de la categoría y dejaría
+la de la hoja colgando. Comprobado en móvil: atrás cierra la hoja **sin** cambiar de categoría, y
+elegir categoría desde la hoja cierra, cambia, y el siguiente atrás sigue dentro de la carta.
+
+---
+
+## Tres arreglos pequeños y uno que no tiene arreglo (31 Aug 2026)
+
+**El punto del carrusel mide 24 y no 22.** Lo que se ve son 8 píxeles; lo que se toca es la caja,
+y el mínimo de la WCAG 2.5.8 son 24×24. Con 22 se salvaba por la excepción de separación, pero
+salvarse por dos píxeles y una excepción no es cumplir. El dibujo no cambia: sólo crece la zona
+sensible.
+
+**`/admin/<ruta inventada>` ya da la página de la carta.** Daba el «404 Not Found» pelado de
+Apache, en Times New Roman. El motivo: **encender `RewriteEngine` en una carpeta hace que
+mod_rewrite deje de heredar las reglas de la de arriba**, y el panel tiene su propio `.htaccess`
+para forzar https. Se repite la regla allí en vez de heredarla con `RewriteOptions
+InheritDownBefore`, que también valdría: heredar metería las reglas de arriba en la única carpeta
+del sitio que pide contraseña, y esa carpeta se toca lo justo.
+
+**`estado-EJEMPLO.json` deja de servirse por HTTP.** Sigue subiendo con la carta —es la semilla
+que se renombra a mano la primera vez que se instala, y por eso no se puede quitar del build—
+pero un fichero de instalación no tiene por qué poder leerse desde fuera. `Require all denied`
+en el `.htaccess`; en el disco sigue estando para quien entre por FTP.
+
+**Y el que no tiene arreglo: el error rojo de consola cuando `estado.json` devuelve 500.**
+Comprobado de quién es: el mensaje aparece con la URL del recurso como origen, no con una línea
+de JavaScript. Lo escribe el navegador al fallar la petición, y una promesa atendida con `catch`
+no lo calla. No hay nada que arreglar en la página: es el navegador contando un fallo real del
+servidor, en un escenario que sólo ocurre si el alojamiento se rompe. Queda escrito aquí para que
+nadie vuelva a intentarlo.
