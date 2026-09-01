@@ -1,6 +1,7 @@
 import { adelgazarCSS, adelgazarJS } from './adelgazar.mjs';
 import {
   readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync, existsSync,
+  lstatSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { buildGame } from './juego.mjs';
@@ -13,7 +14,8 @@ import {
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
 import { CLIENTE, CLAVE, SINONIMOS } from '../cliente.mjs';
 import {
-  verificarMotor, cliente, motor, salida, RAIZ_SALIDA, CARPETA_CLIENTE,
+  verificarMotor, cliente, motor, salida, generado, RAIZ_SALIDA, RAIZ_GENERADO,
+  CARPETA_CLIENTE,
 } from './entorno.mjs';
 
 /* Lo primero de todo: que el motor sea EXACTAMENTE el que dice motor.lock. Un fichero
@@ -6548,12 +6550,36 @@ function adelgazarDocumento(doc) {
   return salida;
 }
 
-writeFileSync(cliente('index.html'), adelgazarDocumento(html));
+/* ---- generado/: donde viven los derivados volatiles ----
+ * Los diez ficheros que cada build rehace ya no se mezclan con las fuentes: van a
+ * generado/ (local, ignorada por git, regenerable). Y sus UBICACIONES LEGACY se limpian
+ * aqui de forma TAXATIVA: exactamente estas diez rutas, dentro de la raiz del cliente,
+ * sin recorridos ni comodines. Son derivados regenerables: borrarlos nunca pierde nada.
+ * La limpieza es idempotente (ausente = bien); un enlace simbolico en una de ellas no se
+ * sigue: se aborta, porque ahi nadie ha puesto un enlace a proposito. */
+const LEGACY_GENERADOS = [
+  'index.html', 'juego.html', '404.php', 'version.json',
+  'server/admin/tokens.css', 'server/admin/temas.json', 'server/admin/platos.json',
+  'server/admin/paises.php', 'server/admin/fuentes.html', 'server/admin/cliente.php',
+];
+for (const rel of LEGACY_GENERADOS) {
+  const url = cliente(rel);
+  if (!existsSync(url)) continue;
+  if (lstatSync(url).isSymbolicLink()) {
+    abortar('la ruta legacy ' + rel + ' es un enlace simbolico y no se sigue.',
+      'quita ese enlace a mano: ahi solo puede haber un derivado regenerable del build');
+  }
+  rmSync(url);
+}
+mkdirSync(RAIZ_GENERADO, { recursive: true });
+mkdirSync(generado('admin/'), { recursive: true });
+
+writeFileSync(generado('index.html'), adelgazarDocumento(html));
 
 /* Treinta bytes que dicen que compilacion es la buena. Se sube junto al index.html; si falta,
    la comprobacion falla en silencio y la carta funciona igual. */
 writeFileSync(
-  cliente('version.json'),
+  generado('version.json'),
   JSON.stringify({ build: BUILD }) + String.fromCharCode(10),
 );
 
@@ -6591,12 +6617,12 @@ const juego = !CLIENTE.funciones.juego ? lapida() : buildGame({
   titles: Object.fromEntries([IDIOMA_BASE.code].concat(LANGS.map((l) => l.code))
     .map((c) => [c, CLIENTE.tituloJuego])),
 });
-writeFileSync(cliente('juego.html'), CLIENTE.funciones.juego ? adelgazarDocumento(juego) : juego);
+writeFileSync(generado('juego.html'), CLIENTE.funciones.juego ? adelgazarDocumento(juego) : juego);
 
 /* La página de error. Comparte tokens y tipografías con la carta y el juego, y nada más: ver
    error404.mjs. La activa el ErrorDocument del .htaccess. */
 writeFileSync(
-  cliente('404.php'),
+  generado('404.php'),
   /* La cabecera de estado va DELANTE de todo, en una linea de PHP: la regla de reescritura del
      .htaccess sirve este fichero con un 200 y hay que corregirlo aqui. Un 404 que responde 200
      es lo que Google llama un soft 404, y es peor que no tener pagina de error. */
@@ -6613,9 +6639,9 @@ const avisoCss = [
   '/* Generado por gen.mjs. No editar a mano: se sobrescribe en cada build.',
   '   Los mismos tokens que la carta, para que el panel no parezca otra aplicación. */',
 ].join(NL);
-writeFileSync(cliente('server/admin/tokens.css'), avisoCss + NL + TOKENS + NL);
+writeFileSync(generado('admin/tokens.css'), avisoCss + NL + TOKENS + NL);
 writeFileSync(
-  cliente('server/admin/fuentes.html'),
+  generado('admin/fuentes.html'),
   '<!-- Generado por gen.mjs. Las mismas dos tipografías que la carta. -->' + NL + FONTS + NL,
 );
 
@@ -6648,7 +6674,7 @@ const catalogue = TAXO.flatMap((t) =>
    reales sin repetir en PHP la aritmética de contraste. Misma regla que platos.json: una
    sola verdad, escrita por el build. */
 writeFileSync(
-  cliente('server/admin/temas.json'),
+  generado('admin/temas.json'),
   JSON.stringify({ porDefecto: TEMA_POR_DEFECTO, temas: temasParaPanel() }, null, 1),
 );
 
@@ -6669,7 +6695,7 @@ writeFileSync(
 
 /* Directo a server/admin/, como temas.json: el catálogo se sube desde ahí y tenerlo en la
    raíz obligaba a un movimiento a mano que tarde o temprano se olvida. */
-writeFileSync(cliente('server/admin/platos.json'), JSON.stringify(catalogue, null, 1));
+writeFileSync(generado('admin/platos.json'), JSON.stringify(catalogue, null, 1));
 
 /* El panel comprueba los códigos del juego, así que necesita exactamente la misma sal que usa el
    JavaScript para firmarlos. Estaba escrita a mano en los dos sitios —juego.mjs y index.php— y
@@ -6682,7 +6708,7 @@ writeFileSync(cliente('server/admin/platos.json'), JSON.stringify(catalogue, nul
 /* La lista de paises tambien en PHP: la valida record.php y la pinta el panel. Se escribe
    desde banderas.mjs para que no haya dos listas que se separen al anadir un pais. */
 writeFileSync(
-  cliente('server/admin/paises.php'),
+  generado('admin/paises.php'),
   [
     '<?php',
     '/* Generado por gen.mjs desde banderas.mjs. No editar a mano: se sobrescribe. */',
@@ -6695,7 +6721,7 @@ writeFileSync(
 );
 
 writeFileSync(
-  cliente('server/admin/cliente.php'),
+  generado('admin/cliente.php'),
   [
     '<?php',
     '/* Generado por gen.mjs desde cliente.mjs. No editar a mano: se sobrescribe en cada build. */',
@@ -6793,10 +6819,10 @@ const enMotor = (f) => new URL(f, new URL('./', import.meta.url));
    motor de motor/. estado.json va de EJEMPLO porque el del servidor lo escribe el panel y
    pisarlo borraria los agotados del dia. */
 const SUELTOS = [
-  [cliente('index.html'), 'index.html'],
-  [cliente('juego.html'), 'juego.html'],
-  [cliente('404.php'), '404.php'],
-  [cliente('version.json'), 'version.json'],
+  [generado('index.html'), 'index.html'],
+  [generado('juego.html'), 'juego.html'],
+  [generado('404.php'), '404.php'],
+  [generado('version.json'), 'version.json'],
   [cliente('server/.htaccess'), '.htaccess'],
   [cliente('server/LEEME-SERVIDOR.txt'), 'LEEME-SERVIDOR.txt'],
   [cliente('server/estado.json'), 'estado-EJEMPLO.json'],
@@ -6818,6 +6844,9 @@ const SUELTOS = [
 const CARPETAS = [
   [cliente('assets/'), 'assets/'],
   [enMotor('server/admin/'), 'admin/'],
+  /* Los seis derivados del panel salen de generado/admin/; de server/admin/ del cliente
+     solo queda su .htaccess, que es fuente y PISA lo que haga falta. */
+  [generado('admin/'), 'admin/'],
   [cliente('server/admin/'), 'admin/'],
   /* Las banderas SI viajan, al reves que assets/hero/: son del motor y aqui esta el
      original; el hero lo sube el restaurante y pisarlo le borraria su trabajo. */

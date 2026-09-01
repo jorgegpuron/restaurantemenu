@@ -36,7 +36,7 @@
  *       interrumpirse: transaccion del motor, bytes de carta.json, recinto entero (bytes de
  *       los existentes, borrados recreados, creados eliminados, 2-subir/ borrado y
  *       restaurado entero), temporales. Despues verifica el resultado completo (huella final
- *       === inicial, motor cuadra con el lock ANTIGUO, pareja antigua coincide, git limpio)
+ *       === inicial, motor cuadra con el lock ANTIGUO, carta byte a byte la inicial, git limpio)
  *       e imprime ROLLBACK_OK solo si TODO pasa; si no, ROLLBACK_FALLIDO con el detalle.
  *       git es SOLO verificacion: aqui esta prohibido git clean.
  *
@@ -87,16 +87,16 @@ function rutasRecintoFijas(idiomas) {
   return [
     'menu.md',
     ...codigos.map((c) => 'i18n.' + c + '.mjs'),
-    'index.html',
-    'juego.html',
-    '404.php',
-    'version.json',
-    'server/admin/tokens.css',
-    'server/admin/temas.json',
-    'server/admin/platos.json',
-    'server/admin/paises.php',
-    'server/admin/fuentes.html',
-    'server/admin/cliente.php',
+    'generado/index.html',
+    'generado/juego.html',
+    'generado/404.php',
+    'generado/version.json',
+    'generado/admin/tokens.css',
+    'generado/admin/temas.json',
+    'generado/admin/platos.json',
+    'generado/admin/paises.php',
+    'generado/admin/fuentes.html',
+    'generado/admin/cliente.php',
   ];
 }
 
@@ -283,6 +283,10 @@ try {
 }
 const bytesCarta = readFileSync(cliente('carta.json'));
 const esquemaViejo = JSON.parse(bytesCarta.toString('utf8')).esquema;
+/* La pareja INICIAL, capturada antes de la primera escritura: el rollback se verifica
+   contra ESTO — restauracion exacta del estado de partida —, no contra ninguna regla de
+   coherencia entre carta y lock (validar la ENTRADA es cosa del pre-vuelo). */
+const shaCartaInicial = createHash('sha256').update(bytesCarta).digest('hex');
 const esquemaNuevo = tx.lockOrigen.esquemaCarta;
 if (esquemaViejo === esquemaNuevo) {
   abortar('No hay salto de esquema: la carta y el motor del origen ya hablan ' + String(esquemaViejo) + '.' + NL
@@ -371,10 +375,20 @@ function rollbackBestEffort(e) {
         + ', esquemaCarta ' + lock.esquemaCarta + ', esquemaEstado ' + lock.esquemaEstado);
     }
   });
-  intenta('verificacion de la pareja motor/carta antigua', () => {
-    const esquema = JSON.parse(readFileSync(cliente('carta.json'), 'utf8')).esquema;
-    if (esquema !== tx.lockActual.esquemaCarta) {
-      throw new Error('carta ' + String(esquema) + ' vs lock ' + tx.lockActual.esquemaCarta);
+  intenta('verificacion de carta.json restaurada', () => {
+    /* Byte a byte contra la INICIAL, y el esquema leido de esos mismos bytes contra el
+       inicial: la propiedad de un rollback es volver EXACTAMENTE al estado de partida,
+       fuera coherente o no (motor nuevo + carta vieja es un estado intermedio legitimo). */
+    const bytes = readFileSync(cliente('carta.json'));
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    if (sha !== shaCartaInicial) {
+      throw new Error('carta.json no es byte a byte la inicial (sha ' + sha.slice(0, 12)
+        + ' vs ' + shaCartaInicial.slice(0, 12) + ')');
+    }
+    const esquema = JSON.parse(bytes.toString('utf8')).esquema;
+    if (esquema !== esquemaViejo) {
+      throw new Error('el esquema restaurado ' + String(esquema)
+        + ' no es el inicial ' + String(esquemaViejo));
     }
   });
   intenta('verificacion de git', () => {

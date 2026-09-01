@@ -6284,3 +6284,115 @@ idéntica (incluido el fichero nuevo creado por gen y eliminado), limpieza pendi
 no-retorno, rollback fallido honesto. Cliente ficticio de contraste (Mesón El Roble: base
 español, Europe/Madrid, corte 0, sin juego, sin datos, homónimas, £/GBP de contraste) —
 compila sin tocar `motor/`. Tríada del lock y EJECUTADO=0 re-demostrados con el motor 1.1.0.
+
+## generado/: los derivados volátiles salen de entre las fuentes (1 Sep 2026)
+
+Fase 6, estructural y no funcional. Los diez ficheros que cada build rehace —`index.html`,
+`juego.html`, `404.php`, `version.json` y los seis del panel— vivían mezclados con las
+fuentes: cuatro en la raíz, seis dentro de `server/admin/` junto al `.htaccess` que sí es
+fuente. Ahora viven en `generado/` (con `generado/admin/`), una carpeta LOCAL, REGENERABLE
+e IGNORADA por git: la señal «esto no se edita» pasa de estar escondida en `.gitignore` a
+estar a la vista. La regla queda nítida: **la raíz es lo versionado; `generado/` es
+exactamente lo que git ignora; `2-subir/` es lo que viaja.** `server/` queda al fin como lo
+que es: fuente de hosting (`.htaccess` ×2, `LEEME-SERVIDOR.txt`) más la semilla de estado.
+
+Cómo está hecho: `entorno.mjs` es la única autoridad de la ruta nueva (`RAIZ_GENERADO`,
+`generado()`); `gen.mjs` escribe allí y el ensamblado de `2-subir/` toma los sueltos de
+`generado/` y monta `admin/` con TRES orígenes en orden —el código del panel del motor, los
+seis derivados de `generado/admin/` y el `server/admin/` del cliente (su `.htaccess`), que
+pisa lo que haga falta—. El paquete publicado no cambia NI UN BYTE: comparación completa
+recursiva de `2-subir/` (ruta + sha256, 71 registros) idéntica a la fase 5, normalizando
+solo los sellos ya autorizados (el `v.build` de `index.html`, el `build` de `version.json`
+y `BUILD_ID`/`BUILD_FECHA` de `admin/cliente.php`).
+
+Las UBICACIONES LEGACY se limpian en cada build de forma TAXATIVA: exactamente esas diez
+rutas, enumeradas una a una dentro de la raíz del cliente, sin recorridos ni comodines;
+ausente = bien (idempotente); un enlace simbólico en una de ellas no se sigue: aborta. Son
+derivados regenerables — borrarlos jamás pierde nada. El recinto del migrador apunta a las
+rutas nuevas con las mismas garantías (DIR/FICH+sha256/AUSENTE, snapshot físico, rollback).
+
+`motor/carta.EJEMPLO.mjs` pasa a `motor/carta.EJEMPLO.LEGACY.mjs`: es la plantilla del
+formato viejo (carta.mjs) y se presentaba como vigente; la plantilla real de carta/2 llegará
+con la automatización del alta, en `motor/plantillas/`. El lock sube a 1.1.1 (misma época:
+carta/2, estado 2) y la tríada y el orden verificar-antes-de-cargar quedan re-probados.
+
+Dos hallazgos del cruce de épocas, apuntados con honestidad:
+
+1. **Cruce de recintos F5→F6**: un cliente con el MIGRADOR de la fase 5 instalado que migre
+   hacia un motor de la fase 6 usa su recinto viejo (las rutas legacy); si el rollback llega
+   a dispararse tras el gen nuevo, restaura su recinto fielmente pero deja `generado/` como
+   residuo — carpeta ignorada y regenerable, sin efecto. Se documenta; no se «arregla» un
+   migrador ya publicado.
+2. **Defecto LATENTE de la fase 5, destapado por las pruebas de esta**: la verificación
+   post-rollback «pareja motor/carta antigua» de `motor/migrar.mjs` exige
+   `carta.esquema === lock.esquemaCarta` en vez de comparar contra la pareja INICIAL
+   capturada. Con el único estado de partida que permite ejercitar el recinto nuevo
+   (motor 1.1.x + carta/1 — un estado intermedio legítimo de la propia matriz de fases), el
+   rollback restaura TODO byte a byte (porcelain 0, carta y lock originales, huella sin un
+   solo error agregado) y aun así el veredicto se declaraba ROLLBACK_FALLIDO: un falso
+   negativo CONSERVADOR (nunca ocultó un fallo real; declaraba fallo donde no lo había).
+   Se corrigió DENTRO de esta misma fase con autorización expresa del propietario: la
+   verificación compara ahora contra el estado inicial capturado — ver «La regla definitiva
+   del rollback», más abajo.
+
+### Matriz de rutas soportadas de actualización y migración
+
+Lo que sigue es la realidad PROBADA de las herramientas, no una promesa: cada fila se
+demostró con la CLI real en clones. Y una regla por delante: **que una combinación sea
+técnicamente ejecutable no la convierte en ruta soportada** — lo soportado lo imponen el
+pre-vuelo de `actualizar.mjs` (aborta ante cualquier salto de esquema, sin bandera) y la
+guarda de `migrar.mjs` (aborta cuando NO hay salto).
+
+| Estado instalado | Destino | Herramienta oficial | Clasificación |
+|---|---|---|---|
+| motor 1.1.0 + carta/2 (F5 sano) | F6 1.1.1 | `node motor/actualizar.mjs --desde <origen>` | **SOPORTADA** |
+| motor 1.0.x + carta/1 (pre-F5) | F6 1.1.1 | no existe camino automático directo | **NO SOPORTADA AUTOMÁTICAMENTE** |
+| motor F5 + carta/1 (estado mixto) | F6 | `migrar.mjs` F5 (el instalado) | **SOLO RECUPERACIÓN** — fuera de la matriz normal |
+| motor F6 + carta/1 (estado mixto) | completar la migración | `migrar.mjs` F6 (el instalado) | **SOPORTADA COMO RECUPERACIÓN** |
+
+**F5 sano → F6.** Mismo esquema en las dos puntas (carta/2): la herramienta oficial es
+`actualizar.mjs`, que no ejecuta `gen` y por tanto jamás crea `generado/` durante la
+transacción; `migrar.mjs` se NIEGA («no hay salto de esquema») y remite a la actualización.
+No se migra `carta.json`: no hay nada que migrar.
+
+**PRE-F5 → F6.**
+
+    MIGRACIÓN DIRECTA PRE-F5 → F6 NO SOPORTADA AUTOMÁTICAMENTE
+
+Un cliente en motor 1.0.x no tiene `motor/migrar.mjs` (nació en la fase 5) y su
+`actualizar.mjs` de la fase 4 no conoce los esquemas: es ciego al salto. El camino seguro es
+un **bootstrap manual**, y se documenta SIN prometer transacción, porque no la hay:
+
+1. Árbol de git LIMPIO (`git status --porcelain` vacío) — la precondición es también la red.
+2. Instalar a mano, desde el MISMO origen F6: `motor/` completo, `motor.lock`, `gen.mjs` e
+   `importar.mjs` (los cuatro elementos del contrato del motor).
+3. Verificar lo instalado: `node motor/lock.mjs` debe decir `version 1.1.1`,
+   `esquemaCarta carta/2`, `esquemaEstado 2`, lock válido.
+4. Ese bootstrap deja A PROPÓSITO el estado intermedio de la fila 4: motor F6 + carta/1
+   (el build aborta ahí, con su mensaje — es lo esperado).
+5. Ejecutar EL MIGRADOR RECIÉN INSTALADO: `node motor/migrar.mjs --desde <mismo-origen-f6>`
+   — es el migrador F6 quien hace el salto `carta/1 → carta/2`.
+6. Si la migración falla antes del punto de no retorno, `migrar.mjs` restaura EXACTAMENTE
+   el estado intermedio capturado (motor F6 + carta/1) y se puede reintentar.
+7. Si el propio bootstrap manual falla antes de tener un migrador funcional, la
+   recuperación pertenece a git (`git checkout -- .`), amparada por la precondición del
+   paso 1.
+
+**Migrador F5 + carta/1 → origen F6.** Combinación técnicamente ejecutable pero FUERA de la
+matriz normal soportada (es la fila 3: recuperación de un estado mixto heredado). Si se
+fuerza: puede completar felizmente (el salto se detecta y el gen F6 deja `generado/` y
+limpia las rutas legacy); si falla DESPUÉS de la generación F6, el migrador F5 no conoce el
+recinto `generado/`, así que su verificación de git detecta el residuo (`?? generado/`) y NO
+declara `ROLLBACK_OK` — el fallo se canta, nunca se oculta. No es una ruta oficial de
+actualización.
+
+**La regla definitiva del rollback (el fix de esta fase).** La verificación post-rollback
+compara el estado restaurado con el ESTADO INICIAL capturado antes de la primera escritura —
+no exige que `carta.json` y `motor.lock` compartan esquema entre sí. La coherencia para
+ENTRAR en una operación es responsabilidad del pre-vuelo; la propiedad de un rollback es la
+RESTAURACIÓN EXACTA: `carta.json` se verifica por bytes (sha256 inicial) y por su esquema
+inicial; el motor, el lock y los envoltorios contra su estado inicial (versión y esquemas
+del lock capturado); y siguen siendo obligatorios la huella del recinto, la ausencia de
+temporales y el `git status` limpio. `ROLLBACK_OK` solo existe con TODAS las restauraciones
+y TODAS las verificaciones en verde; cualquier otra cosa es `ROLLBACK_FALLIDO` con el
+detalle agregado.

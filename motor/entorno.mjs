@@ -19,10 +19,15 @@ import { createHash } from 'node:crypto';
 export const RAIZ_MOTOR = new URL('./', import.meta.url);
 export const RAIZ_CLIENTE = new URL('../', RAIZ_MOTOR);
 export const RAIZ_SALIDA = new URL('../2-subir/', RAIZ_CLIENTE);
+/* Los DERIVADOS VOLATILES locales (lo que cada build rehace y git ignora) viven en
+   generado/, separados de las fuentes de la raiz. Es una carpeta local y regenerable:
+   borrarla entera solo cuesta un build. */
+export const RAIZ_GENERADO = new URL('generado/', RAIZ_CLIENTE);
 
 export const motor = (f) => new URL(f, RAIZ_MOTOR);
 export const cliente = (f) => new URL(f, RAIZ_CLIENTE);
 export const salida = (f) => new URL(f, RAIZ_SALIDA);
+export const generado = (f) => new URL(f, RAIZ_GENERADO);
 
 /* El nombre de la carpeta que CONTIENE al cliente (p. ej. "restaurante_x"): es lo que la
    guarda de restos compara contra la direccion publica de cliente.mjs. */

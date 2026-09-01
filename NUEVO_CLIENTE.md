@@ -86,9 +86,8 @@ De una copia recién hecha desaparecen, antes de nada:
 
 ```
 .git/                    el historial del otro restaurante
-index.html juego.html    generados
-404.php version.json     generados
-menu.md                  generado
+generado/                los diez derivados volátiles del build (fase 6)
+menu.md                  generado (versionado: la vista humana de la carta)
 2-subir/                 generado entero
 3-copias/                los puntos de restauración del otro
 ```

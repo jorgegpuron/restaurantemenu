@@ -1,15 +1,7 @@
-# Lo que escribe gen.mjs en cada compilación. Se rehace solo, y con el index.html dentro cada
-# commit arrastraría 700 KB de ruido que tapan el cambio de verdad, que son tres líneas de CSS.
-index.html
-juego.html
-404.php
-version.json
-server/admin/tokens.css
-server/admin/fuentes.html
-server/admin/platos.json
-server/admin/temas.json
-server/admin/cliente.php
-server/admin/paises.php
+# Lo que escribe gen.mjs en cada compilación vive junto, en generado/: derivados volátiles,
+# locales y regenerables. Con el index.html dentro cada commit arrastraría 700 KB de ruido
+# que tapan el cambio de verdad, que son tres líneas de CSS.
+generado/
 
 # Lo que escribe el panel en el servidor. Nunca debe entrar aquí, ni siquiera si un día baja
 # una copia por FTP para depurar algo: son contraseñas, accesos y marcas de un negocio real.
