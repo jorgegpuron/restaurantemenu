@@ -6124,3 +6124,163 @@ Clasificación exacta, porque «generado» a secas invitaba a pensar que eran de
 Los reescribe `node importar.mjs` **del cliente**, desde **su** `carta.json`, en **su** raíz.
 Una actualización del motor puede cambiar el importador; el contenido de estos ficheros sólo
 cambia cuando el cliente vuelve a ejecutar la importación sobre su propia carta.
+
+## El contrato semántico motor↔cliente: los datos de Tinge salen del motor (31 Aug 2026)
+
+Fase 5 del plan multicliente. La fase 4 hizo el motor *físicamente* común (intercambiable por
+hash); ésta lo hace *semánticamente* común: ya no queda en `motor/` ningún dato ni
+comportamiento propio de un restaurante o de su mercado. Todo lo que describía a Tinge vive
+ahora en SUS ficheros, y describir un restaurante nuevo no exige tocar una línea del motor.
+
+### El contrato, en dos ficheros del cliente
+
+`cliente.mjs` (configuración e identidad; obligatorio salvo que se diga otra cosa, y SIN
+valores por defecto en el motor):
+
+| Campo | Qué manda |
+|---|---|
+| `cocina` (opcional) | `servesCuisine` del JSON-LD. Ausente ⇒ la propiedad no se emite |
+| `moneda { simbolo, iso }` | el símbolo de cada precio, `priceCurrency`, `priceRange`, y el `€` del panel |
+| `zonaHoraria` (IANA, validada) | fecha de servicio de la carta, día del premio del juego, reloj del panel |
+| `servicio.corteHora` (0–23) | la hora a la que caduca el día de servicio. Antes era un `6` escrito dos veces que había que sincronizar a mano; ahora tiene UNA fuente |
+| `idiomas { base, extras[] }` | el base es el TEXTO del documento; cada idioma declara su `bandera` (validada contra `motor/assets/banderas/`: jamás un `undefined` en el selector). El catálogo nativo del motor está en inglés: base `en` no necesita diccionario, y un extra `en` tampoco. Un base distinto exige su `i18n.<code>.mjs` con `ui` completa, que el build hornea como texto del documento |
+| `alergenos.leyenda[]` | la SELECCIÓN de iconos del aviso genérico del pie (`[]` legal). El catálogo de iconos (`wheat, milk, nut, fish, egg, sesame, mustard, sulphites`) es del motor; la selección —que era la de una cocina india— es del cliente |
+| `funciones { datos, juego }` | capacidades explícitas. `datos: false` = ni una línea de medición en el HTML y endpoint apagado. `juego: false` = ver abajo |
+
+`carta.json` pasa al esquema **`carta/2`** y es la fuente única también de la ESTRUCTURA:
+
+- **Textos por código de idioma, nunca por posición**: cada texto es `{ en: …, es: …, de: … }`
+  (o una cadena suelta = INVARIABLE en todos los idiomas). Reordenar los extras del selector
+  no puede reasignar traducciones: cada una viaja atada a su código, y un código que falta o
+  sobra aborta nombrándolo. `grupo.categoria` queda como nombre técnico en el idioma base
+  (alimenta `menu.md` y el alias `data-cat`); la identidad de máquina es `categoryId`.
+- **Metadatos de comportamiento EN el elemento**, nunca por nombre en el motor: pestaña
+  `especial: true` (el corte «Special menus»), pestaña `intro`, grupo
+  `selector: 'salsa'|'ingrediente'` (el icono del hueco del número), grupo `aviso: 'final'`
+  (el distintivo IMPORTANTE tras los platos), grupo `escala: '<clave>'` y grupo
+  `copiaDe: '<categoryId>'` (la relación de copia exacta, por ID).
+- **Las escalas son datos**: `escalas.picante = { frase, frasesOcultas, niveles }`. Los seis
+  niveles de Tinge (Mild…Phall, con «Madras/Vindaloo/Phall» como cadenas invariables), la
+  frase que anunciaba la escala en la nota y la frase de paso que sobra en pantalla eran
+  literales del motor; ahora son del cliente. Las NOTAS de los grupos quedaron VERBATIM en la
+  migración (con la frase de la escala dentro): así `menu.md` y los catálogos no cambian un
+  byte, y el filtrado en pantalla es un mecanismo genérico que come datos.
+
+Se retiraron de `cliente.mjs`: `secreto` (campo muerto: nada lo consumía desde que el firmado
+de códigos se fue con los premios) y los cinco mapas de taxonomía duplicada —`TAB_INTRO`,
+`GROUPS`, `TAB_ICON`, `GROUP_ICON_BY_CAT`, `CATEGORIAS_DUPLICADAS`— que `importar.mjs`
+verificaba contra la carta: ahora `gen.mjs` lee la estructura de `carta.json` directamente y
+esa verificación murió con la duplicación que vigilaba. `SINONIMOS` se queda: es contenido
+del buscador, no estructura.
+
+### La conciliación menu.md ↔ carta.json: la posición localiza, la proyección otorga
+
+`menu.md` sigue siendo un formato humano SIN identificadores, a propósito. El parser lee sus
+secciones EN ORDEN (nombres repetidos ya no colisionan: cada sección es un cubo propio; el
+preámbulo `## Data format` no cuenta) y la posición sólo EMPAREJA cada sección con su grupo
+de `carta.json`. La identidad la otorga la proyección semántica completa: nombre + nota +
+número de platos + secuencia exacta de `(numero, nombre, descripción, precio)`. Cualquier
+pieza que no cuadre aborta señalando la posición. Además: dos categorías homónimas con
+proyección IDÉNTICA abortan (serían indistinguibles desde un fichero humano, y un intercambio
+movería estado entre gemelas — se exige diferenciarlas por nota o subtítulo), y dos platos
+gemelos (misma proyección, `dishId` distinto) dentro de una categoría abortan igual, ya en el
+importador. Tinge no tiene ni un caso, ni siquiera con la proyección débil (nombre, precio).
+
+### Las anclas del DOM (pills-*): mapa global, histórico conservado
+
+El mapa entero se resuelve y valida antes de emitir un solo id (`ids.length === Set.size` o
+error de programa), y TODOS los consumidores —barra, hoja índice, panes, `aria-controls`,
+`data-target`, hash de la URL— leen de él: los tres cálculos locales de `slug()` murieron.
+La primera aparición de cada slug conserva el ancla histórica byte a byte (depende del orden
+documental A PROPÓSITO: cambiar cuál es «la primera» puede mover el propietario del ancla, y
+el ancla es presentacional). Las posteriores se resuelven en orden canónico (slug, identidad),
+donde la identidad de una pestaña es la lista ORDENADA de los `categoryId` de sus grupos:
+renombrar o reordenar grupos no la cambia; cambiar su composición sí. El hash SHA-1 sólo
+ACORTA (sufijo de 6, extendido 8→…→40 ante ocupación global); la unicidad sale de comparar
+cadenas de identidad reales: un candidato ocupado por otra ancla es colisión de NAMESPACE y
+se escapa determinista; dos posteriores del mismo slug con identidades distintas y digest
+completo idéntico llevan ordinales `--c0/--c1` por orden lexicográfico de identidad; y sólo
+la identidad REALMENTE duplicada aborta — jamás se infiere del digest. Ganchos de prueba:
+`GEN_PRUEBA_DIGEST` (digest fijo) y `GEN_PRUEBA_RESERVA` (pre-reserva), sólo para el harness.
+
+### El juego es una capacidad, y apagarlo apaga de verdad
+
+`funciones.juego: false` ⇒ sin tarjeta en la carta, sin arte del juego en `2-subir/`, y
+`juego.html` se emite como LÁPIDA: una página mínima con `noindex` y enlace a la carta que,
+al desplegarse, SUSTITUYE a cualquier `juego.html` viejo del servidor — el FTP no borra
+ficheros, pero sí los sobreescribe, así que la URL antigua muere sin depender de limpieza
+remota (que sigue siendo de la fase de flota). El backend se cierra por su lado:
+`admin/cliente.php` (generado) lleva `CLIENTE_JUEGO`, `record.php` lo mira ANTES incluso que
+el interruptor del panel (`estado.game.on`, que sigue mandando en runtime cuando la capacidad
+está activa) y responde 204 sin escribir; el panel oculta su pestaña de juego. Probado:
+capacidad OFF ⇒ POST/GET 204 y `record.json` sin crear, con el panel encendido o apagado.
+
+### Defaults universales que se conservan, y por qué son del MOTOR
+
+Lista CERRADA — cualquier respaldo no listado aquí es un fallo de la fase:
+
+1. `cocina` ausente ⇒ se OMITE `servesCuisine` (no inventar un dato no es un default).
+2. El catálogo nativo de cadenas del motor está en inglés: es el idioma de su código fuente,
+   no un dato de Tinge; por eso `en` no necesita diccionario.
+3. Respaldos NEUTROS de `config.php` cuando falta `cliente.php` (una subida a medias):
+   TZ `UTC`, corte `0`, moneda `''`, datos `false`, juego `false` — ninguno reproduce a
+   Tinge ni a Canarias, y el juego cae CERRADO.
+
+### Identidad, en una tabla
+
+restaurante = `slug` · idioma = código (clave de todo texto multiidioma) · categoría =
+`categoryId` · plato = `dishId` · receta = `recipeId` (manual) · escala = su clave en
+`escalas` · alérgeno de leyenda = clave del catálogo del motor · etiqueta destacada = literal
+EN del enum congelado del motor (`HIGHLIGHTS`: es la clave compartida con `estado.json` —
+renombrar una rompería estado guardado, no se toca). Presentacional declarado: las anclas
+`pills-*` derivan del rótulo; el cruce con `menu.md` por orden+nombre es un VERIFICADOR que
+aborta, nunca una identidad.
+
+### La transacción del motor, con confirmación diferida
+
+El núcleo de la fase 4 vive ahora en `motor/transaccion-motor.mjs` con estados
+`PREPARADA → APLICANDO → APLICADA_NO_CONFIRMADA → CONFIRMADA` y registro de las cinco
+mutaciones (m1 motor→anterior, m2 nueva→motor, m3/m4 envoltorios, m5 lock): `rollback()`
+restaura cualquier prefijo, los respaldos viven hasta `commit()`, y `commit()` es el punto de
+no retorno — un fallo borrando temporales después es LIMPIEZA PENDIENTE reintentable, jamás
+un rollback. `actualizar.mjs` (misma CLI) añade un PRE-VUELO incondicional: si el esquema de
+carta o de estado del origen no es el del cliente, aborta sin escribir y remite a
+`motor/migrar.mjs` — no existe bandera para saltárselo. `migrar.mjs` es la operación superior
+del salto de época: convierte `carta/1→carta/2` en temporal, toma un snapshot físico del
+recinto de salidas (lista cerrada + `2-subir/` entera, huella DIR/FICH-sha256/AUSENTE que
+distingue directorio inexistente, vacío y con contenido; contrato: existencia+rutas+bytes),
+aplica el motor, activa la carta, re-importa y re-compila, y sólo entonces confirma. Ante
+cualquier fallo capturable pre-commit: rollback best-effort de TODO (motor, carta, recinto,
+temporales) con errores agregados y veredicto honesto `ROLLBACK_OK` sólo si todas las
+restauraciones Y verificaciones pasan (probado también el `ROLLBACK_FALLIDO` con un fichero
+en sólo-lectura). La conversión genérica NO inventa metadatos: los añade el operador después.
+Matriz: motor 1.0.x sólo compila `carta/1`; 1.1.x sólo `carta/2` (aborta explicando la
+migración, nunca interpreta); `actualizar` dentro de la misma época funciona como siempre.
+
+### Limitaciones declaradas (ninguna oculta)
+
+- Homónimas con proyección idéntica y gemelos exactos: PROHIBIDOS (aborto pidiendo
+  diferenciarlos por un campo humano). Sin uso real en Tinge.
+- Crash no capturable (kill −9, apagón) a mitad de transacción: fuera de garantía; los
+  respaldos de motor y recinto están en DISCO y la precondición de árbol limpio hace la
+  recuperación manual trivial por git. Sin journal persistente a propósito.
+- Los catálogos i18n siguen indexados por TEXTO base (dos textos idénticos comparten
+  traducción): presentación, jamás identidad.
+- El juego (marca, piezas), el panel en español, las tipografías, los 5 temas, los 36 países
+  del marcador y el pie SocialCard son identidad del MOTOR, documentada — opcional no es
+  re-tematizable. El teléfono del pie sigue duplicado en dos literales del motor: deuda de
+  mantenimiento anotada, fuera de esta fase.
+
+### Pruebas de la fase
+
+Conjunto A byte-idéntico salvo sellos enumerados (una aparición de `v.build === "…"` en
+`index.html` y el campo `build` de `version.json`; comparador que FALLA ante un byte
+adyacente al sello, probado en negativo). Batería Playwright (15 suites, incluidas épocas y
+las cuatro combinaciones HTML×estado con el HTML pre-fase servido de verdad): 0 fallos.
+PHP: hermanas 15/15, migración explícita y colisiones 26/26; portadas no ejecutable en esta
+máquina (PHP sin GD — funciones no tocadas por la fase). Transacción: feliz, 7 fallos
+inyectados tras cada mutación, pre-vuelo ×2, migración feliz, 4 rollbacks totales con huella
+idéntica (incluido el fichero nuevo creado por gen y eliminado), limpieza pendiente post
+no-retorno, rollback fallido honesto. Cliente ficticio de contraste (Mesón El Roble: base
+español, Europe/Madrid, corte 0, sin juego, sin datos, homónimas, £/GBP de contraste) —
+compila sin tocar `motor/`. Tríada del lock y EJECUTADO=0 re-demostrados con el motor 1.1.0.

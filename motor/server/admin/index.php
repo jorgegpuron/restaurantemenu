@@ -2095,7 +2095,7 @@ if ($csrfOk) {
   /* --- el juego ---
      Antes esta pantalla configuraba el premio: objetivo, texto, minutos y si se pedía reseña al
      acabarse. Ya no hay premio, así que queda un interruptor. */
-  if (isset($_POST['guardar_juego'])) {
+  if (isset($_POST['guardar_juego']) && CLIENTE_JUEGO) {
     $pestana = 'juego';
     $estado['game'] = ['on' => !empty($_POST['juego_on'])];
     if (!guardar_estado($estado)) {
@@ -2390,7 +2390,8 @@ if (DATOS_ACTIVO && $dentro) {
 $PESTANAS = ['agotados' => 'Agotados hoy', 'destacados' => 'Destacados',
              'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego',
              'datos' => 'Analítica', 'marca' => 'Marca'];
-if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // el par de gen.mjs: ver config.php
+if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // la fuente es el contrato: ver config.php
+if (!CLIENTE_JUEGO)  unset($PESTANAS['juego']);     // sin la capacidad no hay nada que apagar
 if (!isset($PESTANAS[$pestana])) $pestana = 'agotados';
 $CUENTAS = [
   'agotados'   => count($agotados),
@@ -4594,7 +4595,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             if ($porCat) echo ' · toda la categoría';
             elseif ($sinPrecio) echo ' · sin precio';
           ?></small></span>
-          <span class="pfijo"><?= $sinPrecio ? '' : '€' . h($p['price']) ?></span>
+          <span class="pfijo"><?= $sinPrecio ? '' : h(CLIENTE_MONEDA) . h($p['price']) ?></span>
         </div>
       <?php endforeach; if ($tabActual !== null) echo '</div>'; ?>
 
@@ -4693,7 +4694,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <div class="prow">
             <span class="num"><?= h($f['id']) ?></span>
             <span class="nm"><?= h($f['name']) ?></span>
-            <span class="pviejo">€<?= h($f['actual']) ?></span>
+            <span class="pviejo"><?= h(CLIENTE_MONEDA) ?><?= h($f['actual']) ?></span>
             <input class="pnuevo" type="text" inputmode="decimal"
                    name="precio[<?= h($f['key']) ?>]" value="<?= h($f['nuevo']) ?>"
                    <?= isset($hermanas[$f['key']]) ? 'data-plato="' . h($f['name'] . ' ' . $f['carta']) . '"' : '' ?>
@@ -4760,8 +4761,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             <div class="prow">
               <span class="num"><?= h($p['id']) ?></span>
               <span class="nm"><?= h($p['name']) ?></span>
-              <span class="pviejo">€<?= h($p['price']) ?></span>
-              <span class="pfijo">€<?= h((string) $v) ?></span>
+              <span class="pviejo"><?= h(CLIENTE_MONEDA) ?><?= h($p['price']) ?></span>
+              <span class="pfijo"><?= h(CLIENTE_MONEDA) ?><?= h((string) $v) ?></span>
             </div>
           <?php endforeach; ?>
         </div>
@@ -4777,6 +4778,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php /* ===================================================== JUEGO ============== */ ?>
   </section>
 
+  <?php if (CLIENTE_JUEGO): ?>
   <section class="pane" data-pane="juego"<?= $pestana === "juego" ? "" : " hidden" ?>>
     <p class="hint">
       Un minijuego de 30 segundos para quien ya ha pedido y está esperando. Se abre desde la
@@ -4867,6 +4869,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php endif; ?>
     </div>
   </section>
+  <?php endif; ?>
 
   <?php /* ---------------------------------------------------------------- datos */ ?>
   <?php if (DATOS_ACTIVO): ?>

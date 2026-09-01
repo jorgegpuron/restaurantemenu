@@ -54,11 +54,9 @@ export const PAISES = [
 
 export const CODIGOS = PAISES.map(function (p) { return p[0]; });
 
-/* El idioma de la carta lleva bandera en su selector. Un idioma NO es un pais —el ingles no es
-   solo britanico— pero en una carta de restaurante la bandera se lee de un vistazo y el codigo
-   de dos letras no. Se elige la bandera mas reconocible para cada idioma y ya. */
-export const BANDERA_IDIOMA = { en: 'gb', es: 'es', de: 'de' };
-
+/* El idioma de la carta lleva bandera en su selector, y desde la fase 5 la DECLARA el
+   cliente idioma a idioma (cliente.mjs -> idiomas.*.bandera), validada contra los ficheros
+   de assets/banderas/: aqui ya no vive ningun mapa idioma->bandera. */
 /* La etiqueta de una bandera. Sin alt: al lado va siempre el nombre del pais o del idioma en
    texto, asi que repetirlo aqui seria decirlo dos veces a quien usa lector de pantalla. */
 export const imgBandera = (cod, clase) =>

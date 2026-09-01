@@ -26,7 +26,7 @@
  *    turistas comparten. Sin JavaScript se queda el que sale del build, que es el de la casa.
  */
 
-export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS }) {
+export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE }) {
   /* Los textos, uno por idioma. El inglés es el original y el que se queda si algo falla.
      El cuerpo va partido en dos porque la segunda mitad va en negrita: es lo que se quiere que
      se lleve el que sólo lee media frase —que la carta sigue ahí—, y partirlo permite seguir
@@ -64,7 +64,7 @@ export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS }) {
   const idiomas = LANGS.map((l) => l.code);
   /* El de la casa manda en el marcado que sale del build: es lo que ve quien navegue sin
      JavaScript, y también lo primero que se pinta mientras el script decide. */
-  const casa = idiomas[0] || 'en';
+  const casa = idiomas[0] || BASE;
   const base = TEXTOS[casa] || TEXTOS.en;
 
   return `<!doctype html>
@@ -259,7 +259,7 @@ h1{
       if (soportado(c)) lang = c;
     }
   }
-  if (!lang) lang = 'en';
+  if (!lang) lang = '${BASE}';
   /* La barra del navegador, del color del fondo real. El valor que sale del build es el del
      tema de la casa; si el visitante trae otro guardado, aquí se corrige. Es lo mismo que hace
      la carta al aplicar un tema. */

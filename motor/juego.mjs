@@ -38,7 +38,7 @@ const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
 export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, titles,
-  TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES }) {
+  TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES, ZONA, CORTE, BASE }) {
   /* Las opciones del selector de pais.
 
      Un <option> NO admite un <span> dentro: el navegador se lo come y el texto se queda en
@@ -678,7 +678,7 @@ h1{
   var LANG_CODES = ${JSON.stringify(LANG_CODES)};
 
   function tr(k) {
-    var e = TR[k], l = document.documentElement.lang || 'en';
+    var e = TR[k], l = document.documentElement.lang || '${BASE}';
     return e ? (e[l] || e.en) : k;
   }
   /* ---- idioma ----
@@ -886,18 +886,19 @@ h1{
   }
 
   /* ---- el reloj del restaurante ----
-     Manda la hora de Canarias, no la del móvil. El día "de servicio" empieza a las 06:00, así
-     que la mejor marca de una cena que se alarga sigue siendo la de esa noche a la 01:00. */
+     Manda la hora del restaurante (CLIENTE.zonaHoraria), no la del móvil, y el día "de
+     servicio" empieza a la hora de corte del contrato: la mejor marca de una cena que se
+     alarga sigue siendo la de esa noche a la 01:00. */
   function fechaServicio() {
     try {
       var f = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Atlantic/Canary',
+        timeZone: '${ZONA}',
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
       });
       var p = {};
       f.formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
       var d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
-      if ((+p.hour) % 24 < 6) d.setUTCDate(d.getUTCDate() - 1);
+      if ((+p.hour) % 24 < ${CORTE}) d.setUTCDate(d.getUTCDate() - 1);
       return d;
     } catch (e) { return new Date(); }
   }
@@ -1264,7 +1265,7 @@ h1{
   /* El mismo criterio que la carta, y con la misma clave: se recorre navigator.languages
      entera, no solo la primera, para que un movil en catalan con ingles detras abra en ingles
      en vez de en el idioma de la casa. Si ninguno vale, ingles. */
-  var TODOS = ['en'].concat(LANG_CODES);
+  var TODOS = ['${BASE}'].concat(LANG_CODES);
 
   function soportado(c) { return TODOS.indexOf(c) >= 0; }
 
@@ -1280,7 +1281,7 @@ h1{
     var lista = (navigator.languages && navigator.languages.length)
       ? navigator.languages
       : [navigator.language || ''];
-    saved = 'en';
+    saved = '${BASE}';
     for (var li = 0; li < lista.length; li++) {
       var c2 = String(lista[li] || '').slice(0, 2).toLowerCase();
       if (soportado(c2)) { saved = c2; break; }

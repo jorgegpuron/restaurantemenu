@@ -14,11 +14,11 @@ encima. Cada paso tiene una comprobación; si una falla, se para ahí y se dice 
 > | 🔧 | Necesita una fase de la migración que aún no está hecha |
 > | 🔴 | Bloqueado por una decisión pendiente |
 >
-> **Mientras queden pasos 🔧, el alta no se puede completar siguiendo sólo este documento.**
-> Hasta entonces sigue vigente `NUEVO-CLIENTE.md`, en la raíz de `socialcard_claudecode/`,
-> que describe el método de copiar una carpeta existente. **Ese documento queda obsoleto en
-> cuanto este esté completo, y hay que retirarlo**: dos procedimientos vivos para lo mismo es
-> exactamente el problema que este plan viene a resolver.
+> **Mientras queden pasos 🔧, el alta no se puede completar siguiendo sólo este documento —
+> y el alta está CONGELADA (ver CLAUDE.md).** El procedimiento antiguo de copiar carpetas se
+> conserva sólo como referencia en `NUEVO-CLIENTE.LEGACY.md`, en la raíz de
+> `socialcard_claudecode/`: **prohibido seguirlo** — copiaba carpetas de clientes en
+> eliminación.
 
 ---
 
@@ -38,25 +38,34 @@ Sin las cuatro primeras respuestas no se empieza:
 
 ---
 
-## 1. Qué se conserva del motor 🔧
+## 1. Qué se conserva del motor ✅ (separado en las fases 4 y 5)
 
 Se copia **sin tocar una línea**. Si te encuentras editando algo de esta lista para que el
 cliente nuevo funcione, es que hay un dato escrito como código y hay que sacarlo al cliente.
+Desde la fase 5 el motor ya no lleva dentro ni un dato de restaurante: cocina, moneda, zona
+horaria, corte del día, idiomas, leyenda de alérgenos y capacidades salen de `cliente.mjs`,
+y la estructura de la carta (pestañas especiales, selectores, avisos, escalas) de
+`carta.json` (esquema `carta/2`).
 
-> 🔧 **Hoy `motor/`, `motor.lock` y `alergenos.mjs` no existen**: los ficheros del motor viven
-> sueltos en la raíz del proyecto. Esta lista describe el destino tras la fase de separación.
+> 🔧 Lo único de esta lista que aún no existe es `motor/alergenos.mjs`: su fase está
+> pendiente.
 
 ```
-motor/gen.mjs          el compilador
-motor/importar.mjs     carta → menu.md + diccionarios
-motor/temas.mjs        los cinco temas de color
-motor/juego.mjs        el juego
-motor/error404.mjs     la página de error
-motor/adelgazar.mjs    quita comentarios del HTML publicado
-motor/banderas.mjs     las banderas de los idiomas
-motor/alergenos.mjs    el catálogo inmutable de los 14
-motor/server/admin/**  el panel
-motor.lock             versión y hashes del motor
+motor/gen.mjs                el compilador
+motor/importar.mjs           carta → menu.md + diccionarios
+motor/entorno.mjs            las rutas y la verificación del lock
+motor/lock.mjs               verificar/escribir motor.lock
+motor/transaccion-motor.mjs  la transacción de actualización
+motor/actualizar.mjs         actualizar el motor (misma época)
+motor/migrar.mjs             el salto de época (carta/1 → carta/2)
+motor/temas.mjs              los cinco temas de color
+motor/juego.mjs              el juego
+motor/error404.mjs           la página de error
+motor/adelgazar.mjs          quita comentarios del HTML publicado
+motor/banderas.mjs           las banderas y los países
+motor/alergenos.mjs          el catálogo inmutable de los 14   🔧
+motor/server/admin/**        el panel
+motor.lock                   versión y hashes del motor
 ```
 
 ## 2. Qué se sustituye entero 🔧
@@ -65,7 +74,7 @@ Nada de esto se hereda: se escribe nuevo para cada restaurante.
 
 | Fichero | Qué lleva |
 |---|---|
-| `cliente.mjs` | Identidad, rótulos, URL, idiomas, impuesto, tema, funciones, alérgenos, sinónimos, taxonomía |
+| `cliente.mjs` | Identidad, rótulos, URL, impuesto, cocina, moneda, zona horaria, corte del día, idiomas (con bandera), leyenda de alérgenos, funciones (datos, juego), sinónimos |
 | `carta.json` | Platos y categorías, con sus identificadores 🔧 |
 | `i18n.*.mjs` | Un diccionario por idioma, con su sección `ui` |
 | `assets/` | La marca del restaurante |
@@ -146,7 +155,16 @@ rotulo:        'Cocina cubana',
 descripcion:   'Restaurante Cubano — carta del restaurante.',
 tituloJuego:   'Chilli Rush — Restaurante Cubano',
 impuesto:      'Prices include IGIC',
+cocina:        'Cuban',                            // opcional: sin ella no se publica
+moneda:        { simbolo: '€', iso: 'EUR' },
+zonaHoraria:   'Atlantic/Canary',
+servicio:      { corteHora: 6 },
+alergenos:     { leyenda: [] },                    // la selección la decide el restaurante
+funciones:     { datos: true, juego: true },
 ```
+
+**Todos obligatorios salvo `cocina` — el build aborta nombrando el que falte.** Ningún campo
+tiene valor por defecto en el motor: lo que no se declare, no existe.
 
 **El build aborta si `titulo`, `tituloSocial`, `tituloJuego` o `descripcion` no mencionan el
 nombre.** Es la guarda que impide publicar con el `og:title` del restaurante anterior — lo que ve
@@ -161,13 +179,17 @@ lentils · rice · bread · fries · special · kids · bowl · drop`.
 En `cliente.mjs`:
 
 ```js
-export const IDIOMAS_CLIENTE = [
-  { code: 'es', label: 'ES', dicts: ES, name: 'Español' },
-];
+idiomas: {
+  base:   { code: 'es', label: 'ES', dicts: ES, name: 'Español', bandera: 'es' },
+  extras: [{ code: 'en', label: 'EN', name: 'English', bandera: 'gb' }],
+},
 ```
 
-El inglés es el texto base del documento y siempre está: no se declara. Cada idioma necesita su
-`i18n.<code>.mjs`. El script crea las plantillas; hay que traducir la sección `ui`.
+El **base** es el idioma del texto del documento y cada idioma declara su **bandera**
+(fichero de `motor/assets/banderas/`; una que no exista aborta el build). El catálogo nativo
+del motor está en inglés: con base `en` no hace falta diccionario, y un extra `en` tampoco.
+Cualquier otro idioma necesita su `i18n.<code>.mjs`; el script crea las plantillas y hay que
+traducir la sección `ui`.
 
 **El build aborta si falta una traducción de interfaz.** No se publica una carta a medias.
 
@@ -244,9 +266,9 @@ Cómo decide, y por qué no es un grep ciego:
    origen. Un fichero de `motor/` **que no cuadre con su hash se revisa como si fuera del
    cliente** — estar dentro de `motor/` no exime a nadie.
 3. Mientras el motor conserve referencias históricas legítimas en comentarios, el punto 2 es lo
-   que evita el falso positivo sin taparlas. Las referencias **funcionales** —hoy, el nombre de
-   evento `totm:lang` en `gen.mjs`— se generalizan en la fase de separación del motor, con su
-   verificación de HTML, y hasta entonces cuentan como deuda del motor, no del cliente.
+   que evita el falso positivo sin taparlas. Las referencias funcionales se generalizaron en
+   las fases 4 y 5 (evento `<slug>:lang`, y los datos y el mercado al contrato): en `motor/`
+   ya no queda ninguna deuda de cliente.
 
 A mano, como red de seguridad sobre los ficheros del cliente (no sobre `motor/`, que se
 comprueba por hash):

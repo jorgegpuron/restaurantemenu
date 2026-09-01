@@ -5,18 +5,15 @@ import {
 import { createHash } from 'node:crypto';
 import { buildGame } from './juego.mjs';
 import { buildError404 } from './error404.mjs';
-import { PAISES, CODIGOS, BANDERA_IDIOMA, imgBandera } from './banderas.mjs';
+import { PAISES, CODIGOS, imgBandera } from './banderas.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
 } from './temas.mjs';
 /* Todo lo que es de ESTE restaurante. gen.mjs no lleva dentro ni un nombre ni una
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
+import { CLIENTE, CLAVE, SINONIMOS } from '../cliente.mjs';
 import {
-  CLIENTE, CLAVE, IDIOMAS_CLIENTE,
-  TAB_INTRO, GROUPS, TAB_ICON, GROUP_ICON_BY_CAT, CATEGORIAS_DUPLICADAS, SINONIMOS,
-} from '../cliente.mjs';
-import {
-  verificarMotor, cliente, salida, RAIZ_SALIDA, CARPETA_CLIENTE,
+  verificarMotor, cliente, motor, salida, RAIZ_SALIDA, CARPETA_CLIENTE,
 } from './entorno.mjs';
 
 /* Lo primero de todo: que el motor sea EXACTAMENTE el que dice motor.lock. Un fichero
@@ -26,6 +23,103 @@ verificarMotor();
 /* Antes de escribir nada: si un tema deja un texto por debajo de su umbral WCAG, el build
    revienta aquí y no llega a producción. */
 verificarTemas();
+
+/* ---- el contrato de configuracion (fase 5) ----
+ * Nada de esto tiene valor por defecto en el motor: lo que el cliente no declare y sea
+ * obligatorio aborta aqui, con su arreglo en el mensaje. Los valores de Tinge son SUYOS,
+ * escritos en su cliente.mjs — el motor no sabe de Canarias, del euro ni de cocina india. */
+const S = String.fromCharCode(10);   // NL se define mucho mas abajo
+function abortar(queja, arreglo) {
+  throw new Error(
+    S + S + queja + S + S + "  Como se arregla:  " + arreglo + S);
+}
+
+if (!CLIENTE.moneda || typeof CLIENTE.moneda.simbolo !== 'string' || !CLIENTE.moneda.simbolo
+    || CLIENTE.moneda.simbolo.length > 3 || !/^[A-Z]{3}$/.test(CLIENTE.moneda.iso || '')) {
+  abortar("cliente.mjs: falta `moneda` valida — { simbolo: '\u20ac', iso: 'EUR' } o la que toque.",
+    "declara el simbolo (1-3 caracteres) y el codigo ISO-4217 de tres mayusculas");
+}
+const MONEDA = CLIENTE.moneda;
+
+if (typeof CLIENTE.zonaHoraria !== 'string' || !CLIENTE.zonaHoraria) {
+  abortar("cliente.mjs: falta `zonaHoraria` (identificador IANA, p. ej. 'Europe/Madrid').",
+    "declara la zona horaria del restaurante; de ella salen la fecha de servicio, el premio del juego y el reloj del panel");
+}
+try {
+  new Intl.DateTimeFormat('en-CA', { timeZone: CLIENTE.zonaHoraria });
+} catch (e) {
+  abortar("cliente.mjs: la zona horaria " + JSON.stringify(CLIENTE.zonaHoraria) + " no existe.",
+    "usa un identificador IANA valido, p. ej. 'Atlantic/Canary' o 'Europe/Madrid'");
+}
+
+if (!CLIENTE.servicio || !Number.isInteger(CLIENTE.servicio.corteHora)
+    || CLIENTE.servicio.corteHora < 0 || CLIENTE.servicio.corteHora > 23) {
+  abortar("cliente.mjs: falta `servicio.corteHora` (entero 0-23).",
+    "la hora a la que caducan los agotados y cambia el dia del premio: 0 = medianoche");
+}
+const CORTE_HORA = CLIENTE.servicio.corteHora;
+
+if (CLIENTE.cocina !== undefined && (typeof CLIENTE.cocina !== 'string' || !CLIENTE.cocina.trim())) {
+  abortar("cliente.mjs: `cocina` esta declarada pero vacia.",
+    "escribe la cocina para el JSON-LD ('Indian', 'Spanish'...) o quita el campo para no publicarla");
+}
+
+if (!CLIENTE.funciones || typeof CLIENTE.funciones.datos !== 'boolean'
+    || typeof CLIENTE.funciones.juego !== 'boolean') {
+  abortar("cliente.mjs: faltan las capacidades `funciones` — { datos: true|false, juego: true|false }.",
+    "decidelas explicitamente: el motor no enciende nada por su cuenta");
+}
+const DATOS_ACTIVO = CLIENTE.funciones.datos;
+
+/* Los idiomas: el base es el texto del documento; los extras van en data-<code>. El catalogo
+   nativo del motor esta en ingles (el idioma de su codigo fuente): con base 'en' no hace
+   falta diccionario, y un extra 'en' tampoco lo necesita. Cada idioma declara su BANDERA y
+   se comprueba que el fichero exista: jamas un 'undefined' en el selector. */
+const validarIdioma = (l, papel) => {
+  if (!l || typeof l.code !== 'string' || !/^[a-z]{2}$/.test(l.code)
+      || typeof l.name !== 'string' || !l.name) {
+    abortar("cliente.mjs: idioma " + papel + " invalido: " + JSON.stringify(l && l.code),
+      "cada idioma lleva { code: 'xx', name: 'Nombre', bandera: 'xx' }");
+  }
+  if (typeof l.bandera !== 'string' || !l.bandera) {
+    abortar("cliente.mjs: el idioma " + JSON.stringify(l.code) + " no declara `bandera`.",
+      "elige la bandera del selector entre los ficheros de motor/assets/banderas/");
+  }
+  if (!existsSync(motor('assets/banderas/' + l.bandera + '.webp'))) {
+    abortar("cliente.mjs: la bandera " + JSON.stringify(l.bandera) + " del idioma "
+      + JSON.stringify(l.code) + " no existe en motor/assets/banderas/.",
+      "usa un codigo de bandera del catalogo del motor (es, gb, de, fr...)");
+  }
+};
+if (!CLIENTE.idiomas || !CLIENTE.idiomas.base || !Array.isArray(CLIENTE.idiomas.extras)) {
+  abortar("cliente.mjs: falta `idiomas` — { base: {...}, extras: [...] }.",
+    "declara el idioma del documento y los del selector; el formato viejo IDIOMAS_CLIENTE ya no vale");
+}
+const IDIOMA_BASE = CLIENTE.idiomas.base;
+const LANGS = CLIENTE.idiomas.extras;
+validarIdioma(IDIOMA_BASE, 'base');
+LANGS.forEach((l) => validarIdioma(l, 'extra'));
+if (LANGS.some((l) => l.code === IDIOMA_BASE.code)) {
+  abortar("cliente.mjs: el idioma base " + JSON.stringify(IDIOMA_BASE.code) + " no puede ir tambien en extras.",
+    "quitalo de extras: el base es el texto del documento y no necesita selector aparte");
+}
+if (IDIOMA_BASE.code !== 'en'
+    && !(IDIOMA_BASE.dicts && IDIOMA_BASE.dicts.ui && typeof IDIOMA_BASE.dicts.ui === 'object')) {
+  abortar("cliente.mjs: el idioma base " + JSON.stringify(IDIOMA_BASE.code)
+    + " necesita su diccionario con la seccion ui completa.",
+    "importa i18n." + IDIOMA_BASE.code + ".mjs y ponlo en idiomas.base.dicts: el motor horneara su ui como texto del documento");
+}
+for (const l of LANGS) {
+  if (l.code !== 'en' && !(l.dicts && l.dicts.ui)) {
+    abortar("cliente.mjs: el idioma extra " + JSON.stringify(l.code) + " no trae diccionario.",
+      "importa su i18n." + l.code + ".mjs (el ingles es el unico que puede ir sin el: es el catalogo nativo del motor)");
+  }
+}
+
+if (!CLIENTE.alergenos || !Array.isArray(CLIENTE.alergenos.leyenda)) {
+  abortar("cliente.mjs: falta `alergenos.leyenda` (la seleccion de iconos del aviso del pie; [] es legal).",
+    "elige las claves del catalogo del motor: wheat, milk, nut, fish, egg, sesame, mustard, sulphites");
+}
 
 /* Las dos tipografías, en un solo sitio: la carta y el juego cargan exactamente las
    mismas, así que el navegador ya las tiene en caché al pasar de una a otro.
@@ -217,19 +311,15 @@ const BUILD = String(Date.now());
 /* La misma marca en cristiano, en hora de Canarias, para la chapa del panel. Se calcula aqui
    y no en PHP porque aqui es donde se sabe cuando se compilo. */
 const FECHA_BUILD = new Intl.DateTimeFormat('es-ES', {
-  timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric',
+  timeZone: CLIENTE.zonaHoraria, day: '2-digit', month: '2-digit', year: 'numeric',
   hour: '2-digit', minute: '2-digit', hour12: false,
 }).format(new Date(+BUILD)).replace(', ', ' · ');
 
-/* English is the document text; every other language rides along in data-<code>. */
-const LANGS = IDIOMAS_CLIENTE;
-
-/* Las mismas banderas que el marcador, del mismo sitio: flag-icons, en assets/banderas/. Antes
-   habia tres dibujadas a mano aqui, y la de Espana era rojo-amarillo-rojo sin escudo. */
-const BANDERAS = Object.fromEntries(
-  Object.entries(BANDERA_IDIOMA).map(([code, pais]) => [code, imgBandera(pais, 'bandera')]));
-const IDIOMAS = [{ code: 'en', name: 'English', flag: BANDERAS.en }]
-  .concat(LANGS.map((l) => ({ code: l.code, name: l.name, flag: BANDERAS[l.code] })));
+/* El idioma base es el texto del documento; los extras viajan en data-<code>. Las banderas
+   las declara el cliente idioma a idioma y estan validadas en el contrato: aqui solo se
+   montan las etiquetas. */
+const IDIOMAS = [{ code: IDIOMA_BASE.code, name: IDIOMA_BASE.name, flag: imgBandera(IDIOMA_BASE.bandera, 'bandera') }]
+  .concat(LANGS.map((l) => ({ code: l.code, name: l.name, flag: imgBandera(l.bandera, 'bandera') })));
 
 /* ------------------------------------------------------------------ *
  * 1. Parse menu.md
@@ -245,12 +335,6 @@ const IDIOMAS = [{ code: 'en', name: 'English', flag: BANDERAS.en }]
 
    Estas tres comprobaciones son lo unico que separa «he copiado una carpeta» de «he publicado
    el menu de otro restaurante». Van antes de leer nada. */
-const S = String.fromCharCode(10);   // NL se define mucho mas abajo
-function abortar(queja, arreglo) {
-  throw new Error(
-    S + S + queja + S + S + "  Como se arregla:  " + arreglo + S);
-}
-
 /* 1. El menu que hay, ¿es de este restaurante o del anterior?
 
    gen.mjs no lee carta.mjs: lee menu.md, que escribe importar.mjs. Asi que borrar carta.mjs
@@ -324,8 +408,11 @@ if (!String(CLIENTE.impuesto || '').trim()) {
 
 const md = readFileSync(cliente('menu.md'), 'utf8');
 
-/** @type {Record<string, {note: string, items: {id:string,name:string,desc:string,price:string}[]}>} */
-const categories = {};
+/* Secciones de menu.md EN ORDEN de aparicion. La posicion solo LOCALIZA: la identidad la
+   otorga la proyeccion semantica completa contra carta.json, mas abajo. Dos categorias con
+   el mismo nombre no colisionan aqui: cada seccion es un cubo propio. */
+/** @type {{name:string, note:string, items:{id:string,name:string,desc:string,price:string}[]}[]} */
+const secciones = [];
 let current = null;
 
 for (const raw of md.split(/\r?\n/)) {
@@ -333,15 +420,15 @@ for (const raw of md.split(/\r?\n/)) {
 
   const heading = line.match(/^##\s+(.+)$/);
   if (heading) {
-    current = heading[1].trim();
-    categories[current] = { note: '', items: [] };
+    current = { name: heading[1].trim(), note: '', items: [] };
+    secciones.push(current);
     continue;
   }
   if (!current) continue;
 
   if (line.startsWith('>')) {
     const note = line.replace(/^>\s?/, '').trim();
-    categories[current].note = categories[current].note ? categories[current].note + ' ' + note : note;
+    current.note = current.note ? current.note + ' ' + note : note;
     continue;
   }
 
@@ -352,70 +439,313 @@ for (const raw of md.split(/\r?\n/)) {
   if (cells.length < 4) continue;
 
   const [id, name, desc, price] = cells;
-  categories[current].items.push({ id, name, desc, price });
+  current.items.push({ id, name, desc, price });
 }
 
-
-// fail loudly instead of silently emitting an empty tab
-const missing = GROUPS.flatMap(([, subs]) => subs.map(([c]) => c)).filter((c) => !categories[c]);
-if (missing.length) throw new Error('categories not found in menu.md: ' + missing.join(' | '));
-
-/* ---- los identificadores permanentes ----
+/* ---- carta.json: la fuente de la estructura y de los identificadores ----
  *
- * Viven en carta.json, que es la fuente; menu.md no los lleva porque es un formato de
- * lectura. Aqui se cruzan los dos por orden y por nombre, plato a plato, y si no cuadran se
- * aborta: significa que alguien toco carta.json sin pasar por node importar.mjs, y compilar
- * con un menu.md desfasado repartiria los IDs a los platos equivocados — fotos, precios y
- * agotados del plato de al lado, sin un solo error. Mejor no compilar. */
-const CARTA_IDS = (() => {
+ * Desde la fase 5 la taxonomia entera —pestañas, categorias, iconos, metadatos de
+ * comportamiento— sale de aqui, no de cliente.mjs. El indice interno es categoryId; el
+ * nombre de una categoria es contenido. */
+const CARTA2 = (() => {
   const ruta = cliente('carta.json');
   if (!existsSync(ruta)) {
     abortar('No hay carta.json: es la fuente de la carta y de sus identificadores.',
       'escribe la carta del restaurante en carta.json (el entorno ya comprobo que la carpeta es un cliente)');
   }
   const j = JSON.parse(readFileSync(ruta, 'utf8'));
-  const porCat = {};
-  for (const t of j.pestanas) {
-    for (const g of t.grupos) {
-      const catEn = Array.isArray(g.categoria) ? g.categoria[0] : g.categoria;
-      porCat[catEn] = {
-        categoryId: g.categoryId,
-        platos: g.platos.map((p) => ({ dishId: p.dishId, nombre: p.nombre[0] })),
-      };
+  if (j.esquema === 'carta/1') {
+    abortar('carta.json es del esquema carta/1 y este motor entiende carta/2.',
+      'la migracion es explicita: node motor/migrar.mjs --desde <origen-del-motor>');
+  }
+  if (j.esquema !== 'carta/2') {
+    abortar('carta.json: esquema desconocido ' + JSON.stringify(j.esquema) + '.',
+      'este motor entiende "carta/2"; no se adivina');
+  }
+  return j;
+})();
+
+/* Un texto de carta/2: objeto por codigo de idioma o cadena invariable. Se devuelve el del
+   idioma BASE; los codigos se validan contra el contrato, nunca se leen por posicion. */
+const CODIGOS_TXT = [IDIOMA_BASE.code].concat(LANGS.map((l) => l.code));
+const baseTexto = (v, donde) => {
+  if (typeof v === 'string') return v;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) {
+    abortar('carta.json: ' + donde + ' no es un texto por codigo de idioma ni una cadena.',
+      'escribe { ' + CODIGOS_TXT.join(', ') + ' } o una cadena invariable');
+  }
+  const faltan = CODIGOS_TXT.filter((c) => typeof v[c] !== 'string');
+  const sobran = Object.keys(v).filter((c) => !CODIGOS_TXT.includes(c));
+  if (faltan.length || sobran.length) {
+    abortar('carta.json: ' + donde + ' — codigos que faltan: [' + faltan.join(', ')
+      + '], que sobran: [' + sobran.join(', ') + '].',
+      'cada texto lleva exactamente el idioma base y los extras declarados en cliente.mjs');
+  }
+  return v[IDIOMA_BASE.code];
+};
+/* El mismo texto, como mapa codigo->valor para pintar data-<code> desde el dato. */
+const datoTexto = (v, donde) => {
+  baseTexto(v, donde);
+  return typeof v === 'string'
+    ? Object.fromEntries(CODIGOS_TXT.map((c) => [c, v]))
+    : v;
+};
+
+/* Las escalas declaradas (hoy: la de picante). La frase que las anuncia y las frases que
+   sobran en pantalla son DATOS del cliente, no literales del motor. */
+const ESCALAS = {};
+for (const [clave, def] of Object.entries(CARTA2.escalas || {})) {
+  if (!def || !Array.isArray(def.niveles) || !def.niveles.length || def.niveles.length > 8) {
+    abortar('carta.json: la escala ' + JSON.stringify(clave) + ' necesita entre 1 y 8 niveles.',
+      'define escalas.' + clave + '.niveles como lista de { nombre, chiles }');
+  }
+  def.niveles.forEach((n, i) => {
+    baseTexto(n.nombre, 'escalas.' + clave + '.niveles[' + i + '].nombre');
+    if (!Number.isInteger(n.chiles) || n.chiles < 1 || n.chiles > 8) {
+      abortar('carta.json: escalas.' + clave + '.niveles[' + i + '].chiles debe ser un entero 1-8.',
+        'es el numero de marcas del peldano');
+    }
+  });
+  ESCALAS[clave] = {
+    niveles: def.niveles,
+    fraseBase: def.frase ? baseTexto(def.frase, 'escalas.' + clave + '.frase') : null,
+    ocultasBase: (def.frasesOcultas || []).map((f, i) => baseTexto(f, 'escalas.' + clave + '.frasesOcultas[' + i + ']')),
+  };
+}
+
+/* La taxonomia, del derecho: pestañas -> grupos, con su metadato en el sitio. */
+const TAXO = CARTA2.pestanas.map((t, ti) => ({
+  label: baseTexto(t.pestana, 'pestanas[' + ti + '].pestana'),
+  icono: t.icono,
+  especial: t.especial === true,
+  intro: t.intro ? baseTexto(t.intro, 'pestanas[' + ti + '].intro') : null,
+  grupos: t.grupos.map((g, gi) => {
+    const donde = 'pestanas[' + ti + '].grupos[' + gi + ']';
+    if (g.selector !== undefined && g.selector !== 'salsa' && g.selector !== 'ingrediente') {
+      abortar('carta.json: ' + donde + '.selector ' + JSON.stringify(g.selector) + ' no existe.',
+        "los valores admitidos son 'salsa' e 'ingrediente'");
+    }
+    if (g.aviso !== undefined && g.aviso !== 'final') {
+      abortar('carta.json: ' + donde + '.aviso ' + JSON.stringify(g.aviso) + ' no existe.',
+        "el unico valor admitido es 'final'");
+    }
+    if (g.escala !== undefined && !ESCALAS[g.escala]) {
+      abortar('carta.json: ' + donde + ' referencia la escala ' + JSON.stringify(g.escala)
+        + ', que no esta definida.',
+        'definela en escalas.' + String(g.escala) + ' o quita el metadato');
+    }
+    return {
+      id: g.categoryId,
+      cat: Array.isArray(g.categoria) ? g.categoria[0] : g.categoria,
+      sub: g.subtitulo ? baseTexto(g.subtitulo, donde + '.subtitulo') : null,
+      icono: g.icono || null,
+      selector: g.selector || null,
+      aviso: g.aviso || null,
+      escala: g.escala || null,
+      copiaDe: g.copiaDe || null,
+      notaBase: g.nota ? baseTexto(g.nota, donde + '.nota') : '',
+      platos: g.platos.map((p, pi) => ({
+        dishId: p.dishId,
+        numero: p.numero,
+        nombre: baseTexto(p.nombre, donde + '.platos[' + pi + '].nombre'),
+        desc: baseTexto(p.descripcion, donde + '.platos[' + pi + '].descripcion'),
+        precio: p.precio,
+      })),
+    };
+  }),
+}));
+const GRUPOS_PLANOS = TAXO.flatMap((t) => t.grupos);
+
+/* ---- la conciliacion menu.md <-> carta.json ----
+ *
+ * menu.md no lleva IDs a proposito: es un formato de lectura. La POSICION empareja cada
+ * seccion con su grupo; la IDENTIDAD la otorga la proyeccion semantica completa — nombre,
+ * nota, numero de platos y la secuencia exacta (numero, nombre, descripcion, precio). Si
+ * una sola pieza no cuadra se aborta: compilar con un menu.md desfasado repartiria los IDs
+ * a los platos equivocados — fotos, precios y agotados del plato de al lado, sin un solo
+ * error. Mejor no compilar. */
+/* El preambulo de menu.md ('## Data format') es una seccion sin platos y sin nota: no es una
+   categoria y no entra en el emparejamiento. */
+const seccionesReales = secciones.filter((sec) => sec.items.length || sec.note);
+if (seccionesReales.length !== GRUPOS_PLANOS.length) {
+  abortar('menu.md tiene ' + seccionesReales.length + ' categorias y carta.json ' + GRUPOS_PLANOS.length + '.',
+    'ejecuta: node importar.mjs  y vuelve a compilar');
+}
+{
+  /* La proyeccion esperada calcula el numero visible con la MISMA regla que importar.mjs:
+     el que trae el plato manda, la cadena vacia es "sin numero", y sin campo, el contador. */
+  let contador = 0;
+  const proyGrupo = (g) => g.platos.map((p) => {
+    contador += 1;
+    const id = p.numero === undefined ? String(contador).padStart(2, '0') : p.numero;
+    return [id, p.nombre, p.desc, p.precio].join(' | ');
+  });
+  const esperadas = GRUPOS_PLANOS.map((g) => ({
+    g,
+    proy: proyGrupo(g),
+  }));
+  esperadas.forEach(({ g, proy }, i) => {
+    const sec = seccionesReales[i];
+    const obtenida = sec.items.map((it) => [it.id, it.name, it.desc, it.price].join(' | '));
+    const cuadra = sec.name === g.cat && sec.note === g.notaBase
+      && obtenida.length === proy.length
+      && obtenida.every((fila, j) => fila === proy[j]);
+    if (!cuadra) {
+      abortar('menu.md no cuadra con carta.json en la posicion ' + (i + 1)
+        + ': se esperaba la categoria ' + JSON.stringify(g.cat)
+        + ' y la seccion ' + JSON.stringify(sec.name) + ' no coincide con su proyeccion'
+        + ' (nombre, nota, numero de platos o algun plato difiere).',
+      'ejecuta: node importar.mjs  y vuelve a compilar');
+    }
+  });
+  /* Dos categorias homonimas con proyeccion IDENTICA serian indistinguibles desde un
+     fichero humano, y un intercambio moveria estado entre gemelas. Se prohibe. */
+  const porNombre = new Map();
+  esperadas.forEach(({ g, proy }) => {
+    const firma = g.notaBase + String.fromCharCode(0) + proy.join(String.fromCharCode(0));
+    const lista = porNombre.get(g.cat) || [];
+    if (lista.some((x) => x.firma === firma)) {
+      abortar('dos categorias se llaman ' + JSON.stringify(g.cat) + ' y tienen exactamente el mismo contenido.',
+        'diferencialas con la nota o el subtitulo: menu.md no puede distinguirlas');
+    }
+    lista.push({ firma });
+    porNombre.set(g.cat, lista);
+  });
+  /* Y dos platos gemelos dentro de una categoria, lo mismo. */
+  GRUPOS_PLANOS.forEach((g) => {
+    const vistas = new Set();
+    g.platos.forEach((p) => {
+      const proy = [p.numero, p.nombre, p.desc, p.precio].join(' | ');
+      if (vistas.has(proy)) {
+        abortar('platos gemelos en ' + JSON.stringify(g.cat) + ': dos dishId comparten numero,'
+          + ' nombre, descripcion y precio (' + JSON.stringify(proy) + ').',
+          'diferencialos por el numero o la descripcion en carta.json');
+      }
+      vistas.add(proy);
+    });
+  });
+  /* Superada la verificacion, la identidad viaja: cada fila lleva su dishId y su catId, y
+     cada grupo se queda con sus filas. A partir de aqui TODO es por identificador. */
+  GRUPOS_PLANOS.forEach((g, i) => {
+    seccionesReales[i].items.forEach((it, j) => {
+      it.dishId = g.platos[j].dishId;
+      it.catId = g.id;
+    });
+    g.items = seccionesReales[i].items;
+    g.note = seccionesReales[i].note;
+  });
+}
+
+/* Las copias exactas declaradas, por categoryId: la relacion entre dos categorias jamas
+   vuelve a colgar de un rotulo. */
+for (const g of GRUPOS_PLANOS) {
+  if (!g.copiaDe) continue;
+  const original = GRUPOS_PLANOS.find((x) => x.id === g.copiaDe);
+  if (!original) {
+    abortar('carta.json: ' + JSON.stringify(g.cat) + ' declara copiaDe ' + JSON.stringify(g.copiaDe)
+      + ' y ese categoryId no existe.', 'apunta copiaDe al categoryId del original');
+  }
+  const huella = (x) => x.items.map((it) => [it.name, it.desc, it.price].join('|')).join(String.fromCharCode(10));
+  if (huella(original) !== huella(g)) {
+    abortar('la categoria ' + JSON.stringify(g.cat) + ' ya no es una copia exacta de '
+      + JSON.stringify(original.cat) + '.',
+      'revisa carta.json: una de las dos ha cambiado y la carta solo enseña una');
+  }
+}
+
+/* Proyecciones de la taxonomia para el render. Mismas formas que consumia el codigo de
+   siempre, pero DERIVADAS de carta.json: nadie las escribe a mano ni las verifica un
+   importador — son la carta. */
+const GROUPS = TAXO.map((t) => [t.label, t.grupos.map((g) => [g.cat, g.sub])]);
+const TAB_ICON = Object.fromEntries(TAXO.map((t) => [t.label, t.icono]));
+const TAB_INTRO = Object.fromEntries(TAXO.filter((t) => t.intro).map((t) => [t.label, t.intro]));
+const SPECIAL = new Set(TAXO.filter((t) => t.especial).map((t) => t.label));
+
+/* ---- las anclas del DOM (pills-*) ----
+ *
+ * El mapa entero se resuelve y valida ANTES de emitir un solo id; ningun consumidor
+ * recalcula slugs por su cuenta. La PRIMERA aparicion de cada slug conserva el ancla
+ * historica (byte a byte: las URLs guardadas de Tinge siguen valiendo), y eso depende del
+ * orden documental A PROPOSITO. Las posteriores se resuelven en orden canonico
+ * (slug, identidad), nunca por orden de aparicion; la identidad de una pestaña es la lista
+ * ORDENADA de los categoryId de sus grupos — renombrar o reordenar grupos no la cambia,
+ * cambiar su composicion si (y el ancla es presentacional, asi que puede).
+ *
+ * El hash solo ACORTA: la unicidad sale de comparar cadenas de identidad reales y del
+ * conjunto global de reservas. Un candidato ocupado por otra ancla cualquiera es colision
+ * de NAMESPACE y se escapa determinista; solo dos posteriores del MISMO slug con
+ * identidades distintas y digest completo identico son colision real del hash (ordinales
+ * --c0, --c1 por orden lexicografico de identidad); y solo la identidad REALMENTE
+ * duplicada — comparada como cadena, jamas inferida del digest — aborta. */
+const slugAncla = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const ANCLAS = (() => {
+  const hash = (txt) => process.env.GEN_PRUEBA_DIGEST
+    ? process.env.GEN_PRUEBA_DIGEST
+    : createHash('sha1').update(txt).digest('hex');
+  const defs = TAXO.map((t, i) => ({
+    i,
+    slug: slugAncla(t.label),
+    identidad: t.grupos.map((g) => g.id).slice().sort().join(String.fromCharCode(10)),
+  }));
+  const reservadas = new Set(
+    (process.env.GEN_PRUEBA_RESERVA || '').split(',').filter(Boolean));
+  /* Identidad REALMENTE duplicada: comparada como cadena y contra TODAS las pestañas del
+     mismo slug — tambien la primera aparicion, no solo entre posteriores. */
+  for (let i = 0; i < defs.length; i++) {
+    for (let j = i + 1; j < defs.length; j++) {
+      if (defs[i].slug === defs[j].slug && defs[i].identidad === defs[j].identidad) {
+        abortar('dos pestañas comparten slug ' + JSON.stringify(defs[i].slug)
+          + ' y EXACTAMENTE la misma identidad (los mismos categoryId).',
+          'eso es corrupcion de datos: dos pestañas no pueden tener los mismos grupos');
+      }
     }
   }
-  return porCat;
+  const ids = new Array(defs.length);
+  const primeras = new Set();
+  const posteriores = [];
+  for (const d of defs) {
+    if (!primeras.has(d.slug)) {
+      primeras.add(d.slug);
+      ids[d.i] = 'pills-' + d.slug;
+      reservadas.add(ids[d.i]);
+    } else {
+      posteriores.push(d);
+    }
+  }
+  posteriores.sort((a, b) => (a.slug + String.fromCharCode(0) + a.identidad)
+    < (b.slug + String.fromCharCode(0) + b.identidad) ? -1 : 1);
+  const digestDe = new Map(posteriores.map((d) => [d, hash(d.identidad)]));
+  const libre = (cand) => {
+    let c = cand, k = 0;
+    while (reservadas.has(c)) { k += 1; c = cand + '-' + k; }
+    return c;
+  };
+  for (const d of posteriores) {
+    const digest = digestDe.get(d);
+    const gemelasDeHash = posteriores.filter((x) => x !== d && x.slug === d.slug
+      && digestDe.get(x) === digest && x.identidad !== d.identidad);
+    let id = null;
+    if (gemelasDeHash.length) {
+      /* Colision REAL del hash: ordinal estable por orden lexicografico de identidad. */
+      const grupo = [d].concat(gemelasDeHash).map((x) => x.identidad).sort();
+      const ordinal = grupo.indexOf(d.identidad);
+      id = libre('pills-' + d.slug + '--' + digest + '--c' + ordinal);
+    } else {
+      for (let n = 6; n <= 40; n += 2) {
+        const cand = 'pills-' + d.slug + '--' + digest.slice(0, n);
+        if (!reservadas.has(cand)) { id = cand; break; }
+      }
+      /* Los 40 ocupados por algo AJENO: colision de namespace, escape determinista. */
+      if (!id) id = libre('pills-' + d.slug + '--' + digest + '--c0');
+    }
+    ids[d.i] = id;
+    reservadas.add(id);
+  }
+  if (new Set(ids).size !== ids.length || ids.some((x) => !x)) {
+    throw new Error('anclas duplicadas o vacias: esto es un error de programa, no del operador');
+  }
+  return ids;
 })();
-for (const [cat, info] of Object.entries(CARTA_IDS)) {
-  const its = (categories[cat] || { items: [] }).items;
-  const cuadra = its.length === info.platos.length
-    && its.every((it, i) => it.name === info.platos[i].nombre);
-  if (!cuadra) {
-    abortar('menu.md no cuadra con carta.json en la categoria ' + JSON.stringify(cat) + '.',
-      'ejecuta: node importar.mjs  y vuelve a compilar');
-  }
-  its.forEach((it, i) => { it.dishId = info.platos[i].dishId; it.catId = info.categoryId; });
-}
-
-
-for (const [copia, original] of Object.entries(CATEGORIAS_DUPLICADAS)) {
-  const a = categories[original];
-  const b = categories[copia];
-  if (!a || !b) throw new Error('duplicado declarado que no existe: ' + copia + ' / ' + original);
-  const huella = (c) => c.items.map((it) => [it.name, it.desc, it.price].join('|')).join(String.fromCharCode(10));
-  if (huella(a) !== huella(b)) {
-    throw new Error(
-      'la categoría "' + copia + '" ya no es una copia exacta de "' + original + '": '
-      + 'revisa menu.md, porque una de las dos ha cambiado y la carta sólo enseña una.',
-    );
-  }
-}
-
-const used = new Set(GROUPS.flatMap(([, subs]) => subs.map(([c]) => c)));
-const orphans = Object.keys(categories).filter(
-  (c) => !used.has(c) && !CATEGORIAS_DUPLICADAS[c] && categories[c].items.length,
-);
-if (orphans.length) throw new Error('categories with items not mapped to a tab: ' + orphans.join(' | '));
 
 /* ------------------------------------------------------------------ *
  * 3. Render
@@ -425,7 +755,7 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
 const slug = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const money = (price) =>
-  /^included$/i.test(price) ? 'Included' : '€' + price;
+  /^included$/i.test(price) ? 'Included' : MONEDA.simbolo + price;
 
 /* ---- bilingual output -------------------------------------------------
  * English is the document text; every other language rides along in data-<code> and the
@@ -435,7 +765,10 @@ const money = (price) =>
 const missingTr = [];
 const missingIcons = [];
 function tr(en, group, lang) {
-  const v = lang.dicts[group][en];
+  /* El ingles es el catalogo nativo del motor: un extra 'en' sin diccionario traduce a si
+     mismo. Cualquier otro idioma sin la cadena es un error de traduccion de verdad. */
+  const v = lang.dicts && lang.dicts[group] ? lang.dicts[group][en] : undefined;
+  if (v === undefined && lang.code === 'en' && !lang.dicts) return en;
   if (v === undefined) {
     missingTr.push(lang.code + ' / ' + group + ': ' + JSON.stringify(en));
     return en;
@@ -445,30 +778,33 @@ function tr(en, group, lang) {
 // every language's data-<code> attribute for one string
 const attrs = (en, group, suffix = '') =>
   LANGS.map((l) => ` data-${l.code}${suffix}="${esc(tr(en, group, l))}"`).join('');
+/* El texto del documento es el idioma BASE. El CONTENIDO (nombres, notas, pestañas...)
+   ya llega en base desde carta.json/menu.md y se emite tal cual; solo las cadenas de
+   INTERFAZ ('ui'), que son el catalogo nativo del motor en ingles, se hornean con el
+   diccionario del base cuando el base no es 'en'. */
+const BT = (t, group) => (IDIOMA_BASE.code === 'en' || group !== 'ui') ? t : tr(t, 'ui', IDIOMA_BASE);
 // a translatable text node
 const T = (en, group, cls) =>
-  `<span class="i18n${cls ? ' ' + cls : ''}"${attrs(en, group)}>${esc(en)}</span>`;
+  `<span class="i18n${cls ? ' ' + cls : ''}"${attrs(en, group)}>${esc(BT(en, group))}</span>`;
 // a translatable attribute
-const TL = (en) => ` aria-label="${esc(en)}"${attrs(en, 'ui', '-label')}`;
+const TL = (en) => ` aria-label="${esc(BT(en, 'ui'))}"${attrs(en, 'ui', '-label')}`;
 /* El texto pelado, sin envoltura. Lo pide el placeholder de un input: ahi no cabe ni un span
    ni un atributo suelto, solo caracteres. Se queda en el idioma de la casa y no se traduce al
    vuelo, que un placeholder no es contenido sino una pista, y el aria-label de al lado si viaja. */
-const TL_TXT = (en) => esc(LANGS[0] ? tr(en, 'ui', LANGS[0]) : en);
+const TL_TXT = (en) => esc(IDIOMA_BASE.code !== 'en' ? BT(en, 'ui')
+  : (LANGS[0] ? tr(en, 'ui', LANGS[0]) : en));
 
 /* ---- the number slot ----
  * Sauce and ingredient lists are choosers, not numbered dishes, so where the source has
  * no dish number the slot carries a mark instead: a bowl for the base you pick, a drop
  * for what goes on it. Decorative — the group heading already says which list you are in,
- * so screen readers skip them rather than hearing "sauce" nineteen times. */
-const SAUCE_CATS = new Set(['Curries - Sauces', 'South Indian Curries - Sauces']);
-const INGREDIENT_CATS = new Set([
-  'Curries - Ingredients',
-  'South Indian Curries - Ingredients',
-  'Gluten Free - Curries',
-  'Vegan - Curries',
-]);
+ * so screen readers skip them rather than hearing "sauce" nineteen times.
+ * Que categorias son selectores lo dice carta.json (metadato `selector`), no una lista de
+ * nombres del motor. */
 /* ---- alérgenos ----
- * Ocho de los catorce, los que de verdad se preguntan en una cocina del sur de la India: el
+ * El CATALOGO de iconos es del motor; la SELECCION que sale en la leyenda del pie es del
+ * cliente (CLIENTE.alergenos.leyenda) y se valida contra este catalogo mas abajo.
+ * Sobre el dibujo original de estos ocho, elegidos en su dia para el primer cliente: el
  * trigo de los panes, los lácteos del paneer y el ghee, el anacardo de los korma, el pescado
  * de los currys, el huevo de algunos panes y postres, el sésamo del aceite de gingelly, la
  * mostaza del tempering —que está en casi todo— y los sulfitos del vino.
@@ -496,8 +832,21 @@ const ICON = {
   sauce: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546"/></svg>',
   ingredient: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1"/></svg>',
 };
-const iconFor = (catName) =>
-  SAUCE_CATS.has(catName) ? 'sauce' : INGREDIENT_CATS.has(catName) ? 'ingredient' : null;
+const iconFor = (g) =>
+  g.selector === 'salsa' ? 'sauce' : g.selector === 'ingrediente' ? 'ingredient' : null;
+
+/* La seleccion de la leyenda, contra el catalogo: una clave desconocida aborta listando las
+   validas, no se pinta un hueco vacio. */
+const ALERGENO_LABEL = {
+  wheat: 'Gluten', milk: 'Dairy', nut: 'Nuts', fish: 'Fish',
+  egg: 'Egg', sesame: 'Sesame', mustard: 'Mustard', sulphites: 'Sulphites',
+};
+for (const k of CLIENTE.alergenos.leyenda) {
+  if (!ALERGENO[k]) {
+    abortar('cliente.mjs: alergenos.leyenda lleva ' + JSON.stringify(k) + ', que no esta en el catalogo.',
+      'las claves validas son: ' + Object.keys(ALERGENO).join(', '));
+  }
+}
 
 /* ---- highlight tags ----
  * Eight marketing flags, keyed by category *and* dish name because Katori Chaat and Chana
@@ -552,9 +901,9 @@ const normDish = (s) =>
 
 const gfNames = new Set();
 const veganNames = new Set();
-for (const [cat, data] of Object.entries(categories)) {
-  if (/^Gluten Free/.test(cat)) data.items.forEach((it) => gfNames.add(normDish(it.name)));
-  if (/^Vegan/.test(cat)) data.items.forEach((it) => veganNames.add(normDish(it.name)));
+for (const g of GRUPOS_PLANOS) {
+  if (/^Gluten Free/.test(g.cat)) g.items.forEach((it) => gfNames.add(normDish(it.name)));
+  if (/^Vegan/.test(g.cat)) g.items.forEach((it) => veganNames.add(normDish(it.name)));
 }
 const isSpecialCat = (cat) => /^Gluten Free|^Vegan/.test(cat);
 
@@ -567,8 +916,8 @@ const hayMarcasDieta = veganNames.size > 0 || gfNames.size > 0;
 /* ¿Ha declarado alguien sus alergenos plato a plato? Con platos declarados la leyenda del pie
    sobra —cada plato lleva sus iconos—; sin ninguno, la leyenda es lo unico que la carta dice
    sobre alergias y no puede faltar. */
-const hayAlergenosDeclarados = Object.values(categories)
-  .some((c) => c.items.some((it) => (it.alergenos || []).length > 0));
+const hayAlergenosDeclarados = GRUPOS_PLANOS
+  .some((g) => g.items.some((it) => (it.alergenos || []).length > 0));
 
 const DIET_ICON = {
   vegan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21c.5 -4.5 2.5 -8 7 -10"/><path d="M9 18c6.218 0 10.5 -3.288 11 -12v-2h-4.014c-9 0 -11.986 4 -12 9c0 1 0 3 2 5h3l.014 0"/></svg>',
@@ -693,17 +1042,9 @@ const vistaId = (clave) => createHash('sha1').update(clave, 'utf8').digest('hex'
  * Ahora es una escala: una barra que va de la crema al rojo y seis peldaños con sus chiles.
  * Los tres primeros nombres se traducen; Madras, Vindaloo y Phall no, que son nombres de
  * cocina y en cualquier idioma se piden igual. */
-const NIVELES = [
-  /* Suave llevaba el chile tachado, y eso dice «no lleva picante», que es falso: suave es poco,
-     no nada. La escala pasa a ir de uno a seis; el que no quiere picante no elige un nivel,
-     elige otro plato. */
-  { nombre: 'Mild', chiles: 1, traducir: true },
-  { nombre: 'Touch', chiles: 2, traducir: true },
-  { nombre: 'Medium', chiles: 3, traducir: true },
-  { nombre: 'Madras', chiles: 4, traducir: false },
-  { nombre: 'Vindaloo', chiles: 5, traducir: false },
-  { nombre: 'Phall', chiles: 6, traducir: false },
-];
+/* Los niveles ya no son del motor: cada carta declara su escala en carta.json — nombres
+   (traducibles u objetos por codigo, o cadenas invariables) y numero de marcas. Aqui solo
+   queda el dibujo. */
 
 const CHILE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg>';
 
@@ -715,12 +1056,17 @@ const rojoNivel = (i, total) => {
   return `rgb(${mez(224, 122)},${mez(122, 20)},${mez(46, 24)})`;
 };
 
-const escalaPicante = () => {
-  const items = NIVELES.map((n, i) => {
+/* Un texto que llega de carta.json como DATO multiidioma: mismo marcado que T(), pero los
+   valores salen del dato, no del catalogo. Una cadena pelada es invariable y va sin span. */
+const TDato = (v) => typeof v === 'string' ? esc(v)
+  : `<span class="i18n"${LANGS.map((l) => ` data-${l.code}="${esc(v[l.code])}"`).join('')}>${esc(v[IDIOMA_BASE.code])}</span>`;
+
+const escalaPicante = (def) => {
+  const items = def.niveles.map((n, i) => {
     const marcas = Array.from({ length: n.chiles }, () => `<span class="heat-mark">${CHILE}</span>`).join('');
-    const etiqueta = n.traducir ? T(n.nombre, 'ui') : esc(n.nombre);
+    const etiqueta = TDato(n.nombre);
     return `                    <li class="heat-step">
-                      <span class="heat-marks" style="--heat:${rojoNivel(i, NIVELES.length)}">${marcas}</span>
+                      <span class="heat-marks" style="--heat:${rojoNivel(i, def.niveles.length)}">${marcas}</span>
                       <span class="heat-name">${etiqueta}</span>
                     </li>`;
   }).join(String.fromCharCode(10));
@@ -732,71 +1078,57 @@ ${items}
                 </div>` + String.fromCharCode(10);
 };
 
-/* Notas de menu.md que son condición de pedido y no descripción: se pintan al final del grupo
-   con el distintivo IMPORTANTE (ver renderSub). Se identifican por su texto exacto. */
-const AVISOS_AL_FINAL = [
-  'Only served for children under 9 years.',
-  'All rice dishes use Indian basmati rice.',
-  'All naans are egg-free.',
-];
-
 /* ---- contador de aperturas ----
  * Cuenta cuantas veces se abre la carta, nada mas. No guarda IP, ni cookie, ni identificador
  * de ninguna clase: el endpoint es incapaz de distinguir dos visitas.
  *
- * INTERRUPTOR EN DOS SITIOS, y tienen que decir lo mismo: aqui y DATOS_ACTIVO en
- * server/admin/config.php. Encendido aqui y apagado alli deja a la carta llamando a un 404 en
+ * El interruptor es del CLIENTE (funciones.datos) y tiene UNA sola fuente: el contrato lo
+ * hornea aqui y el build lo publica al panel en cliente.php, asi que ya no puede decir una
+ * cosa en el HTML y otra en PHP.
  *
  * Apagado significa apagado: la carta sale SIN UNA SOLA LINEA de medicion, no con el bloque
  * envuelto en un if(false). Codigo muerto viajando en el HTML de cada cliente es peso que
  * paga el movil del comensal para nada. */
-const DATOS_ACTIVO = true;
 
-const renderSub = (catName, label, showSlot) => {
-  const cat = categories[catName];
-  const half = Math.ceil(cat.items.length / 2);
-  const left = cat.items.slice(0, half);
-  const right = cat.items.slice(half);
-  const icon = iconFor(catName);
+const renderSub = (g, showSlot) => {
+  const label = g.sub;
+  const half = Math.ceil(g.items.length / 2);
+  const left = g.items.slice(0, half);
+  const right = g.items.slice(half);
+  const icon = iconFor(g);
 
-  const gIcon = GROUP_ICON_BY_CAT[catName];
-  if (label && !gIcon) missingIcons.push(catName);
+  const gIcon = g.icono;
+  if (label && !gIcon) missingIcons.push(g.cat);
   const head = label
     ? `                <h2 class="menu-group-title"><span class="group-icon" aria-hidden="true">${GROUP_ICON[gIcon] || ''}</span>${T(label, 'groups')}</h2>` + String.fromCharCode(10)
     : '';
-  /* La escala de picante va DEBAJO de los platos, no encima: es una leyenda de lo que se acaba
-     de leer, no una advertencia previa. Lo que la nota dijera además se queda arriba como
-     texto — salvo el «elige después una salsa de la lista siguiente», que ya lo dicen los
-     pasos y repetirlo es ruido. */
-  const PICANTE = 'Spice levels: Mild, Touch, Medium, Madras, Vindaloo, Phall.';
-  const YA_LO_DICEN_LOS_PASOS = [
-    'Select one sauce from the next section.',
-    'Select one South Indian sauce from the next section.',
-  ];
+  /* La escala va DEBAJO de los platos, no encima: es una leyenda de lo que se acaba de leer.
+     Que un grupo lleva escala lo dice su metadato `escala`; la frase que la anunciaba en la
+     nota y las frases que sobran en pantalla son DATOS de la escala (frase, frasesOcultas),
+     no literales del motor. Un aviso que condiciona el pedido lleva `aviso: 'final'` y se
+     pinta tras los platos con el distintivo IMPORTANTE. */
   let note = '';
   let avisoFinal = '';
   let escala = '';
-  if (cat.note && cat.note.indexOf(PICANTE) !== -1) {
-    escala = escalaPicante();
-    const resto = cat.note.split(PICANTE)
+  const defEscala = g.escala ? ESCALAS[g.escala] : null;
+  if (defEscala) {
+    escala = escalaPicante(defEscala);
+    const resto = (defEscala.fraseBase ? g.note.split(defEscala.fraseBase) : [g.note])
       .map((t) => t.trim())
-      .filter((t) => t && !YA_LO_DICEN_LOS_PASOS.includes(t));
+      .filter((t) => t && !defEscala.ocultasBase.includes(t));
     note = resto.map((t) => `                <p class="menu-group-note">${T(t, 'ui')}</p>`).join(String.fromCharCode(10))
          + (resto.length ? String.fromCharCode(10) : '');
-  } else if (cat.note && AVISOS_AL_FINAL.includes(cat.note)) {
-    /* Un aviso que condiciona el pedido («sólo para menores de 9 años») va al final del grupo,
-       después de los platos, con un distintivo IMPORTANTE: es lo último que se lee antes de
-       pedir, no una nota de cabecera que se salta. */
-    avisoFinal = `                <p class="menu-group-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(cat.note, 'notes')}</p>` + String.fromCharCode(10);
-  } else if (cat.note) {
-    note = `                <p class="menu-group-note">${T(cat.note, 'notes')}</p>` + String.fromCharCode(10);
+  } else if (g.aviso === 'final' && g.note) {
+    avisoFinal = `                <p class="menu-group-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(g.note, 'notes')}</p>` + String.fromCharCode(10);
+  } else if (g.note) {
+    note = `                <p class="menu-group-note">${T(g.note, 'notes')}</p>` + String.fromCharCode(10);
   }
   const offerNote = '';
 
   const col = (items, offset) =>
-    items.map((it) => renderItem(it, showSlot, icon, catName)).join('\n');
+    items.map((it) => renderItem(it, showSlot, icon, g.cat)).join('\n');
 
-  return `              <div class="menu-group${escala ? ' con-escala' : ''}" data-cat="${esc(catName)}">
+  return `              <div class="menu-group${escala ? ' con-escala' : ''}" data-cat="${esc(g.cat)}">
 ${head}${note}${offerNote}                <div class="row">
                   <div class="col-lg-6">
 ${col(left, 0)}
@@ -808,48 +1140,51 @@ ${col(right, 1)}
 ${avisoFinal}${escala}              </div>`;
 };
 
-// Kids / Gluten Free / Vegan are a different kind of choice from a course — they get
-// their own labelled block at the end of the bar and their own group in the index sheet.
-const SPECIAL = new Set(['Kids', 'Gluten Free', 'Vegan']);
-const countOf = (subs) => subs.reduce((n, [cat]) => n + categories[cat].items.length, 0);
+/* Las pestañas especiales (metadato `especial` en carta.json) van en su propio bloque
+   rotulado al final de la barra y en su propio grupo de la hoja indice. */
+const countOf = (t) => t.grupos.reduce((n, g) => n + g.items.length, 0);
 
-const nav = GROUPS.map(([label], i) => {
-  const id = 'pills-' + slug(label);
-  const divider = SPECIAL.has(label) && !SPECIAL.has(GROUPS[i - 1]?.[0])
+const nav = TAXO.map((t, i) => {
+  const id = ANCLAS[i];
+  const divider = SPECIAL.has(t.label) && !SPECIAL.has(TAXO[i - 1]?.label)
     ? `              <li class="nav-divider" role="presentation">${T('Special menus', 'ui')}</li>\n`
     : '';
-  return `${divider}              <li class="nav-item${i === 0 ? ' active' : ''}" role="presentation" data-tab="${esc(label)}">
-                <button class="nav-link i18n" ${attrs(label, 'tabs')} id="${id}-tab" data-target="${id}" type="button" role="tab" aria-controls="${id}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}">${esc(label)}</button>
+  return `${divider}              <li class="nav-item${i === 0 ? ' active' : ''}" role="presentation" data-tab="${esc(t.label)}">
+                <button class="nav-link i18n" ${attrs(t.label, 'tabs')} id="${id}-tab" data-target="${id}" type="button" role="tab" aria-controls="${id}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}">${esc(t.label)}</button>
               </li>`;
 }).join('\n');
 
 /* Un rotulo sobre una lista vacia. La hoja de categorias de un restaurante sin cartas especiales
    terminaba con «CARTAS ESPECIALES» y debajo nada. Se arregla donde se genera: lo que no tiene
    contenido no se emite. */
-const sheetGroup = (title, entries) => !entries.length ? '' :
+const sheetGroup = (title, tabs) => !tabs.length ? '' :
   `      <p class="sheet-label">${T(title, 'ui')}</p>
       <ul class="sheet-list">
-${entries.map(([label, subs], i) => {
-  const id = 'pills-' + slug(label);
+${tabs.map(([t, i], j) => {
+  const id = ANCLAS[i];
   return `        <li>
-          <button type="button" class="sheet-item" data-target="${id}"${i === 0 && title === 'Menu' ? ' aria-current="true"' : ''}>
-            <span class="sheet-item-icon" aria-hidden="true">${TAB_ICON[label] === 'gf' ? DIET_ICON.gf : GROUP_ICON[TAB_ICON[label]]}</span>
-            <span class="sheet-item-name">${T(label, 'tabs')}</span>
-            <span class="sheet-item-count">${countOf(subs)}</span>
+          <button type="button" class="sheet-item" data-target="${id}"${j === 0 && title === 'Menu' ? ' aria-current="true"' : ''}>
+            <span class="sheet-item-icon" aria-hidden="true">${t.icono === 'gf' ? DIET_ICON.gf : GROUP_ICON[t.icono]}</span>
+            <span class="sheet-item-name">${T(t.label, 'tabs')}</span>
+            <span class="sheet-item-count">${countOf(t)}</span>
           </button>
         </li>`;
 }).join('\n')}
       </ul>`;
 
 const sheet = [
-  sheetGroup('Menu', GROUPS.filter(([l]) => !SPECIAL.has(l))),
-  sheetGroup('Special menus', GROUPS.filter(([l]) => SPECIAL.has(l))),
+  sheetGroup('Menu', TAXO.map((t, i) => [t, i]).filter(([t]) => !t.especial)),
+  sheetGroup('Special menus', TAXO.map((t, i) => [t, i]).filter(([t]) => t.especial)),
 ].filter(Boolean).join('\n');
 
 /* ---- la leyenda del pie, sus dos mitades por separado ----
    Cada una sale sólo si tiene algo que explicar, y si no sale ninguna no se emite ni el envoltorio.
    Se arma aqui y no dentro de la plantilla del HTML: alli habria que anidar plantillas dentro de
    ternarios dentro de la plantilla, y eso es donde se cuelan los errores que no se ven. */
+const leyendaIconos = !CLIENTE.alergenos.leyenda.length ? '' : `                <span class="allergen-icons">
+${CLIENTE.alergenos.leyenda.map((k) => `                  <span class="allergen">${ALERGENO[k]}<span class="a11y">${T(ALERGENO_LABEL[k], 'ui')}</span></span>`).join(String.fromCharCode(10))}
+                </span>`;
+
 const leyendaMarcas = !hayMarcasDieta ? '' : `            <p class="legend-marks">
               <span class="legend-item"><span class="diet diet-vegan" aria-hidden="true">${DIET_ICON.vegan}</span>${T('Available vegan', 'ui')}</span>
               <span class="legend-item"><span class="diet diet-gf" aria-hidden="true">${DIET_ICON.gf}</span>${T('Available gluten free', 'ui')}</span>
@@ -859,16 +1194,7 @@ const leyendaMarcas = !hayMarcasDieta ? '' : `            <p class="legend-marks
 const leyendaAlergenos = hayAlergenosDeclarados ? '' : `            <p class="legend-allergens">
               <span class="allergen-head">
                 <strong>${T('Allergens', 'ui')}</strong>
-                <span class="allergen-icons">
-                  <span class="allergen">${ALERGENO.wheat}<span class="a11y">${T('Gluten', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.milk}<span class="a11y">${T('Dairy', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.nut}<span class="a11y">${T('Nuts', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.fish}<span class="a11y">${T('Fish', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.egg}<span class="a11y">${T('Egg', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.sesame}<span class="a11y">${T('Sesame', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.mustard}<span class="a11y">${T('Mustard', 'ui')}</span></span>
-                  <span class="allergen">${ALERGENO.sulphites}<span class="a11y">${T('Sulphites', 'ui')}</span></span>
-                </span>
+${leyendaIconos}
               </span>
               <span class="allergen-text"><strong class="allergen-lead">${T('Allergies or intolerances?', 'ui')}</strong> ${T('Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.', 'ui')}</span>
             </p>`;
@@ -889,22 +1215,22 @@ const leyenda = !(leyendaMarcas || leyendaAlergenos) ? notaIgic :
   + [leyendaMarcas, leyendaAlergenos].filter(Boolean).join(String.fromCharCode(10))
   + String.fromCharCode(10) + '          </div>';
 
-const panes = GROUPS.map(([label, subs], i) => {
-  const id = 'pills-' + slug(label);
+const panes = TAXO.map((t, i) => {
+  const id = ANCLAS[i];
   // decide the slot column once per tab so every group inside it lines up
-  const showSlot = subs.some(([cat]) => categories[cat].items.some((it) => it.id !== '') || iconFor(cat));
-  const body = subs.map(([cat, sublabel], j) => renderSub(cat, sublabel, showSlot)).join(String.fromCharCode(10));
-  /* La línea de la pestaña (sólo Vegano la tiene) va al FINAL, después de todos los grupos,
-     con el distintivo IMPORTANTE: es condición de lo que se pide, no una introducción. */
-  const cierre = TAB_INTRO[label]
-    ? String.fromCharCode(10) + `              <p class="menu-group-aviso tab-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(TAB_INTRO[label], 'ui')}</p>`
+  const showSlot = t.grupos.some((g) => g.items.some((it) => it.id !== '') || iconFor(g));
+  const body = t.grupos.map((g) => renderSub(g, showSlot)).join(String.fromCharCode(10));
+  /* La línea de la pestaña (metadato `intro` en carta.json) va al FINAL, después de todos
+     los grupos, con el distintivo IMPORTANTE: es condición de lo que se pide. */
+  const cierre = t.intro
+    ? String.fromCharCode(10) + `              <p class="menu-group-aviso tab-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(t.intro, 'ui')}</p>`
     : '';
-  return `              <div class="tab-pane${i === 0 ? ' active' : ''}${showSlot ? ' has-ids' : ''}" id="${id}" role="tabpanel" aria-labelledby="${id}-tab" data-tab="${esc(label)}">
+  return `              <div class="tab-pane${i === 0 ? ' active' : ''}${showSlot ? ' has-ids' : ''}" id="${id}" role="tabpanel" aria-labelledby="${id}-tab" data-tab="${esc(t.label)}">
 ${body}${cierre}
               </div>`;
 }).join('\n');
 
-const totalItems = Object.values(categories).reduce((n, c) => n + c.items.length, 0);
+const totalItems = GRUPOS_PLANOS.reduce((n, g) => n + g.items.length, 0);
 
 /* ---- datos estructurados --------------------------------------------------
  * Un Restaurant con su Menu completo, para que Google pueda enseñar la carta como resultado
@@ -927,16 +1253,16 @@ const totalItems = Object.values(categories).reduce((n, c) => n + c.items.length
  * está arriba del todo. En la cabecera, el analizador tendría que atravesarlos antes de
  * llegar a pintarlo. Google lee el JSON-LD esté donde esté en el documento. */
 const JSONLD = (() => {
-  const secciones = Object.entries(categories)
-    .filter(([, c]) => c.items.length)
-    .map(([nombre, c]) => ({
+  const secciones = GRUPOS_PLANOS
+    .filter((g) => g.items.length)
+    .map((g) => ({
       '@type': 'MenuSection',
-      name: nombre,
-      hasMenuItem: c.items.map((it) => {
+      name: g.cat,
+      hasMenuItem: g.items.map((it) => {
         const item = { '@type': 'MenuItem', name: it.name };
         if (it.desc) item.description = it.desc;
         if (!/^included$/i.test(it.price)) {
-          item.offers = { '@type': 'Offer', price: it.price, priceCurrency: 'EUR' };
+          item.offers = { '@type': 'Offer', price: it.price, priceCurrency: MONEDA.iso };
         }
         return item;
       }),
@@ -948,8 +1274,10 @@ const JSONLD = (() => {
     name: CLIENTE.nombre,
     url: CLIENTE.base,
     description: CLIENTE.descripcion,
-    servesCuisine: 'Indian',
-    priceRange: '€',
+    /* La cocina la declara el cliente; sin declarar, la propiedad no se emite — no se
+       inventa un dato y desde luego no se hereda el de otro restaurante. */
+    ...(CLIENTE.cocina ? { servesCuisine: CLIENTE.cocina } : {}),
+    priceRange: MONEDA.simbolo,
     ...(CLIENTE.imagenSocial ? { image: CLIENTE.base + CLIENTE.imagenSocial } : {}),
     hasMenu: { '@type': 'Menu', name: CLIENTE.titulo, hasMenuSection: secciones },
   };
@@ -960,7 +1288,7 @@ const JSONLD = (() => {
 })();
 
 const html = `<!DOCTYPE html>
-<html lang="en" translate="no" class="notranslate">
+<html lang="${IDIOMA_BASE.code}" translate="no" class="notranslate">
 <head>
 <meta charset="utf-8">
 <!-- El charset, lo PRIMERO de todo. El navegador tiene que saber en qué está escrito el
@@ -3625,7 +3953,7 @@ ${panes}
           </main>
 ${leyenda}
 
-          <!-- La entrada al juego va al final a propósito: el momento de jugar es después de
+${!CLIENTE.funciones.juego ? '' : `          <!-- La entrada al juego va al final a propósito: el momento de jugar es después de
                pedir, no mientras se elige. El enlace se oculta si el restaurante apaga el
                juego desde el panel. -->
           <a class="game-card" id="game-card" href="juego.html" hidden>
@@ -3635,7 +3963,7 @@ ${leyenda}
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg>
             </span>
             <span class="game-card-record" id="game-card-record" hidden></span>
-          </a>
+          </a>`}
 
           <!-- La nota de Google. Los números y los nombres salen de estado.json, nunca del
                build: cada restaurante tiene los suyos y esta carta se vende a varios. Si el
@@ -3747,7 +4075,7 @@ ${sheet}
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var nav = document.getElementById('pills-tab');
-  var TITLE = ${JSON.stringify(Object.assign({ en: CLIENTE.titulo },
+  var TITLE = ${JSON.stringify(Object.assign({ [IDIOMA_BASE.code]: CLIENTE.titulo },
       Object.fromEntries(LANGS.map((l) => [l.code, tr(CLIENTE.titulo, 'ui', l)]))))};
   var sentinel = document.querySelector('.tab-nav-sentinel');
   var navBar = document.querySelector('.tab-nav');
@@ -3963,8 +4291,8 @@ ${sheet}
   /* Diccionario para los textos que el JS compone (un porcentaje, una hora, una etiqueta).
      T() vale para el HTML, pero esto no está en el HTML hasta que el panel lo enciende. */
   var TR = ${JSON.stringify(Object.fromEntries(RUNTIME_STRINGS.map((k) => [k, {
-    en: k,
-    ...Object.fromEntries(LANGS.map((l) => [l.code, l.dicts.ui[k]])),
+    [IDIOMA_BASE.code]: BT(k, 'ui'),
+    ...Object.fromEntries(LANGS.map((l) => [l.code, l.dicts ? l.dicts.ui[k] : k])),
   }])))};
 
   /* ---- la carta del día ----
@@ -3988,7 +4316,7 @@ ${sheet}
   function canaryParts() {
     try {
       var f = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Atlantic/Canary',
+        timeZone: '${CLIENTE.zonaHoraria}',
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
       });
@@ -4012,12 +4340,10 @@ ${sheet}
     var p = canaryParts();
     if (!p) return null;
     var d = new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
-    /* EL 6 ESTA ESCRITO DOS VECES y tiene que ser el mismo numero: aqui, que es lo que ve el
-       comensal, y en CORTE_HORA de server/admin/config.php, que es lo que ve el restaurante.
-       No se puede leer de alli: config.php se edita a mano y este fichero lo genera el build.
-       Si se cambia uno hay que cambiar el otro, o la carta tachara un plato que el panel ya
-       da por bueno. */
-    if (+p.hour < 6) d.setUTCDate(d.getUTCDate() - 1);   // sigue siendo el servicio de anoche
+    /* El corte lo decide el cliente (servicio.corteHora) y tiene UNA sola fuente: el build
+       lo hornea aqui y lo publica al panel en cliente.php, asi que la carta y el panel ya no
+       pueden decir horas distintas. */
+    if (+p.hour < ${CORTE_HORA}) d.setUTCDate(d.getUTCDate() - 1);   // sigue siendo el servicio de anoche
     return d.toISOString().slice(0, 10);
   }
 
@@ -4036,9 +4362,9 @@ ${sheet}
   }
 
   function tr(key) {
-    var lang = document.documentElement.lang || 'en';
+    var lang = document.documentElement.lang || '${IDIOMA_BASE.code}';
     var e = TR[key];
-    return e ? (e[lang] || e.en || key) : key;
+    return e ? (e[lang] || e.${IDIOMA_BASE.code} || key) : key;
   }
 
   function fill(plantilla, datos) {
@@ -4163,7 +4489,7 @@ ${sheet}
      queda corta. El resultado era una marquesina al doble de velocidad. */
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(rehacerMarquesina);
 
-  function euros(n) { return '€' + n.toFixed(2); }
+  function euros(n) { return '${MONEDA.simbolo}' + n.toFixed(2); }
 
   /* ---- opiniones de Google ----
      La nota y el numero de resenas los escribe el panel; aqui solo se pintan. No se piden a
@@ -4177,7 +4503,7 @@ ${sheet}
     var cuantas = r ? Math.round(+r.count || 0) : 0;
     if (!r || !r.on || !(nota > 0) || !(cuantas > 0)) { bloque.hidden = true; return; }
 
-    var lang = document.documentElement.lang || 'en';
+    var lang = document.documentElement.lang || '${IDIOMA_BASE.code}';
     var texto = nota.toFixed(1);
     document.getElementById('reviews-score').textContent = lang === 'en' ? texto : texto.replace('.', ',');
     document.getElementById('reviews-of').textContent = tr('out of 5');
@@ -5094,20 +5420,20 @@ ${DATOS_ACTIVO ? `
     var tarjetaJuego = document.getElementById('game-card');
     if (tarjetaJuego) tarjetaJuego.href = 'juego.html?lang=' + encodeURIComponent(lang);
 
-    document.querySelectorAll('[data-es]').forEach(function (el) {
-      if (el.dataset.en === undefined) el.dataset.en = el.tagName === 'META' ? el.content : el.textContent;
-      var next = el.dataset[lang] !== undefined ? el.dataset[lang] : el.dataset.en;
+    document.querySelectorAll('[data-${(LANGS[0] || { code: 'x' }).code}]').forEach(function (el) {
+      if (el.dataset.${IDIOMA_BASE.code} === undefined) el.dataset.${IDIOMA_BASE.code} = el.tagName === 'META' ? el.content : el.textContent;
+      var next = el.dataset[lang] !== undefined ? el.dataset[lang] : el.dataset.${IDIOMA_BASE.code};
       if (el.tagName === 'META') el.content = next;
       else el.textContent = next;
     });
 
-    document.querySelectorAll('[data-es-label]').forEach(function (el) {
-      if (el.dataset.enLabel === undefined) el.dataset.enLabel = el.getAttribute('aria-label');
+    document.querySelectorAll('[data-${(LANGS[0] || { code: 'x' }).code}-label]').forEach(function (el) {
+      if (el.dataset.${IDIOMA_BASE.code}Label === undefined) el.dataset.${IDIOMA_BASE.code}Label = el.getAttribute('aria-label');
       var k = lang + 'Label';
-      el.setAttribute('aria-label', el.dataset[k] !== undefined ? el.dataset[k] : el.dataset.enLabel);
+      el.setAttribute('aria-label', el.dataset[k] !== undefined ? el.dataset[k] : el.dataset.${IDIOMA_BASE.code}Label);
     });
 
-    document.title = TITLE[lang] || TITLE.en;
+    document.title = TITLE[lang] || TITLE.${IDIOMA_BASE.code};
     document.dispatchEvent(new CustomEvent('${CLIENTE.slug}:lang'));
     langPintar(lang);
     try { localStorage.setItem('${CLAVE('lang')}', lang); } catch (e) {}
@@ -5143,7 +5469,7 @@ ${DATOS_ACTIVO ? `
       var c = String(lista[i] || '').slice(0, 2).toLowerCase();
       if (idiomaSoportado(c)) return c;
     }
-    return 'en';
+    return '${IDIOMA_BASE.code}';
   }
 
   var saved;
@@ -5997,8 +6323,8 @@ ${DATOS_ACTIVO ? `
     bloquearFondo();
     var cerrarBtn = ficha.querySelector('.dsheet-close');
     if (cerrarBtn) cerrarBtn.focus({ preventScroll: true });
-    contarVista(row);
-  }
+${DATOS_ACTIVO ? `    contarVista(row);
+` : ''}  }
 
   function cerrarFicha(porHistorial) {
     if (!ficha || ficha.hidden) return;
@@ -6114,7 +6440,7 @@ ${DATOS_ACTIVO ? `
      identificador: este navegador no puede distinguirse del de la mesa de al lado, ni aquí ni
      en el servidor. Si sessionStorage no está —navegación privada en un iOS viejo— se cuenta
      igual: mejor un duplicado que perder el dato. */
-  function contarVista(row) {
+${DATOS_ACTIVO ? `  function contarVista(row) {
     var id = row.dataset.vid;
     if (!id || !navigator.sendBeacon) return;
     try {
@@ -6123,7 +6449,7 @@ ${DATOS_ACTIVO ? `
     } catch (e) {}
     try { navigator.sendBeacon('admin/vista.php', id); } catch (e) {}
   }
-
+` : ''}
   window.addEventListener('popstate', function () {
     /* Las dos hojas comparten el botón atrás. Primero la ficha, que es la que puede estar
        encima; nunca están las dos abiertas a la vez. */
@@ -6183,7 +6509,7 @@ ${JSONLD}
 if (missingTr.length) {
   throw new Error('missing translations (' + missingTr.length + '):\n  ' + missingTr.slice(0, 40).join('\n  '));
 }
-const tabsWithoutIcon = GROUPS.map(([l]) => l).filter((l) => !TAB_ICON[l]);
+const tabsWithoutIcon = TAXO.filter((t) => !t.icono).map((t) => t.label);
 if (tabsWithoutIcon.length) {
   throw new Error('tabs with no icon in the index sheet: ' + tabsWithoutIcon.join(' | '));
 }
@@ -6192,6 +6518,7 @@ if (tabsWithoutIcon.length) {
 const runtimeSinTraducir = [];
 for (const k of RUNTIME_STRINGS) {
   for (const l of LANGS) {
+    if (l.code === 'en' && !l.dicts) continue;   // catalogo nativo del motor
     if (typeof l.dicts.ui[k] !== 'string') runtimeSinTraducir.push(l.code + ' / ui: "' + k + '"');
   }
 }
@@ -6233,18 +6560,38 @@ writeFileSync(
 /* Chilli Rush. Página aparte para no cargarle 20 KB a los 580 de la carta, pero construida
    aquí para que comparta tokens, tipografías y diccionarios: un solo sitio donde vive el
    diseño y un solo sitio donde viven las traducciones. */
-const juego = buildGame({
+/* El juego es una CAPACIDAD del cliente. Con funciones.juego en false no se publica: en su
+   lugar sale una LAPIDA minima con noindex que, al desplegarse, SUSTITUYE a cualquier
+   juego.html viejo del servidor — el FTP no borra ficheros, pero si los sobreescribe, asi
+   que apagar el juego apaga tambien las copias ya desplegadas. El endpoint del marcador se
+   cierra ademas por CLIENTE_JUEGO en cliente.php. */
+const lapida = () => `<!doctype html>
+<html lang="${IDIOMA_BASE.code}">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(CLIENTE.nombre)}</title>
+</head>
+<body>
+<p>Not available.</p>
+<p><a href="./">${esc(CLIENTE.nombre)}</a></p>
+</body>
+</html>
+`;
+const juego = !CLIENTE.funciones.juego ? lapida() : buildGame({
   /* Los paises del marcador, desde banderas.mjs: el juego pinta el selector y las banderas
      con la misma lista que valida el endpoint. */
   PAISES, imgBandera,
   T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), CLIENTE, CLAVE,
+  ZONA: CLIENTE.zonaHoraria, CORTE: CORTE_HORA, BASE: IDIOMA_BASE.code,
   TEMAS_SLUGS: [TEMA_POR_DEFECTO].concat(TEMAS.map((t) => t.slug).filter((s) => s !== TEMA_POR_DEFECTO)),
   TEMA_INK: derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink'],
-  /* El mismo titulo en los tres idiomas: es el nombre del juego y el del restaurante. */
-  titles: Object.fromEntries(['en'].concat(LANGS.map((l) => l.code))
+  /* El mismo titulo en todos los idiomas: es el nombre del juego y el del restaurante. */
+  titles: Object.fromEntries([IDIOMA_BASE.code].concat(LANGS.map((l) => l.code))
     .map((c) => [c, CLIENTE.tituloJuego])),
 });
-writeFileSync(cliente('juego.html'), adelgazarDocumento(juego));
+writeFileSync(cliente('juego.html'), CLIENTE.funciones.juego ? adelgazarDocumento(juego) : juego);
 
 /* La página de error. Comparte tokens y tipografías con la carta y el juego, y nada más: ver
    error404.mjs. La activa el ErrorDocument del .htaccess. */
@@ -6254,7 +6601,7 @@ writeFileSync(
      .htaccess sirve este fichero con un 200 y hay que corregirlo aqui. Un 404 que responde 200
      es lo que Google llama un soft 404, y es peor que no tener pagina de error. */
   '<' + '?php http_response_code(404); ?' + '>' + String.fromCharCode(10)
-  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS })),
+  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE: IDIOMA_BASE.code })),
 );
 
 /* El panel también bebe de aquí. Antes tenía su propia paleta y sus propias fuentes copiadas
@@ -6274,26 +6621,28 @@ writeFileSync(
 
 /* The panel needs the dish list, and there must be exactly one source of truth for it, so it
    is emitted here rather than retyped in PHP. Keys match the data-key on every row. */
-const catalogue = GROUPS.flatMap(([tab, subs]) =>
-  subs.flatMap(([cat, sublabel]) =>
-    categories[cat].items.map((it) => ({
+const L_PANEL = LANGS[0] || null;
+const catalogue = TAXO.flatMap((t) =>
+  t.grupos.flatMap((g) =>
+    g.items.map((it) => ({
       key: it.dishId,
       /* La clave con la que el panel viejo escribio estado.json. El panel la usa para migrar
          un estado antiguo y para resolver las lineas historicas del contador de consultas;
          no es publica: admin/.htaccess deniega los .json. */
-      legacy: cat + ' :: ' + it.name,
+      legacy: g.cat + ' :: ' + it.name,
       catId: it.catId,
       id: it.id,
       name: it.name,
-      tab,
-      group: sublabel || tab,
-      cat,                                   // la categoría que forma la clave: la usan las ofertas
+      tab: t.label,
+      group: g.sub || t.label,
+      cat: g.cat,                            // la categoría que formaba la clave vieja
       price: /^included$/i.test(it.price) ? '' : String(it.price),
       /* Lo mismo que ve el cliente en la carta en español: el panel lo enseña tal cual, para
          que «56 · Cordero · Currys» sea igual en los dos sitios. El inglés sigue en name. */
-      es: tr(it.name, 'names', LANGS[0]),
-      tab_es: tr(tab, 'tabs', LANGS[0]),
-      group_es: sublabel ? tr(sublabel, 'groups', LANGS[0]) : tr(tab, 'tabs', LANGS[0]),
+      es: L_PANEL ? tr(it.name, 'names', L_PANEL) : it.name,
+      tab_es: L_PANEL ? tr(t.label, 'tabs', L_PANEL) : t.label,
+      group_es: g.sub ? (L_PANEL ? tr(g.sub, 'groups', L_PANEL) : g.sub)
+                      : (L_PANEL ? tr(t.label, 'tabs', L_PANEL) : t.label),
     }))));
 /* Los temas de marca, ya derivados, para que el panel pinte cada muestra con sus colores
    reales sin repetir en PHP la aritmética de contraste. Misma regla que platos.json: una
@@ -6357,6 +6706,13 @@ writeFileSync(
        coinciden, la subida se quedo a medias o el movil esta enseñando cache. */
     "define('BUILD_ID',      " + JSON.stringify(BUILD) + ');',
     "define('BUILD_FECHA',   " + JSON.stringify(FECHA_BUILD) + ');',
+    /* El contrato del cliente que el panel necesita: zona horaria, corte del dia de
+       servicio, simbolo de moneda y capacidades. Una sola fuente: cliente.mjs, via build. */
+    "define('CLIENTE_TZ',    " + JSON.stringify(CLIENTE.zonaHoraria) + ');',
+    "define('CLIENTE_CORTE_HORA', " + String(CORTE_HORA) + ');',
+    "define('CLIENTE_MONEDA', " + JSON.stringify(MONEDA.simbolo) + ');',
+    "define('CLIENTE_JUEGO', " + (CLIENTE.funciones.juego ? 'true' : 'false') + ');',
+    "define('CLIENTE_DATOS', " + (DATOS_ACTIVO ? 'true' : 'false') + ');',
     '',
   ].join(NL),
 );
@@ -6366,8 +6722,8 @@ writeFileSync(
 console.log(
   'cliente', CLIENTE.slug, '|',
   'written', Buffer.byteLength(html), 'bytes | juego', Buffer.byteLength(juego), 'bytes |', catalogue.length, 'dishes |',
-  GROUPS.length, 'tabs |',
-  Object.keys(categories).filter((c) => categories[c].items.length).length, 'categories |',
+  TAXO.length, 'tabs |',
+  GRUPOS_PLANOS.filter((g) => g.items.length).length, 'categories |',
   totalItems, 'items'
 );
 
@@ -6444,9 +6800,12 @@ const SUELTOS = [
   [cliente('server/.htaccess'), '.htaccess'],
   [cliente('server/LEEME-SERVIDOR.txt'), 'LEEME-SERVIDOR.txt'],
   [cliente('server/estado.json'), 'estado-EJEMPLO.json'],
-  /* El arte del juego es del motor, como las banderas: aqui esta el original. */
-  [enMotor('assets/chilirush.webp'), 'assets/chilirush.webp'],
-  [enMotor('assets/chilli-rush-fondo-alpha.webm'), 'assets/chilli-rush-fondo-alpha.webm'],
+  /* El arte del juego es del motor, como las banderas: aqui esta el original. Solo viaja
+     si el cliente tiene la capacidad. */
+  ...(CLIENTE.funciones.juego ? [
+    [enMotor('assets/chilirush.webp'), 'assets/chilirush.webp'],
+    [enMotor('assets/chilli-rush-fondo-alpha.webm'), 'assets/chilli-rush-fondo-alpha.webm'],
+  ] : []),
 ];
 
 /* Carpetas enteras, solo el primer nivel. Las subcarpetas que hay al otro lado las crea el

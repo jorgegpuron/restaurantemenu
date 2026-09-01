@@ -49,7 +49,7 @@ const lock = {
      estado o de la carta sube estos numeros, y la comprobacion del build correspondiente
      aborta con datos de una epoca que no entienda. */
   esquemaEstado: 2,
-  esquemaCarta: 'carta/1',
+  esquemaCarta: 'carta/2',
   fecha: new Date().toISOString().slice(0, 10),
   envoltorios,
   ficheros,

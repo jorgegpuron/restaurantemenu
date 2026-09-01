@@ -3,13 +3,12 @@ import * as DE from './i18n.de.mjs';
 
 /* Lo que distingue a ESTE restaurante de cualquier otro que use el mismo motor.
  *
- * Nace pequeño a propósito. Hoy sólo lleva las tres cosas que la fase 1 necesita para que dos
- * cartas puedan convivir en el mismo dominio sin pisarse. El nombre, la carta, los diccionarios
- * y la taxonomía siguen dentro del motor y salen en la fase 3: sacarlos ahora, sin los ID
- * estables hechos, sería mover dos veces las mismas 500 líneas.
- *
- * Cuando el motor viva fuera de la carpeta del cliente, este archivo es lo que el build recibirá
- * como `config`. Por eso está aquí y no repartido en constantes por gen.mjs.
+ * Desde la fase 5 este archivo es el CONTRATO entero de configuración: identidad, mercado
+ * (moneda, zona horaria, cocina), idiomas con su bandera, la selección de la leyenda de
+ * alérgenos y las capacidades. Ningún campo tiene valor por defecto en el motor: lo que
+ * falte y sea obligatorio revienta el build con su mensaje. La ESTRUCTURA de la carta
+ * (pestañas, categorías, metadatos de comportamiento) no vive aquí: vive en carta.json,
+ * que es su fuente única.
  */
 export const CLIENTE = {
   /* Prefijo de todo lo que la carta guarda en el navegador.
@@ -28,17 +27,6 @@ export const CLIENTE = {
    * og:url. Estaban escritos a mano en gen.mjs, así que dos restaurantes emitían el mismo y
    * competían entre ellos en Google por ser el original. */
   base: 'https://socialcard.es/tinge_of_turmeric/menu2/',
-
-  /* La sal con la que se firman los códigos del juego. NO es seguridad y nunca lo fue: viaja en
-   * el JavaScript de la página y cualquiera con la consola abierta fabrica uno. Sirve para lo
-   * que pasa en una mesa, que es alguien enseñando la captura de ayer, y por eso el código lleva
-   * la fecha dentro.
-   *
-   * Lo que sí arregla tenerla aquí: hasta ahora era el mismo literal en los once restaurantes
-   * que vinieran, así que un código ganado en A se canjeaba en B. Cada cliente lleva la suya.
-   * La de Tinge no se toca por la misma razón que el slug: cambiarla invalida los códigos que
-   * alguien pueda tener en el móvil ahora mismo. */
-  secreto: 'totm-chilli',
 
   /* Los rotulos. Cada uno sale en un sitio distinto y no son intercambiables:
      nombre        el titular grande de la portada
@@ -79,6 +67,61 @@ export const CLIENTE = {
    *
    * Se traduce: tiene que existir como clave en la sección ui de cada diccionario. */
   impuesto: 'Prices include IGIC',
+
+  /* La cocina que publica el JSON-LD de Google (servesCuisine). OPCIONAL: si no se declara,
+     la propiedad no se emite — no se inventa una cocina, y desde luego no se hereda la de
+     otro restaurante. */
+  cocina: 'Indian',
+
+  /* La moneda de los precios. OBLIGATORIA, sin valor por defecto: el símbolo va delante de
+     cada precio y el ISO en el JSON-LD. Un restaurante fuera de la zona euro cambia esto y
+     nada más. */
+  moneda: { simbolo: '€', iso: 'EUR' },
+
+  /* La zona horaria del restaurante (identificador IANA). OBLIGATORIA. Manda sobre la fecha
+     de servicio de la carta, el día del premio del juego y el reloj del panel: un
+     restaurante peninsular pone 'Europe/Madrid' y los tres relojes se mueven juntos. */
+  zonaHoraria: 'Atlantic/Canary',
+
+  /* La política del día de servicio. corteHora (0-23, OBLIGATORIA): hora a la que caducan
+     los agotados del día anterior y cambia el día del premio. Es política del restaurante,
+     no del motor: una cafetería que abre a las 05:00 necesita un corte más temprano; un
+     corte a medianoche es corteHora: 0. */
+  servicio: { corteHora: 6 },
+
+  /* Los idiomas de ESTA carta. OBLIGATORIO, y cada idioma declara su bandera (fichero de
+     motor/assets/banderas/, sin extensión): el motor ya no adivina banderas y un idioma sin
+     ella no compila — jamás un 'undefined' en el selector.
+     - base: el idioma del TEXTO del documento. El catálogo nativo del motor está en inglés;
+       con base 'en' no hace falta diccionario. Un base distinto exige su i18n.<code>.mjs
+       con la sección ui completa, y el build lo hornea como texto del documento.
+     - extras: los demás, en el orden del selector. Cada uno trae su diccionario; el inglés
+       puede ir como extra SIN diccionario (el catálogo nativo lo cubre). */
+  idiomas: {
+    base: { code: 'en', label: 'EN', name: 'English', bandera: 'gb' },
+    extras: [
+      { code: 'es', label: 'ES', dicts: ES, name: 'Español', bandera: 'es' },
+      { code: 'de', label: 'DE', dicts: DE, name: 'Deutsch', bandera: 'de' },
+    ],
+  },
+
+  /* La leyenda genérica de alérgenos del pie (solo aparece mientras ningún plato declara
+     los suyos). SELECCIÓN del restaurante, OBLIGATORIA — [] es legal y quita la fila de
+     iconos dejando el aviso de texto. Las claves son las del catálogo de iconos del motor:
+     wheat, milk, nut, fish, egg, sesame, mustard, sulphites. Esta selección es de Tinge
+     —lo que de verdad se pregunta en una cocina del sur de la India— y por eso vive aquí
+     y no en el motor: otro restaurante elige la suya. */
+  alergenos: {
+    leyenda: ['wheat', 'milk', 'nut', 'fish', 'egg', 'sesame', 'mustard', 'sulphites'],
+  },
+
+  /* Capacidades. OBLIGATORIAS y explícitas, sin defaults del motor:
+     - datos: el contador anónimo de aperturas. Apagado significa apagado: la carta sale sin
+       una sola línea de medición y el endpoint no apunta.
+     - juego: Chilli Rush. Con false no se emite juego.html (sale una lápida que sustituye a
+       cualquier copia vieja desplegada), no hay tarjeta en la carta, el arte del juego no
+       viaja y el endpoint del marcador rechaza toda actividad. */
+  funciones: { datos: true, juego: true },
 };
 
 /* Se usa en todas partes como CLAVE('tema'), CLAVE('lang')... Una sola función y ni un literal
@@ -86,24 +129,6 @@ export const CLIENTE = {
    tenga que acordarse. */
 export const CLAVE = (nombre) => CLIENTE.slug + '-' + nombre;
 
-/* Los idiomas de ESTA carta, ademas del ingles, que es el texto del documento y siempre
-   esta. Cada uno trae su diccionario. Anadir uno es anadir una linea aqui y su fichero;
-   quitarlo, borrar la linea. El motor pone las banderas. */
-export const IDIOMAS_CLIENTE = [
-  { code: 'es', label: 'ES', dicts: ES, name: 'Español' },
-  { code: 'de', label: 'DE', dicts: DE, name: 'Deutsch' },
-];
-
-/* ------------------------------------------------------------------ *
- * La estructura de la carta
- *
- * Que pestanas hay, que categorias de menu.md cuelgan de cada una y con que icono. Es lo
- * unico que hay que escribir a mano para un restaurante nuevo, y son datos: ninguna de
- * estas lineas es codigo del motor.
- *
- * Iconos disponibles, y no hay mas: appetizers, soup, vegetarian, meat, salad, flame,
- * leaf, lentils, rice, bread, fries, special, kids, bowl, drop.
- * ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ *
  * Palabras que quieren decir lo mismo, para el buscador.
  *
@@ -135,162 +160,3 @@ export const SINONIMOS = [
   ['coliflor', 'gobhi'],                         // 3 y 2
   ['queso', 'paneer'],                           // 10 y 14
 ];
-
-/* An optional line under the tab's first heading. Written by importar.mjs from carta.mjs. */
-export const TAB_INTRO = {
-  'Gluten Free': 'Cooked separately to avoid gluten. Some of these dishes cost a little more than in their original section.',
-  'Vegan': 'Prepared using vegan alternatives such as plant-based butter, cream, yoghurt and milk. Some of these dishes cost a little more than in their original section.',
-};
-
-/* ------------------------------------------------------------------ *
- * 2. Group the 41 categories into 13 tabs
- *    [tab label, [[md category, subheading label (null = no subheading)], ...]]
- * ------------------------------------------------------------------ */
-
-
-export const GROUPS = [
-  ['Appetizers & Soups', [
-    ['Appetizers', 'Appetizers'],
-    ['Soups', 'Soups'],
-  ]],
-  ['Starters', [
-    ['Starters - Vegetarian', 'Vegetarian'],
-    ['Starters - Meat & Seafood', 'Meat & Seafood'],
-  ]],
-  ['Salads', [
-    ['Salads', null],
-  ]],
-  ['Sizzlers', [
-    ['Sizzlers', null],
-  ]],
-  /* La carta original repetía los catorce ingredientes: una vez para las salsas clásicas y
-     otra, idénticos en nombre, descripción y precio, para las del sur de la India. Aquí se
-     listan una sola vez y luego se elige salsa de una de las dos familias. No se ha quitado
-     ningún plato: se ha quitado una copia. */
-  ['Curries', [
-    ['Curries - Ingredients', 'Choose Your Ingredient'],
-    ['Curries - Sauces', 'Classic sauces'],
-    ['South Indian Curries - Sauces', 'South Indian sauces'],
-  ]],
-  ['Specialities', [
-    ['House Specialities', null],
-  ]],
-  ['Vegetables & Lentils', [
-    ['Vegetable Dishes', 'Vegetable Dishes'],
-    ['Indian Lentil Dishes', 'Indian Lentil Dishes'],
-  ]],
-  ['Biryani', [
-    ['Classic Biryani', 'Classic Biryani'],
-    ['Butter Masala Biryani', 'Butter Masala Biryani'],
-  ]],
-  ['Breads', [
-    ['Naan Bread', 'Naan Bread'],
-    ['Flat Breads', 'Flat Breads'],
-  ]],
-  ['Rice & Fries', [
-    ['Indian Rice', 'Indian Rice'],
-    ['Fries', 'Fries'],
-  ]],
-  ['Kids', [
-    ['Kids Menu', null],
-  ]],
-  ['Gluten Free', [
-    ['Gluten Free - Soups', 'Soups'],
-    ['Gluten Free - Salads', 'Salads'],
-    ['Gluten Free - Starters', 'Starters'],
-    ['Gluten Free - Curries', 'Curries'],
-    ['Gluten Free - Sizzlers', 'Sizzlers'],
-    ['Gluten Free - Biryani', 'Biryani'],
-    ['Gluten Free - Vegetable & Lentil Dishes', 'Vegetable & Lentil Dishes'],
-    ['Gluten Free - Rice, Fries & Breads', 'Rice, Fries & Breads'],
-    ['Gluten Free - Special Dishes', 'Special Dishes'],
-  ]],
-  ['Vegan', [
-    ['Vegan - Appetizers', 'Appetizers'],
-    ['Vegan - Soups', 'Soups'],
-    ['Vegan - Salads', 'Salads'],
-    ['Vegan - Starters', 'Starters'],
-    ['Vegan - Curries', 'Curries'],
-    ['Vegan - Vegetable Dishes', 'Vegetable Dishes'],
-    ['Vegan - Indian Lentil Dishes', 'Indian Lentil Dishes'],
-    ['Vegan - Special Biryani', 'Special Biryani'],
-    ['Vegan - Butter Masala Biryani', 'Butter Masala Biryani'],
-    ['Vegan - Rice & Fries', 'Rice & Fries'],
-    ['Vegan - Sizzlers', 'Sizzlers'],
-    ['Vegan - Flat Breads', 'Flat Breads'],
-  ]],
-];
-
-/* The index sheet lists tabs, not subcategories, so it needs its own map. Same twelve
-   shapes plus a face for the kids menu — no new family, no new stroke. */
-export const TAB_ICON = {
-  'Appetizers & Soups': 'soup',
-  'Starters': 'appetizers',
-  'Salads': 'salad',
-  'Sizzlers': 'flame',
-  'Curries': 'bowl',
-  'Specialities': 'special',
-  'Vegetables & Lentils': 'leaf',
-  'Biryani': 'rice',
-  'Breads': 'bread',
-  'Rice & Fries': 'fries',
-  'Kids': 'kids',
-  'Gluten Free': 'gf',
-  'Vegan': 'vegetarian',
-};
-
-export const GROUP_ICON_BY_CAT = {
-  'Appetizers': 'appetizers',
-  'Soups': 'soup',
-  'Starters - Vegetarian': 'vegetarian',
-  'Starters - Meat & Seafood': 'meat',
-  'Curries - Ingredients': 'bowl',
-  'Curries - Sauces': 'drop',
-  'South Indian Curries - Ingredients': 'bowl',
-  'South Indian Curries - Sauces': 'drop',
-  'Vegetable Dishes': 'leaf',
-  'Indian Lentil Dishes': 'lentils',
-  'Classic Biryani': 'rice',
-  'Butter Masala Biryani': 'rice',
-  'Naan Bread': 'bread',
-  'Flat Breads': 'bread',
-  'Indian Rice': 'rice',
-  'Fries': 'fries',
-  'Gluten Free - Soups': 'soup',
-  'Gluten Free - Salads': 'salad',
-  'Gluten Free - Starters': 'meat',
-  'Gluten Free - Curries': 'bowl',
-  'Gluten Free - Sizzlers': 'flame',
-  'Gluten Free - Biryani': 'rice',
-  'Gluten Free - Vegetable & Lentil Dishes': 'lentils',
-  'Gluten Free - Rice, Fries & Breads': 'rice',
-  'Gluten Free - Special Dishes': 'special',
-  'Vegan - Appetizers': 'appetizers',
-  'Vegan - Soups': 'soup',
-  'Vegan - Salads': 'salad',
-  'Vegan - Starters': 'vegetarian',
-  'Vegan - Curries': 'bowl',
-  'Vegan - Vegetable Dishes': 'leaf',
-  'Vegan - Indian Lentil Dishes': 'lentils',
-  'Vegan - Special Biryani': 'special',
-  'Vegan - Butter Masala Biryani': 'rice',
-  'Vegan - Rice & Fries': 'rice',
-  'Vegan - Sizzlers': 'flame',
-  'Vegan - Flat Breads': 'bread',
-};
-
-/* Categorías que la carta impresa repite y aquí se muestran una sola vez. La clave es la
-   copia; el valor, el original.
-
-   Vacío desde que la carta se escribe en carta.mjs. Antes hacía falta: menu.md se mantenía a
-   mano y llevaba dos veces los catorce ingredientes de los currys —una para las salsas
-   clásicas y otra para las del sur de la India—, así que el build comparaba las dos listas y
-   reventaba si alguien subía el precio del cordero en una sola. Ahora los catorce
-   ingredientes están escritos UNA vez en carta.mjs, no hay segunda lista que pueda
-   desviarse, y la comprobación se quedó sin nada que comparar.
-
-   Lo que ve el comensal no cambió: la copia nunca se enseñaba, porque no colgaba de ninguna
-   pestaña. Se sigue eligiendo salsa de una familia o de la otra.
-
-   Si algún día vuelve a haber dos categorías que deban ser idénticas, se declaran aquí. */
-export const CATEGORIAS_DUPLICADAS = {};

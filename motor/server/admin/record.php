@@ -19,6 +19,15 @@
 require __DIR__ . '/config.php';
 require __DIR__ . '/paises.php';          // lo escribe el build desde banderas.mjs
 
+/* La CAPACIDAD manda, y se mira ANTES que nada — antes incluso que el interruptor del panel:
+ * un cliente sin juego (CLIENTE_JUEGO en cliente.php) no apunta ni responde marcador, haya lo
+ * que haya en estado.json o en el FTP de un despliegue viejo. Mismo estilo que el resto del
+ * fichero: falla callando. */
+if (!CLIENTE_JUEGO) {
+  http_response_code(204);
+  exit;
+}
+
 $metodo = (string) ($_SERVER['REQUEST_METHOD'] ?? '');
 if ($metodo !== 'POST' && $metodo !== 'GET') {
   http_response_code(405);

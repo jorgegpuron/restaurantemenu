@@ -91,6 +91,15 @@ if (!defined('CLIENTE_SLUG')) define('CLIENTE_SLUG', '');
 /* El nombre que ensena el panel. Si falta cliente.php se pone algo neutro: es un
  * rotulo, no vale la pena tirar el panel por el. */
 if (!defined('CLIENTE_NOMBRE')) define('CLIENTE_NOMBRE', 'La carta');
+/* Las capacidades y el mercado del cliente tambien llegan por cliente.php. Los respaldos son
+ * NEUTROS a proposito: sin cliente.php (una subida a medias) el juego queda cerrado, el
+ * contador apagado, la moneda sin simbolo y el reloj en UTC — nunca los valores de otro
+ * restaurante. */
+if (!defined('CLIENTE_JUEGO'))  define('CLIENTE_JUEGO', false);
+if (!defined('CLIENTE_DATOS'))  define('CLIENTE_DATOS', false);
+if (!defined('CLIENTE_MONEDA')) define('CLIENTE_MONEDA', '');
+if (!defined('CLIENTE_TZ'))     define('CLIENTE_TZ', 'UTC');
+if (!defined('CLIENTE_CORTE_HORA')) define('CLIENTE_CORTE_HORA', 0);
 
 // Dónde vive el estado que lee la carta. Por defecto, la carpeta de arriba.
 define('ESTADO_PATH', __DIR__ . '/../estado.json');
@@ -163,24 +172,24 @@ define('FOTOS_DIM', 1000);
  * llena la cuota del hosting, y entonces se cae la carta entera y no sólo el contador. */
 define('VISTAS_MAX_BYTES', 2 * 1024 * 1024);
 
-// Zona horaria del restaurante. Manda esta, no la del servidor ni la del móvil.
-define('TZ', 'Atlantic/Canary');
+// Zona horaria del restaurante. Manda la del CONTRATO (cliente.mjs -> cliente.php), no la
+// del servidor ni la del móvil.
+define('TZ', CLIENTE_TZ);
 
 // Hora a la que se limpian los agotados del día anterior. Sólo los agotados: la fecha de la
 // cabecera es la del reloj de Canarias y no se mueve.
 //
-// EL MISMO NÚMERO ESTÁ EN LA CARTA, en la función serviceDate() que escribe gen.mjs. Tienen
-// que coincidir: si no, la carta tacharía un plato que el panel ya da por bueno.
-define('CORTE_HORA', 6);
+// El número sale del contrato del cliente (servicio.corteHora, vía cliente.php): la carta
+// y el panel beben de la MISMA fuente y ya no pueden decir horas distintas.
+define('CORTE_HORA', CLIENTE_CORTE_HORA);
 
 /* ------------------------------------------------------------------ CONTADOR DE APERTURAS
  * Cuenta cuántas veces se abre la carta. No sabe quién la abre: no guarda IP, ni cookie, ni
  * identificador de ninguna clase, así que la carta no necesita aviso de cookies.
  *
- * INTERRUPTOR EN DOS SITIOS, y tienen que decir lo mismo: aquí y DATOS_ACTIVO en gen.mjs.
- * Encendido aquí y apagado allí no mide nada; al revés deja a la carta llamando a un 404 en
- * cada visita. */
-define('DATOS_ACTIVO', true);
+ * El interruptor es del cliente (funciones.datos) y llega por cliente.php: una sola fuente
+ * para la carta y para el panel. */
+define('DATOS_ACTIVO', CLIENTE_DATOS);
 
 /* Los días del mes en curso, un fichero por día, y los meses ya cerrados en un JSON cada uno.
  * La crea datos.php sola la primera vez. No se sube nunca por encima: estos números no se
