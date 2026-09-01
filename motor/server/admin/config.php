@@ -159,6 +159,17 @@ define('FOTOS_DIR', __DIR__ . '/../assets/platos');
 // La ruta con la que la carta y el panel las piden, desde la raíz de la carta.
 define('FOTOS_URL', 'assets/platos/');
 
+/* Publicidad: creatividades que sube el restaurante para el hueco alquilado de la carta.
+ * Viven en el servidor, como assets/hero/ y assets/platos/: el build no las genera y el
+ * despliegue las excluye. La ruta publica NO se decide aqui: la dicta el motor y llega
+ * horneada en cliente.php (PUB_URL); este define es solo el fallback del patron de arriba,
+ * para un panel colocado a mano sin build. La carpeta fisica se DERIVA de esa autoridad:
+ * si un dia cambia la ruta publica, cambia sola aqui tambien. */
+if (!defined('PUB_URL')) define('PUB_URL', 'assets/publicidad/');
+define('PUB_DIR', __DIR__ . '/../' . trim(PUB_URL, '/'));
+/* mismo limite que la portada: es una imagen ancha y 1 MB ya es generoso para 1120x360 */
+define('PUB_MAX_BYTES', 1024 * 1024);
+
 // Medio mega. Lo mismo que ya trae comprimido el navegador; aquí es el tope que se acepta.
 define('FOTOS_MAX_BYTES', 512000);
 

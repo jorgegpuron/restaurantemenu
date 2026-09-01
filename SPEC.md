@@ -6396,3 +6396,74 @@ del lock capturado); y siguen siendo obligatorios la huella del recinto, la ause
 temporales y el `git status` limpio. `ROLLBACK_OK` solo existe con TODAS las restauraciones
 y TODAS las verificaciones en verde; cualquier otra cosa es `ROLLBACK_FALLIDO` con el
 detalle agregado.
+
+
+## El banner publicitario de la carta (motor 1.1.2)
+
+Un hueco que el restaurante alquila, entre la tarjeta del juego y la nota de Google.
+Es de la CARTA, no del juego: se emite fuera del condicional de `funciones.juego`, y
+`game.on` no lo toca (decisión expresa del propietario). Un cliente sin juego también
+puede monetizarlo. `juego.html` no sabe que existe.
+
+**El contrato del estado** — dominio propio `publicidad`, clave opcional entera (su
+ausencia = comportamiento anterior exacto; ningún salto de esquema: estado sigue en 2):
+
+```json
+"publicidad": { "banner": {
+  "on": true,
+  "img": "f3a91b2c4d5e6a70.webp",
+  "url": "https://…",
+  "blank": true,
+  "alt": "…",
+  "startAt": "2026-09-10T17:00:00Z",
+  "endAt":   "2026-09-30T22:00:00Z"
+} }
+```
+
+- `img` es SOLO un basename con el patrón exacto del uploader (`16 hex + .jpg|.png|.webp`),
+  generado siempre por el servidor y revalidado por regex en cada uso: panel al persistir,
+  panel al borrar y carta antes de componer el `src`. Rutas, `..` y URLs son inexpresables.
+- Las fechas son opcionales y viajan en UTC (`Z`). El administrador las escribe en la hora
+  del restaurante (la autoridad es `zonaHoraria` de cliente.mjs, que el panel recibe como
+  `CLIENTE_TZ`); el panel convierte. Una fecha presente pero no parseable cierra el banner
+  (fail-closed). La ventana la evalúa el reloj del dispositivo del visitante: es el límite
+  honesto de una carta estática, y se asume.
+- `blank` ausente vale true. `alt` vacío cae al nombre accesible «Publicidad», que siempre
+  es veraz.
+
+**La ruta pública tiene UNA autoridad**: `PUB_URL` en gen.mjs. De ahí sale el literal del
+JS de la carta Y el `define('PUB_URL')` que viaja al panel en el cliente.php generado;
+config.php solo aporta el fallback del patrón habitual y DERIVA la carpeta física
+(`PUB_DIR`) de ese mismo valor. Nadie escribe la ruta dos veces.
+
+**Runtime en la carta** (`#banner-pub`, hermano entre `#game-card` y `#reviews`): misma
+salida de calle que `.game-card` (idéntico ancho visual), creatividad `100% × 180px` con
+`object-fit:cover` (fuente recomendada 1120×360). Solo existe en viewport ≤767px: el CSS
+lo oculta en ancho y ADEMÁS el JS no asigna `src` fuera de móvil — en escritorio no se
+descarga ni un byte. Al cruzar el límite en vivo (girar el móvil) se reevalúa. El enlace
+solo se pone con URL re-parseada aquí como http/https (lo del estado no se interpreta), y
+un banner con URL inválida se muestra sin enlace. Enlace publicitario declarado:
+`rel="sponsored"`, más `noopener noreferrer` y `target="_blank"` cuando abre pestaña.
+
+**El panel** (pestaña Publicidad, sin capacidad que la apague): interruptor, imagen
+(subir/reemplazar/quitar con el pipeline de hero: tipos por `getimagesize`, 1 MB, ancho
+mínimo 560, nombre aleatorio del servidor, carpeta con guardián anti-PHP), URL validada
+por esquema, pestaña nueva, alt, fechas y la etiqueta de estado:
+ACTIVO · PROGRAMADO · CADUCADO · DESACTIVADO · INCOMPLETO (encendido sin imagen válida).
+
+**Ciclo de vida de la creatividad, sin transacción y sin mentiras**: escribir la nueva →
+verificarla → persistir el estado (tmp+rename atómico) → SOLO entonces borrar la vieja.
+Si persistir falla, la nueva se limpia (compensación) y el estado anterior queda intacto;
+si la limpieza también falla, la huérfana se registra en el log de accesos. Si lo que
+falla es borrar la vieja tras un éxito, la nueva MANDA y la vieja queda registrada como
+residuo. El borrado es de UN fichero con basename revalidado: sin glob, sin recursión,
+sin rutas del POST, y un symlink en su lugar aborta el borrado y se registra — borrar
+carpetas es inexpresable.
+
+**Deploy**: `assets/publicidad/**` está excluida en el workflow, como sus hermanas
+`assets/hero/**` y `assets/platos/**` — el build jamás la genera y el FTP jamás la pisa.
+
+Limitación conocida del entorno de desarrollo (Windows/OneDrive): `is_writable()` puede
+dar un falso negativo sobre una carpeta creada por OTRO proceso; creada por el propio
+panel (mkdir de PHP, como en producción) responde bien. Es rareza de la máquina local,
+no del código, y el patrón es el mismo que ya usa el hero.

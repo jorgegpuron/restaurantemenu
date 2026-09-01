@@ -211,6 +211,11 @@ export const HERO_ANCHOS = [480, 640, 800, 1000, 1200, 1600];
    veces. */
 export const HERO_SIZES = '(min-width: 1594px) 1546px, calc(100vw - 40px)';
 
+/* La ruta publica de las creatividades publicitarias. AUTORIDAD UNICA: de aqui sale el
+ * literal que usa el JS de la carta y el define('PUB_URL') que viaja al panel en
+ * cliente.php. El panel deriva su carpeta fisica de este mismo valor. */
+export const PUB_URL = 'assets/publicidad/';
+
 /* Tokens compartidos: la carta y el juego beben del mismo sitio.
    Los colores ya no están escritos aquí: los escribe temas.mjs, un bloque por juego de
    marca, y el panel elige cuál manda. Lo que queda en este archivo es lo que no cambia de
@@ -1636,6 +1641,23 @@ html:not(.js) .lang-menu{position:static;display:block}
 .game-card[hidden]{display:none}
 .game-card:active{transform:scale(.985)}
 .game-card:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+/* El banner publicitario mide lo mismo de ancho que la tarjeta del juego: misma salida de
+   la calle del contenido que .game-card, y por eso mismas cuentas con --gutter. El alto es
+   contrato: 180px con la creatividad a sangre. En pantalla ancha no existe (y el JS ademas
+   no pone src alli: el CSS es el cinturon, no el freno). */
+.banner-pub{
+  display:block;
+  margin-top:var(--s3);
+  margin-left:calc(var(--s1) - var(--gutter));
+  margin-right:calc(var(--s1) - var(--gutter));
+  border-radius:var(--r-sheet);
+  overflow:hidden;
+  line-height:0;
+}
+.banner-pub[hidden]{display:none}
+.banner-pub img{width:100%;height:180px;object-fit:cover;display:block}
+.banner-pub:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+@media (min-width:768px){ .banner-pub{display:none} }
 
 /* Aquí iba el chile de la casa en un medallón de 48, y flotaba. Se cae porque no cabía: con él
    delante, a 375 el nombre y la llamada sumaban 353 de los 265 que hay y la llamada se
@@ -3967,6 +3989,15 @@ ${!CLIENTE.funciones.juego ? '' : `          <!-- La entrada al juego va al fina
             <span class="game-card-record" id="game-card-record" hidden></span>
           </a>`}
 
+          <!-- Publicidad: un hueco que el restaurante alquila. Es de la CARTA, no del juego:
+               se emite fuera del condicional de arriba a proposito, para que un cliente sin
+               juego (o con el juego apagado) pueda seguir monetizando la zona. Sin configurar,
+               fuera de fechas o en pantalla ancha no existe: ni hueco, ni peticion de red.
+               Sin href no es interactivo; el enlace se pone solo con URL valida. -->
+          <a class="banner-pub" id="banner-pub" hidden>
+            <img id="banner-pub-img" alt="" loading="lazy" decoding="async">
+          </a>
+
           <!-- La nota de Google. Los números y los nombres salen de estado.json, nunca del
                build: cada restaurante tiene los suyos y esta carta se vende a varios. Si el
                panel no los ha configurado, el bloque no existe. Es un enlace a la ficha si
@@ -4780,6 +4811,15 @@ ${sheet}
     if (juego) juego.hidden = !(estado && estado.game && estado.game.on);
     if (juego && !juego.hidden) pintarRecord();
 
+    /* --- publicidad: el banner alquilado de la carta ---
+       Independiente del juego a proposito (decision del propietario): game.on no lo apaga.
+       Elegible = on + basename con el patron EXACTO del uploader + dentro de fechas. El src
+       solo se pone en viewport movil: en escritorio ni se descarga. Nada del estado se
+       interpreta: basename validado por regex y URL re-parseada aqui, aunque el panel ya
+       validara lo suyo. */
+    bannerUltimo = estado;
+    pintarBanner();
+
 
     pintarOpiniones();
     pintarHero();
@@ -4857,6 +4897,57 @@ ${sheet}
     d.textContent = t;
     return d.innerHTML;
   }
+
+  var bannerMq = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
+  var bannerUltimo = null;
+  function bannerElegible(p) {
+    if (!p || p.on !== true) return null;
+    var img = typeof p.img === 'string' ? p.img : '';
+    /* el mismo patron que genera el servidor: 16 hex + extension admitida; cualquier otra
+       cosa (rutas, .., URLs) ni siquiera compila un src */
+    if (!/^[0-9a-f]{16}\.(jpg|png|webp)$/.test(img)) return null;
+    var ahora = Date.now();
+    if (p.startAt !== undefined) {
+      var t0 = Date.parse(p.startAt);
+      if (isNaN(t0) || ahora < t0) return null;  /* fecha rara = cerrado, nunca abierto */
+    }
+    if (p.endAt !== undefined) {
+      var t1 = Date.parse(p.endAt);
+      if (isNaN(t1) || ahora > t1) return null;
+    }
+    return img;
+  }
+  function pintarBanner() {
+    var el = document.getElementById('banner-pub');
+    if (!el) return;
+    var img = document.getElementById('banner-pub-img');
+    var p = bannerUltimo && bannerUltimo.publicidad ? bannerUltimo.publicidad.banner : null;
+    var nombre = bannerElegible(p);
+    var movil = !bannerMq || bannerMq.matches;
+    if (!nombre || !movil) { el.hidden = true; return; }
+    if (img.getAttribute('src') !== '${PUB_URL}' + nombre) img.src = '${PUB_URL}' + nombre;
+    img.alt = (typeof p.alt === 'string' && p.alt) ? p.alt : 'Publicidad';
+    var url = null;
+    if (typeof p.url === 'string' && p.url) {
+      try {
+        var u = new URL(p.url);
+        if (u.protocol === 'https:' || u.protocol === 'http:') url = u.href;
+      } catch (e) {   }
+    }
+    if (url) {
+      el.setAttribute('href', url);
+      /* publicidad pagada: sponsored siempre; noopener/noreferrer solo con pestana nueva */
+      if (p.blank === false) { el.removeAttribute('target'); el.setAttribute('rel', 'sponsored'); }
+      else { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'sponsored noopener noreferrer'); }
+    } else {
+      el.removeAttribute('href'); el.removeAttribute('target'); el.removeAttribute('rel');
+    }
+    el.hidden = false;
+  }
+  /* al cruzar el limite de 767px en vivo (girar el movil, encoger la ventana) se reevalua:
+     al entrar en movil se pone el src entonces; al salir, el CSS ya lo esconde y el src
+     descargado se queda, que quitarlo no devuelve nada */
+  if (bannerMq && bannerMq.addEventListener) bannerMq.addEventListener('change', pintarBanner);
 
   function pintarRecord() {
     var el = document.getElementById('game-card-record');
@@ -6737,6 +6828,9 @@ writeFileSync(
     "define('CLIENTE_TZ',    " + JSON.stringify(CLIENTE.zonaHoraria) + ');',
     "define('CLIENTE_CORTE_HORA', " + String(CORTE_HORA) + ');',
     "define('CLIENTE_MONEDA', " + JSON.stringify(MONEDA.simbolo) + ');',
+    /* La ruta publica de la publicidad, horneada desde la MISMA constante que usa el JS de
+       la carta: una autoridad, cero divergencia. El panel deriva de aqui su carpeta fisica. */
+    "define('PUB_URL',       " + JSON.stringify(PUB_URL) + ');',
     "define('CLIENTE_JUEGO', " + (CLIENTE.funciones.juego ? 'true' : 'false') + ');',
     "define('CLIENTE_DATOS', " + (DATOS_ACTIVO ? 'true' : 'false') + ');',
     '',

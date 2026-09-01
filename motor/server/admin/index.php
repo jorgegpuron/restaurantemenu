@@ -285,6 +285,83 @@ function hero_carpeta_lista(): bool {
   return is_writable(HERO_DIR);
 }
 
+/* --- publicidad: el banner alquilado de la carta ---------------------------------------
+   Mismos principios que las fotos del hero: nombre aleatorio generado AQUI (16 hex +
+   extension del mapa admitido), carpeta con guardian que apaga PHP, y validacion del
+   basename en CADA uso -- persistir, borrar, pintar. El estado guarda SOLO el basename;
+   la ruta publica la dicta el motor (PUB_URL, horneada en cliente.php) y la fisica se
+   deriva de ella (PUB_DIR, config.php). Nadie que escriba en el POST elige rutas. */
+
+function pub_nombre_valido(string $n): bool {
+  return (bool) preg_match('/^[0-9a-f]{16}\.(jpg|png|webp)$/', $n);
+}
+
+function pub_carpeta_lista(): bool {
+  if (!is_dir(PUB_DIR) && !@mkdir(PUB_DIR, 0755, true)) return false;
+  $guardia = PUB_DIR . '/.htaccess';
+  if (!is_file($guardia)) {
+    @file_put_contents($guardia, implode(PHP_EOL, [
+      '# Aqui solo hay imagenes subidas desde el panel. Nada se ejecuta.',
+      '<IfModule mod_php.c>',
+      '  php_flag engine off',
+      '</IfModule>',
+      '<IfModule mod_php7.c>',
+      '  php_flag engine off',
+      '</IfModule>',
+      '<IfModule mod_mime.c>',
+      '  RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phps',
+      '  AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .phps',
+      '</IfModule>',
+      '<IfModule mod_headers.c>',
+      '  Header set X-Content-Type-Options "nosniff"',
+      '</IfModule>',
+    ]) . PHP_EOL);
+  }
+  return is_writable(PUB_DIR);
+}
+
+/* Borra UNA creatividad por su basename, y nada mas que eso: sin glob, sin recursion, sin
+   rutas del POST. Un symlink donde se esperaba el fichero aborta y se registra: no se sigue.
+   Ausente = ya esta hecho (idempotente). Devuelve false solo cuando el fichero sigue ahi. */
+function pub_borrar(string $nombre): bool {
+  if (!pub_nombre_valido($nombre)) { registrar_acceso('publicidad: basename invalido al borrar'); return false; }
+  $ruta = PUB_DIR . '/' . $nombre;
+  if (is_link($ruta)) { registrar_acceso('publicidad: ' . $nombre . ' es un symlink, borrado abortado'); return false; }
+  if (!is_file($ruta)) return true;
+  if (!@unlink($ruta)) { registrar_acceso('publicidad: no he podido borrar ' . $nombre); return false; }
+  return true;
+}
+
+/* De 'YYYY-MM-DDTHH:MM' escrito en la hora del restaurante (input datetime-local) al
+   instante UTC que guarda el estado. Devuelve '' si no hay nada, null si no parsea. */
+function pub_fecha_a_utc(string $v): ?string {
+  $v = trim($v);
+  if ($v === '') return '';
+  $d = DateTimeImmutable::createFromFormat('Y-m-d\TH:i', $v, new DateTimeZone(TZ));
+  if ($d === false) return null;
+  return $d->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+}
+
+/* Y la vuelta, para rellenar el input al editar. */
+function pub_fecha_a_local(string $utc): string {
+  if ($utc === '') return '';
+  try { $d = new DateTimeImmutable($utc); } catch (Exception $e) { return ''; }
+  return $d->setTimezone(new DateTimeZone(TZ))->format('Y-m-d\TH:i');
+}
+
+/* El estado que se le ensena al administrador. INCOMPLETO manda sobre las fechas: un banner
+   encendido sin imagen valida no puede salir, este en el periodo que este. */
+function pub_estado_banner(?array $b): string {
+  if (!is_array($b) || empty($b['on'])) return 'DESACTIVADO';
+  if (!pub_nombre_valido((string) ($b['img'] ?? ''))) return 'INCOMPLETO';
+  $ahora = time();
+  $ini = (string) ($b['startAt'] ?? '');
+  $fin = (string) ($b['endAt'] ?? '');
+  if ($ini !== '') { $t = strtotime($ini); if ($t === false || $ahora < $t) return 'PROGRAMADO'; }
+  if ($fin !== '') { $t = strtotime($fin); if ($t === false || $ahora > $t) return 'CADUCADO'; }
+  return 'ACTIVO';
+}
+
 /* Con varios archivos, PHP no da una lista de archivos: da un archivo cuyos campos son
    listas. $_FILES['foto']['name'] es un array, ['size'] es otro, y hay que recomponerlos por
    indice. Es una de las formas mas raras de la biblioteca estandar y la fuente de la mitad de
@@ -2107,6 +2184,124 @@ if ($csrfOk) {
     }
   }
 
+  /* --- publicidad: configuracion del banner ---
+     Dominio propio del estado (publicidad.banner), a proposito fuera de game: el POST del
+     juego reescribe game entero y aqui nadie pisa a nadie. La imagen NO se toca en este
+     guardar: tiene sus propios botones con su propio ciclo de vida. */
+  if (isset($_POST['guardar_publicidad'])) {
+    $pestana = 'publicidad';
+    $b = is_array($estado['publicidad']['banner'] ?? null) ? $estado['publicidad']['banner'] : [];
+    $b['on'] = !empty($_POST['pub_on']);
+    $url = trim((string) ($_POST['pub_url'] ?? ''));
+    if ($url !== '') {
+      $esquema = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+      if ($esquema !== 'https' && $esquema !== 'http') {
+        $error = 'La URL del banner tiene que empezar por https:// (o http://). No se ha guardado nada.';
+      }
+    }
+    $ini = pub_fecha_a_utc((string) ($_POST['pub_inicio'] ?? ''));
+    $fin = pub_fecha_a_utc((string) ($_POST['pub_fin'] ?? ''));
+    if (!$error && ($ini === null || $fin === null)) {
+      $error = 'Una de las fechas no tiene sentido. Escribelas con el selector, no a mano.';
+    }
+    if (!$error && $ini !== '' && $fin !== '' && strtotime($ini) >= strtotime($fin)) {
+      $error = 'El fin del banner tiene que ser DESPUES del inicio. No se ha guardado nada.';
+    }
+    if (!$error) {
+      $b['url'] = $url;
+      $b['blank'] = !empty($_POST['pub_blank']);
+      $b['alt'] = trim(mb_substr((string) ($_POST['pub_alt'] ?? ''), 0, 200));
+      if ($ini === '') unset($b['startAt']); else $b['startAt'] = $ini;
+      if ($fin === '') unset($b['endAt']);   else $b['endAt'] = $fin;
+      $estado['publicidad'] = is_array($estado['publicidad'] ?? null) ? $estado['publicidad'] : [];
+      $estado['publicidad']['banner'] = $b;
+      if (!guardar_estado($estado)) {
+        $error = 'No se ha podido escribir estado.json.';
+      } else {
+        $aviso = 'Guardado. El banner esta ' . strtolower(pub_estado_banner($b)) . '.';
+      }
+    }
+  }
+
+  /* Subir o reemplazar la creatividad. El orden es el del contrato: escribir la nueva,
+     verificarla, persistir el estado apuntando a ella y SOLO entonces retirar la vieja.
+     Si persistir falla, la nueva se limpia (compensacion) y el estado anterior queda tal
+     cual; si es la limpieza la que falla, queda huerfana y se registra: nunca se oculta. */
+  if (isset($_POST['subir_banner'])) {
+    $pestana = 'publicidad';
+    $f = $_FILES['pub_img'] ?? null;
+    if (!$f || !is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+      $error = 'Elige primero una imagen.';
+    } elseif ($f['error'] !== UPLOAD_ERR_OK) {
+      $error = 'La subida ha fallado (codigo ' . (int) $f['error'] . '). Vuelve a intentarlo.';
+    } elseif ($f['size'] > PUB_MAX_BYTES) {
+      $error = 'La imagen pesa ' . round($f['size'] / 1048576, 1) . ' MB y el maximo es 1 MB.';
+    } elseif (!is_uploaded_file($f['tmp_name'])) {
+      $error = 'Archivo no valido.';
+    } else {
+      $info = @getimagesize($f['tmp_name']);
+      if ($info === false || !isset(HERO_TIPOS[$info[2]])) {
+        $error = 'Eso no es una imagen JPG, PNG o WebP.';
+      } elseif (!pub_carpeta_lista()) {
+        $error = 'No puedo escribir en ' . PUB_URL . '. Crea la carpeta en el servidor y dale permiso de escritura.';
+      } else {
+        $nombre  = bin2hex(random_bytes(8)) . '.' . HERO_TIPOS[$info[2]];
+        $destino = PUB_DIR . '/' . $nombre;
+        if (!@move_uploaded_file($f['tmp_name'], $destino)) {
+          $error = 'No he podido guardar la imagen.';
+        } elseif (@getimagesize($destino) === false) {
+          @unlink($destino);
+          $error = 'La imagen ha llegado rota. Vuelve a intentarlo.';
+        } else {
+          @chmod($destino, 0644);
+          $b = is_array($estado['publicidad']['banner'] ?? null) ? $estado['publicidad']['banner'] : [];
+          $anterior = (string) ($b['img'] ?? '');
+          $b['img'] = $nombre;
+          if (!isset($b['on'])) $b['on'] = false;
+          $estado['publicidad'] = is_array($estado['publicidad'] ?? null) ? $estado['publicidad'] : [];
+          $estado['publicidad']['banner'] = $b;
+          if (!guardar_estado($estado)) {
+            /* compensacion: el estado no ha cambiado, la imagen nueva sobra */
+            if (!pub_borrar($nombre)) {
+              registrar_acceso('publicidad: ' . $nombre . ' queda huerfana tras fallo de estado.json');
+            }
+            $error = 'No se ha podido escribir estado.json. La imagen nueva se ha descartado.';
+          } else {
+            $aviso = 'Imagen guardada. El banner esta ' . strtolower(pub_estado_banner($b)) . '.';
+            if ($anterior !== '' && $anterior !== $nombre && !pub_borrar($anterior)) {
+              registrar_acceso('publicidad: la creatividad anterior ' . $anterior . ' queda como residuo');
+              $aviso .= ' (La imagen anterior no se ha podido borrar; queda registrada.)';
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* Quitar la creatividad: primero el estado deja de apuntarla, despues se borra el fichero.
+     Al reves, un fallo a mitad dejaria la carta pidiendo una imagen que ya no existe. */
+  if (isset($_POST['eliminar_banner'])) {
+    $pestana = 'publicidad';
+    $bAct = is_array($estado['publicidad']['banner'] ?? null) ? $estado['publicidad']['banner'] : [];
+    $actual = (string) ($bAct['img'] ?? '');
+    if ($actual === '') {
+      $aviso = 'No hay imagen que quitar.';
+    } else {
+      $b = $bAct;
+      unset($b['img']);
+      $estado['publicidad']['banner'] = $b;
+      if (!guardar_estado($estado)) {
+        $error = 'No se ha podido escribir estado.json.';
+      } else {
+        $aviso = 'Imagen quitada. Sin imagen el banner no sale.';
+        if (!pub_borrar($actual)) {
+          registrar_acceso('publicidad: ' . $actual . ' queda como residuo tras quitarla del estado');
+          $aviso .= ' (El fichero no se ha podido borrar; queda registrado.)';
+        }
+      }
+    }
+  }
+
   /* Poner el récord a cero. Va en su propio botón y no en el Guardar de la pestaña: es una
      acción destructiva y no se pulsa por inercia al lado de un interruptor. */
   /* Borrar el nombre de una marca sin borrar la marca. Es lo que se usa cuando alguien escribe
@@ -2237,6 +2432,8 @@ $oferta_corriendo = $oferta_corriendo && (
 );
 $juego    = is_array($estado['game']) ? array_replace(estado_vacio()['game'], $estado['game']) : estado_vacio()['game'];
 $record   = record_leer();
+$bannerPub = is_array($estado['publicidad'] ?? null) && is_array($estado['publicidad']['banner'] ?? null)
+  ? $estado['publicidad']['banner'] : null;
 /* El enlace de resenas lo pinta Marca. No era del premio y no se va con el. */
 $resena   = is_array($estado['review'] ?? null) ? array_replace(estado_vacio()['review'], $estado['review']) : estado_vacio()['review'];
 $csrf     = (string) ($_SESSION['csrf'] ?? '');
@@ -2388,7 +2585,7 @@ if (DATOS_ACTIVO && $dentro) {
 }
 
 $PESTANAS = ['agotados' => 'Agotados hoy', 'destacados' => 'Destacados',
-             'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego',
+             'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego', 'publicidad' => 'Publicidad',
              'datos' => 'Analítica', 'marca' => 'Marca'];
 if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // la fuente es el contrato: ver config.php
 if (!CLIENTE_JUEGO)  unset($PESTANAS['juego']);     // sin la capacidad no hay nada que apagar
@@ -2399,6 +2596,7 @@ $CUENTAS = [
   'ofertas'    => $oferta['on'] ? 1 : 0,
   'precios'    => count($precios),
   'juego'      => $juego['on'] ? 1 : 0,
+  'publicidad' => pub_estado_banner($bannerPub) === 'ACTIVO' ? 1 : 0,
   'datos'      => 0,      // el contador no es una cuenta de cosas pendientes
   'marca'      => 0,      // no es una cuenta de nada: no lleva contador
 ];
@@ -4868,6 +5066,88 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </div>
       <?php endif; ?>
     </div>
+  </section>
+
+  <?php /* Publicidad: independiente del juego y de CLIENTE_JUEGO a proposito (decision del
+           propietario): el hueco es de la CARTA y un cliente sin juego tambien lo alquila. */ ?>
+  <section class="pane" data-pane="publicidad"<?= $pestana === 'publicidad' ? '' : ' hidden' ?>>
+    <p class="hint">
+      Un hueco publicitario en la carta, entre la tarjeta del juego y la nota de Google.
+      <strong>Solo sale en moviles</strong> (pantallas de menos de 768&nbsp;px), mide el ancho de la
+      tarjeta y 180&nbsp;px de alto. Sin imagen, apagado o fuera de fechas, no ocupa nada.
+    </p>
+
+    <?php $pubEstado = pub_estado_banner($bannerPub); ?>
+    <div class="card">
+      <p style="margin:0 2px var(--s3)">
+        Estado ahora mismo: <strong><?= h($pubEstado) ?></strong>
+        <?php if ($pubEstado === 'INCOMPLETO'): ?> &mdash; encendido pero sin imagen valida.<?php endif; ?>
+        <span class="hint" style="display:block;margin-top:4px">
+          Son las <?= h((new DateTimeImmutable('now', new DateTimeZone(TZ)))->format('H:i')) ?> en el restaurante.
+        </span>
+      </p>
+
+      <?php $pubImg = is_array($bannerPub) ? (string) ($bannerPub['img'] ?? '') : ''; ?>
+      <?php if (pub_nombre_valido($pubImg)): ?>
+        <p style="margin:0 2px var(--s2)"><img
+          src="<?= h('../' . PUB_URL . $pubImg) ?>" alt="La creatividad actual del banner"
+          style="width:100%;max-width:560px;height:auto;aspect-ratio:1120/360;object-fit:cover;border-radius:8px"></p>
+        <form method="post" style="margin:0 0 var(--s3)">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+          <button class="ghost-btn" name="eliminar_banner" value="1" type="submit">Quitar la imagen</button>
+        </form>
+      <?php else: ?>
+        <p class="hint" style="margin:0 2px var(--s3)"><strong>Sin imagen todavia.</strong>
+          Sube una de 1120 &times; 360 (JPG, PNG o WebP, 1&nbsp;MB maximo).</p>
+      <?php endif; ?>
+
+      <form method="post" enctype="multipart/form-data" style="margin:0">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <input type="file" name="pub_img" accept="image/jpeg,image/png,image/webp">
+        <button class="save" name="subir_banner" value="1" type="submit"><?= pub_nombre_valido($pubImg) ? 'Reemplazar imagen' : 'Subir imagen' ?></button>
+      </form>
+    </div>
+
+    <form method="post">
+      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+      <div class="card">
+        <label class="switch">
+          <input type="checkbox" name="pub_on" value="1"<?= !empty($bannerPub['on']) ? ' checked' : '' ?>>
+          <span class="switch-pista"><span class="switch-bola"></span></span>
+          <span class="switch-txt">
+            <span class="switch-on">El banner sale en la carta (si tiene imagen y esta en fechas)</span>
+            <span class="switch-off">El banner NO sale en la carta</span>
+          </span>
+        </label>
+
+        <p style="margin:var(--s3) 2px var(--s1)"><label>Enlace al tocar el banner (opcional)<br>
+          <input type="url" name="pub_url" placeholder="https://ejemplo.com/promo"
+                 value="<?= h((string) ($bannerPub['url'] ?? '')) ?>" style="width:100%"></label></p>
+
+        <p style="margin:var(--s2) 2px var(--s1)"><label>
+          <input type="checkbox" name="pub_blank" value="1"<?= !isset($bannerPub['blank']) || !empty($bannerPub['blank']) ? ' checked' : '' ?>>
+          Abrir el enlace en una pestana nueva</label></p>
+
+        <p style="margin:var(--s2) 2px var(--s1)"><label>Texto alternativo (accesibilidad; si se deja vacio, la carta dice &laquo;Publicidad&raquo;)<br>
+          <input type="text" name="pub_alt" maxlength="200"
+                 value="<?= h((string) ($bannerPub['alt'] ?? '')) ?>" style="width:100%"></label></p>
+
+        <p style="margin:var(--s2) 2px var(--s1)"><label>Empieza (opcional, hora del restaurante)<br>
+          <input type="datetime-local" name="pub_inicio"
+                 value="<?= h(pub_fecha_a_local((string) ($bannerPub['startAt'] ?? ''))) ?>"></label></p>
+
+        <p style="margin:var(--s2) 2px 0"><label>Termina (opcional, hora del restaurante)<br>
+          <input type="datetime-local" name="pub_fin"
+                 value="<?= h(pub_fecha_a_local((string) ($bannerPub['endAt'] ?? ''))) ?>"></label></p>
+      </div>
+      <div class="bar">
+        <span class="count"><?= h($pubEstado) ?></span>
+        <span class="acciones">
+          <a class="ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver menu</a>
+          <button class="save" name="guardar_publicidad" value="1" type="submit">Guardar</button>
+        </span>
+      </div>
+    </form>
   </section>
   <?php endif; ?>
 

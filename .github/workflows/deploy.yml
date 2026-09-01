@@ -138,6 +138,7 @@ jobs:
             record.json
             assets/hero/**
             assets/platos/**
+            assets/publicidad/**
             admin/clave.php
             admin/superclave.php
             admin/intentos.json
