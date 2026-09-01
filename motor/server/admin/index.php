@@ -2210,7 +2210,9 @@ if ($csrfOk) {
     if (!$error) {
       $b['url'] = $url;
       $b['blank'] = !empty($_POST['pub_blank']);
-      $b['alt'] = trim(mb_substr((string) ($_POST['pub_alt'] ?? ''), 0, 200));
+      /* el alt dejo de configurarse (la carta pone siempre "Publicidad"); si un estado
+         viejo arrastra la clave, este guardar la retira sin tocar nada mas */
+      unset($b['alt']);
       if ($ini === '') unset($b['startAt']); else $b['startAt'] = $ini;
       if ($fin === '') unset($b['endAt']);   else $b['endAt'] = $fin;
       $estado['publicidad'] = is_array($estado['publicidad'] ?? null) ? $estado['publicidad'] : [];
@@ -2235,7 +2237,10 @@ if ($csrfOk) {
     } elseif ($f['error'] !== UPLOAD_ERR_OK) {
       $error = 'La subida ha fallado (codigo ' . (int) $f['error'] . '). Vuelve a intentarlo.';
     } elseif ($f['size'] > PUB_MAX_BYTES) {
-      $error = 'La imagen pesa ' . round($f['size'] / 1048576, 1) . ' MB y el maximo es 2 MB.';
+      /* dos decimales y el maximo DERIVADO de la constante: que jamas parezca que se
+         rechaza algo dentro del limite ("pesa 2 MB y el maximo es 2 MB"). */
+      $error = 'La imagen pesa ' . number_format($f['size'] / 1048576, 2, ',', '.') . ' MB '
+             . 'y el maximo es ' . number_format(PUB_MAX_BYTES / 1048576, 2, ',', '.') . ' MB.';
     } elseif (!is_uploaded_file($f['tmp_name'])) {
       $error = 'Archivo no valido.';
     } else {
@@ -5098,7 +5103,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </form>
       <?php else: ?>
         <p class="hint" style="margin:0 2px var(--s3)"><strong>Sin imagen todavia.</strong>
-          Sube una de 1120 &times; 360 (JPG, PNG o WebP, 2&nbsp;MB maximo).</p>
+          Sube una de 1120 &times; 360 (JPG, PNG o WebP, <?= PUB_MAX_BYTES / 1048576 ?>&nbsp;MB maximo).</p>
       <?php endif; ?>
 
       <form method="post" enctype="multipart/form-data" style="margin:0">
@@ -5127,10 +5132,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <p style="margin:var(--s2) 2px var(--s1)"><label>
           <input type="checkbox" name="pub_blank" value="1"<?= !isset($bannerPub['blank']) || !empty($bannerPub['blank']) ? ' checked' : '' ?>>
           Abrir el enlace en una pestana nueva</label></p>
-
-        <p style="margin:var(--s2) 2px var(--s1)"><label>Texto alternativo (accesibilidad; si se deja vacio, la carta dice &laquo;Publicidad&raquo;)<br>
-          <input type="text" name="pub_alt" maxlength="200"
-                 value="<?= h((string) ($bannerPub['alt'] ?? '')) ?>" style="width:100%"></label></p>
 
         <p style="margin:var(--s2) 2px var(--s1)"><label>Empieza (opcional, hora del restaurante)<br>
           <input type="datetime-local" name="pub_inicio"

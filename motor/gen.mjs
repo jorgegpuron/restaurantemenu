@@ -1647,6 +1647,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    no pone src alli: el CSS es el cinturon, no el freno). */
 .banner-pub{
   display:block;
+  /* La creatividad manda: el hueco guarda SIEMPRE la proporcion recomendada 1120x360,
+     asi que una creatividad bien hecha se ve ENTERA en cualquier movil. La altura sale
+     del ancho de la calle (560 -> 180, 333 -> ~107) y 180 es el TECHO, no una talla
+     fija que convierta el hueco en una ventana mas cuadrada y recorte los laterales. */
+  aspect-ratio:1120/360;
+  max-height:180px;
   margin-top:var(--s3);
   margin-left:calc(var(--s1) - var(--gutter));
   margin-right:calc(var(--s1) - var(--gutter));
@@ -1655,7 +1661,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   line-height:0;
 }
 .banner-pub[hidden]{display:none}
-.banner-pub img{width:100%;height:180px;object-fit:cover;display:block}
+.banner-pub img{width:100%;height:100%;object-fit:cover;display:block}
 .banner-pub:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 @media (min-width:768px){ .banner-pub{display:none} }
 
@@ -4926,7 +4932,7 @@ ${sheet}
     var movil = !bannerMq || bannerMq.matches;
     if (!nombre || !movil) { el.hidden = true; return; }
     if (img.getAttribute('src') !== '${PUB_URL}' + nombre) img.src = '${PUB_URL}' + nombre;
-    img.alt = (typeof p.alt === 'string' && p.alt) ? p.alt : 'Publicidad';
+    img.alt = 'Publicidad';  /* fijo por contrato: el panel ya no lo configura */
     var url = null;
     if (typeof p.url === 'string' && p.url) {
       try {
