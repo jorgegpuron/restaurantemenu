@@ -2235,7 +2235,7 @@ if ($csrfOk) {
     } elseif ($f['error'] !== UPLOAD_ERR_OK) {
       $error = 'La subida ha fallado (codigo ' . (int) $f['error'] . '). Vuelve a intentarlo.';
     } elseif ($f['size'] > PUB_MAX_BYTES) {
-      $error = 'La imagen pesa ' . round($f['size'] / 1048576, 1) . ' MB y el maximo es 1 MB.';
+      $error = 'La imagen pesa ' . round($f['size'] / 1048576, 1) . ' MB y el maximo es 2 MB.';
     } elseif (!is_uploaded_file($f['tmp_name'])) {
       $error = 'Archivo no valido.';
     } else {
@@ -5098,7 +5098,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </form>
       <?php else: ?>
         <p class="hint" style="margin:0 2px var(--s3)"><strong>Sin imagen todavia.</strong>
-          Sube una de 1120 &times; 360 (JPG, PNG o WebP, 1&nbsp;MB maximo).</p>
+          Sube una de 1120 &times; 360 (JPG, PNG o WebP, 2&nbsp;MB maximo).</p>
       <?php endif; ?>
 
       <form method="post" enctype="multipart/form-data" style="margin:0">

@@ -167,8 +167,9 @@ define('FOTOS_URL', 'assets/platos/');
  * si un dia cambia la ruta publica, cambia sola aqui tambien. */
 if (!defined('PUB_URL')) define('PUB_URL', 'assets/publicidad/');
 define('PUB_DIR', __DIR__ . '/../' . trim(PUB_URL, '/'));
-/* mismo limite que la portada: es una imagen ancha y 1 MB ya es generoso para 1120x360 */
-define('PUB_MAX_BYTES', 1024 * 1024);
+/* El doble que la portada: las creatividades llegan del disenador del anunciante, no de un
+ * movil, y recomprimirlas a mano cada vez daba friccion. 2 MB siguen siendo asumibles. */
+define('PUB_MAX_BYTES', 2 * 1024 * 1024);
 
 // Medio mega. Lo mismo que ya trae comprimido el navegador; aquí es el tope que se acepta.
 define('FOTOS_MAX_BYTES', 512000);

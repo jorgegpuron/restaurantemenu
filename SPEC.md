@@ -6446,8 +6446,9 @@ un banner con URL inválida se muestra sin enlace. Enlace publicitario declarado
 `rel="sponsored"`, más `noopener noreferrer` y `target="_blank"` cuando abre pestaña.
 
 **El panel** (pestaña Publicidad, sin capacidad que la apague): interruptor, imagen
-(subir/reemplazar/quitar con el pipeline de hero: tipos por `getimagesize`, 1 MB, ancho
-mínimo 560, nombre aleatorio del servidor, carpeta con guardián anti-PHP), URL validada
+(subir/reemplazar/quitar con el pipeline de hero: tipos por `getimagesize`, 2 MB, sin
+mínimo de dimensiones —1120×360 es solo recomendación—, nombre aleatorio del servidor,
+carpeta con guardián anti-PHP), URL validada
 por esquema, pestaña nueva, alt, fechas y la etiqueta de estado:
 ACTIVO · PROGRAMADO · CADUCADO · DESACTIVADO · INCOMPLETO (encendido sin imagen válida).
 
