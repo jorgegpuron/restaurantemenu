@@ -1078,6 +1078,51 @@ function guardar_clave(string $hash): bool {
   return true;
 }
 
+/* Fase 7 — activación del panel, marca de un solo uso de verdad. `ADMIN_HASH !== ''` no
+   basta: es un efecto de guardar_clave(), reversible si clave.php se borrara algún día.
+   Esta marca es independiente y no se borra sola — index.php la comprueba ANTES de mirar
+   el token, así que en cuanto existe, la pantalla de activación por token deja de estar
+   disponible para siempre, pase lo que pase con clave.php o con el Secret. */
+function marcar_activacion_consumida(): bool {
+  $f   = ACTIVACION_CONSUMIDA_PATH;
+  $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+  $php = 'activado: ' . date('c') . PHP_EOL;
+  if (@file_put_contents($tmp, $php, LOCK_EX) === false) return false;
+  @chmod($tmp, 0644);
+  if (!@rename($tmp, $f)) { @unlink($tmp); return false; }
+  clearstatcache(true, $f);
+  return true;
+}
+
+/* Fase 7 — cierre inmediato en ESTE servidor, sin esperar a un despliegue futuro. En el
+   mismo instante en que un token se usa con éxito, admin/activacion.php se reescribe con
+   256 bits de aleatoriedad que no son el hash de ningún token — nadie los generó a partir
+   de uno, así que no hay ningún secreto conocido que produzca ese valor, y encontrar uno
+   por fuerza bruta es tan inviable como romper SHA-256 al azar (no es que "no exista
+   matemáticamente una preimagen": es que no hay ninguna conocida, y buscarla no es
+   viable). El fichero en el servidor no se puede dejar vacío ni desaparecer: gen.mjs exige
+   PANEL_ACTIVACION_HASH no vacío en todo cliente con activacionPanel=true, así que un
+   futuro build sin este fichero simplemente no llegaría a desplegarse — hay que dejarlo
+   con ALGÚN valor, y este es el que no sirve para nada.
+   Es la segunda capa: la guardia primaria es marcar_activacion_consumida(), de arriba. Y
+   --cerrar-activacion (nuevo-cliente.mjs) hace lo mismo en el Secret de GitHub, para que
+   el PRÓXIMO build que se despliegue también traiga un hash muerto en vez del real. */
+function matar_hash_activacion_local(): bool {
+  $f   = __DIR__ . '/activacion.php';
+  $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+  $muerto = bin2hex(random_bytes(32));
+  $php = "<?php" . PHP_EOL
+       . "// Activación ya consumida. Este valor no es el hash de ningún token real:" . PHP_EOL
+       . "// nadie lo generó a partir de uno, así que ningún token puede volver a activar esto." . PHP_EOL
+       . "define('PANEL_ACTIVACION_HASH', '" . $muerto . "');" . PHP_EOL;
+  if (@file_put_contents($tmp, $php, LOCK_EX) === false) return false;
+  @chmod($tmp, 0644);
+  if (!@rename($tmp, $f)) { @unlink($tmp); return false; }
+  if (function_exists('opcache_invalidate')) @opcache_invalidate($f, true);
+  clearstatcache(true, $f);
+  return true;
+}
+
 /* La del superadministrador se escribe igual, en su propio archivo. Sólo la toca el propio
    superadministrador (o quien tenga FTP); ninguna acción del rol restaurante llega aquí. */
 function guardar_superclave(string $hash): bool {
@@ -1278,6 +1323,10 @@ $super_en_entorno = (string) getenv('SUPERADMIN_PASSWORD_HASH') !== '';
  * él y deja fuera al dueño: la carrera clásica de toda pantalla de primera configuración. */
 $hash_nuevo = null;
 $clave_escrita = false;
+/* Fase 7 — activación por token. Un cliente nacido de nuevo-cliente.mjs despliega su
+   panel con PANEL_ACTIVACION_HASH puesto; un cliente que no lo tenga configurado deja
+   $activacion_requerida en false y todo este bloque se comporta exactamente como antes. */
+$activacion_requerida = (defined('PANEL_ACTIVACION_HASH') && PANEL_ACTIVACION_HASH !== '');
 if ($sin_configurar && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['nueva'])) {
   usleep(300000);
   $espera = bloqueo_minutos_restantes();
@@ -1286,6 +1335,16 @@ if ($sin_configurar && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_
     $error = 'La página ha caducado. Recarga y vuelve a intentarlo.';
   } elseif ($espera > 0) {
     $error = 'Demasiados intentos seguidos. Espera ' . $espera . ' minuto(s) y vuelve a probar.';
+  } elseif ($activacion_requerida && is_file(ACTIVACION_CONSUMIDA_PATH)) {
+    /* No debería poder llegar aquí ($sin_configurar ya sería false en cuanto exista
+       clave.php, y las dos se escriben juntas) — guardia primaria explícita, no confiar
+       solo en ADMIN_HASH. */
+    $error = 'La activación de este panel ya se ha consumido.';
+  } elseif ($activacion_requerida && !hash_equals(PANEL_ACTIVACION_HASH,
+              hash('sha256', (string) ($_POST['token_activacion'] ?? '')))) {
+    apuntar_fallo();
+    registrar_acceso('configuración inicial rechazada: token de activación incorrecto');
+    $error = 'El token de activación no es correcto.';
   } elseif (SUPERADMIN_HASH !== '' && !password_verify((string) ($_POST['super'] ?? ''), SUPERADMIN_HASH)) {
     apuntar_fallo();
     registrar_acceso('configuración inicial rechazada: superadmin incorrecto');
@@ -1296,7 +1355,14 @@ if ($sin_configurar && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_
     limpiar_fallos();
     $hash_nuevo = password_hash($nueva, PASSWORD_DEFAULT);
     $clave_escrita = guardar_clave($hash_nuevo);
-    if ($clave_escrita) registrar_acceso('contraseña del restaurante configurada por primera vez');
+    if ($clave_escrita) {
+      registrar_acceso('contraseña del restaurante configurada por primera vez');
+      if ($activacion_requerida) {
+        marcar_activacion_consumida();
+        matar_hash_activacion_local();
+        registrar_acceso('activación por token consumida; hash cerrado en este servidor');
+      }
+    }
   }
 }
 
@@ -2600,6 +2666,7 @@ $PESTANAS = ['agotados' => 'Agotados hoy', 'destacados' => 'Destacados',
              'datos' => 'Analítica', 'marca' => 'Marca'];
 if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // la fuente es el contrato: ver config.php
 if (!CLIENTE_JUEGO)  unset($PESTANAS['juego']);     // sin la capacidad no hay nada que apagar
+if (!CLIENTE_PUBLICIDAD) unset($PESTANAS['publicidad']); // idem, Fase 7
 if (!isset($PESTANAS[$pestana])) $pestana = 'agotados';
 $CUENTAS = [
   'agotados'   => count($agotados),
@@ -3846,12 +3913,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <?php else: ?>
       <form method="post">
         <input type="hidden" name="csrf" value="<?= h((string) ($_SESSION['csrf'] ?? '')) ?>">
+        <?php if ($activacion_requerida): ?>
+          <p class="sub" style="margin-bottom:8px">Este panel necesita el token de activación
+            que se generó al dar de alta este cliente. Se usa una sola vez.</p>
+          <input type="text" name="token_activacion" placeholder="Token de activación" aria-label="Token de activación" autocomplete="off" required autofocus>
+        <?php endif; ?>
         <?php if (SUPERADMIN_HASH !== ''): ?>
           <p class="sub" style="margin-bottom:8px">Primero, la contraseña de superadministrador:
             sin ella nadie puede reclamar este panel.</p>
-          <input type="password" name="super" placeholder="Contraseña de superadministrador" aria-label="Contraseña de superadministrador" autocomplete="off" required autofocus>
+          <input type="password" name="super" placeholder="Contraseña de superadministrador" aria-label="Contraseña de superadministrador" autocomplete="off" required<?= $activacion_requerida ? '' : ' autofocus' ?>>
         <?php endif; ?>
-        <input type="password" name="nueva" placeholder="Contraseña nueva (mín. 8)" aria-label="Contraseña nueva, mínimo 8 caracteres" autocomplete="new-password" required<?= SUPERADMIN_HASH === '' ? ' autofocus' : '' ?>>
+        <input type="password" name="nueva" placeholder="Contraseña nueva (mín. 8)" aria-label="Contraseña nueva, mínimo 8 caracteres" autocomplete="new-password" required<?= (SUPERADMIN_HASH === '' && !$activacion_requerida) ? ' autofocus' : '' ?>>
         <button type="submit">Guardar contraseña</button>
       </form>
     <?php endif; ?>
@@ -5078,9 +5150,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php endif; ?>
     </div>
   </section>
+  <?php endif; ?>
 
   <?php /* Publicidad: independiente del juego y de CLIENTE_JUEGO a proposito (decision del
-           propietario): el hueco es de la CARTA y un cliente sin juego tambien lo alquila. */ ?>
+           propietario): el hueco es de la CARTA y un cliente sin juego tambien lo alquila.
+           Fase 7: antes de esta correccion, el <section> de aqui abajo vivia DENTRO del
+           if (CLIENTE_JUEGO) de arriba por error de anidado -- el comentario ya decia que
+           debian ser independientes, el codigo no lo era todavia. Ahora cada uno cierra su
+           propio if justo donde termina su propia section. */ ?>
+  <?php if (CLIENTE_PUBLICIDAD): ?>
   <section class="pane" data-pane="publicidad"<?= $pestana === 'publicidad' ? '' : ' hidden' ?>>
     <p class="hint">
       Un hueco publicitario en la carta, entre la tarjeta del juego y la nota de Google.

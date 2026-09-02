@@ -27,7 +27,9 @@
  * con un error que no señalaba la línea.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { verificarMotor, cliente } from './entorno.mjs';
+import { esValida, CANONICAS, ALIAS } from './alergenos.mjs';
 
 /* El motor tiene que ser exactamente el que dice motor.lock, tambien aqui: el importador
    escribe menu.md y los diccionarios, y un importador manipulado escribiria la carta. */
@@ -74,6 +76,45 @@ if (!Array.isArray(FUENTE.pestanas) || !FUENTE.pestanas.length) {
   process.exit(1);
 }
 const CARTA = FUENTE.pestanas;
+
+/* Fase 7 — genera el dishId/categoryId que falte, ANTES de la validación de abajo (que
+   sigue exigiendo el mismo formato de siempre: no se relaja por esto). Un cliente nuevo
+   arranca con carta.json vacío y quien escribe la carta —Claude, per el diseño de la
+   Fase 7— no inventa hexadecimales a mano: los platos y categorías nuevos, sin id, lo
+   reciben aquí, con el MISMO formato y la MISMA comprobación de unicidad que ya exige
+   la validación siguiente. Un id que YA existe no se toca nunca — es justamente lo que
+   hace que dishId/categoryId sean permanentes. Si se generó alguno, se reescribe
+   carta.json para que la próxima pasada vea el mismo id, no otro nuevo. */
+{
+  const yaUsados = new Set();
+  CARTA.forEach((t) => t.grupos?.forEach((g) => {
+    if (g.categoryId) yaUsados.add(g.categoryId);
+    g.platos?.forEach((p) => { if (p.dishId) yaUsados.add(p.dishId); });
+  }));
+  /* UUID v4 completo, sin guiones: 32 caracteres hex, el contrato exacto que exige la
+     validacion de abajo (^c_[0-9a-f]{10,}$ / ^d_[0-9a-f]{10,}$ acepta 10 o mas, pero el
+     diseño pide el UUID entero, no un recorte). randomUUID() es de node:crypto, sin
+     dependencias. */
+  const nuevoId = (prefijo) => {
+    let id;
+    do { id = prefijo + randomUUID().replace(/-/g, ''); } while (yaUsados.has(id));
+    yaUsados.add(id);
+    return id;
+  };
+  let generados = 0;
+  CARTA.forEach((t) => t.grupos?.forEach((g) => {
+    if (!g.categoryId) { g.categoryId = nuevoId('c_'); generados++; }
+    g.platos?.forEach((p) => {
+      if (!p.dishId) { p.dishId = nuevoId('d_'); generados++; }
+    });
+  }));
+  if (generados) {
+    /* String.fromCharCode(10), no NL: esa constante se define mas abajo en este mismo
+       fichero y este bloque corre antes de que exista. */
+    writeFileSync(RUTA_CARTA, JSON.stringify(FUENTE, null, 2) + String.fromCharCode(10));
+    console.log('carta.json: generados ' + generados + ' identificador(es) nuevo(s) (c_/d_ + hex, únicos).');
+  }
+}
 
 /* Los identificadores permanentes. Formato y unicidad se comprueban en cada pasada: un ID
    repetido mezclaría fotos, precios y agotados de dos platos, que es exactamente la clase de
@@ -149,10 +190,10 @@ const texto = (v, donde) => {
 const MEDALLAS = ['oro', 'bronce'];
 
 const platos = [];        // { cat, nombre[], desc[], precio, id, dishId }
-/* Los alergenos que el motor sabe pintar. Un nombre mal escrito no se pinta y no avisa, asi que
-   se para aqui: es el unico sitio donde alguien lo esta mirando. */
-const CONOCIDOS = ['trigo', 'leche', 'huevo', 'soja', 'mostaza', 'apio', 'sulfitos',
-                   'sesamo', 'frutos_secos', 'pescado', 'crustaceos'];
+/* Fase 7 — el vocabulario de alergenos por plato ya no vive aqui: esValida(), importado
+   de motor/alergenos.mjs, acepta las 14 claves canonicas del Reglamento UE 1169/2011 y
+   las claves heredadas (espanolas e inglesas) que un carta.json existente pueda ya usar.
+   Un nombre mal escrito sigue sin pintarse y sin avisar, asi que sigue parando aqui abajo. */
 
 const cats = [];          // { tab, icono, cat, sub[], iconoSub, nota[] }
 for (const t of CARTA) {
@@ -242,10 +283,10 @@ if (choques.length) {
 const hayExtras = platos.some((p) => p.alergenos.length || p.premio || p.medalla);
 
 const raros = [...new Set(platos.flatMap((p) => p.alergenos)
-  .filter((a) => !CONOCIDOS.includes(a)))];
+  .filter((a) => !esValida(a)))];
 if (raros.length) {
   throw new Error('alergenos que no existen en carta.json: ' + raros.join(', ') + NL
-    + '  los validos son: ' + CONOCIDOS.join(', '));
+    + '  los validos son: ' + CANONICAS.concat(Object.keys(ALIAS)).join(', '));
 }
 
 const md = ['# Carta — generada por importar.mjs desde carta.json', '',

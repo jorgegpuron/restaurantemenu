@@ -10,6 +10,7 @@ import { PAISES, CODIGOS, imgBandera } from './banderas.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
 } from './temas.mjs';
+import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE } from './alergenos.mjs';
 /* Todo lo que es de ESTE restaurante. gen.mjs no lleva dentro ni un nombre ni una
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
 import { CLIENTE, CLAVE, SINONIMOS } from '../cliente.mjs';
@@ -67,11 +68,22 @@ if (CLIENTE.cocina !== undefined && (typeof CLIENTE.cocina !== 'string' || !CLIE
 }
 
 if (!CLIENTE.funciones || typeof CLIENTE.funciones.datos !== 'boolean'
-    || typeof CLIENTE.funciones.juego !== 'boolean') {
-  abortar("cliente.mjs: faltan las capacidades `funciones` — { datos: true|false, juego: true|false }.",
+    || typeof CLIENTE.funciones.juego !== 'boolean'
+    || typeof CLIENTE.funciones.publicidad !== 'boolean') {
+  abortar("cliente.mjs: faltan las capacidades `funciones` — { datos: true|false, juego: true|false, publicidad: true|false }.",
     "decidelas explicitamente: el motor no enciende nada por su cuenta");
 }
 const DATOS_ACTIVO = CLIENTE.funciones.datos;
+
+/* Fase 7 — fallo cerrado: un cliente que nace de nuevo-cliente.mjs lleva
+ * activacionPanel:true y necesita PANEL_ACTIVACION_HASH para que su panel no publique
+ * abierto a que cualquiera ponga la primera contraseña. Un cliente que no declare
+ * activacionPanel no pasa por esta comprobacion. */
+if (CLIENTE.activacionPanel === true && !process.env.PANEL_ACTIVACION_HASH) {
+  abortar("activacionPanel esta en true pero falta PANEL_ACTIVACION_HASH en el entorno del build.",
+    "pasa la variable de entorno (nuevo-cliente.mjs --build-local usa una temporal; " +
+    "el despliegue real la lee del Secret del repositorio) o quita activacionPanel si este cliente no la necesita");
+}
 
 /* Los idiomas: el base es el texto del documento; los extras van en data-<code>. El catalogo
    nativo del motor esta en ingles (el idioma de su codigo fuente): con base 'en' no hace
@@ -809,31 +821,14 @@ const TL_TXT = (en) => esc(IDIOMA_BASE.code !== 'en' ? BT(en, 'ui')
  * Que categorias son selectores lo dice carta.json (metadato `selector`), no una lista de
  * nombres del motor. */
 /* ---- alérgenos ----
- * El CATALOGO de iconos es del motor; la SELECCION que sale en la leyenda del pie es del
- * cliente (CLIENTE.alergenos.leyenda) y se valida contra este catalogo mas abajo.
- * Sobre el dibujo original de estos ocho, elegidos en su dia para el primer cliente: el
- * trigo de los panes, los lácteos del paneer y el ghee, el anacardo de los korma, el pescado
- * de los currys, el huevo de algunos panes y postres, el sésamo del aceite de gingelly, la
- * mostaza del tempering —que está en casi todo— y los sulfitos del vino.
- *
- * No son una declaración de lo que lleva cada plato: eso lo dice el personal, y el texto de
- * al lado lo deja claro. Aquí sólo dicen de qué va el aviso, que es lo que hace que alguien
- * lo lea. Faltan crustáceos a propósito — ver más abajo.
- *
- * Seis salen de Tabler (MIT). Dos no existen en ningún set decente y están dibujados en la
- * misma gramática: rejilla de 24, trazo 1.75, extremos redondeados, sin relleno. Los dos
- * están mirados a 84px y a 21px antes de entrar: un icono que no se lee a su tamaño real es
- * ruido, y el primero que puse para frutos secos era literalmente una tuerca de tornillo. */
-const ALERGENO = {
-  wheat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.014 21.514v-3.75" /> <path d="M5.93 9.504l-.43 1.604c-.712 2.659 .866 5.391 3.524 6.105c.997 .268 1.993 .535 2.99 .801v-3.44c-.164 -2.105 -1.637 -3.879 -3.676 -4.426l-2.408 -.644" /> <path d="M13.744 11.164c.454 -.454 .815 -.994 1.061 -1.587c.246 -.594 .372 -1.23 .372 -1.873c0 -.643 -.126 -1.279 -.372 -1.872c-.246 -.594 -.606 -1.133 -1.061 -1.588l-1.73 -1.73l-1.73 1.73c-.454 .454 -.815 .994 -1.06 1.588c-.246 .594 -.372 1.23 -.373 1.872c0 .643 .127 1.279 .373 1.873c.246 .594 .606 1.133 1.06 1.587" /> <path d="M18.099 9.504l.43 1.604c.712 2.659 -.866 5.391 -3.525 6.105c-.997 .268 -1.994 .535 -2.99 .801v-3.44c.164 -2.105 1.637 -3.879 3.677 -4.426l2.408 -.644" /></svg>`,
-  milk: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></svg>`,
-  nut: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4c-4 0 -7 3 -7 7c0 4 3 8 7 9c4 -1 7 -5 7 -9c0 -4 -3 -7 -7 -7z"/><path d="M12 4v16"/><path d="M9 8c1 1.5 1 3.5 0 5"/><path d="M15 8c-1 1.5 -1 3.5 0 5"/></svg>`,
-  fish: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.69 7.44a6.973 6.973 0 0 0 -1.69 4.56c0 1.747 .64 3.345 1.699 4.571" /> <path d="M2 9.504c7.715 8.647 14.75 10.265 20 2.498c-5.25 -7.761 -12.285 -6.142 -20 2.504" /> <path d="M18 11v.01" /> <path d="M11.5 10.5c-.667 1 -.667 2 0 3" /></svg>`,
-  egg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></svg>`,
-  sesame: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M8.5 4.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M8.5 14.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3.5 19.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M13.5 9.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18.5 4.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M13.5 19.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18.5 14.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>`,
-  mustard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4v3h-4z"/><path d="M9 6h6l1.5 3v10a2 2 0 0 1 -2 2h-5a2 2 0 0 1 -2 -2v-10z"/><path d="M9 12h6"/></svg>`,
-  sulphites: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21l8 0" /> <path d="M12 15l0 6" /> <path d="M17 3l1 7c0 3.012 -2.686 5 -6 5s-6 -1.988 -6 -5l1 -7h10" /> <path d="M6 10a5 5 0 0 1 6 0a5 5 0 0 0 6 0" /></svg>`,
-};
+ * El CATALOGO de iconos es del motor (motor/alergenos.mjs, unico para todo el proyecto);
+ * la SELECCION que sale en la leyenda del pie es del cliente (CLIENTE.alergenos.leyenda)
+ * y se valida contra ese catalogo mas abajo. ALERGENO/ALERGENO_LABEL son solo el alias
+ * local de siempre para no tocar el resto de este fichero: siguen respondiendo a las
+ * mismas claves heredadas de siempre (wheat, milk, nut, fish, egg, sesame, mustard,
+ * sulphites), resueltas ahora contra el catalogo unico en vez de estar repetidas aqui. */
+const ALERGENO = ICONO_POR_CLAVE;
+const ALERGENO_LABEL = ETIQUETA_POR_CLAVE;
 
 const ICON = {
   sauce: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546"/></svg>',
@@ -844,10 +839,6 @@ const iconFor = (g) =>
 
 /* La seleccion de la leyenda, contra el catalogo: una clave desconocida aborta listando las
    validas, no se pinta un hueco vacio. */
-const ALERGENO_LABEL = {
-  wheat: 'Gluten', milk: 'Dairy', nut: 'Nuts', fish: 'Fish',
-  egg: 'Egg', sesame: 'Sesame', mustard: 'Mustard', sulphites: 'Sulphites',
-};
 for (const k of CLIENTE.alergenos.leyenda) {
   if (!ALERGENO[k]) {
     abortar('cliente.mjs: alergenos.leyenda lleva ' + JSON.stringify(k) + ', que no esta en el catalogo.',
@@ -4106,14 +4097,17 @@ ${!CLIENTE.funciones.juego ? '' : `          <!-- La entrada al juego va al fina
             </span>
           </a>`}
 
-          <!-- Publicidad: un hueco que el restaurante alquila. Es de la CARTA, no del juego:
+${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que el restaurante alquila. Es de la CARTA, no del juego:
                se emite fuera del condicional de arriba a proposito, para que un cliente sin
                juego (o con el juego apagado) pueda seguir monetizando la zona. Sin configurar,
                fuera de fechas o en pantalla ancha no existe: ni hueco, ni peticion de red.
-               Sin href no es interactivo; el enlace se pone solo con URL valida. -->
+               Sin href no es interactivo; el enlace se pone solo con URL valida.
+               Fase 7: fuera del condicional de arriba a proposito (independiente del juego,
+               decision del propietario, sin cambios) pero con el suyo propio, funciones.publicidad
+               — un cliente que no venda ese hueco no emite ni el contenedor. -->
           <a class="banner-pub" id="banner-pub" hidden>
             <img id="banner-pub-img" alt="" loading="lazy" decoding="async">
-          </a>
+          </a>`}
 
           <!-- La nota de Google. Los números y los nombres salen de estado.json, nunca del
                build: cada restaurante tiene los suyos y esta carta se vende a varios. Si el
@@ -6871,9 +6865,31 @@ writeFileSync(
     "define('PUB_URL',       " + JSON.stringify(PUB_URL) + ');',
     "define('CLIENTE_JUEGO', " + (CLIENTE.funciones.juego ? 'true' : 'false') + ');',
     "define('CLIENTE_DATOS', " + (DATOS_ACTIVO ? 'true' : 'false') + ');',
+    "define('CLIENTE_PUBLICIDAD', " + (CLIENTE.funciones.publicidad ? 'true' : 'false') + ');',
     '',
   ].join(NL),
 );
+
+/* Fase 7 — activacion del panel. Solo escribe este fichero si el build tiene un hash que
+ * darle: PANEL_ACTIVACION_HASH llega por entorno (el Secret del repositorio en el
+ * despliegue real; un hash temporal y desechable en --build-local; nada en un build
+ * de un cliente que no use este mecanismo). Sin la variable, no se escribe nada —
+ * config.php ya trata su ausencia como "sin activacion pendiente", que es el
+ * comportamiento de siempre. */
+if (process.env.PANEL_ACTIVACION_HASH) {
+  writeFileSync(
+    generado('admin/activacion.php'),
+    [
+      '<?php',
+      '/* Generado por gen.mjs desde el Secret PANEL_ACTIVACION_HASH del repositorio.',
+      '   No es un hash de una contrasena: es el hash SHA-256 del token de activacion de',
+      '   un solo uso. No editar a mano: se sobrescribe en cada build mientras el Secret',
+      '   siga puesto. */',
+      "define('PANEL_ACTIVACION_HASH', " + JSON.stringify(process.env.PANEL_ACTIVACION_HASH) + ');',
+      '',
+    ].join(NL),
+  );
+}
 /* Bytes de verdad, no `length`: el HTML va en UTF-8 y ahi una `a` con tilde ocupa dos, una raya
    larga tres. Contando caracteres el log decia 697226 y el fichero pesaba 699256, y esos 2030 de
    diferencia parecen contenido perdido cuando no lo son. */

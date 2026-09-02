@@ -13,6 +13,11 @@ server/admin/marcador.json
 record.json
 server/admin/permitir-hash.txt
 server/admin/copias/
+# Fase 7: la marca de que un token de activación ya se consumió, y el hash de activación
+# que escribe gen.mjs en cada build desde el Secret del repositorio. Ninguno de los dos
+# existe en un build que no use este mecanismo, pero conviven en la misma carpeta.
+server/admin/activacion.consumida
+server/admin/activacion.php
 
 # Vídeo original de la puerta y cualquier fuente pesada que no compile: viven fuera del repo.
 *.mov

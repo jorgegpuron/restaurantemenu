@@ -120,8 +120,11 @@ export const CLIENTE = {
        una sola línea de medición y el endpoint no apunta.
      - juego: Chilli Rush. Con false no se emite juego.html (sale una lápida que sustituye a
        cualquier copia vieja desplegada), no hay tarjeta en la carta, el arte del juego no
-       viaja y el endpoint del marcador rechaza toda actividad. */
-  funciones: { datos: true, juego: true },
+       viaja y el endpoint del marcador rechaza toda actividad.
+     - publicidad (Fase 7): el hueco publicitario de la carta. true conserva exactamente el
+       comportamiento de siempre — es lo único que existía antes de que este interruptor
+       existiera. */
+  funciones: { datos: true, juego: true, publicidad: true },
 };
 
 /* Se usa en todas partes como CLAVE('tema'), CLAVE('lang')... Una sola función y ni un literal

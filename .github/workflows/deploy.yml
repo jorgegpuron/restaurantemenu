@@ -75,8 +75,15 @@ jobs:
 
       # Sin package.json ni dependencias: gen.mjs solo usa node:fs, node:crypto y modulos del
       # propio repositorio. No hay npm ci que hacer ni cache que guardar.
+      #
+      # PANEL_ACTIVACION_HASH (Fase 7): solo lo usan los clientes con activacionPanel:true
+      # en su cliente.mjs. Si este cliente no lo declara, aqui llega vacio y gen.mjs no
+      # escribe nada con el — mismo build de siempre. Si el repositorio no tiene este
+      # Secret, la variable de entorno simplemente no existe: no es un error.
       - name: Compilar la carta
         working-directory: tinge_of_turmeric/1-proyecto
+        env:
+          PANEL_ACTIVACION_HASH: ${{ secrets.PANEL_ACTIVACION_HASH }}
         run: node gen.mjs
 
       # Una carta rota es peor que una carta vieja. Si el build no dejo lo minimo, se para aqui
@@ -141,6 +148,7 @@ jobs:
             assets/publicidad/**
             admin/clave.php
             admin/superclave.php
+            admin/activacion.consumida
             admin/intentos.json
             admin/accesos.log
             admin/canjes.json

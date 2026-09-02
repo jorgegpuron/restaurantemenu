@@ -68,6 +68,19 @@ if (is_string($__sh) && $__sh !== '') {
 if (!defined('SUPERADMIN_HASH')) define('SUPERADMIN_HASH', '');
 unset($__sh);
 
+/* ------------------------------------------------------------ ACTIVACION DEL PANEL
+ * Fase 7. admin/activacion.php lo escribe gen.mjs desde el Secret PANEL_ACTIVACION_HASH
+ * del repositorio — NO es un dato del cliente y NO existe en un build que no use este
+ * mecanismo. Si no existe (cualquier cliente sin activacion pendiente, o una
+ * subida a medias), la constante queda vacia y el panel se comporta exactamente como
+ * hoy: sin pantalla de token, solo la de primera configuracion de siempre. */
+if (is_file(__DIR__ . '/activacion.php')) require __DIR__ . '/activacion.php';
+if (!defined('PANEL_ACTIVACION_HASH')) define('PANEL_ACTIVACION_HASH', '');
+/* La marca de que ya se activo, escrita por el panel una sola vez (index.php). No forma
+ * parte del build, ninguna subida la pisa ni la borra: es la guardia primaria de que un
+ * token de activacion no sirve dos veces, pase lo que pase con PANEL_ACTIVACION_HASH. */
+define('ACTIVACION_CONSUMIDA_PATH', __DIR__ . '/activacion.consumida');
+
 /* Fuerza bruta: tras MAX_FALLOS contraseñas mal seguidas desde una misma IP, esa IP espera
  * BLOQUEO_MINUTOS. El registro vive en un JSON que el .htaccess no sirve. */
 define('INTENTOS_PATH', __DIR__ . '/intentos.json');
@@ -97,6 +110,7 @@ if (!defined('CLIENTE_NOMBRE')) define('CLIENTE_NOMBRE', 'La carta');
  * restaurante. */
 if (!defined('CLIENTE_JUEGO'))  define('CLIENTE_JUEGO', false);
 if (!defined('CLIENTE_DATOS'))  define('CLIENTE_DATOS', false);
+if (!defined('CLIENTE_PUBLICIDAD')) define('CLIENTE_PUBLICIDAD', false);
 if (!defined('CLIENTE_MONEDA')) define('CLIENTE_MONEDA', '');
 if (!defined('CLIENTE_TZ'))     define('CLIENTE_TZ', 'UTC');
 if (!defined('CLIENTE_CORTE_HORA')) define('CLIENTE_CORTE_HORA', 0);

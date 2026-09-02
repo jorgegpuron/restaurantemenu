@@ -22,13 +22,19 @@ Repo:
 Destino:
 Carta:
 Idiomas:
+Impuesto:
 Funciones:
 - publicidad: sí/no
 - juego: sí/no
+Enlace de reseñas de Google (opcional):
 ```
 
 Notas sobre los campos:
 - `Carta` puede ser URL, PDF, fotos/capturas o archivo.
+- `Impuesto` no tiene valor por defecto: sin él, el alta no continúa (mismo criterio que
+  el resto del motor — nada se inventa).
+- El enlace de Google es el ÚNICO campo opcional de esta lista: si no lo tienen, se deja
+  vacío y lo pone el restaurante desde el panel más adelante.
 - NO pedir branding: ni logo, ni fotos corporativas, ni colores.
 
 Con los datos completos: confirmarlos en una tabla y seguir `NUEVO_CLIENTE.md` (cada
