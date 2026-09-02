@@ -869,10 +869,10 @@ const HIGHLIGHTS = ['Bestseller', 'Most loved', 'Signature', 'Popular', 'Must tr
 /* Cadenas que el runtime necesita en los tres idiomas. T() sirve para el HTML, pero un texto
    que se compone en JS (un porcentaje, una hora) necesita el diccionario en crudo. */
 const RUNTIME_STRINGS = HIGHLIGHTS.concat([
-  /* La tarjeta del juego pinta el récord desde JS, así que sus dos palabras van aquí: lo que
-     no está en esta lista sale en inglés en la carta y nadie se entera. */
+  /* 'Record' lo sigue pintando el propio juego desde su canvas (juego.mjs), aunque la
+     tarjeta del index ya no muestre el récord: lo que no está en esta lista sale en inglés
+     en la carta y nadie se entera. */
   'Record',
-  'points',
   '{pct}% off',
   'Today we make it easy! Enjoy {pct}% off selected dishes.',
   'Hi, I would like a digital menu like this one for my restaurant.',
@@ -1619,22 +1619,28 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Dos columnas y dos filas: arriba el nombre y la llamada, abajo el record de lado a lado. En
    una sola fila no cabe: a 390 la linea del record pedia 200px y tenia 185, y se cortaba con
    puntos suspensivos en casi cualquier movil. */
+/* Sticker Pop: el fondo pasa a ser --offer entero, no solo tinta con un icono rojo. Es la
+   unica pareja de color que el propio tema verifica en los 5 temas (temas.mjs, --offer <->
+   --surface, minimo 4,5:1 en los dos sentidos) — por eso todo el texto y el boton de aqui
+   van en --surface, nunca en --ink. */
 .game-card{
-  display:grid;
-  grid-template-columns:1fr auto;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
   align-items:center;
-  column-gap:var(--s2);
+  justify-content:center;
+  text-align:center;
+  gap:var(--s1);
+  min-height:200px;
   margin-top:var(--s3);
-  /* Se sale de la calle del contenido para medir lo mismo que la foto de portada. Vive dentro
-     de la columna de texto, asi que la unica forma es tirar de ella hacia fuera lo que mide esa
-     calle y devolverle los 8 que deja la portada por los lados. Al leer --gutter cuadra sola en
-     los cuatro breakpoints. Es el mismo recurso que ya usa .legend-allergens. */
+  /* Se sale de la calle del contenido para medir lo mismo que la foto de portada — misma
+     cuenta con --gutter que antes del rediseño, eso no cambia. */
   margin-left:calc(var(--s1) - var(--gutter));
   margin-right:calc(var(--s1) - var(--gutter));
-  padding:var(--s3);
-  /* la mitad de la hoja: la tarjeta pierde chicha de esquina sin salirse del token */
+  padding:var(--s4) var(--s3);
   border-radius:calc(var(--r-sheet) / 2);
-  background:var(--ink);
+  background:var(--offer);
   color:var(--surface);
   text-decoration:none;
   transition:transform var(--t-press) var(--ease-out);
@@ -1668,86 +1674,78 @@ html:not(.js) .lang-menu{position:static;display:block}
 .banner-pub:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 @media (min-width:768px){ .banner-pub{display:none} }
 
-/* Aquí iba el chile de la casa en un medallón de 48, y flotaba. Se cae porque no cabía: con él
-   delante, a 375 el nombre y la llamada sumaban 353 de los 265 que hay y la llamada se
-   descolgaba a una segunda fila. El nombre ya lleva el chile en la palabra y el rojo lo pone
-   «Rush», así que lo que se pierde es sólo el adorno.
+.game-card-halftone{
+  position:absolute;inset:0;opacity:.14;pointer-events:none;
+  background-image:radial-gradient(var(--ink) 1.6px, transparent 1.6px);
+  background-size:12px 12px;
+}
+/* Alineada a la derecha, al 120% del alto de la tarjeta (200px de la tarjeta -> 240px,
+   en px y no en % porque el % sobre un alto auto/min-height no resolvia limpio contra
+   los 200 reales — medido, no a ojo). Se pasa por arriba y por abajo a proposito, y
+   overflow:hidden en .game-card recorta ambos lados por igual porque esta centrada en
+   vertical (top:50% + translateY(-50%)): el sobrante se reparte igual arriba y abajo. */
+.game-card-mascot{
+  position:absolute;top:50%;right:-8px;height:240px;width:auto;pointer-events:none;
+  transform:translateY(-50%) rotate(-3deg);
+  /* contorno tipo pegatina: ocho drop-shadow apilados alrededor del recorte, en --surface
+     para que funcione igual en los 5 temas */
+  filter:
+    drop-shadow(3px 0 0 var(--surface)) drop-shadow(-3px 0 0 var(--surface))
+    drop-shadow(0 3px 0 var(--surface)) drop-shadow(0 -3px 0 var(--surface))
+    drop-shadow(2px 2px 0 var(--surface)) drop-shadow(-2px 2px 0 var(--surface))
+    drop-shadow(2px -2px 0 var(--surface)) drop-shadow(-2px -2px 0 var(--surface))
+    drop-shadow(0 10px 14px rgba(0,0,0,.28));
+  transform-origin:50% 50%;
+  animation:game-card-wiggle 2.4s ease-in-out infinite;
+}
+@keyframes game-card-wiggle{
+  0%,100%{transform:translateY(-50%) rotate(-3deg)}
+  50%{transform:translateY(-50%) rotate(3deg)}
+}
+@media (prefers-reduced-motion:reduce){.game-card-mascot{animation:none}}
 
-   El nombre encoge con la pantalla —de 22 a 34— para que la llamada quepa detrás en un móvil
-   estrecho sin dejar de ser grande donde hay sitio. */
-
-/* El nombre y el récord, apilados, ocupando el hueco que quede a la izquierda del botón.
-   El récord NO puede ir en la misma línea que el nombre: a 320px el nombre y el botón ya se
-   reparten el ancho con 13px de holgura, y el nombre no puede partirse. Va debajo, y la
-   tarjeta crece de 90 a 121. */
+.game-card-body{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;align-items:center;
+  max-width:92%;
+}
+/* El nombre, a un 70% del ancho de la tarjeta: medido a 390px (243 de 348) y ajustado el
+   vw hasta que el texto renderizado diera esa anchura. El techo evita que crezca sin
+   limite en viewports anchos, donde .phone deja de ensanchar la tarjeta pero vw sigue
+   creciendo igual. */
 .game-card-title{
-  min-width:0;
-  font-family:var(--title-font);
-  /* Crece con la pantalla y no se parte nunca. El suelo son 21: con el nombre a 24 y la
-     llamada en 121, a 360px de movil se salia de la tarjeta, y como no puede envolver lo que
-     hacia era desbordar. El techo son 34, que es donde deja de tener sentido crecer. */
-  font-size:clamp(21px,6.4vw,34px);font-weight:800;line-height:1.05;letter-spacing:-0.02em;
-  white-space:nowrap;
+  font-family:var(--title-font);font-weight:800;line-height:1.05;letter-spacing:-.02em;
+  font-size:clamp(28px,12.5vw,48px);
 }
-/* El récord, en pequeño y a media luz: es la referencia, no el titular. Si no hay récord
-   todavía la línea no existe — un «Récord: 0» se lee como una avería. */
-.game-card-record{
-  grid-column:1 / -1;margin-top:3px;
-  font-family:var(--title-font);font-size:13px;font-weight:600;
-  letter-spacing:.01em;opacity:.72;
-  font-variant-numeric:tabular-nums;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.game-card-record[hidden]{display:none}
-.game-card-flag{
-  display:inline-block;vertical-align:-2px;margin-right:2px;
-  border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.22);
-}
-
-/* La firma del juego, la misma inclinación y el mismo rojo que en su portada. */
+/* La firma del juego, la misma inclinación que en su portada — invertida frente al diseño
+   anterior: antes el fondo era --ink y «Rush» llevaba el rojo; aqui el fondo YA es el rojo,
+   asi que «Rush» pasa a la pastilla clara para seguir leyéndose. */
 .game-card-title em{
   font-style:normal;
   display:inline-block;
   transform:rotate(-3deg);
   padding:0 .18em;
   border-radius:.14em;
-  background:var(--offer);
-  color:var(--surface);
-}
-/* El botón: redondo, 64 y en el rojo del juego. Pegado a la derecha con margin-left:auto y
-   centrado en vertical por el align-items del bloque, así que da igual cuánto crezca el texto.
-   Es el mismo rojo del botón «Jugar» de la portada del juego, con la flecha en crema: 4,5:1
-   sobre el rojo, de sobra para un icono.
-
-   El aro de crema al 22% no es decoración: en Caoba el rojo sobre la tinta granate da 2,4:1 y
-   el círculo se perdería contra el fondo de la tarjeta. Con el aro, el borde se lee en los
-   cinco temas sin meter un color nuevo. */
-/* La llamada: un solo botón. La palabra y el triángulo dentro de la misma píldora, no dos
-   piezas seguidas — dos formas juntas parecían dos acciones cuando siempre fueron una.
-
-   Crema con texto de tinta: 10,8:1. El triángulo va en el rojo del juego, que al ser icono le
-   basta con 3:1. La píldora en rojo con el texto en crema se quedaba en 4,48 y no llegaba al
-   mínimo del texto normal, así que el rojo aquí sólo puede ser el icono. */
-.game-card-cta{
-  flex:0 0 auto;
-  margin-left:auto;
-  display:flex;align-items:center;gap:var(--s1);
-  height:48px;padding:0 var(--s3);
-  border-radius:var(--r-pill);
   background:var(--surface);
-  color:var(--ink);
-  font-family:var(--title-font);font-size:16px;font-weight:600;
+  color:var(--offer);
+}
+.game-card-play{
+  position:relative;z-index:1;margin-top:var(--s2);
+  width:52px;height:52px;border-radius:50%;
+  background:var(--surface);color:var(--offer);
+  display:grid;place-items:center;
+  box-shadow:0 4px 10px rgba(0,0,0,.22);
   transition:transform var(--t-press) var(--ease-out);
 }
-.game-card-cta svg{flex:0 0 auto;width:17px;height:17px;color:var(--offer)}
+.game-card-play svg{width:19px;height:19px;margin-left:2px}
 @media (hover:hover) and (pointer:fine){
-  .game-card:hover .game-card-cta{transform:translateX(3px)}
+  .game-card:hover .game-card-play{transform:scale(1.06)}
 }
-.game-card:active .game-card-cta{transform:scale(.96)}
+.game-card:active .game-card-play{transform:scale(.94)}
 @media (prefers-reduced-motion:reduce){
-  .game-card,.game-card-cta{transition:none}
-  .game-card:hover .game-card-cta,
-  .game-card:active .game-card-cta{transform:none}
+  .game-card,.game-card-play{transition:none}
+  .game-card:hover .game-card-play,
+  .game-card:active .game-card-play{transform:none}
 }
 
 /* ---------- las redes ----------
@@ -3989,13 +3987,13 @@ ${leyenda}
 ${!CLIENTE.funciones.juego ? '' : `          <!-- La entrada al juego va al final a propósito: el momento de jugar es después de
                pedir, no mientras se elige. El enlace se oculta si el restaurante apaga el
                juego desde el panel. -->
-          <a class="game-card" id="game-card" href="juego.html" hidden>
-            <span class="game-card-title">Chilli <em>Rush</em></span>
-            <span class="game-card-cta">
-              ${T('Play', 'ui')}
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg>
+          <a class="game-card" id="game-card" href="juego.html" hidden${TL('Play Chilli Rush')}>
+            <span class="game-card-halftone" aria-hidden="true"></span>
+            <img class="game-card-mascot" src="assets/chilirush.webp" alt="" aria-hidden="true">
+            <span class="game-card-body">
+              <span class="game-card-title">Chilli <em>Rush</em></span>
+              <span class="game-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg></span>
             </span>
-            <span class="game-card-record" id="game-card-record" hidden></span>
           </a>`}
 
           <!-- Publicidad: un hueco que el restaurante alquila. Es de la CARTA, no del juego:
@@ -4818,7 +4816,6 @@ ${sheet}
     // el juego se enseña sólo si el restaurante lo tiene encendido
     var juego = document.getElementById('game-card');
     if (juego) juego.hidden = !(estado && estado.game && estado.game.on);
-    if (juego && !juego.hidden) pintarRecord();
 
     /* --- publicidad: el banner alquilado de la carta ---
        Independiente del juego a proposito (decision del propietario): game.on no lo apaga.
@@ -4891,22 +4888,6 @@ ${sheet}
     if (meta && fondo) meta.content = fondo;
   }
 
-  /* El récord del juego, en su propia petición y en su propio fichero. No va dentro de
-     estado.json porque quien lo escribe es un endpoint público —el del juego— y ahí están los
-     agotados y los precios: el trabajo de verdad del restaurante no se toca desde fuera.
-
-     No se pide cada minuto como el estado: un récord cambia cuando alguien juega, y quien
-     acaba de jugar vuelve a la carta, que es cuando se refresca. */
-  var RECORD = null;                 // {puntos, nombre, pais} o null
-
-  /* Un nombre lo escribe un desconocido: se pinta como TEXTO y nunca como HTML. El servidor ya
-     lo limpia, pero el que pinta es el ultimo que puede evitar un <script>. */
-  function escaparTxt(t) {
-    var d = document.createElement('span');
-    d.textContent = t;
-    return d.innerHTML;
-  }
-
   var bannerMq = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
   var bannerUltimo = null;
   function bannerElegible(p) {
@@ -4958,67 +4939,6 @@ ${sheet}
      descargado se queda, que quitarlo no devuelve nada */
   if (bannerMq && bannerMq.addEventListener) bannerMq.addEventListener('change', pintarBanner);
 
-  function pintarRecord() {
-    var el = document.getElementById('game-card-record');
-    if (!el) return;
-    if (!RECORD) { el.textContent = ''; el.hidden = true; return; }
-    /* La bandera va DELANTE del nombre. Detras, cuando la linea no cabe (a 320 con un nombre de
-       doce y cuatro cifras se pasa por 11px) los puntos suspensivos se comen la bandera y queda
-       media imagen cortada. Delante, lo que se recorta es el nombre, que es lo correcto. */
-    el.innerHTML = tr('Record') + ': ' + RECORD.puntos + ' ' + tr('points')
-      + (RECORD.pais
-          ? ' · <img class="game-card-flag" src="assets/banderas/'
-            + encodeURIComponent(RECORD.pais)
-            + '.webp" width="20" height="15" alt="" decoding="async">'
-          : (RECORD.nombre ? ' ·' : ''))
-      + (RECORD.nombre ? ' ' + escaparTxt(RECORD.nombre) : '');
-    el.hidden = false;
-  }
-
-  function cargarRecord() {
-    fetch('record.json?t=' + Date.now(), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j) return;
-        /* Se acepta el record.json viejo, de un solo record: asi el restaurante que ya tenia
-           marca no la pierde el dia que se actualiza el motor. */
-        if (+j.puntos > 0) RECORD = { puntos: +j.puntos, nombre: '', pais: '' };
-        else if (j.top && j.top[0]) RECORD = j.top[0];
-        pintarRecord();
-      })
-      .catch(function () {});
-  }
-  /* El récord se pide DESPUÉS del estado y sólo si el juego está encendido. Antes se pedía
-     siempre y de entrada: en un restaurante que no usa el juego, record.json no existe, así
-     que cada visita gastaba una petición para recibir un 404 y dejar un error en la consola
-     del navegador. La chapa del récord cuelga de la tarjeta del juego, que tampoco se enseña
-     si el juego está apagado, así que no se pierde nada esperando. */
-  function cargarRecordSiProcede() {
-    if (!(estado && estado.game && estado.game.on)) return;
-    /* Y cuando la portada haya terminado de bajar, igual que las tipografías. Medido en
-       producción: se pedía en cuanto llegaba el estado —a los 1.022 ms— y con PRIORIDAD ALTA,
-       que es la que pone fetch por defecto, justo en la ventana en la que se bajaba la foto de
-       portada, de 1.007 a 1.193. Dos peticiones de prioridad alta repartiéndose la línea, y una
-       de las dos es la que Google mide como LCP.
-       La chapa del récord vive en la tarjeta del juego, más abajo del pliegue: nadie la espera.
-
-       Se cuelga de la FOTO y no del evento load de la página: son unos milisegundos de
-       diferencia en la realidad, pero el simulador de Lighthouse trata muy distinto a las dos
-       —medido: la misma petición colgada de load le cuesta 350 ms de FCP simulado, con el FCP
-       real idéntico— y es la nota simulada la que ve todo el mundo. */
-    var portada = document.querySelector('.hero-slide img');
-    if (!portada || !portada.src || portada.complete) { cargarRecord(); return; }
-    var una = false;
-    var vamos = function () { if (!una) { una = true; cargarRecord(); } };
-    portada.addEventListener('load', vamos);
-    portada.addEventListener('error', vamos);
-    /* Si la foto no llega nunca, el récord no se queda esperando para siempre. */
-    setTimeout(vamos, 6000);
-  }
-  /* Al volver del juego. pageshow y no load: si el móvil sirve la carta desde la caché de
-     atrás, load no se dispara y el récord recién batido no aparecería. */
-  window.addEventListener('pageshow', function (e) { if (e.persisted) cargarRecordSiProcede(); });
-
   /* La primera lectura ya viene pedida desde la cabecera, antes de que existiera este script:
      se recoge aquí en vez de volver a pedirla. Se consume una sola vez —se pone a null— para
      que el refresco de cada minuto vuelva a preguntar de verdad y no reviva la respuesta
@@ -5033,7 +4953,6 @@ ${sheet}
         if (state) { estado = state; aplicarTema(state.theme); }
         estadoLeido = true;
         render();
-        cargarRecordSiProcede();
       })
       .catch(function () {
         /* La carta se queda entera y con sus precios. Lo único que sí cambia es la portada:

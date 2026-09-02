@@ -6486,3 +6486,107 @@ Limitación conocida del entorno de desarrollo (Windows/OneDrive): `is_writable(
 dar un falso negativo sobre una carpeta creada por OTRO proceso; creada por el propio
 panel (mkdir de PHP, como en producción) responde bien. Es rareza de la máquina local,
 no del código, y el patrón es el mismo que ya usa el hero.
+
+## La tarjeta del juego, rediseñada: Sticker Pop (2 Sep 2026)
+
+Exploración con el skill `/prototype` (tres direcciones: vídeo ambiental, ticket
+perforado, plano de color con mascota adhesiva) y elección del propietario: **Sticker
+Pop**. Sustituye por completo el diseño anterior de `#game-card` — nombre y llamada
+apiladas a la izquierda, botón con texto a la derecha, récord debajo — descrito más
+arriba en este documento (secciones «Fuera los premios, dentro los récords» y
+siguientes). Ese diseño anterior no se borra de la historia de este fichero: queda como
+lo que fue, y esta sección documenta lo que lo sustituye y por qué.
+
+### El fondo entero pasa a ser `--offer`, nunca `--ink` encima
+
+Hasta ahora `--offer` (el rojo del juego, calculado por tema en `temas.mjs` como
+`rojoLegible(surface)`) sólo aparecía en superficies pequeñas: un icono, una píldora.
+El propio código ya documentaba por qué — en el tema Caoba, `--offer` sobre `--ink` da
+2,4:1, ilegible. Sticker Pop usa `--offer` como fondo ENTERO de la tarjeta, una escala
+mucho mayor que la que se pensó para ese token. Es seguro porque la única pareja de
+color que `temas.mjs` verifica automáticamente en los 5 temas es `--offer` ↔ `--surface`
+(mínimo 4,5:1 en los dos sentidos): todo el texto, la firma de «Rush» y el botón de esta
+tarjeta usan esa pareja y nunca `--ink`. Comprobado a mano en los 5 temas (Laurel, Ónice,
+Caoba, Mar, Ciruela) cambiando `estado.json` en local: legible en los cinco, Caoba
+incluida.
+
+### Se retira el récord de la tarjeta del index
+
+La ficha «Fuera los premios, dentro los récords» y las que la siguen documentan bastante
+trabajo puesto en enseñar el récord de la casa en esta tarjeta — nombre, bandera, timing
+de red medido contra Lighthouse. Se retira aquí, a propósito: fue un requisito explícito
+del propietario para este rediseño («no quiero el récord en el banner»), no un olvido.
+
+Se retira el código, no sólo el hueco visual: `RECORD`, `escaparTxt()`, `pintarRecord()`,
+`cargarRecord()`, `cargarRecordSiProcede()` y el listener de `pageshow` que la
+refrescaba al volver del juego — nada de eso tenía otro consumidor. `'points'` sale de
+`RUNTIME_STRINGS` por la misma razón; `'Record'` se queda porque el propio juego
+(`juego.mjs`) sigue pintando «¡Nuevo récord!» en su canvas con esa palabra.
+**`record.json` no se toca**: sigue siendo el juego quien lo escribe y lee para sí mismo.
+Este rediseño es sólo de la tarjeta del index.
+
+### Texto y botón centrados, la mascota se traslada de la esquina al borde inferior
+
+El brief pedía texto y botón centrados, sin insignia. La mascota (`chilirush.webp`, ya
+en el build para el propio juego) iba en la esquina inferior derecha en el diseño
+elegido en el picker — funcionaba ahí porque el texto vivía en la esquina opuesta. Al
+centrar el texto, las dos cosas se disputan el mismo sitio: a los ~350px de ancho de la
+tarjeta no cabe un texto centrado Y una mascota de esquina reconocible sin que se pisen
+— probado en el navegador, no sólo sobre el papel. La mascota se mueve al centro del
+borde inferior, asomando detrás del botón: un círculo sólido no tiene problema de
+legibilidad por lo que pase detrás, así que ahí sí puede convivir con algo debajo.
+Contorno «pegatina» con ocho `drop-shadow` apilados en `--surface` (no un color fijo,
+para que funcione en los 5 temas); balanceo suave con guardia de
+`prefers-reduced-motion`.
+
+Nombre accesible del enlace: `TL('Play Chilli Rush')` — antes no llevaba `aria-label`
+propio y se apoyaba en el texto visible del botón («Jugar»), que ya no existe (sólo
+icono, pedido explícitamente). Nueva cadena traducible para la línea bajo el título,
+`T('Dodge, spice, win.', 'ui')` → «Esquiva, pica, gana.» / «Ausweichen, würzen,
+gewinnen.». Motor **1.1.8**.
+
+### Segunda vuelta: el nombre al 70% del ancho, el logo al 60% de la caja — sin crecer la caja
+
+Petición del propietario tras ver la primera versión: nombre al 70% del ancho de la
+tarjeta, logo al 60% de su alto, y la propia altura de la tarjeta **intocable** —
+corrección expresa a un primer intento que sí la había crecido (129px de pie en vez de
+34, tarjeta a ~308px) para que el logo grande no pisara la línea «Esquiva, pica, gana.».
+Ese primer intento se deshizo entero: pie otra vez en `var(--s4)`, tarjeta otra vez en
+200px.
+
+Junto con la corrección, el propietario pidió quitar esa misma línea. Las dos cosas
+encajan: sin ella, el logo grande ya no tiene con qué chocar de forma ilegible — lo
+único que le queda encima es el título, enorme y con fondo sólido en la palabra «Rush»
+(`--surface` opaco), así que un roce del tallo del chile contra ese borde queda tapado
+por la propia pastilla, no superpuesto a texto fino y legible como pasaba con la línea
+vieja. Medido: nombre 70,1% de ancho (`clamp(28px,12.5vw,48px)`, igual que antes); logo
+a 92px de ancho (antes 141), recorte de sólo 10px de su borde inferior, 60,9% de alto
+visible de una tarjeta que se queda en sus 200px de siempre. Comprobado en el
+navegador, no sólo con la cuenta: el solape entre el tallo y el borde del título existe
+en las coordenadas pero no se ve como defecto, se lee como parte del dibujo.
+
+`'Dodge, spice, win.'` sale de `i18n.es.mjs` / `i18n.de.mjs`: sin la línea que la usaba,
+no tenía otro consumidor.
+
+### Tercera vuelta: el logo a la derecha, al 120% de la caja, sangrando arriba y abajo
+
+Corrección de composición sobre un boceto del propietario: la mascota deja de asomar
+centrada por abajo y pasa a vivir alineada a la derecha, al 120% del alto de la
+tarjeta, recortada por igual arriba y abajo (`top:50%` + `translateY(-50%)` la centra en
+vertical; al medir más que el 100% de la tarjeta, el sobrante se reparte solo, mitad
+arriba mitad abajo, y `overflow:hidden` en `.game-card` lo recorta).
+
+**Nota técnica para el que vuelva a tocar esto**: el 120% se escribió primero como
+`height:120%` — CSS válido, pero `getBoundingClientRect()` en este elemento (lleva
+`filter: drop-shadow(...)` para el contorno de pegatina) devuelve una altura mayor que
+la real, porque el area pintada por el drop-shadow entra en el rectangulo que reporta.
+`offsetHeight`/`clientHeight` sí dan la cifra real. Verificado aquí con las tres
+midiendo la MISMA tarjeta: `cssHeight/offsetHeight/clientHeight` = 240px exactos = 120%
+de los 200px de la tarjeta; `getBoundingClientRect().height` = ~247-248px, un 3-4% de
+más que no existe en el layout, solo en lo que ese método reporta con un filtro de por
+medio. Se dejó en `height:240px` fijo — no en `%` — para que quien vuelva a leer esto no
+tenga que redescubrirlo: con la tarjeta en sus 200px de siempre, 240px ES el 120%, sin
+ambigüedad de a qué se resuelve el porcentaje.
+
+La tarjeta se queda en sus 200px de siempre — la mascota no la mueve, es
+`position:absolute`, fuera del flujo.

@@ -591,6 +591,7 @@ export const ui = {
 
   /* ---- Chilli Rush ---- */
   'Chilli Rush': 'Chilli Rush',
+  'Play Chilli Rush': 'Chilli Rush spielen',
   'Play': 'Spielen',
   'Play again': 'Nochmal',
   'Back to the menu': 'Zurück zur Karte',
