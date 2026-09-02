@@ -1619,10 +1619,15 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Dos columnas y dos filas: arriba el nombre y la llamada, abajo el record de lado a lado. En
    una sola fila no cabe: a 390 la linea del record pedia 200px y tenia 185, y se cortaba con
    puntos suspensivos en casi cualquier movil. */
-/* Sticker Pop: el fondo pasa a ser --offer entero, no solo tinta con un icono rojo. Es la
-   unica pareja de color que el propio tema verifica en los 5 temas (temas.mjs, --offer <->
-   --surface, minimo 4,5:1 en los dos sentidos) — por eso todo el texto y el boton de aqui
-   van en --surface, nunca en --ink. */
+/* El fondo es --ink, no --offer: pedido expreso para que la tarjeta cambie de familia
+   de color entera con el tema activo del panel, igual que el resto de la carta — Laurel
+   verde oscuro, Onice casi negro, Caoba granate, Mar azul marino, Ciruela ciruela.
+   --offer se probo primero porque es la pareja que temas.mjs verifica sola (--offer <->
+   --surface, 4,5:1 en los 5 temas) pero --offer esta pensado para quedarse rojo siempre
+   (es el rojo de "oferta" de toda la carta) — por eso no cambiaba de familia, que es
+   justo lo que se pedia. --surface sobre --ink no tiene una fila propia en
+   COMPROBACIONES, pero es la pareja MAS usada de todo el sitio (texto de pagina sobre
+   fondo de pagina): es la base de todo, no una excepcion. */
 .game-card{
   position:relative;
   overflow:hidden;
@@ -1640,7 +1645,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   margin-right:calc(var(--s1) - var(--gutter));
   padding:var(--s4) var(--s3);
   border-radius:calc(var(--r-sheet) / 2);
-  background:var(--offer);
+  background:var(--ink);
   color:var(--surface);
   text-decoration:none;
   transition:transform var(--t-press) var(--ease-out);
@@ -1674,9 +1679,12 @@ html:not(.js) .lang-menu{position:static;display:block}
 .banner-pub:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 @media (min-width:768px){ .banner-pub{display:none} }
 
+/* Puntos en --surface, no en --ink: con el fondo de la tarjeta en --ink, unos puntos
+   tambien en --ink no se verian — el mismo problema que hubiera tenido el aro del boton
+   si el fondo ya fuera --ink cuando se diseño. */
 .game-card-halftone{
-  position:absolute;inset:0;opacity:.14;pointer-events:none;
-  background-image:radial-gradient(var(--ink) 1.6px, transparent 1.6px);
+  position:absolute;inset:0;opacity:.1;pointer-events:none;
+  background-image:radial-gradient(var(--surface) 1.6px, transparent 1.6px);
   background-size:12px 12px;
 }
 /* Alineada a la derecha, al 120% del alto de la tarjeta (200px de la tarjeta -> 240px,
@@ -1684,9 +1692,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    los 200 reales — medido, no a ojo). Se pasa por arriba y por abajo a proposito, y
    overflow:hidden en .game-card recorta ambos lados por igual porque esta centrada en
    vertical (top:50% + translateY(-50%)): el sobrante se reparte igual arriba y abajo. */
+/* Centrada y subida 34px sobre el centro exacto para que las gafas queden claramente
+   dentro del recorte — primero se probo con 10px y seguian sin verse bien, corregido
+   tras verlo en pantalla real, no calculado solo sobre el papel. */
 .game-card-mascot{
-  position:absolute;top:50%;right:-8px;height:240px;width:auto;pointer-events:none;
-  transform:translateY(-50%) rotate(-3deg);
+  position:absolute;top:50%;left:50%;height:240px;width:auto;pointer-events:none;
+  transform:translate(-50%, calc(-50% - 34px)) rotate(-3deg);
   /* contorno tipo pegatina: ocho drop-shadow apilados alrededor del recorte, en --surface
      para que funcione igual en los 5 temas */
   filter:
@@ -1699,51 +1710,142 @@ html:not(.js) .lang-menu{position:static;display:block}
   animation:game-card-wiggle 2.4s ease-in-out infinite;
 }
 @keyframes game-card-wiggle{
-  0%,100%{transform:translateY(-50%) rotate(-3deg)}
-  50%{transform:translateY(-50%) rotate(3deg)}
+  0%,100%{transform:translate(-50%, calc(-50% - 34px)) rotate(-3deg)}
+  50%{transform:translate(-50%, calc(-50% - 34px)) rotate(3deg)}
 }
 @media (prefers-reduced-motion:reduce){.game-card-mascot{animation:none}}
 
+/* Las fichas del propio juego, flotando a los lados de la mascota. Mismo dibujo y
+   mismo color que en la portada del juego (motor/juego.mjs, .punto .ficha) — el chile
+   en --ink, el dorado y el hielo en sus colores fijos (no son del tema: son el color
+   "real" de esa ficha en el tablero, igual en las cinco cartas), la bomba en --offer.
+   Suben y bajan cada una a su ritmo — duracion y retraso distintos — para que lean como
+   cuatro cosas flotando sueltas y no como una fila que se mueve a la vez. */
+.game-card-bit{
+  position:absolute;z-index:0;pointer-events:none;
+  width:26px;height:26px;border-radius:50%;
+  display:grid;place-items:center;
+  box-shadow:0 3px 8px rgba(0,0,0,.3);
+  animation:game-card-bob 2.8s ease-in-out infinite;
+}
+.game-card-bit svg{width:16px;height:16px}
+/* En el juego esta ficha es --ink sobre un chip claro (el propio .punto ya es claro
+   ahi). Aqui el chip claro no existe — el fondo de la tarjeta es --ink directamente
+   desde esta vuelta — asi que --ink sobre --ink se perderia (visto en Onice: casi
+   invisible). Invertida: clara con el chile en tinta, para que seguir leyendose sea
+   mas importante que copiar el color exacto de esta unica ficha. */
+.game-card-bit--chilli{top:14%;left:7%;background:var(--surface);color:var(--ink)}
+.game-card-bit--ice{top:68%;left:4%;background:#cfe9f2;color:#0d5b73;animation-duration:3.2s;animation-delay:.5s}
+/* El lado derecho sube y baja al reves que el izquierdo (animation-direction:reverse):
+   cuando uno esta arriba el otro esta abajo, pedido expreso — "en sentido contrario". */
+.game-card-bit--gold{top:11%;right:7%;background:#f2c14e;color:#7a4a06;animation-duration:3s;animation-delay:.9s;animation-direction:reverse}
+.game-card-bit--bomb{
+  top:66%;right:4%;background:var(--offer);color:var(--surface);
+  box-shadow:0 3px 8px rgba(0,0,0,.3), inset 0 0 0 2px color-mix(in srgb,var(--surface) 88%,transparent);
+  animation-duration:2.5s;animation-delay:.2s;animation-direction:reverse;
+}
+@keyframes game-card-bob{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-7px)}
+}
+@media (prefers-reduced-motion:reduce){.game-card-bit{animation:none}}
+
 .game-card-body{
   position:relative;z-index:1;
-  display:flex;flex-direction:column;align-items:center;
-  max-width:92%;
+  container-type:inline-size;
+  width:100%;
 }
-/* El nombre, a un 70% del ancho de la tarjeta: medido a 390px (243 de 348) y ajustado el
-   vw hasta que el texto renderizado diera esa anchura. El techo evita que crezca sin
-   limite en viewports anchos, donde .phone deja de ensanchar la tarjeta pero vw sigue
-   creciendo igual. */
+/* CHILLI [boton] RUSH en una sola fila, centrada sobre TODO el ancho de la tarjeta —
+   pedido expreso, aunque eso signifique montarse sobre la mascota: por eso el badge de
+   «Rush» (fondo solido) y la sombra/aro del boton de aqui abajo, para que ninguno de
+   los dos pierda legibilidad encima de ella. En cqw y no en vw a proposito: cqw es un
+   porcentaje del propio contenedor (game-card-body), asi que el 90% se mantiene a
+   cualquier ancho de tarjeta, no solo en el que se midio — con vw la proporcion se
+   rompia en cuanto .phone dejaba de ensanchar la tarjeta pero vw seguia creciendo.
+   white-space:nowrap fuerza la linea unica que se pidio. */
 .game-card-title{
-  font-family:var(--title-font);font-weight:800;line-height:1.05;letter-spacing:-.02em;
-  font-size:clamp(28px,12.5vw,48px);
+  display:flex;align-items:center;justify-content:center;
+  white-space:nowrap;
+  font-family:var(--title-font);font-weight:800;letter-spacing:-.02em;
+  color:var(--surface);
+  font-size:clamp(24px,15.6cqw,48px);
+  /* Con la mascota centrada detras (pedido esta vuelta), "Chilli" ya no tiene el fondo
+     liso de la tarjeta detras — tiene el pimiento. «Rush» va protegida por su propio
+     badge de fondo solido; «Chilli» no lleva badge (asi es en el juego real) asi que
+     necesita esto para seguir leyendose encima de cualquier parte de la ilustracion. */
+  text-shadow:0 1px 3px rgba(0,0,0,.55), 0 2px 10px rgba(0,0,0,.55), 0 0 22px rgba(0,0,0,.4);
 }
-/* La firma del juego, la misma inclinación que en su portada — invertida frente al diseño
-   anterior: antes el fondo era --ink y «Rush» llevaba el rojo; aqui el fondo YA es el rojo,
-   asi que «Rush» pasa a la pastilla clara para seguir leyéndose. */
-.game-card-title em{
-  font-style:normal;
-  display:inline-block;
+/* El badge de «Rush»: identico al de la portada del propio juego (motor/juego.mjs,
+   regla #s-intro h1 em — mismo rotate, mismo padding, mismo radio). No es
+   --surface/--offer como el resto de esta tarjeta: es --accent-ink sobre --surface,
+   el par que usa el juego para este badge en concreto y que temas.mjs verifica aparte
+   (--accent contra --surface, 4.5:1 en los dos sentidos) en los 5 temas. Fondo solido
+   a proposito: se lee igual se monte sobre el rojo de la tarjeta o sobre la mascota. */
+/* Brillo que recorre el badge cada 3,6s (arranca con 1s de retraso, para no disparar a
+   la vez que el pulso del boton). overflow:hidden en el propio badge recorta la barra
+   al tamano de la pastilla, asi que el rotate(-3deg) del padre ya la deja inclinada
+   sin nada mas que hacer. */
+.game-card-word--badge{
+  position:relative;overflow:hidden;
   transform:rotate(-3deg);
-  padding:0 .18em;
-  border-radius:.14em;
-  background:var(--surface);
-  color:var(--offer);
+  /* mas holgado que la pastilla del juego (0 .18em): a este tamano, con solo aire
+     horizontal, se leia apretada. Con aire vertical tambien, respira mas. */
+  padding:.1em .26em;
+  border-radius:.16em;
+  background:var(--accent-ink);
+  color:var(--surface);
 }
+.game-card-word--badge::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg, transparent 30%, color-mix(in srgb,var(--surface) 55%,transparent) 48%, transparent 66%);
+  background-size:220% 100%;background-position:130% 0;
+  animation:game-card-badge-shine 3.6s ease-in-out infinite;
+  animation-delay:1s;
+}
+@keyframes game-card-badge-shine{
+  0%,35%{background-position:130% 0}
+  55%{background-position:-30% 0}
+  100%{background-position:-30% 0}
+}
+@media (prefers-reduced-motion:reduce){.game-card-word--badge::after{animation:none;display:none}}
 .game-card-play{
-  position:relative;z-index:1;margin-top:var(--s2);
-  width:52px;height:52px;border-radius:50%;
+  flex:none;position:relative;z-index:2;
+  /* en em, no en px: crece y encoge con el nombre, nunca desproporcionado al texto */
+  width:1.3em;height:1.3em;border-radius:50%;
+  /* negativo a proposito: monta el boton sobre el final de CHILLI y el principio de
+     RUSH en vez de dejarlo flotando en un hueco — el "5% sobre cada palabra" pedido */
+  margin:0 -.12em;
   background:var(--surface);color:var(--offer);
+  /* Sin aro y sin border, pedido expreso: el circulo se recorta contra la mascota solo
+     con sombra, dos capas — una mas grande y difusa que lo separa del fondo, otra mas
+     pegada y oscura que le da un borde suave sin ser una linea dura. El pulso
+     (Resplandor) anade una tercera capa por encima, en la animacion de aqui abajo. */
+  box-shadow:0 .12em .38em rgba(0,0,0,.5), 0 .03em .1em rgba(0,0,0,.35);
   display:grid;place-items:center;
-  box-shadow:0 4px 10px rgba(0,0,0,.22);
   transition:transform var(--t-press) var(--ease-out);
+  animation:game-card-play-pulse 2s var(--ease-out) infinite;
 }
-.game-card-play svg{width:19px;height:19px;margin-left:2px}
+.game-card-play svg{width:.42em;height:.42em;margin-left:.04em}
+/* El pulso: late como un faro para que el boton no pase desapercibido. Las dos
+   primeras capas (aro + profundidad) se repiten igual en los dos fotogramas — no
+   cambian, solo viajan con el elemento — y la tercera es el anillo que se expande y
+   se apaga. Declarada dos veces en el 0%/100% por el mismo motivo que el resto del
+   fichero: la primera es el respaldo solido para quien no tenga color-mix, la segunda
+   lo sustituye donde el navegador lo soporta. */
+@keyframes game-card-play-pulse{
+  0%,100%{
+    box-shadow:0 .12em .38em rgba(0,0,0,.5), 0 .03em .1em rgba(0,0,0,.35), 0 0 0 0 rgba(231,222,205,.55);
+    box-shadow:0 .12em .38em rgba(0,0,0,.5), 0 .03em .1em rgba(0,0,0,.35), 0 0 0 0 color-mix(in srgb,var(--surface) 55%,transparent);
+  }
+  60%{box-shadow:0 .12em .38em rgba(0,0,0,.5), 0 .03em .1em rgba(0,0,0,.35), 0 0 0 .55em transparent}
+}
 @media (hover:hover) and (pointer:fine){
   .game-card:hover .game-card-play{transform:scale(1.06)}
 }
 .game-card:active .game-card-play{transform:scale(.94)}
 @media (prefers-reduced-motion:reduce){
   .game-card,.game-card-play{transition:none}
+  .game-card-play{animation:none}
   .game-card:hover .game-card-play,
   .game-card:active .game-card-play{transform:none}
 }
@@ -3990,9 +4092,16 @@ ${!CLIENTE.funciones.juego ? '' : `          <!-- La entrada al juego va al fina
           <a class="game-card" id="game-card" href="juego.html" hidden${TL('Play Chilli Rush')}>
             <span class="game-card-halftone" aria-hidden="true"></span>
             <img class="game-card-mascot" src="assets/chilirush.webp" alt="" aria-hidden="true">
+            <span class="game-card-bit game-card-bit--chilli" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg></span>
+            <span class="game-card-bit game-card-bit--gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg></span>
+            <span class="game-card-bit game-card-bit--ice" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg></span>
+            <span class="game-card-bit game-card-bit--bomb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="15" r="6.4" fill="currentColor" stroke="none"/><path d="M14.7 10.4l2.3 -2.7"/><path d="M18.4 7.2l.7 -2.4M21.2 8l-2.4 -.6M20.1 10.6l-1.5 -3"/></svg></span>
             <span class="game-card-body">
-              <span class="game-card-title">Chilli <em>Rush</em></span>
-              <span class="game-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg></span>
+              <span class="game-card-title">
+                <span class="game-card-word">Chilli</span>
+                <span class="game-card-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.2 5.4a1 1 0 0 1 1.53 -.85l8 6.6a1 1 0 0 1 0 1.7l-8 6.6a1 1 0 0 1 -1.53 -.85z"/></svg></span>
+                <span class="game-card-word game-card-word--badge">Rush</span>
+              </span>
             </span>
           </a>`}
 

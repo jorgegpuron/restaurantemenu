@@ -6590,3 +6590,210 @@ ambigüedad de a qué se resuelve el porcentaje.
 
 La tarjeta se queda en sus 200px de siempre — la mascota no la mueve, es
 `position:absolute`, fuera del flujo.
+
+### Cuarta vuelta: CHILLI [botón] RUSH en una fila, y el conflicto con la mascota
+
+Nuevo diseño del nombre: «Chilli» y «Rush» pasan de estar apilados con el botón debajo a
+compartir una sola fila — `CHILLI [▶] RUSH` — con el botón montado sobre el final de una
+palabra y el principio de la otra (`margin:0 -.12em` en `.game-card-play`, medido:
+~5% del ancho de cada palabra). Se retira la pastilla de «Rush» (`--surface`/`--offer`
+rotada): con las dos palabras ya iguales y el botón como único acento, sobraba.
+
+**Proporción real, no aproximada por vw**: `.game-card-body` pasa a
+`container-type:inline-size` y el tamaño del nombre se fija en `cqw` (porcentaje del
+propio contenedor), no en `vw` (porcentaje del viewport). Con `vw` la proporción sólo
+era fiel en el ancho donde se midió — a partir de donde `.phone` deja de ensanchar la
+tarjeta, `vw` seguía creciendo y la relación se rompía (ya pasó con el nombre al 70% de
+la vuelta anterior). Con `cqw` el nombre ocupa el mismo porcentaje del bloque a
+cualquier ancho, tal como se pidió.
+
+**El bloque no es el 100% de la tarjeta, es el 52%.** La mascota vive alineada a la
+derecha desde la vuelta anterior (sin tocarla en esta), y su borde izquierdo cae sobre
+el ~53% de la tarjeta — medido en el navegador, no supuesto. Centrar el conjunto sobre
+el 100% de la tarjeta metía «RUSH» debajo del pimiento y lo dejaba ilegible: probado y
+visto, no una suposición. La solución, sin tocar la mascota (fuera de alcance,
+expresamente): `.game-card-body` mide el 52% de la tarjeta y se pega a la izquierda
+(`align-self:flex-start`, en vez de dejar que `.game-card` la centre) — el grupo se
+centra DENTRO de ese hueco, que es el espacio real que le queda libre. Consecuencia
+honesta: el conjunto se ve más pequeño y más a la izquierda que si ocupara la tarjeta
+entera. Es el precio de no tocar la mascota; si se prefiere un nombre más grande, la
+alternativa pasa por revisar el tamaño o la posición de la mascota, que esta vuelta no
+tocó a propósito.
+
+Medido a 390px: grupo (CHILLI+botón+RUSH) al 89,9% del bloque (348×52% ≈ 159px),
+solape 5,1%/4,9% sobre cada palabra, 8px libres antes de la mascota. Una sola línea
+comprobada a 320px. Colores: mismo par `--offer`/`--surface` de siempre, verificado a
+ojo en los 5 temas (Laurel, Ónice, Caoba, Mar, Ciruela) cambiando `estado.json` en
+local — ninguno con problema de contraste.
+
+### Quinta vuelta: corrección — el 52% no era lo pedido
+
+El propietario corrigió la vuelta anterior con una captura marcada a mano: el grupo
+tenía que ocupar el ancho ENTERO de la tarjeta, montándose sobre la mascota si hacía
+falta — no un 52% que la esquivara. `.game-card-body` vuelve a `width:100%` (se quita
+el `align-self:flex-start` y el límite del 52%). El coeficiente en `cqw` (15,6) **no
+cambia**: al ser un porcentaje del propio contenedor, el mismo valor reproduce la misma
+proporción tanto en el bloque estrecho de la vuelta anterior como en el bloque entero
+de ahora — sólo hubo que subir el techo del `clamp()` (34px → 48px), que en la vuelta
+anterior limitaba de más para un contenedor pequeño y aquí cortaba el crecimiento real
+del `cqw` en uno grande. Esa es la prueba de que la técnica funciona: no hizo falta
+volver a medir el coeficiente, sólo quitarle la venda.
+
+Con el grupo entero otra vez sobre la mascota, dos añadidos para que nada se pierda
+encima de ella (pedido expreso):
+- **Vuelve el badge de «Rush»** (se había quitado en la vuelta anterior): píldora
+  `--surface`/`--offer` girada -3deg, ahora aplicada a `.game-card-word--badge`. Con
+  fondo sólido, «Rush» se lee igual encima del rojo de la tarjeta que encima del
+  pimiento — sin fondo, el texto suelto se perdía contra la ilustración.
+- **El botón lleva un aro `--ink`** (`border:.06em solid var(--ink)`) más una sombra
+  más marcada (`0 .1em .32em rgba(0,0,0,.4)`, antes `0 3px 8px rgba(0,0,0,.24)`). Sin
+  el aro, el círculo `--surface` se confundía con el contorno `--surface` de la propia
+  mascota cuando coincidían — con un borde oscuro se recorta limpio contra cualquier
+  fondo. `--ink` es el tono más oscuro de los 5 temas, así que el aro nunca pierde
+  definición sea cual sea el tema activo.
+
+Medido a 390px: grupo al 92,5% de la tarjeta, solape 5,4%/5% sobre cada palabra —
+sigue dentro de lo pedido con el bloque entero. Reverificado en los 5 temas: badge y
+aro del botón se distinguen con contraste en los cinco, ninguno se pierde contra la
+mascota ni contra el fondo de la tarjeta. Una sola línea comprobada de nuevo a 320px
+(el delta de ~2,5px entre palabras que da un chequeo ingenuo de "misma línea" es el
+`rotate(-3deg)` del badge desplazando su caja, no un salto de línea real).
+
+### Sexta vuelta: el badge, igual que en la portada del juego
+
+El badge inventado (--surface de fondo, --offer de texto) no era lo pedido: el
+propietario mandó una captura de la pantalla de inicio del propio juego y pidió calcar
+esa. Localizada la regla exacta en `motor/juego.mjs`, `#s-intro h1 em` — el mismo
+"Rush" inclinado de la portada de Chilli Rush: `background:var(--juego-go)` (alias
+local de `--accent-ink`), `color:var(--surface)`, `padding:0 .18em`,
+`border-radius:.14em`. La tarjeta del index copia esos mismos valores en
+`.game-card-word--badge`, sin importar `--juego-go` (vive solo en `juego.mjs`, fuera de
+la allowlist de este fichero) sino su alias real, `--accent-ink`.
+
+No es el mismo par de color que el resto de esta tarjeta (`--offer`/`--surface`):
+`--accent-ink` es literalmente `--accent` (`temas.mjs`, `acentoLegible(metal,
+surface)`), con su propia fila en `COMPROBACIONES` — `--accent` contra `--surface`,
+4,5:1 en los dos sentidos, en los 5 temas — así que sigue siendo un par verificado por
+el propio motor, sólo que es OTRO par ya existente y ya probado en el resto del sitio
+(precios, estados activos, focus), no uno inventado para esta tarjeta.
+
+Reverificado en los 5 temas tras el cambio: el badge se lee en los cinco, con el tono
+de acento propio de cada uno (bronce en Laurel, dorado apagado en Ónice, etc.) en vez
+del rojo de `--offer` que llevaba antes.
+
+### Séptima vuelta: Resplandor, elegido del picker de mejoras
+
+De las tres mejoras prototipadas aparte (Vivo, Resplandor, Profundidad — exploración de
+`/prototype`, nunca en este fichero), el propietario eligió **Resplandor**: el botón de
+play late como un faro y el badge de «Rush» lleva un brillo que lo recorre cada 3,6s
+(con 1s de retraso para no coincidir con el pulso del botón). Con un matiz sobre el
+prototipo: **sin `border`**. El aro que distinguía el botón contra la mascota pasa a
+ser la primera capa de su propio `box-shadow` — incluye el aro de --ink, la sombra de
+profundidad de siempre, y ahora una tercera capa que es el propio pulso — así que sigue
+recortándose limpio contra la mascota, solo que dibujado con `box-shadow` y no con la
+propiedad `border`.
+
+El color del pulso usa `color-mix(in srgb,var(--surface) 55%,transparent)`, igual que
+decenas de sitios ya en este fichero — con el mismo respaldo sólido declarado antes
+(mismo patrón que ya usaba `.tab-nav.is-stuck`, por ejemplo) para quien no tenga
+`color-mix`. Reverificado tras el cambio: consola limpia, botón bien recortado contra
+la mascota en Laurel y en Caoba (el tema que ya dio problemas antes con `--offer` sobre
+`--ink`) — no repetí los 5 completos porque los tokens de color no cambiaron respecto a
+la vuelta anterior, ya verificada entera; lo que cambió es solo el mecanismo
+(`border`→`box-shadow`) y el pulso nuevo.
+
+### Octava vuelta: sin aro, badge más holgado, y el fondo pasa a --ink
+
+Tres correcciones sobre la vuelta anterior:
+
+**El aro del botón desaparece del todo.** No era solo cambiar `border` por `box-shadow`
+manteniendo un aro visual — el propietario pedía que el aro EN SÍ dejara de verse. Las
+dos capas de sombra que quedan son las que hacen todo el trabajo: una grande y difusa
+(separación del fondo) y otra pegada y oscura (borde suave, sin ser una línea dura). El
+pulso (Resplandor) sigue siendo una tercera capa sobre estas dos.
+
+**El badge de «Rush» respira más.** Tenía `padding:0 .18em` — cero aire vertical,
+calcado literal de `#s-intro h1 em`. A este tamaño se leía apretado. Pasa a
+`padding:.1em .26em`, con el radio subido a juego (`.14em` → `.16em`).
+
+**El fondo de la tarjeta pasa de `--offer` a `--ink`.** El propietario señaló que
+«todo menos el logo» debía ajustarse al tema activo del panel, igual que el resto de
+la carta. Comprobado: no había ningún color escrito a mano en esta tarjeta — todo salía
+ya de variables — pero `--offer` está calculado a propósito para quedarse rojo en los 5
+temas (es el rojo de «oferta» de toda la carta, no una marca del tema), así que la
+tarjeta nunca cambiaba de familia de color aunque técnicamente ya leyera el tema. Con
+`--ink` sí cambia entera: verde oscuro en Laurel, casi negro en Ónice, granate en
+Caoba, azul marino en Mar, ciruela en Ciruela — igual que el resto de la página.
+
+Efecto en cascada, ya resuelto: el halftone de puntos vivía en `--ink` sobre un fondo
+que entonces era `--offer` — con el fondo ahora en `--ink`, unos puntos también en
+`--ink` no se verían. Pasa a `--surface` (opacidad bajada de .14 a .1, que en claro
+sobre oscuro se notaba más que en oscuro sobre rojo).
+
+**Sin red de seguridad automática esta vez.** `--offer`↔`--surface` y `--accent`↔
+`--surface` tienen su fila en `COMPROBACIONES` (`temas.mjs`); `--surface` sobre `--ink`
+no tiene una fila propia ahí, pero es la pareja de texto-sobre-fondo más usada de todo
+el sitio — es la base, no una excepción sin probar. Lo que SÍ es una pareja nueva y sin
+verificar por el motor es el badge (`--accent-ink` sobre `--surface`, sin cambios) *visto
+contra* un fondo `--ink` en vez de `--offer` — por eso esta vuelta se comprobó a ojo en
+los 5 temas completos, no solo dos: Laurel, Ónice, Caoba, Mar, Ciruela, badge y botón
+legibles en los cinco. Único matiz: en Ónice la tarjeta y la página son las dos muy
+oscuras y el borde entre una y otra se nota menos que en los demás temas — sigue
+delimitada por el halftone y la esquina redondeada, pero es el tema con menos contraste
+tarjeta/página de los cinco. Consola limpia, sin cortes a 320px.
+
+### Novena vuelta: la mascota al centro, y las cuatro fichas del juego flotando
+
+**La mascota se centra** (antes alineada a la derecha) y sube 10px sobre el centro
+exacto de la tarjeta, para que las gafas queden dentro del recorte con margen.
+
+Centrarla trajo un problema real, no cosmético: «Chilli» —texto plano, sin el badge
+que sí protege a «Rush»— pasó a tener el propio pimiento por detrás en vez del fondo
+liso de la tarjeta, y a la primera prueba se leía mal, letras enteras perdidas contra
+las llamas. Así es «Chilli» en el juego real (sin badge), así que la badge no era la
+solución; lo que hacía falta era `text-shadow` — tres capas oscuras apiladas — para que
+la palabra se recorte contra cualquier parte de la ilustración que le toque detrás, se
+mueva la mascota donde se mueva. Probado, funciona.
+
+**Cuatro fichas del propio juego, flotando a los lados** (`.game-card-bit`): el chile,
+el chile dorado, el hielo y la bomba — mismo dibujo que `motor/juego.mjs`
+(`.punto .ficha`, los SVG `PEPPER`/`ICE`/`BOMB`) y casi los mismos colores: dorado
+(`#f2c14e`/`#7a4a06`) y hielo (`#cfe9f2`/`#0d5b73`) son fijos a propósito, igual que en
+el juego — son el color «real» de esa ficha en el tablero, no algo del tema. La bomba
+usa `--offer` (`--juego-peligro` en el juego es un alias del mismo token). Cada una
+sube y baja a su ritmo propio — duración y retraso distintos — para leerse como cuatro
+cosas flotando sueltas y no una fila moviéndose junta.
+
+**Una sí tuvo que cambiar de color, no solo de sitio.** La ficha del chile normal es
+`--ink` sobre `--surface` en el juego, pero ahí vive dentro de un chip claro
+(`.punto` es `color-mix(...var(--surface)...)`). Aquí no hay chip: el fondo es la
+propia tarjeta, y desde la vuelta pasada la tarjeta ES `--ink`. `--ink` sobre `--ink`
+se perdía — visto en Ónice, casi invisible, el mismo problema que ya tuvo el halftone
+dos vueltas atrás. Invertida (`--surface` de fondo, `--ink` el chile) para las cinco
+cartas, no calcada del juego al milímetro: seguir leyéndose importa más que copiar
+el color exacto de una ficha que en el juego nunca tuvo que pelear con este fondo.
+
+Verificado en los 5 temas tras el ajuste: las cuatro fichas se distinguen en los cinco,
+incluida la bomba en Caoba (`--offer` contra un `--ink` que ahí también es rojizo —
+se comprobó a propósito por ser el caso más parecido, y el aro interior de la bomba
+mantiene la separación). Consola limpia, nombre accesible y `href` sin cambios, sin
+overlap real a 320px (8px de margen mínimo entre las fichas y el texto, medido, no
+solo mirado — visualmente se ve apretado a ese ancho pero no se tocan).
+
+### Décima vuelta: más arriba todavía, y las fichas en sentido contrario
+
+Los 10px de la vuelta anterior no bastaban — el propietario seguía sin ver las gafas
+en pantalla real y lo marcó a mano sobre una captura. Subida a 34px sobre el centro
+exacto (antes 10px). No fue una cuenta nueva sobre el papel: fue repetir la misma
+prueba con más margen hasta verlo bien en la captura, que es lo único que cuenta aquí.
+
+Las cuatro fichas pasan a subir y bajar en dos sentidos: las de la izquierda (chile,
+hielo) tal cual estaban, las de la derecha (dorado, bomba) con
+`animation-direction:reverse` sobre la misma animación — cuando un lado sube el otro
+baja, en vez de los cuatro subiendo y bajando juntos. Mismo `@keyframes`, sin
+duplicarlo.
+
+Comprobado tras el cambio: gafas claramente visibles a 390px y a 320px, consola
+limpia, y un repaso visual en Caoba (sin motivo para pensar que la posición o la
+dirección de la animación dependieran del tema — ninguna de las dos cambia colores —
+pero se miró de todos modos antes de darlo por cerrado).
