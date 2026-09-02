@@ -2247,6 +2247,12 @@ if ($csrfOk) {
       $info = @getimagesize($f['tmp_name']);
       if ($info === false || !isset(HERO_TIPOS[$info[2]])) {
         $error = 'Eso no es una imagen JPG, PNG o WebP.';
+      } elseif ($info[0] !== PUB_ANCHO_OBLIGATORIO || $info[1] !== PUB_ALTO_OBLIGATORIO) {
+        /* Exacto, no un minimo ni la proporcion: 1680x720 tiene la misma razon 7:3 y aqui
+           se rechaza igual. La medida sale de PUB_ANCHO/ALTO_OBLIGATORIO, nunca repetida. */
+        $error = 'La creatividad debe medir exactamente ' . PUB_ANCHO_OBLIGATORIO . ' x '
+               . PUB_ALTO_OBLIGATORIO . ' px. La imagen seleccionada mide '
+               . (int) $info[0] . ' x ' . (int) $info[1] . ' px.';
       } elseif (!pub_carpeta_lista()) {
         $error = 'No puedo escribir en ' . PUB_URL . '. Crea la carpeta en el servidor y dale permiso de escritura.';
       } else {
@@ -5078,8 +5084,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <section class="pane" data-pane="publicidad"<?= $pestana === 'publicidad' ? '' : ' hidden' ?>>
     <p class="hint">
       Un hueco publicitario en la carta, entre la tarjeta del juego y la nota de Google.
-      <strong>Solo sale en moviles</strong> (pantallas de menos de 768&nbsp;px), mide el ancho de la
-      tarjeta y 180&nbsp;px de alto. Sin imagen, apagado o fuera de fechas, no ocupa nada.
+      <strong>Solo sale en moviles</strong> (pantallas de menos de 768&nbsp;px), con el ancho de la
+      tarjeta. La creatividad debe medir exactamente
+      <strong><?= PUB_ANCHO_OBLIGATORIO ?>&nbsp;&times;&nbsp;<?= PUB_ALTO_OBLIGATORIO ?>&nbsp;px</strong>:
+      el banner mantiene esa proporcion con una altura responsive, no fija
+      (a 560&nbsp;px de ancho llega a <?= (int) round(560 * PUB_ALTO_OBLIGATORIO / PUB_ANCHO_OBLIGATORIO) ?>&nbsp;px
+      de alto). Sin imagen, apagado o fuera de fechas, no ocupa nada.
     </p>
 
     <?php $pubEstado = pub_estado_banner($bannerPub); ?>
@@ -5102,12 +5112,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <button class="ghost-btn" name="eliminar_banner" value="1" type="submit">Quitar la imagen</button>
         </form>
       <?php else: ?>
-        <p class="hint" style="margin:0 2px var(--s3)"><strong>Sin imagen todavia.</strong>
-          Sube una de 1120 &times; 480 (JPG, PNG o WebP, <?= PUB_MAX_BYTES / 1048576 ?>&nbsp;MB maximo).</p>
+        <p class="hint" style="margin:0 2px var(--s3)"><strong>Sin imagen todavia.</strong></p>
       <?php endif; ?>
 
       <form method="post" enctype="multipart/form-data" style="margin:0">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <p class="hint" style="margin:0 2px var(--s2)">Tamano obligatorio: <?= PUB_ANCHO_OBLIGATORIO ?>
+          &times; <?= PUB_ALTO_OBLIGATORIO ?>&nbsp;px &middot; Maximo: <?= PUB_MAX_BYTES / 1048576 ?>&nbsp;MB
+          &middot; JPG, PNG o WebP</p>
         <input type="file" name="pub_img" accept="image/jpeg,image/png,image/webp">
         <button class="save" name="subir_banner" value="1" type="submit"><?= pub_nombre_valido($pubImg) ? 'Reemplazar imagen' : 'Subir imagen' ?></button>
       </form>

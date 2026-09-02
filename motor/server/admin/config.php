@@ -170,6 +170,12 @@ define('PUB_DIR', __DIR__ . '/../' . trim(PUB_URL, '/'));
 /* El doble que la portada: las creatividades llegan del disenador del anunciante, no de un
  * movil, y recomprimirlas a mano cada vez daba friccion. 2 MB siguen siendo asumibles. */
 define('PUB_MAX_BYTES', 2 * 1024 * 1024);
+/* La medida exacta que rellena el hueco de la carta a su ancho maximo (ver el aspect-ratio
+ * 1120/480 de .banner-pub en gen.mjs): no basta con la proporcion, porque una imagen mayor
+ * a la misma proporcion pesa mas sin aportar nitidez, y una menor se ve borrosa al escalarla
+ * hacia arriba. Autoridad unica: panel (ayuda + error) y validacion derivan de aqui. */
+define('PUB_ANCHO_OBLIGATORIO', 1120);
+define('PUB_ALTO_OBLIGATORIO', 480);
 
 // Medio mega. Lo mismo que ya trae comprimido el navegador; aquí es el tope que se acepta.
 define('FOTOS_MAX_BYTES', 512000);

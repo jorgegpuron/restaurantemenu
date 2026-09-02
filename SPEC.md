@@ -6439,12 +6439,13 @@ config.php solo aporta el fallback del patrón habitual y DERIVA la carpeta fís
 
 **Runtime en la carta** (`#banner-pub`, hermano entre `#game-card` y `#reviews`): misma
 salida de calle que `.game-card` (idéntico ancho visual); el hueco guarda SIEMPRE la
-proporción recomendada 1120×480 (`aspect-ratio` en el contenedor, altura derivada del
+proporción 1120×480 (`aspect-ratio` en el contenedor, altura derivada del
 ancho: 560→240, 333→~143) con 240 px como TECHO (`max-height`), y la creatividad lo
-rellena entera (`width/height: 100%`, `object-fit: cover`). Una creatividad a la
-proporción recomendada (1120×480) se ve COMPLETA en cualquier móvil, medido con fixture
-exacto: recorte cero; una proporción distinta paga su diferencia recortada por el centro
-(las creatividades 1120×360 de la etapa anterior pierden ~25% lateral: rehacerlas). Solo existe en viewport ≤767px: el CSS
+rellena entera (`width/height: 100%`, `object-fit: cover`). Como el panel exige esa
+medida exacta al subir (ver más abajo), la creatividad se ve SIEMPRE completa en
+cualquier móvil, sin recorte: `object-fit: cover` deja de tener nada que recortar, salvo
+en las creatividades de una etapa anterior a la validación estricta, que quedan tal cual
+en producción hasta que alguien las reemplace (ver compatibilidad). Solo existe en viewport ≤767px: el CSS
 lo oculta en ancho y ADEMÁS el JS no asigna `src` fuera de móvil — en escritorio no se
 descarga ni un byte. Al cruzar el límite en vivo (girar el móvil) se reevalúa. El enlace
 solo se pone con URL re-parseada aquí como http/https (lo del estado no se interpreta), y
@@ -6453,11 +6454,19 @@ un banner con URL inválida se muestra sin enlace. Enlace publicitario declarado
 
 **El panel** (pestaña Publicidad, sin capacidad que la apague): interruptor, imagen
 (subir/reemplazar/quitar con el pipeline de hero: tipos por `getimagesize`, 2 MiB
-exactos e inclusivos —2.097.152 bytes entran, un byte más no—, sin mínimo de dimensiones
-—1120×480 es solo recomendación—, nombre aleatorio del servidor, carpeta con guardián
-anti-PHP; el límite vive exclusivamente en `PUB_MAX_BYTES` (`config.php`): de esa única
-constante derivan la validación del fichero, el máximo de la ayuda del panel y el del
-mensaje de error, así que cambiarla mañana mueve las tres cosas a la vez), URL validada
+exactos e inclusivos —2.097.152 bytes entran, un byte más no—, y **dimensión EXACTA
+obligatoria** 1120×480 px —no un mínimo, no la proporción 7:3: una imagen de 1680×480
+o de 560×240 se rechaza igual que una de proporción distinta—, nombre aleatorio del
+servidor, carpeta con guardián anti-PHP; el límite de peso vive exclusivamente en
+`PUB_MAX_BYTES` y la medida exacta en `PUB_ANCHO_OBLIGATORIO`/`PUB_ALTO_OBLIGATORIO`
+(`config.php`): de esas constantes derivan la validación del fichero, la ayuda del panel
+y el mensaje de error, así que cambiarlas mañana mueve las tres cosas a la vez. La
+comprobación de dimensiones se hace en backend con `getimagesize()`, después de
+confirmar tipo admitido y ANTES de escribir nada en disco: si no coincide, la subida se
+rechaza con el mensaje exacto recibido/exigido y la creatividad que ya estuviera
+publicada no se toca —ni se sustituye ni se borra—. Las creatividades subidas ANTES de
+esta validación no se revisan retroactivamente ni dejan de mostrarse: la exigencia solo
+se aplica al subir o reemplazar), URL validada
 por esquema, pestaña nueva, alt, fechas y la etiqueta de estado:
 ACTIVO · PROGRAMADO · CADUCADO · DESACTIVADO · INCOMPLETO (encendido sin imagen válida).
 
