@@ -1643,9 +1643,10 @@ html:not(.js) .lang-menu{position:static;display:block}
 .game-card:active{transform:scale(.985)}
 .game-card:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 /* El banner publicitario mide lo mismo de ancho que la tarjeta del juego: misma salida de
-   la calle del contenido que .game-card, y por eso mismas cuentas con --gutter. El alto es
-   contrato: 180px con la creatividad a sangre. En pantalla ancha no existe (y el JS ademas
-   no pone src alli: el CSS es el cinturon, no el freno). */
+   la calle del contenido que .game-card, y por eso mismas cuentas con --gutter. El alto no
+   es fijo: guarda la proporcion 1120/480 con 240px como techo (ver el bloque de abajo). En
+   pantalla ancha no existe (y el JS ademas no pone src alli: el CSS es el cinturon, no el
+   freno). */
 .banner-pub{
   display:block;
   /* La creatividad manda: el hueco guarda SIEMPRE la proporcion recomendada 1120x480,
