@@ -4,6 +4,24 @@ Este repositorio implementa un producto multicliente: motor (`motor/`) más clie
 (`cliente.mjs`, `carta.json`). Tinge of Turmeric es UN cliente, no el único: todo
 comportamiento nuevo se diseña como multicliente cuando corresponda.
 
+## Invariante de producto escalable
+
+Este repositorio es la base de un producto multi-cliente, no una implementación específica
+para Tinge of Turmeric.
+
+Toda funcionalidad del motor debe ser reutilizable por futuros restaurantes sin modificar
+el motor para cada cliente.
+
+Reglas:
+- datos, textos, imágenes y configuración específicos del restaurante → estado/cliente;
+- comportamiento reutilizable → motor;
+- prohibidos hardcodes, rutas, nombres o excepciones específicas de un cliente;
+- nuevas funciones deben ser opcionales y retrocompatibles;
+- un cliente que no use una función no debe romperse ni dejar huecos;
+- evitar dependencias entre módulos que no sean necesarias;
+- antes de aprobar un cambio, comprobar explícitamente que sigue siendo reutilizable
+  para un cliente nuevo.
+
 ## Reglas permanentes
 
 - `main` es la versión estable y publicable. No se implementa directamente en `main`.
