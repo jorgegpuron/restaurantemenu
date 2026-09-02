@@ -6836,3 +6836,35 @@ y a 320px: gafas claramente visibles en los cinco, «Chilli»/«Rush» legibles 
 mascota más ancha, sin cortes ni desbordes a 320px, consola limpia. No hubo que tocar
 ninguna otra regla — ni color, ni fichas, ni badge — el ajuste fue solo geometría de
 la mascota nueva.
+
+### Duodécima vuelta: la tarjeta baja a 160px, y el margen del banner de anuncios ya coincidía
+
+Petición del propietario: bajar `min-height` de la tarjeta de 200px a 160px, sin tocar
+nada más, y que el margen izquierdo/derecho quede igual que el del `.banner-pub` (el
+hueco de publicidad que el restaurante alquila) — según él, ahora mismo se ven con
+márgenes distintos.
+
+**Lo primero antes de tocar nada:** medido `.game-card` y `.banner-pub` tal como
+estaban, con el `getBoundingClientRect()` de los dos a la vez en el mismo móvil
+simulado (375px). Resultado: `left:21px` y `right:21px` en los dos, sin diferencia —
+ambos usan literalmente la misma cuenta en su CSS (`margin-left`/`margin-right:
+calc(var(--s1) - var(--gutter))`, comentado además como intencional: «el banner
+publicitario mide lo mismo de ancho que la tarjeta del juego»). No había nada que
+igualar porque ya estaban igualados; no se tocó el margen de ninguno de los dos. Si lo
+que se ve distinto en el móvil real del propietario es la publicidad ya con una
+creatividad cargada, la diferencia no puede venir de este CSS — vendría, como mucho,
+de espacio en blanco dentro de la propia imagen del anuncio (fuera de lo que la carta
+controla) o de una comparación con otro fondo (la tarjeta es un bloque de color sólido,
+`.banner-pub` es solo una foto a sangre, sin chrome alrededor — el ojo puede leer eso
+como «más pegado al borde» aunque el margen real sea idéntico).
+
+**Lo segundo, ya sin ambigüedad:** `min-height` de `.game-card` de 200px a 160px, una
+sola línea, nada más tocado en la regla.
+
+**Riesgo real de esto:** la mascota mide 300px fijos y el recorte de `overflow:hidden`
+reparte el sobrante arriba y abajo por igual — con una ventana de recorte más baja
+(160px en vez de 200px), se recorta más mascota por los dos lados, y el ajuste de
+`-48px` de la vuelta anterior quedaba otra vez en duda. Comprobado en los 5 temas a
+375px y 320px: gafas siguen despejadas, «Chilli»/«Rush» legibles, las cuatro fichas
+sin solape, consola limpia — el margen de sobra que ya traía el -48px alcanza también
+para esta altura menor, no hizo falta recalcular.

@@ -1637,7 +1637,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   justify-content:center;
   text-align:center;
   gap:var(--s1);
-  min-height:200px;
+  min-height:160px;
   margin-top:var(--s3);
   /* Se sale de la calle del contenido para medir lo mismo que la foto de portada — misma
      cuenta con --gutter que antes del rediseño, eso no cambia. */
