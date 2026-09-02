@@ -6797,3 +6797,42 @@ Comprobado tras el cambio: gafas claramente visibles a 390px y a 320px, consola
 limpia, y un repaso visual en Caoba (sin motivo para pensar que la posición o la
 dirección de la animación dependieran del tema — ninguna de las dos cambia colores —
 pero se miró de todos modos antes de darlo por cerrado).
+
+### Undécima vuelta: la mascota pasa a vectorial, y sube otra vez
+
+El propietario puso `logo.svg` en la raíz del workspace (fuera de `tinge_of_turmeric/`)
+y pidió usarlo como mascota de la tarjeta, en vez del `chilirush.webp` de siempre.
+Mismo personaje — el pimiento con gafas —, pero dibujado a línea limpia con menos
+margen interno en el lienzo, sin la caja gris que traía el webp alrededor. Copiado a
+`motor/assets/logo.svg`, dentro de la carpeta del cliente: un fichero en la raíz del
+workspace no se referencia nunca desde dentro de un cliente, así que se copia primero
+o no se usa (regla de aislamiento del `CLAUDE.md` raíz).
+
+`chilirush.webp` se queda donde estaba, sin tocar: `motor/juego.mjs` lo sigue usando
+en su propia pantalla de inicio (`.mascota img`), y `juego.mjs` es fichero prohibido
+en este protocolo. El manifiesto de assets ahora copia los dos ficheros — el webp para
+el juego, el svg para la tarjeta —, no uno en sustitución del otro.
+
+Junto con el cambio de fichero, la altura de la mascota sube de 240px a 300px, a
+petición expresa.
+
+**El desplazamiento hacia arriba de la vuelta anterior (34px) dejó de bastar.** No por
+la altura en sí — por la forma: el svg, con menos margen interno, renderiza más ancho
+que el webp a igual altura (canto a canto, unos 213px de ancho a 300px de alto, frente
+a los ~169px del webp a 240px) — así que las gafas, aunque estén en proporción parecida
+dentro del dibujo, quedan más lejos del centro exacto de la tarjeta en píxeles reales, y
+«Chilli» pierde más letras contra las llamas al ser la silueta más ancha. Primera
+prueba a 34px: gafas otra vez tapadas, mismo síntoma que en la novena vuelta. Vuelto a
+medir sobre el propio `logo.svg` en crudo (abierto directo en el navegador) en vez de
+suponer que la cifra anterior serviría — la banda de las gafas cae en una proporción
+del alto del dibujo parecida a la que ya se había medido en el webp, pero al ser un
+dibujo más ancho hacía falta más margen vertical para despejarla del centro. Subida a
+**48px** — en el `transform` base y en las dos paradas de `@keyframes
+game-card-wiggle`, que son la misma cifra repetida, no un cálculo aparte.
+
+Comprobado tras el cambio, en los 5 temas (Laurel, Ónice, Caoba, Mar, Ciruela) a 375px
+y a 320px: gafas claramente visibles en los cinco, «Chilli»/«Rush» legibles con el
+`text-shadow` ya existente, las cuatro fichas en sus esquinas sin solaparse con la
+mascota más ancha, sin cortes ni desbordes a 320px, consola limpia. No hubo que tocar
+ninguna otra regla — ni color, ni fichas, ni badge — el ajuste fue solo geometría de
+la mascota nueva.

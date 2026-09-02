@@ -1692,12 +1692,13 @@ html:not(.js) .lang-menu{position:static;display:block}
    los 200 reales — medido, no a ojo). Se pasa por arriba y por abajo a proposito, y
    overflow:hidden en .game-card recorta ambos lados por igual porque esta centrada en
    vertical (top:50% + translateY(-50%)): el sobrante se reparte igual arriba y abajo. */
-/* Centrada y subida 34px sobre el centro exacto para que las gafas queden claramente
-   dentro del recorte — primero se probo con 10px y seguian sin verse bien, corregido
-   tras verlo en pantalla real, no calculado solo sobre el papel. */
+/* Version vectorial (assets/logo.svg, no el .webp que sigue usando el juego) a 300px
+   de alto — pedido expreso. Centrada y subida sobre el centro exacto para que las
+   gafas queden dentro del recorte; el desplazamiento se reverifica cada vez que cambia
+   el tamano, no es una cifra fija. */
 .game-card-mascot{
-  position:absolute;top:50%;left:50%;height:240px;width:auto;pointer-events:none;
-  transform:translate(-50%, calc(-50% - 34px)) rotate(-3deg);
+  position:absolute;top:50%;left:50%;height:300px;width:auto;pointer-events:none;
+  transform:translate(-50%, calc(-50% - 48px)) rotate(-3deg);
   /* contorno tipo pegatina: ocho drop-shadow apilados alrededor del recorte, en --surface
      para que funcione igual en los 5 temas */
   filter:
@@ -1710,8 +1711,8 @@ html:not(.js) .lang-menu{position:static;display:block}
   animation:game-card-wiggle 2.4s ease-in-out infinite;
 }
 @keyframes game-card-wiggle{
-  0%,100%{transform:translate(-50%, calc(-50% - 34px)) rotate(-3deg)}
-  50%{transform:translate(-50%, calc(-50% - 34px)) rotate(3deg)}
+  0%,100%{transform:translate(-50%, calc(-50% - 48px)) rotate(-3deg)}
+  50%{transform:translate(-50%, calc(-50% - 48px)) rotate(3deg)}
 }
 @media (prefers-reduced-motion:reduce){.game-card-mascot{animation:none}}
 
@@ -4091,7 +4092,7 @@ ${!CLIENTE.funciones.juego ? '' : `          <!-- La entrada al juego va al fina
                juego desde el panel. -->
           <a class="game-card" id="game-card" href="juego.html" hidden${TL('Play Chilli Rush')}>
             <span class="game-card-halftone" aria-hidden="true"></span>
-            <img class="game-card-mascot" src="assets/chilirush.webp" alt="" aria-hidden="true">
+            <img class="game-card-mascot" src="assets/logo.svg" alt="" aria-hidden="true">
             <span class="game-card-bit game-card-bit--chilli" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg></span>
             <span class="game-card-bit game-card-bit--gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 11c0 2.21 -2.239 4 -5 4s-5 -1.79 -5 -4a8 8 0 1 0 16 0a3 3 0 0 0 -6 0"/><path d="M16 8c0 -2 2 -4 4 -4"/></svg></span>
             <span class="game-card-bit game-card-bit--ice" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg></span>
@@ -6962,6 +6963,9 @@ const SUELTOS = [
   ...(CLIENTE.funciones.juego ? [
     [enMotor('assets/chilirush.webp'), 'assets/chilirush.webp'],
     [enMotor('assets/chilli-rush-fondo-alpha.webm'), 'assets/chilli-rush-fondo-alpha.webm'],
+    /* Version vectorial del mismo personaje, solo para la tarjeta del index — el juego
+       (juego.mjs) sigue con el .webp, no se toca. */
+    [enMotor('assets/logo.svg'), 'assets/logo.svg'],
   ] : []),
 ];
 
