@@ -1647,12 +1647,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    no pone src alli: el CSS es el cinturon, no el freno). */
 .banner-pub{
   display:block;
-  /* La creatividad manda: el hueco guarda SIEMPRE la proporcion recomendada 1120x360,
+  /* La creatividad manda: el hueco guarda SIEMPRE la proporcion recomendada 1120x480,
      asi que una creatividad bien hecha se ve ENTERA en cualquier movil. La altura sale
-     del ancho de la calle (560 -> 180, 333 -> ~107) y 180 es el TECHO, no una talla
+     del ancho de la calle (560 -> 240, 333 -> ~143) y 240 es el TECHO, no una talla
      fija que convierta el hueco en una ventana mas cuadrada y recorte los laterales. */
-  aspect-ratio:1120/360;
-  max-height:180px;
+  aspect-ratio:1120/480;
+  max-height:240px;
   margin-top:var(--s3);
   margin-left:calc(var(--s1) - var(--gutter));
   margin-right:calc(var(--s1) - var(--gutter));

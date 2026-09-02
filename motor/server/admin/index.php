@@ -5096,14 +5096,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php if (pub_nombre_valido($pubImg)): ?>
         <p style="margin:0 2px var(--s2)"><img
           src="<?= h('../' . PUB_URL . $pubImg) ?>" alt="La creatividad actual del banner"
-          style="width:100%;max-width:560px;height:auto;aspect-ratio:1120/360;object-fit:cover;border-radius:8px"></p>
+          style="width:100%;max-width:560px;height:auto;aspect-ratio:1120/480;object-fit:cover;border-radius:8px"></p>
         <form method="post" style="margin:0 0 var(--s3)">
           <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
           <button class="ghost-btn" name="eliminar_banner" value="1" type="submit">Quitar la imagen</button>
         </form>
       <?php else: ?>
         <p class="hint" style="margin:0 2px var(--s3)"><strong>Sin imagen todavia.</strong>
-          Sube una de 1120 &times; 360 (JPG, PNG o WebP, <?= PUB_MAX_BYTES / 1048576 ?>&nbsp;MB maximo).</p>
+          Sube una de 1120 &times; 480 (JPG, PNG o WebP, <?= PUB_MAX_BYTES / 1048576 ?>&nbsp;MB maximo).</p>
       <?php endif; ?>
 
       <form method="post" enctype="multipart/form-data" style="margin:0">

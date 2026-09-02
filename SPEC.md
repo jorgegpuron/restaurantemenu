@@ -6439,12 +6439,12 @@ config.php solo aporta el fallback del patrón habitual y DERIVA la carpeta fís
 
 **Runtime en la carta** (`#banner-pub`, hermano entre `#game-card` y `#reviews`): misma
 salida de calle que `.game-card` (idéntico ancho visual); el hueco guarda SIEMPRE la
-proporción recomendada 1120×360 (`aspect-ratio` en el contenedor, altura derivada del
-ancho: 560→180, 333→~107) con 180 px como TECHO (`max-height`), y la creatividad lo
-rellena entera (`width/height: 100%`, `object-fit: cover`). Consecuencia medida con una
-creatividad real 1103×357: recorte lateral CERO en cualquier móvil — una creatividad a la
-proporción recomendada se ve completa; solo una proporción distinta paga un recorte
-vertical mínimo por el centro. Solo existe en viewport ≤767px: el CSS
+proporción recomendada 1120×480 (`aspect-ratio` en el contenedor, altura derivada del
+ancho: 560→240, 333→~143) con 240 px como TECHO (`max-height`), y la creatividad lo
+rellena entera (`width/height: 100%`, `object-fit: cover`). Una creatividad a la
+proporción recomendada (1120×480) se ve COMPLETA en cualquier móvil, medido con fixture
+exacto: recorte cero; una proporción distinta paga su diferencia recortada por el centro
+(las creatividades 1120×360 de la etapa anterior pierden ~25% lateral: rehacerlas). Solo existe en viewport ≤767px: el CSS
 lo oculta en ancho y ADEMÁS el JS no asigna `src` fuera de móvil — en escritorio no se
 descarga ni un byte. Al cruzar el límite en vivo (girar el móvil) se reevalúa. El enlace
 solo se pone con URL re-parseada aquí como http/https (lo del estado no se interpreta), y
@@ -6454,7 +6454,7 @@ un banner con URL inválida se muestra sin enlace. Enlace publicitario declarado
 **El panel** (pestaña Publicidad, sin capacidad que la apague): interruptor, imagen
 (subir/reemplazar/quitar con el pipeline de hero: tipos por `getimagesize`, 2 MiB
 exactos e inclusivos —2.097.152 bytes entran, un byte más no—, sin mínimo de dimensiones
-—1120×360 es solo recomendación—, nombre aleatorio del servidor, carpeta con guardián
+—1120×480 es solo recomendación—, nombre aleatorio del servidor, carpeta con guardián
 anti-PHP; el límite vive exclusivamente en `PUB_MAX_BYTES` (`config.php`): de esa única
 constante derivan la validación del fichero, el máximo de la ayuda del panel y el del
 mensaje de error, así que cambiarla mañana mueve las tres cosas a la vez), URL validada
