@@ -1632,7 +1632,8 @@ html:not(.js) .lang-menu{position:static;display:block}
   margin-left:calc(var(--s1) - var(--gutter));
   margin-right:calc(var(--s1) - var(--gutter));
   padding:var(--s3);
-  border-radius:var(--r-sheet);
+  /* la mitad de la hoja: la tarjeta pierde chicha de esquina sin salirse del token */
+  border-radius:calc(var(--r-sheet) / 2);
   background:var(--ink);
   color:var(--surface);
   text-decoration:none;
@@ -1656,7 +1657,8 @@ html:not(.js) .lang-menu{position:static;display:block}
   margin-top:var(--s3);
   margin-left:calc(var(--s1) - var(--gutter));
   margin-right:calc(var(--s1) - var(--gutter));
-  border-radius:var(--r-sheet);
+  /* mismo radio que la tarjeta del juego de arriba: comparten esquina y calle */
+  border-radius:calc(var(--r-sheet) / 2);
   overflow:hidden;
   line-height:0;
 }
