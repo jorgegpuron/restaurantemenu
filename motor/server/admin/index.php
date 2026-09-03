@@ -2798,31 +2798,37 @@ $CUENTAS = [
     margin-inline:auto;
     color:var(--ink);
   }
-  /* La chapa de version. Al pie, apagada y en tipografia de numeros: no es para leerla cada
-     dia, es para mirarla cuando algo no cuadra despues de subir. */
+  /* La chapa de version. Es para mirarla cuando algo no cuadra despues de subir, y por eso
+     tiene que LEERSE cuando se mira.
+     Lleva el mismo tratamiento que el pie de la carta publica (.site-footer en gen.mjs) y con
+     los mismos tokens, no con una combinacion propia: misma familia, mismo cuerpo, misma
+     interlinea, mismo color y centrada. Las dos caras del producto hablan con la misma voz.
+     Antes .chapa-id iba a 11px con opacity .65 encima de --muted, que ya es un gris discreto
+     de por si: el resultado era una linea practicamente invisible, y lo invisible era
+     justamente el dato que se viene a buscar. Fuera el cuerpo reducido y fuera la opacidad;
+     el numero se queda en cifras tabulares, que es lo suyo para comparar dos compilaciones. */
   .chapa{
     margin:var(--s4) auto var(--s3);
     text-align:center;
-    color:var(--muted);
-    font-size:13px;
-    line-height:1.6;
-  }
-  .chapa strong{color:var(--ink);font-variant-numeric:tabular-nums}
-  .chapa-id{font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
-  .chapa-mal{color:var(--mal,#b3261e);font-weight:600}
-  /* En la pantalla de acceso la chapa NO cae sobre la tarjeta crema: queda sobre la tinta del
-     body. Ahí --ink sobre --ink da 1,00:1 y la fecha simplemente no está — justo el dato que
-     se viene a mirar después de subir, y el único momento en que se mira es antes de entrar.
-     --metal existe para esto: es el metal aclarado lo justo para leerse sobre el fondo oscuro.
-     La opacidad se quita porque encima del metal volvería a bajar el contraste recuperado.
+    /* El color NO es el --muted del pie publico, y no por capricho: alli el pie cae sobre el
+       papel claro de la carta y aqui la chapa cuelga del BODY, que es --ink. El mismo token
+       daria gris oscuro sobre tinta oscura -- medido: 1,9:1 en ciruela, 2,1 en laurel, 2,3 en
+       onice, ilegible en los cinco temas. Se usa el token que ocupa ESE papel en esta cara del
+       producto: --metal, que existe justamente para leerse sobre el fondo oscuro. Es el mismo
+       criterio, no la misma constante.
 
-     Va colgado del BODY y no de .page-login, aunque parezca lo natural: la chapa es HERMANA
-     de .page-login, no descendiente —las dos son hijas directas de body—, así que
-     «.page-login .chapa» no casa con nada. Se comprobó en el navegador después de desplegar,
-     porque leyendo el PHP parecía correcto. */
-  .sin-entrar .chapa{color:var(--metal)}
-  .sin-entrar .chapa strong{color:var(--surface)}
-  .sin-entrar .chapa-id{color:var(--metal);opacity:1}
+       Va en la regla base y no colgado de .sin-entrar. Antes solo se aclaraba en la pantalla
+       de acceso, pero la chapa esta sobre la tinta del body SIEMPRE -- es hermana de la
+       tarjeta, no descendiente-- asi que dentro del panel se quedaba en el gris oscuro y no
+       se veia. Y dentro del panel es cuando se mira: despues de subir. */
+    color:var(--metal);
+    font-family:var(--body-font);
+    font-size:14px;
+    line-height:24px;
+  }
+  .chapa strong{color:var(--surface);font-variant-numeric:tabular-nums}
+  .chapa-id{font-variant-numeric:tabular-nums}
+  .chapa-mal{color:var(--mal,#b3261e);font-weight:600}
   .head .sub a{color:var(--accent-ink)}
 
   /* ---------- pestañas ---------- */

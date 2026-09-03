@@ -10,7 +10,8 @@ import { PAISES, CODIGOS, imgBandera } from './banderas.mjs';
 import {
   cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
 } from './temas.mjs';
-import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE } from './alergenos.mjs';
+import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE, resolver as resolverAlergeno,
+  CANONICAS, ALIAS } from './alergenos.mjs';
 /* Todo lo que es de ESTE restaurante. gen.mjs no lleva dentro ni un nombre ni una
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
 import { CLIENTE, CLAVE, SINONIMOS } from '../cliente.mjs';
@@ -452,6 +453,43 @@ const md = readFileSync(cliente('menu.md'), 'utf8');
 const secciones = [];
 let current = null;
 
+/* ---- la columna `allergens` de menu.md ----
+ *
+ * La escribe importar.mjs desde carta.json, y hasta ahora se perdia aqui mismo: este parser
+ * cogia solo las cuatro primeras celdas y la quinta se caia sin un aviso. El resultado era que
+ * un restaurante podia declarar sus alergenos plato a plato, verlos validados por importar.mjs,
+ * verlos escritos en menu.md... y no aparecer en la carta publicada. Ninguna carta los habia
+ * usado todavia -- Tinge declara cero en 312 platos -- asi que nadie lo noto.
+ *
+ * Aqui no se deduce NADA de ningun nombre ni de ninguna receta: se transcribe lo que la columna
+ * dice. Sin columna, o vacia, el plato se queda sin alergenos declarados, que NO es lo mismo que
+ * "no lleva ninguno".
+ *
+ * Dos motivos para abortar, los dos a proposito y ninguno en silencio:
+ *   1. una clave que no esta en el catalogo de motor/alergenos.mjs;
+ *   2. una clave legitima que todavia no tiene icono dibujado (seis de las catorce).
+ * Aceptar un alergeno y luego no ensenarlo seria lo peor de las dos opciones: el restaurante
+ * creeria que esta avisando y el comensal no veria el aviso. */
+const leerAlergenos = (celda, plato) => {
+  const claves = String(celda || '').trim().split(/[\s,]+/).filter(Boolean);
+  return claves.map((clave) => {
+    const canonica = resolverAlergeno(clave);
+    if (!canonica) {
+      abortar('menu.md: el plato ' + JSON.stringify(plato) + ' declara el alergeno '
+        + JSON.stringify(clave) + ', que no esta en el catalogo del motor.',
+        'los validos son: ' + CANONICAS.concat(Object.keys(ALIAS)).join(', ')
+        + String.fromCharCode(10) + '  se escriben en carta.json, en el campo `alergenos` de cada plato');
+    }
+    if (!ICONO_POR_CLAVE[canonica]) {
+      abortar('menu.md: el plato ' + JSON.stringify(plato) + ' declara '
+        + JSON.stringify(canonica) + ', que todavia no tiene icono dibujado en el motor.',
+        'dibuja su icono en motor/alergenos.mjs antes de publicarlo: un alergeno declarado que'
+        + String.fromCharCode(10) + '  no se ensena es peor que no declararlo, porque nadie se entera del aviso');
+    }
+    return canonica;
+  });
+};
+
 for (const raw of md.split(/\r?\n/)) {
   const line = raw.trim();
 
@@ -475,8 +513,8 @@ for (const raw of md.split(/\r?\n/)) {
   const cells = line.split('|').slice(1, -1).map((c) => c.trim());
   if (cells.length < 4) continue;
 
-  const [id, name, desc, price] = cells;
-  current.items.push({ id, name, desc, price });
+  const [id, name, desc, price, allergens] = cells;
+  current.items.push({ id, name, desc, price, alergenos: leerAlergenos(allergens, name) });
 }
 
 /* ---- carta.json: la fuente de la estructura y de los identificadores ----
@@ -939,11 +977,10 @@ const isSpecialCat = (cat) => /^Gluten Free|^Vegan/.test(cat);
    no hay ni una marca que explicar, y la leyenda le decia al comensal que buscara un simbolo que
    no existe en ninguna pagina de la carta. */
 const hayMarcasDieta = veganNames.size > 0 || gfNames.size > 0;
-/* ¿Ha declarado alguien sus alergenos plato a plato? Con platos declarados la leyenda del pie
-   sobra —cada plato lleva sus iconos—; sin ninguno, la leyenda es lo unico que la carta dice
-   sobre alergias y no puede faltar. */
-const hayAlergenosDeclarados = GRUPOS_PLANOS
-  .some((g) => g.items.some((it) => (it.alergenos || []).length > 0));
+/* ¿Ha declarado alguien sus alergenos plato a plato? Se cuenta para el informe del build, no
+   para decidir si el aviso del pie sale: ver la leyenda mas abajo. */
+const platosConAlergenos = GRUPOS_PLANOS
+  .reduce((n, g) => n + g.items.filter((it) => (it.alergenos || []).length > 0).length, 0);
 
 const DIET_ICON = {
   vegan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21c.5 -4.5 2.5 -8 7 -10"/><path d="M9 18c6.218 0 10.5 -3.288 11 -12v-2h-4.014c-9 0 -11.986 4 -12 9c0 1 0 3 2 5h3l.014 0"/></svg>',
@@ -961,6 +998,18 @@ function dietMarks(catName, name) {
     out += `<span class="diet diet-gf" role="img"${TL('Available gluten free')}>${DIET_ICON.gf}</span>`;
   }
   return out ? `<span class="diet-marks">${out}</span>` : '';
+}
+
+/* Los alergenos DECLARADOS de un plato, al lado de las marcas de dieta y con la misma
+   gramatica visual. Solo se pinta lo que la carta del restaurante declara: un plato sin
+   iconos no dice "no lleva", dice "aqui no hay nada declarado" -- y por eso el aviso general
+   del pie sigue estando siempre. El titulo accesible lleva el nombre del alergeno, que es lo
+   que lee un lector de pantalla; el icono solo no dice nada a quien no lo ve. */
+function alergenoMarks(it) {
+  const claves = it.alergenos || [];
+  if (!claves.length) return '';
+  const marcas = claves.map((k) => `<span class="alergeno" role="img"${TL(ETIQUETA_POR_CLAVE[k])}>${ICONO_POR_CLAVE[k]}</span>`).join('');
+  return `<span class="alergeno-marks">${marcas}</span>`;
 }
 
 /* ---- group icons ----
@@ -1044,7 +1093,7 @@ const renderItem = (it, showSlot, icon, catName) => {
   return `                    <div class="single-menu-items" data-key="${key}" data-legacy="${legacy}" data-vid="${vid}" data-cat="${esc(catName)}" data-catid="${it.catId}"${included ? '' : ` data-price="${esc(it.price)}"`}>
                       <div class="details">${column}
                         <div class="menu-content">
-                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}</h3>
+                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}${alergenoMarks(it)}</h3>
 ${/* Un plato sin descripción no deja un <p> vacío: dejaría su interlínea de hueco bajo el
       nombre y la fila quedaría más alta que sus vecinas sin decir nada a cambio. Aparece en
       los catorce ingredientes de currys, donde la instrucción la lleva la nota del grupo y
@@ -1217,7 +1266,15 @@ const leyendaMarcas = !hayMarcasDieta ? '' : `            <p class="legend-marks
               <span class="legend-caveat">${T('These marks point to a version of the dish on our vegan or gluten-free menu.', 'ui')}</span>
             </p>`;
 
-const leyendaAlergenos = hayAlergenosDeclarados ? '' : `            <p class="legend-allergens">
+/* El aviso general del pie sale SIEMPRE, haya o no platos con alergenos declarados.
+   Antes se quitaba en cuanto un solo plato declaraba algo, con el razonamiento de que "cada
+   plato lleva ya sus iconos". Eso solo seria cierto con la carta entera verificada: con
+   informacion PARCIAL —que es lo normal cuando un restaurante marca unos cuantos platos— dejaba
+   sin ningun aviso justo a los platos de los que no se sabe nada, y un plato sin iconos se leeria
+   como un plato sin alergenos. Es exactamente la lectura que no se puede permitir.
+   El dia que exista una cobertura verificada y declarada como tal, esa sera la condicion; no
+   la simple existencia de un icono. */
+const leyendaAlergenos = `            <p class="legend-allergens">
               <span class="allergen-head">
                 <strong>${T('Allergens', 'ui')}</strong>
 ${leyendaIconos}
@@ -2497,6 +2554,13 @@ html:not(.js) .lang-menu{position:static;display:block}
 .diet-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:1px}
 .diet{display:inline-flex;color:var(--accent-ink)}
 .diet svg{width:14px;height:14px}
+/* Los alergenos declarados del plato. Misma caja y misma medida que las marcas de dieta -- van
+   en la misma linea y a la misma altura optica-- pero en el gris del texto secundario y no en
+   el acento: la marca de dieta es una recomendacion de la casa y esto es una advertencia, y no
+   conviene que compitan por la mirada. No escalan con las 3 A, igual que el resto de iconos. */
+.alergeno-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:1px}
+.alergeno-marks .alergeno{display:inline-flex;color:var(--muted)}
+.alergeno-marks .alergeno svg{width:14px;height:14px}
 
 .menu-legend{
   margin-top:var(--s5);
@@ -6954,7 +7018,8 @@ console.log(
   'written', Buffer.byteLength(html), 'bytes | juego', Buffer.byteLength(juego), 'bytes |', catalogue.length, 'dishes |',
   TAXO.length, 'tabs |',
   GRUPOS_PLANOS.filter((g) => g.items.length).length, 'categories |',
-  totalItems, 'items'
+  totalItems, 'items',
+  platosConAlergenos ? '| ' + platosConAlergenos + ' con alergenos declarados' : '| sin alergenos por plato'
 );
 
 /* ---- el paquete que se sube ----
