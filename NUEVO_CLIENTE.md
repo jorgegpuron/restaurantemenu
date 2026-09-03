@@ -386,6 +386,9 @@ nombre.** Es la guarda que impide publicar con el `og:title` del restaurante ant
   celery · mustard · sesame · sulphites · lupin · molluscs
   ```
 
+  Las 14 tienen icono dibujado en el motor (`motor/alergenos.mjs`) — catálogo completo, ninguna
+  se queda sin icono al declararla en un plato.
+
   Tinge usa alias heredados (`wheat`, `nut`, `egg`...) que `motor/alergenos.mjs` resuelve a su
   canónica; un cliente nuevo usa las canónicas directamente, sin alias.
 
@@ -477,7 +480,13 @@ pestaña.
   en pantalla, y con el subtítulo llega la obligación del icono.**
 
 Iconos disponibles, y no hay más: `appetizers · soup · vegetarian · meat · salad · flame ·
-leaf · lentils · rice · bread · fries · special · kids · bowl · drop`.
+leaf · lentils · rice · bread · fries · special · kids · bowl · drop · fish · seafood ·
+dessert · drinks · coffee · cocktails · breakfast · pizza · burger`.
+
+Los últimos nueve existen porque su falta era real, no anticipada: Bar Restaurante Guaza tenía
+"Pescados" con el icono de `meat` y "Parrillada de Marisco" con el de `rice`, porque no había
+nada mejor. Si una categoría nueva no encaja en ninguno de los 24, hace falta un icono nuevo —
+no reutilizar el que se le parezca menos mal.
 
 ---
 

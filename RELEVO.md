@@ -5,121 +5,102 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **3 sep 2026** · **cierre definitivo de la Fase 7**
+> Última actualización: **4 sep 2026** · **catálogo de iconos ampliado, todo en local sin push**
 
 ---
 
 ## Dónde estamos
 
-**Fase 7 cerrada.** `NUEVO_CLIENTE.md` describe hoy el procedimiento real, probado de punta a
-punta contra un cliente real. Quedan dos cosas sueltas, las dos de logística, ninguna de
-producto — ver «Qué queda pendiente».
+**Fase 7 cerrada y en `main`**, en los dos repos — ya no vive en ninguna rama aparte. La
+congelación del alta de clientes nuevos, levantada (`CLAUDE.md`): `/nuevo-cliente` vuelve a
+estar autorizado, siguiendo siempre `NUEVO_CLIENTE.md`.
 
-**Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`) — rama
-`feature/alta-automatica` en `789c595`, árbol limpio, **todavía sin push**. `main` local sigue
-en `origin/main` (`46adad8`); esta rama no se ha integrado.
+**Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`) — `main` en **`a36854e`**,
+árbol limpio, **todavía sin push** (`origin/main` sigue en `46adad8`).
 
 **Bar Restaurante Guaza** (`bar-restaurante-guaza/1-proyecto`, repo `bar-restaurante-guaza`) —
-primer cliente real nacido de `/nuevo-cliente`, **en producción**:
-<https://socialcard.es/bar-restaurante-guaza/>. `main` local = `origin/main` = `2535ee3`,
-árbol limpio. Build público **`1788452194890`**, desplegado y verificado con Playwright real
-(humo de producción: alérgenos, ficha con foto, idiomas EN/DE, 404, panel protegido, consola
-limpia). `DESPLIEGUE_REAL = false` en el repo de Guaza, verificado leyendo de GitHub.
+`main` en **`253327a`**, árbol limpio, **todavía sin push** (`origin/main` sigue en `2535ee3`).
+Producción (<https://socialcard.es/bar-restaurante-guaza/>) sigue sirviendo el build
+`1788452194890`, el de antes de esta sesión — nada de lo de aquí abajo ha salido de local
+todavía. `DESPLIEGUE_REAL = false`, verificado en su día leyendo de GitHub.
 
-El **motor de los dos clientes es idéntico byte a byte** (`diff -r` limpio en `motor/gen.mjs` y
-`motor.lock`), pero viven en ramas/repos distintos: sincronizar el motor entre uno y otro sigue
-siendo manual, no hay herramienta que lo automatice todavía.
+El **motor de los dos clientes es idéntico byte a byte** (`diff` limpio en `motor/gen.mjs`,
+`motor/alergenos.mjs` y `motor.lock`), pero viven en repos distintos: sincronizarlo entre uno y
+otro sigue siendo manual, copiando a mano y verificando con `diff`.
 
 ---
 
-## Qué se hizo en la última sesión
+## Qué se hizo, resumido (el detalle está en `git log` de cada repo)
 
-**Alérgenos, el campo que faltaba: `alergenos.enOrigen`.** El diseño de cierre de Fase 7 pedía
-que un cliente pudiera declarar si tiene el dato de alérgenos o no, sin inventarlo nunca.
-Implementado genérico en el motor: `si | no | desconocido`, obligatorio en `cliente.mjs`,
-obligatorio también como argumento de `nuevo-cliente.mjs --destino`. `desconocido` bloquea el
-build sin condiciones; `si` con cero platos declarados también lo bloquea. Tinge queda en
-`'no'` (su verdad: no declara alérgenos), Guaza en `'si'` (sus 20 platos con alérgenos reales).
-
-**Ficha de plato con foto, corregida genéricamente.** Bloque de alérgenos nuevo en la ficha
-(antes sólo estaba en la fila de la lista): junto al título cuando caben enteros, medido con
-`Range.getClientRects()` contra la última línea real del título — la primera versión, que
-comparaba contra el `top` del `<h2>` entero, fallaba siempre a «no cabe» por el desplazamiento
-natural de `vertical-align` dentro de la línea, y se corrigió en la misma sesión tras verlo en
-la propia prueba. Si no caben, bajan enteros (nunca partidos) a un bloque propio, después de la
-línea de descripción y precio. Badge de «Agotado hoy» centrado (antes vivía pegado a la
-izquierda). Dos defectos que el propietario devolvió por no reproducidos, y sí lo eran:
-- **`Incluido`**: confirmado por coordenadas DOM que ya compartía posición, alineación y
-  jerarquía con un precio numérico — comparación rigurosa con la misma descripción inyectada en
-  ambos platos, cifra a cifra idéntica. No hizo falta ningún cambio.
-- **Hueco inferior**: real, pero no era de CSS. `admin/index.php` guarda las fotos como JPEG
-  *baseline* (sin `imageinterlace()`); en red lenta, el texto de la ficha ya está pintado
-  mientras la foto sigue cargando, y el relleno claro de `.dsheet-foto` se veía como un hueco
-  pálido encima del degradado oscuro. Reproducido con red estrangulada (CDP, Slow 3G) sobre un
-  JPEG baseline real. Arreglado con un cambio de un color: el relleno de espera pasa a ser el
-  mismo tono que el pico del degradado (`#09120e`) — durante la carga no hay costura que ver.
-  No se tocó `admin/index.php` (fuera de la allowlist de esta tarea); si algún día se quiere
-  progressive JPEG en el origen, es tarea aparte.
-
-**`NUEVO_CLIENTE.md`, reescrito de cabo a rabo.** El documento describía un diseño futuro con
-media docena de pasos en 🔧/🔴 que ya estaban implementados y probados, y al menos un campo
-(`allergens.coverage`) que nunca llegó a existir en el código — se llamó `enOrigen` al
-implementarlo de verdad. Reescrito para reflejar exactamente lo que hace hoy: las cinco
-herramientas de `nuevo-cliente.mjs` en su orden real de uso, el catálogo de 14 alérgenos UE, el
-verificador de integridad del build, la regla de iconos de pestaña/grupo, y las tres capas de
-la activación del panel (marca `activacion.consumida` en el servidor, hash local muerto al
-instante, `--cerrar-activacion` para que el Secret de GitHub no resucite un token gastado en un
-despliegue futuro). Validado contra el propio historial de Guaza, no contra la teoría.
-
-**Cierre de la tanda**: commit local en los dos clientes (`fix: cerrar alergenos y ficha
-visual`), sin push en Tinge. En Guaza: push, dry-run auditado (`dry-run: true`,
-`Uploading: 0 B · Deleting: 0 B`), y con autorización expresa, despliegue real
-(`dry-run: false`, `security: strict`), verificado en producción, `DESPLIEGUE_REAL` devuelto a
-`false`.
+- **Alta endurecida**: `--destino` valida `--url`/carpeta y la zona horaria *antes* de escribir
+  nada; `--zona-horaria`/`--corte-hora` son obligatorios (nunca Canarias por defecto); el admin
+  ya no revienta si el PHP del servidor no trae `mbstring`.
+- **Etiquetas de destacados unificadas**: admin y carta pública leen ahora el mismo vocabulario
+  (antes había tres copias que podían divergir — «PLATO INSIGNIA» en admin llegó a salir como
+  «DE LA CASA» en la carta ES). Añadidas Recomendado/Nuevo/Especialidad.
+- **Validación de traducciones consolidada**: falta una clave obligatoria en el idioma base y el
+  build aborta igual que si faltara en un extra — ya no hay una ruta que sólo cubra los extras.
+- **Catálogo de alérgenos completo, 14/14 con icono** (`motor/alergenos.mjs`): dibujados a mano
+  crustaceans, molluscs, peanuts, soybeans, celery y lupin. Ninguno copiado de un set externo;
+  todos verificados rasterizados a 14px real, no al trazo vectorial ampliado.
+- **Catálogo de iconos de categoría ampliado** (`motor/gen.mjs`, `GROUP_ICON`): 9 nuevos —
+  `fish, seafood, dessert, drinks, coffee, cocktails, breakfast, pizza, burger` — también
+  dibujados a mano, verificados a 17px real (el tamaño real de `.group-icon`, no 14px). Guaza
+  ya usa `fish` y `seafood` en "Pescados" y "Parrillada de Marisco" — antes reutilizaban `meat`
+  y `rice` porque no existía nada mejor.
 
 ---
 
 ## Qué queda pendiente
 
-1. **`feature/alta-automatica` de Tinge sin integrar.** Todo el trabajo del motor de esta fase
-   —incluida la sesión de hoy— vive en esa rama, sin push. Falta decidir cuándo se sube y se
-   mezcla en `main`.
-2. **La congelación del alta de clientes nuevos sigue en pie en `CLAUDE.md`**, sin tocar hoy a
-   propósito (fuera de la allowlist de la tarea). Tensión a resolver en otra sesión: la
-   herramienta ya funciona de punta a punta —Guaza es la prueba— pero la política de si está
-   *autorizado* darla de alta a un cliente nuevo vive aparte, en `CLAUDE.md`, y `NUEVO_CLIENTE.md`
-   ya no dice que esté bloqueada por falta de herramienta.
+1. **Push de Tinge y Guaza.** Todo lo de arriba está commiteado en local, en los dos repos, y
+   en ninguno de los dos se ha empujado todavía. Guaza además necesita su propio ciclo de
+   ensayo → autorización → despliegue real antes de que `fish`/`seafood` lleguen a producción.
+2. **Sincronizar el motor entre Tinge y Guaza sigue siendo manual.** No hay herramienta que lo
+   automatice; cada cambio de motor se copia a mano y se verifica con `diff`.
+3. **Icono de "Meat & Seafood" en Tinge** (grupo real de su carta): usa `meat` desde antes de
+   que existiera `seafood`. Ahora que existe, vale la pena revisarlo — no es urgente, quedó
+   anotado como tarea aparte, no se ha tocado.
 
-Ya no está pendiente, y no hace falta repetirlo en el siguiente cierre: pestañas múltiples,
-ofertas por categoría, alérgenos de extremo a extremo (icono, build, panel y ficha), pie de
-versión del admin, verificador de integridad del build, activación del panel — los cinco,
-probados contra Guaza en producción real.
+Ya no está pendiente, y no hace falta repetirlo en el siguiente cierre: alérgenos de extremo a
+extremo (icono, build, panel y ficha), la Fase 7 entera integrada en `main`, la congelación del
+alta levantada, las etiquetas de destacados unificadas, la validación de traducciones del
+idioma base.
 
 ---
 
 ## Trampas del entorno, aprendidas a base de perder tiempo
 
+- **Un icono no se juzga por el trazo vectorial ampliado ni con el zoom del navegador: hay que
+  rasterizarlo al tamaño real.** A 14-18px un SVG legible cuando se mira grande puede fundirse
+  en una mancha o un bloque gris (pasó con varios intentos de alérgenos y de categorías). La
+  técnica que funciona: dibujar el SVG en un `<canvas>` al tamaño real en píxeles (no en CSS
+  ampliado), y sólo entonces volver a dibujar ese canvas ampliado con
+  `imageSmoothingEnabled = false` para poder inspeccionarlo — eso enseña el píxel real, no una
+  reinterpretación vectorial. El `zoom` del panel de Chrome de esta herramienta no recorta
+  región todavía; para inspeccionar de cerca hay que usar esa técnica del canvas, no el zoom.
 - **Un servidor `php -S` con `2-subir` abierta bloquea su propio `rm` al recompilar.**
   `gen.mjs` borra y rehace `2-subir/` entero en cada build; en Windows, si hay un `php -S`
   sirviendo esa carpeta en ese momento, el borrado revienta con `EPERM`. Parar el servidor de
-  pruebas antes de cualquier `node gen.mjs`, no después de que falle.
+  pruebas antes de cualquier `node gen.mjs`, no después de que falle. Comprobar con
+  `Get-CimInstance Win32_Process -Filter "Name='php.exe'"` qué hay corriendo y qué sirve cada
+  uno antes de recompilar — puede haber más de uno de una sesión anterior.
+- **El PHP de este ordenador (WinGet) no carga `mbstring` por defecto.** Para probar en local
+  algo que dependa de él hace falta pasar
+  `-d extension_dir=<ruta>\ext -d extension=php_mbstring.dll` a mano al arrancar `php -S`.
+- **El panel del navegador puede quedar "hidden" para el propio agente** (no para el usuario) y
+  entonces `computer` (click, screenshot) hace timeout aunque la página siga viva. `read_page` y
+  `javascript_tool` siguen funcionando en ese estado — usarlos para interactuar
+  (`elemento.click()` por JS) y reintentar el screenshot después suele arreglarlo.
 - **Un hueco o defecto visual que no se reproduce en local con `getBoundingClientRect()` no es
-  necesariamente mentira del que lo reporta.** El hueco de la ficha era real y no era de
-  layout: era una foto JPEG *baseline* pintándose de golpe tras cargar en red lenta, invisible
-  en cualquier prueba local (todo carga en milisegundos). Antes de aceptar "no reproducible",
-  probar también con la red estrangulada (CDP `Network.emulateNetworkConditions`) y con
-  imágenes en el mismo formato que produce el panel real, no una imagen de prueba cualquiera.
-- **`gen.mjs` puede terminar con `exit 0` tras una copia parcial**, si algún día
-  `motor/verificar-build.mjs` faltara o se saltara — no confiar nunca en el recuento de "N
-  ficheros" del log por sí solo.
-- **El servidor PHP local no lee `.htaccess`.** Para probar `admin/activacion.consumida` o el
-  fallback de `record.json` hace falta un router PHP que interprete esas reglas a mano.
+  necesariamente mentira del que lo reporta.** Antes de aceptar "no reproducible", probar
+  también con la red estrangulada (CDP `Network.emulateNetworkConditions`) y con datos en el
+  mismo formato que produce el sistema real, no un caso de prueba cualquiera.
 - **`gh run list` sin filtrar puede devolver el run anterior** en los primeros segundos tras un
-  push o un dispatch. Nunca coger "el último": filtrar por SHA completo + evento + rama, y
-  descartar cualquier `databaseId` que ya existiera antes de la acción.
+  push o un dispatch. Nunca coger "el último": filtrar por SHA completo + evento + rama.
 - **Las pruebas ancladas a un reloj de pared mienten.** La fecha de "servicio" de la carta se
-  calcula con hora de corte en Canarias — anclar las pruebas a esa fecha calculada, nunca a una
-  fija.
+  calcula con la hora de corte del cliente — anclar las pruebas a esa fecha calculada, nunca a
+  una fija.
 
 ---
 
