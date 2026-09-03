@@ -152,6 +152,18 @@ if (!CLIENTE.alergenos || !Array.isArray(CLIENTE.alergenos.leyenda)) {
   abortar("cliente.mjs: falta `alergenos.leyenda` (la seleccion de iconos del aviso del pie; [] es legal).",
     "elige las claves del catalogo del motor: wheat, milk, nut, fish, egg, sesame, mustard, sulphites");
 }
+/* enOrigen dice si ESTE restaurante tiene el dato de alergenos, no si lo ha cargado ya:
+   'si' (lo declara plato a plato), 'no' (no se ofrece este dato) o 'desconocido' (todavia
+   no se ha decidido). 'desconocido' bloquea el build a proposito -- nunca se infiere un
+   alergeno, y un cliente nuevo no puede quedarse en este estado sin que alguien lo note. */
+if (!['si', 'no', 'desconocido'].includes(CLIENTE.alergenos.enOrigen)) {
+  abortar("cliente.mjs: `alergenos.enOrigen` debe ser 'si', 'no' o 'desconocido' (falta o valor invalido).",
+    "declara el origen del dato: 'si' si el restaurante declara alergenos plato a plato, 'no' si no se ofrece, 'desconocido' solo de forma transitoria");
+}
+if (CLIENTE.alergenos.enOrigen === 'desconocido') {
+  abortar("cliente.mjs: `alergenos.enOrigen` = 'desconocido' bloquea el build.",
+    "decide 'si' o 'no' antes de compilar -- nunca se infiere el alergeno de un plato");
+}
 
 /* Las dos tipografías, en un solo sitio: la carta y el juego cargan exactamente las
    mismas, así que el navegador ya las tiene en caché al pasar de una a otro.
@@ -982,6 +994,13 @@ const hayMarcasDieta = veganNames.size > 0 || gfNames.size > 0;
    para decidir si el aviso del pie sale: ver la leyenda mas abajo. */
 const platosConAlergenos = GRUPOS_PLANOS
   .reduce((n, g) => n + g.items.filter((it) => (it.alergenos || []).length > 0).length, 0);
+/* enOrigen='si' es la promesa de que el dato existe: si nadie lo ha cargado en carta.json
+   el build se para aqui, en vez de publicar una carta que dice tener el dato y no ensena
+   ni un alergeno. */
+if (CLIENTE.alergenos.enOrigen === 'si' && platosConAlergenos === 0) {
+  abortar("cliente.mjs: alergenos.enOrigen = 'si' pero ningun plato de carta.json declara alergenos.",
+    "carga al menos un plato con `alergenos` en carta.json, o cambia enOrigen a 'no' si el dato no se ofrece en realidad");
+}
 
 const DIET_ICON = {
   vegan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21c.5 -4.5 2.5 -8 7 -10"/><path d="M9 18c6.218 0 10.5 -3.288 11 -12v-2h-4.014c-9 0 -11.986 4 -12 9c0 1 0 3 2 5h3l.014 0"/></svg>',
@@ -2056,7 +2075,13 @@ html:not(.js) .lang-menu{position:static;display:block}
    de verdad y en móvil. */
 .dsheet-foto{
   position:relative;width:100%;aspect-ratio:4/5;
-  background:color-mix(in srgb,var(--ink) 12%,transparent);
+  /* El mismo tono que el pico del degradado de .dsheet-cuerpo (rgba(9,18,14)), no un tinte
+     claro del papel: admin/index.php guarda las fotos como JPEG baseline (sin
+     imageinterlace()), asi que en una red lenta la foto tarda en aparecer y este fondo se ve
+     un rato de verdad. Con el tinte claro de antes, ese rato ensenaba un hueco palido justo
+     encima del texto ya pintado -- se leia como "falta algo". Con este tono oscuro, el hueco
+     de carga es del mismo color que el degradado que hay debajo: no hay costura que ver. */
+  background:#09120e;
   overflow:hidden;
 }
 .dsheet-foto[hidden]{display:none}
@@ -2080,8 +2105,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   position:static;background:none;color:var(--ink);
   padding:var(--s4) var(--s3) calc(var(--s4) + env(safe-area-inset-bottom));
 }
+/* width:fit-content + margin:auto y no text-align:center en el padre: el padre (.dsheet-cuerpo)
+   sigue alineado a la izquierda para el nombre y la línea de precio -- sólo esta pastilla, y el
+   bloque de alergenos más abajo, se centran como bloque suelto dentro de ese cuerpo. */
 .dsheet-flag{
-  display:inline-block;margin:0 0 var(--s1);
+  display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
   background:var(--offer);color:#fff;
   font-family:var(--title-font);font-size:11px;font-weight:700;
@@ -2135,6 +2163,21 @@ html:not(.js) .lang-menu{position:static;display:block}
 @keyframes dsheet-entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 /* Una descripción vacía no debe dejar un hueco a la izquierda del precio. */
 .dsheet-desc:empty{display:none}
+/* Los alergenos de la ficha: junto al título por defecto (ajustarFichaAlergenos los deja ahí
+   si caben enteros en su línea), o aquí abajo, como bloque propio, cuando no caben -- nunca
+   la mitad en un sitio y la mitad en otro. Mismo catálogo de iconos y misma caja atómica
+   (inline-flex, sin flex-wrap) que en la fila de la lista: el bloque entero pasa de línea
+   junto si no cabe, nunca un icono suelto. Centrado como la pastilla de agotado, para que
+   los dos "bloques sueltos" del cuerpo compartan el mismo eje. */
+.dsheet-alergenos{width:fit-content;margin:0 auto}
+.dsheet-alergenos[hidden]{display:none}
+.dsheet-alergenos .alergeno-marks{margin-left:0}
+/* Sobre la foto el texto es blanco; el gris de --muted (pensado para papel) se hundiría en el
+   degradado oscuro. Mismo tratamiento que .dsheet-desc: blanco atenuado, no el gris de la carta. */
+.dsheet-nombre .alergeno-marks .alergeno,
+.dsheet-alergenos .alergeno-marks .alergeno{color:rgba(255,255,255,.75)}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre .alergeno-marks .alergeno,
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-alergenos .alergeno-marks .alergeno{color:var(--muted)}
 @media (min-width:768px){
   .dsheet-panel{
     left:50%;right:auto;bottom:auto;top:50%;
@@ -4266,6 +4309,7 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
         <p class="dsheet-desc" id="dsheet-desc"></p>
         <p class="dsheet-precio" id="dsheet-precio"></p>
       </div>
+      <div class="dsheet-alergenos" id="dsheet-alergenos" hidden></div>
     </div>
   </div>
 </div>
@@ -6493,6 +6537,7 @@ ${DATOS_ACTIVO ? `
   var fichaNombre = document.getElementById('dsheet-nombre');
   var fichaPrecio = document.getElementById('dsheet-precio');
   var fichaDesc   = document.getElementById('dsheet-desc');
+  var fichaAlergenos = document.getElementById('dsheet-alergenos');
   var filaAbierta = null;      // la fila que está enseñando la ficha
   var fichaFoco   = null;      // a quién se le devuelve el foco al cerrar
   var fichaTimer  = null;
@@ -6508,6 +6553,12 @@ ${DATOS_ACTIVO ? `
     fichaNombre.textContent = nombre ? nombre.textContent : '';
     var dietas = h3 ? h3.querySelector('.diet-marks') : null;
     if (dietas) fichaNombre.appendChild(dietas.cloneNode(true));
+    /* Posición por defecto: junto al título, igual que en la fila. colocarAlergenosFicha() lo
+       baja al bloque propio si no cabe entero -- nunca antes de saber si cabe. */
+    fichaAlergenos.hidden = true;
+    fichaAlergenos.innerHTML = '';
+    var marcasAlergeno = h3 ? h3.querySelector('.alergeno-marks') : null;
+    if (marcasAlergeno) fichaNombre.appendChild(marcasAlergeno.cloneNode(true));
 
     var p = row.querySelector('.menu-content p');
     fichaDesc.textContent = p ? p.textContent : '';
@@ -6536,6 +6587,36 @@ ${DATOS_ACTIVO ? `
     }
   }
 
+  /* Decide si los alergenos caben enteros junto al título o si el bloque entero (nunca la
+     mitad) baja a su propio sitio, después de la línea de descripción y precio. Necesita la
+     ficha ya visible -- con [hidden] puesto, todo mide 0 y la decision saldria siempre "cabe".
+     Se recalcula cada vez que se rellena la ficha (abrir, o cambiar de idioma con la ficha
+     abierta): un nombre traducido más largo puede cambiar la respuesta. */
+  function colocarAlergenosFicha() {
+    var marcas = fichaNombre.querySelector('.alergeno-marks');
+    if (!marcas || ficha.hidden) return;
+    /* Comparar el 'top' de las marcas contra el 'top' del h2 entero no vale: dentro de una
+       misma linea el icono no se apoya en el borde superior de la caja de linea, sino cerca
+       de la base del texto (vertical-align), y a 26px esa diferencia natural ya es mayor que
+       medio icono -- salia "no cabe" siempre, incluso sobrando sitio de sobra.
+       En vez de eso: un Range sobre TODO lo que hay antes de las marcas (nombre, y las marcas
+       de dieta si las hay) da su ultima linea real con getClientRects(); si las marcas de
+       alergeno arrancan por encima de donde esa linea termina, es que comparten linea. */
+    var cabe = false;
+    try {
+      var rango = document.createRange();
+      rango.setStart(fichaNombre, 0);
+      rango.setEndBefore(marcas);
+      var rects = rango.getClientRects();
+      var ultimaLinea = rects[rects.length - 1];
+      if (ultimaLinea) cabe = marcas.getBoundingClientRect().top < ultimaLinea.bottom - 1;
+    } catch (e) { cabe = false; }
+    if (!cabe) {
+      fichaAlergenos.appendChild(marcas);   // el span es una sola caja atomica: se mueve entero
+      fichaAlergenos.hidden = false;
+    }
+  }
+
   function abrirFicha(row) {
     if (!ficha || !row || !row.dataset.foto) return;
     clearTimeout(fichaTimer);
@@ -6547,6 +6628,7 @@ ${DATOS_ACTIVO ? `
     try { history.pushState({ [${JSON.stringify(CLIENTE.slug + 'Ficha')}]: 1 }, ''); } catch (e) {}
     ficha.hidden = false;
     void ficha.offsetHeight;                 // un fotograma en su sitio, para que haya transición
+    colocarAlergenosFicha();
     ficha.classList.add('is-open');
     bloquearFondo();
     var cerrarBtn = ficha.querySelector('.dsheet-close');
@@ -6617,7 +6699,7 @@ ${DATOS_ACTIVO ? `    contarVista(row);
       document.querySelectorAll('.has-photo').forEach(function (m) {
         m.setAttribute('aria-label', tr('This dish has a photo'));
       });
-      if (filaAbierta) rellenarFicha(filaAbierta);
+      if (filaAbierta) { rellenarFicha(filaAbierta); colocarAlergenosFicha(); }
     });
 
     /* Arrastrar hacia abajo para cerrar, sólo en móvil: en escritorio la ficha va centrada con

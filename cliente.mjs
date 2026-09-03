@@ -113,6 +113,9 @@ export const CLIENTE = {
      y no en el motor: otro restaurante elige la suya. */
   alergenos: {
     leyenda: ['wheat', 'milk', 'nut', 'fish', 'egg', 'sesame', 'mustard', 'sulphites'],
+    /* Tinge no declara alergenos plato a plato en carta.json: 'no' es la verdad de este
+       cliente, no un placeholder. Cambiar a 'si' exige antes cargar el dato real. */
+    enOrigen: 'no',
   },
 
   /* Capacidades. OBLIGATORIAS y explícitas, sin defaults del motor:

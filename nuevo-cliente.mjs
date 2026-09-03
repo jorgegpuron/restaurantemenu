@@ -5,7 +5,8 @@
  * que cada fase se pueda ejecutar, revisar y parar por su cuenta antes de la siguiente:
  *
  *   node nuevo-cliente.mjs --destino <ruta> --nombre <n> --url <u> --idiomas es,en
- *       --impuesto <texto> [--juego true|false] [--publicidad true|false]
+ *       --impuesto <texto> --alergenos-en-origen si|no|desconocido
+ *       [--juego true|false] [--publicidad true|false]
  *     Solo local. Copia el motor, escribe cliente.mjs/carta.json/estado.json/i18n,
  *     sustituye deploy.yml. No toca GitHub. Para y espera revision.
  *
@@ -167,6 +168,7 @@ function comandoDestino() {
   const url = valor('--url');
   const idiomasArg = valor('--idiomas');
   const impuesto = valor('--impuesto');
+  const alergenosEnOrigen = valor('--alergenos-en-origen');
   const juego = valor('--juego') !== 'false';
   const publicidad = valor('--publicidad') !== 'false';
 
@@ -176,8 +178,17 @@ function comandoDestino() {
   if (!url) faltan.push('--url');
   if (!idiomasArg) faltan.push('--idiomas');
   if (!impuesto) faltan.push('--impuesto');
+  if (!alergenosEnOrigen) faltan.push('--alergenos-en-origen (si|no|desconocido)');
   if (faltan.length) {
     console.error('Faltan argumentos: ' + faltan.join(', '));
+    process.exit(1);
+  }
+  /* Igual que --impuesto: sin valor por defecto, para que el alta obligue a decidirlo en
+     vez de heredar en silencio el 'no' de Tinge. 'desconocido' SI es un valor valido aqui
+     -- es la unica forma de terminar el alta sin haber decidido todavia -- pero gen.mjs
+     bloqueara cualquier build de este cliente hasta que cambie a 'si' o 'no'. */
+  if (!['si', 'no', 'desconocido'].includes(alergenosEnOrigen)) {
+    console.error('--alergenos-en-origen debe ser "si", "no" o "desconocido": ' + JSON.stringify(alergenosEnOrigen));
     process.exit(1);
   }
 
@@ -279,7 +290,7 @@ function comandoDestino() {
     '  moneda: { simbolo: \'€\', iso: \'EUR\' },',
     '  zonaHoraria: \'Atlantic/Canary\',',
     '  servicio: { corteHora: 6 },',
-    '  alergenos: { leyenda: [] },',
+    '  alergenos: { leyenda: [], enOrigen: ' + JSON.stringify(alergenosEnOrigen) + ' },',
     '  funciones: { datos: true, juego: ' + juego + ', publicidad: ' + publicidad + ' },',
     '  /* Fase 7: exige PANEL_ACTIVACION_HASH en todo build futuro. El cliente original',
     '     de este motor nunca declara esto -- es lo que distingue a un cliente nacido de',
