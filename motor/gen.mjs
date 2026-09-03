@@ -1078,10 +1078,11 @@ function alergenoMarks(it) {
  * One mark per subcategory heading, not per dish. Per dish it would have been noise: the
  * 326 dishes only resolve to about 16 shapes, and a tab like Breads would have stacked 23
  * identical bread icons down one column, repeating what its own heading already says. */
-/* Tabler Icons (MIT), outline set, stroke 1.75, currentColor — one family, one optical
-   size. Paths lifted verbatim from @tabler/icons rather than redrawn, and inlined instead
+/* Outline set, stroke 1.75, currentColor — one family, one optical size. Inlined instead
    of imported: this page is static HTML with no bundler, so inlining only the shapes in
-   use is the tree-shaking. */
+   use is the tree-shaking. The first 15 are Tabler Icons (MIT), paths lifted verbatim
+   from @tabler/icons; the nine after `drop` are hand-drawn for this catalog -- see the
+   comment above `fish` for why and how they were checked. */
 const GROUP_ICON = {
   appetizers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3"/></svg>',
   soup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1"/><path d="M12 4a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/><path d="M16 4a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/><path d="M8 4a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/></svg>',
@@ -1098,6 +1099,33 @@ const GROUP_ICON = {
   kids: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 10l.01 0"/><path d="M15 10l.01 0"/><path d="M9.5 15a3.5 3.5 0 0 0 5 0"/></svg>',
   bowl: ICON.ingredient,
   drop: ICON.sauce,
+  /* Los nueve de abajo NO son de Tabler: dibujados a mano, misma gramatica (rejilla 24,
+     trazo 1.75, sin relleno, extremos redondeados) pero sin fuente externa -- para que un
+     restaurante con carta de pescado, marisco o coctelera deje de reusar `meat` o `rice`
+     porque no existia nada mejor (es literalmente lo que le pasaba a Guaza: "Pescados" con
+     el hueso de `meat`, "Parrillada de Marisco" con los puntos de `rice`). Probados al
+     tamano REAL en que se pintan -- 17px en .group-icon, 18px en .sheet-item-icon -- no al
+     trazo ampliado, que a ese tamano miente igual que con los alergenos.
+
+     Los tres pares que mas riesgo tenian de confundirse, ya comprobados uno junto al otro:
+     fish es un cuerpo ovalado con cola en horquilla; seafood reutiliza la gamba de
+     motor/alergenos.mjs (dibujo propio de esta sesion, no de Tabler, asi que sigue siendo
+     "propio" traerla aqui) -- silueta curva con antena, nada que ver con el cuerpo ovalado
+     del pez. drinks es un vaso recto con pajita en diagonal; coffee es una taza mas ancha
+     con un asa redonda al lado y un hilo de vapor; cocktails es una copa de martini en
+     triangulo invertido sobre un pie -- las tres formas de vaso no se parecen entre si.
+     Un cuarto par que no pidieron pero se comprobo igual: burger son tres franjas apiladas
+     con hueco entre ellas (cupula, linea ondulada, base), bien distinto del contorno liso y
+     de una sola pieza de `bread`. */
+  fish: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12c0 -3 3.8 -5.5 8 -5.5c4 0 7 2.2 8 5.5c-1 3.3 -4 5.5 -8 5.5c-4.2 0 -8 -2.5 -8 -5.5z"/><path d="M18 8.5l4 -2.5"/><path d="M18 15.5l4 2.5"/><path d="M7 11v.01"/></svg>',
+  seafood: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.4 12.6c2.2 -5 6.8 -7.4 11.4 -6.2c1.2 5.2 -2.4 9.6 -8 9.8c-2.6 .1 -3.8 1.7 -3.4 4.2z" /> <path d="M17.6 9.2v.01" /> <path d="M21.6 5.8l1.4 -1.2" /> <path d="M9.4 12.6l-8 -3.4" /> <path d="M9.4 12.6l-7 5.4" /></svg>',
+  dessert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l8 15h-16z"/><path d="M9 10h6"/></svg>',
+  drinks: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8h10l-1.5 12.5a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1z"/><path d="M13 8l3 -5"/></svg>',
+  coffee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h10v6a4 4 0 0 1 -4 4h-2a4 4 0 0 1 -4 -4z"/><path d="M15 10.5h1a2.5 2.5 0 0 1 0 5h-1"/><path d="M9 7c0 -1 .8 -1.5 .8 -2.5c0 -.7 -.4 -1.2 -.8 -1.5"/></svg>',
+  cocktails: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14l-7 8z"/><path d="M12 13v6"/><path d="M8 19h8"/></svg>',
+  breakfast: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0"/><path d="M10.5 11a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0"/></svg>',
+  pizza: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6c2 -1 4.5 -1.5 7 -1.5s5 .5 7 1.5l-7 14z"/><path d="M10 10v.01"/><path d="M14 10v.01"/><path d="M12 14v.01"/></svg>',
+  burger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9a8 4 0 0 1 16 0z"/><path d="M3.5 12.5c2 -1.4 3.5 1.4 5.5 0c2 -1.4 3.5 1.4 5.5 0c2 -1.4 3.5 1.4 5.5 0"/><path d="M4 15h16v2a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"/></svg>',
 };
 
 
