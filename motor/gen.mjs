@@ -6967,7 +6967,8 @@ if (!SUBIR.pathname.replace(/\/$/, '').endsWith('/2-subir')) {
   }
 }
 
-/* Nombres, no rutas: cualquiera de estos que aparezca en server/admin/ se queda en tierra. */
+/* Nombres, no rutas: cualquiera de estos que aparezca en CUALQUIERA de las CARPETAS de abajo
+   (server/admin/, assets/...) se queda en tierra. */
 const NO_SUBIR = new Set([
   'SPEC.md',            // notas de diseño del panel; no pinta nada en el hosting
   'clave.php',          // la escribe el panel: contraseña del restaurante
@@ -6975,6 +6976,7 @@ const NO_SUBIR = new Set([
   'intentos.json',      // control de fuerza bruta
   'accesos.log',        // registro de entradas
   'canjes.json',        // premios canjeados
+  '.gitkeep',           // ancla assets/ vacía en git; no es un asset del restaurante
 ]);
 
 const copiar = (desdeUrl, hasta) => {

@@ -375,14 +375,27 @@ function comandoDestino() {
   mkdirSync(path.join(destinoProyecto, '.github', 'workflows'), { recursive: true });
   writeFileSync(path.join(destinoProyecto, '.github', 'workflows', 'deploy.yml'), deployNuevo);
 
-  /* 7. .gitignore, copiado tal cual -- es comportamiento del motor, no dato del cliente. */
+  /* 7. .gitignore y .gitattributes, copiados tal cual -- comportamiento del motor, no dato
+        del cliente. Sin .gitattributes (`* -text`, motor/gen.mjs es CRLF de origen y se
+        guarda tal cual) el core.autocrlf de la maquina del operador reescribe los finales de
+        linea al hacer git add/commit: el blob que queda en el repo ya no es el que
+        motor.lock certifico en el disco, y CI (que hace checkout limpio) lo detecta como
+        "motor no cuadra" -- un fallo real, en el primer cliente publicado de verdad, que
+        nunca se vio en Tinge porque Tinge siempre tuvo su propio .gitattributes. */
   copyFileSync(path.join(AQUI, '.gitignore'), path.join(destinoProyecto, '.gitignore'));
+  copyFileSync(path.join(AQUI, '.gitattributes'), path.join(destinoProyecto, '.gitattributes'));
 
   /* assets/: la marca del restaurante. Vacia a proposito -- NUNCA se copia la de Tinge
      (es su marca, no la de nadie mas) -- pero gen.mjs necesita que la carpeta EXISTA para
      poder leerla, aunque este vacia. hero/, platos/ y publicidad/ las crea el panel solo
-     la primera vez que alguien sube algo; no hace falta adelantarlas aqui. */
+     la primera vez que alguien sube algo; no hace falta adelantarlas aqui.
+     Git no versiona carpetas vacias: sin un fichero dentro, `assets/` existe en ESTE disco
+     pero desaparece en el primer commit -- y con ella cualquier checkout limpio (CI incluido)
+     revienta con ENOENT en el mismo readdirSync que aqui funciona porque la carpeta la acaba
+     de crear mkdirSync. .gitkeep la ancla; motor/gen.mjs lo excluye explicitamente de lo que
+     se publica (NO_SUBIR), asi que nunca llega a 2-subir/. */
   mkdirSync(path.join(destinoProyecto, 'assets'), { recursive: true });
+  writeFileSync(path.join(destinoProyecto, 'assets', '.gitkeep'), '');
 
   /* 8. Ancla el motor copiado con su propio motor.lock -- sin esto, verificarMotor()
         (que gen.mjs e importar.mjs corren antes de nada) para el build en seco. */
