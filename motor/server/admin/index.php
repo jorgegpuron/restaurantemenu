@@ -1020,12 +1020,23 @@ function hhmm(int $min): string {
 }
 
 /* Vocabulario cerrado: el panel elige entre estas, no escribe texto libre. Cada una está
-   traducida en la carta; una etiqueta inventada aquí saldría en inglés en los tres idiomas. */
-const ETIQUETAS = ['Bestseller', 'Most loved', 'Signature', 'Popular', 'Must try', 'Veggie favourite'];
-const ETIQUETAS_ES = [
-  'Bestseller' => 'Más vendido', 'Most loved' => 'El más querido', 'Signature' => 'De la casa',
-  'Popular' => 'Popular', 'Must try' => 'Hay que probarlo', 'Veggie favourite' => 'Favorito veggie',
-];
+   traducida en la carta; una etiqueta inventada aquí saldría en inglés en los tres idiomas.
+   Las claves y SU traducción al español las escribe gen.mjs en cliente.php
+   (ETIQUETAS_DESTACADO / ETIQUETAS_DESTACADO_ES), resueltas con la MISMA función que traduce
+   la carta pública -- nunca una copia aparte. Antes vivían hardcodeadas aquí SEGUNDA VEZ, y
+   las dos listas se desincronizaron con el tiempo: el panel llegó a ofrecer "De la casa"
+   para una etiqueta que la carta ya mostraba como "Plato insignia". El respaldo de abajo es
+   sólo para un build a medias sin cliente.php -- igual que CLIENTE_NOMBRE unas líneas más
+   arriba -- nunca la fuente normal. */
+/* define() y no const: el valor depende de si cliente.php llegó a definir su constante, y
+   const exige una expresión constante en tiempo de compilación -- define() no. Sigue siendo
+   una constante de verdad, visible dentro de cualquier función sin `global`, igual que antes. */
+define('ETIQUETAS', defined('ETIQUETAS_DESTACADO') ? ETIQUETAS_DESTACADO
+  : ['Bestseller', 'Most loved', 'Signature', 'Popular', 'Must try', 'Veggie favourite']);
+define('ETIQUETAS_ES', defined('ETIQUETAS_DESTACADO_ES') ? ETIQUETAS_DESTACADO_ES : [
+  'Bestseller' => 'Bestseller', 'Most loved' => 'Most loved', 'Signature' => 'Signature',
+  'Popular' => 'Popular', 'Must try' => 'Must try', 'Veggie favourite' => 'Veggie favourite',
+]);
 const MESES = [1 => 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DIAS = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];

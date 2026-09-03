@@ -934,7 +934,10 @@ for (const k of CLIENTE.alergenos.leyenda) {
  * Nada de esto se decide ya en el build: lo decide el panel y lo pinta el runtime leyendo
  * estado.json. Lo que sí sale del build es el vocabulario cerrado de etiquetas — el panel
  * elige entre estas, no escribe texto libre, para que estén traducidas siempre. */
-const HIGHLIGHTS = ['Bestseller', 'Most loved', 'Signature', 'Popular', 'Must try', 'Veggie favourite'];
+const HIGHLIGHTS = [
+  'Bestseller', 'Most loved', 'Signature', 'Popular', 'Must try', 'Veggie favourite',
+  'Recommended', 'New', 'Specialty',
+];
 
 /* Cadenas que el runtime necesita en los tres idiomas. T() sirve para el HTML, pero un texto
    que se compone en JS (un porcentaje, una hora) necesita el diccionario en crudo. */
@@ -966,6 +969,44 @@ const RUNTIME_STRINGS = HIGHLIGHTS.concat([
   'Close',
   'This dish has a photo',
 ]);
+
+/* ---- vocabulario cerrado (HIGHLIGHTS/RUNTIME_STRINGS), IDIOMA BASE incluido ----
+ * Antes, el idioma base quedaba validado solo por casualidad de orden: BT() (dentro de la
+ * construccion de TR, mas abajo) SI llama a tr() para el base y SI empuja a missingTr si
+ * falta -- pero la mitad EXTRAS de ese mismo TR nunca llama a tr(), cae en silencio a la
+ * clave inglesa (`l.dicts?.ui?.[k] ?? k`), y de ahi nacio el bucle viejo que vivia aqui,
+ * mirando solo LANGS para compensar justo esa mitad. Cada mitad por separado parecia (y de
+ * hecho una vez SE INFORMO como) un hueco real, segun cual de las dos se leyera.
+ *
+ * Aqui se unifica en un solo sitio explicito, que no depende de que BT() se llame en algun
+ * otro punto del fichero antes de llegar aqui: TODO idioma con diccionario propio (el base
+ * cuando no es 'en', y cada extra que no sea 'en') tiene que traer las 9 etiquetas. Nunca
+ * cae al ingles en silencio.
+ *
+ * Esto NO intenta repetir aqui la comprobacion de 'ui-cliente' (impuesto, rotulo, titulo,
+ * descripcion, notas de grupo, intros de pestaña): esa ya la hace tr()/BT() en su propio
+ * sitio de uso, correctamente, incluida la particion de una nota por su frase de escala de
+ * picante (linea ~1260) -- repetirla aqui con una lista aparte fue precisamente el primer
+ * intento de este mismo arreglo, y produjo un falso positivo real (14 avisos sobre notas de
+ * grupo que SI estaban bien, solo que la comprobacion comparaba la nota ENTERA en vez del
+ * fragmento partido que de verdad se traduce). Una segunda lista aparte es el mismo error
+ * de fondo que las etiquetas de destacados: mejor un solo camino, el que ya renderiza. */
+const IDIOMAS_CON_DICCIONARIO_PROPIO = [
+  ...(IDIOMA_BASE.code !== 'en' ? [IDIOMA_BASE] : []),
+  ...LANGS.filter((l) => l.code !== 'en'),
+];
+{
+  const faltan = [];
+  for (const idioma of IDIOMAS_CON_DICCIONARIO_PROPIO) {
+    for (const k of RUNTIME_STRINGS) {
+      if (typeof idioma.dicts?.ui?.[k] !== 'string') faltan.push(idioma.code + ' / ui: ' + JSON.stringify(k));
+    }
+  }
+  if (faltan.length) {
+    throw new Error('cadenas sin traducir, idioma base incluido (' + faltan.length + '):\n  '
+      + [...new Set(faltan)].join('\n  '));
+  }
+}
 
 /* ---- diet marks ----
  * Derived, never invented. A dish on the main menu is marked only when a dish of the same
@@ -5914,9 +5955,12 @@ ${DATOS_ACTIVO ? `
   var dsHits = document.getElementById('ds-hits');
   var dsChips = [].slice.call(document.querySelectorAll('.ds-chip'));
   var dsFiltros = { vegan: false, gf: false, offer: false, tag: '' };
-  /* Las seis etiquetas del panel, en su orden. Cada una es un chip que sólo existe mientras
-     algún plato la lleve —el panel las pone y las quita a diario— igual que el de oferta. */
-  var TAG_KEYS = ['Bestseller', 'Most loved', 'Signature', 'Popular', 'Must try', 'Veggie favourite'];
+  /* Las etiquetas del panel, en su orden. Cada una es un chip que sólo existe mientras
+     algún plato la lleve —el panel las pone y las quita a diario— igual que el de oferta.
+     Interpolado desde HIGHLIGHTS y no copiado a mano: una tercera lista aparte de esta misma
+     vocabulario era exactamente el tipo de duplicación que dejó una etiqueta del panel
+     mostrando un texto distinto al de la carta pública. */
+  var TAG_KEYS = ${JSON.stringify(HIGHLIGHTS)};
   var TOPE = 60;               // mas resultados que esto no se leen: se afina la busqueda
 
   var DS = dsQ ? [].slice.call(document.querySelectorAll('.single-menu-items[data-key]')).map(function (fila) {
@@ -6823,19 +6867,9 @@ const tabsWithoutIcon = TAXO.filter((t) => !t.icono).map((t) => t.label);
 if (tabsWithoutIcon.length) {
   throw new Error('tabs with no icon in the index sheet: ' + tabsWithoutIcon.join(' | '));
 }
-/* Las cadenas del runtime no pasan por T(), así que el control de traducciones que hay más
-   arriba no las ve: una que falte saldría como undefined en la carta sin avisar. Aquí sí. */
-const runtimeSinTraducir = [];
-for (const k of RUNTIME_STRINGS) {
-  for (const l of LANGS) {
-    if (l.code === 'en') continue;   // catalogo nativo del motor: cae a si mismo siempre, con o sin dicts
-    if (typeof l.dicts.ui[k] !== 'string') runtimeSinTraducir.push(l.code + ' / ui: "' + k + '"');
-  }
-}
-if (runtimeSinTraducir.length) {
-  throw new Error('cadenas del runtime sin traducir:' + String.fromCharCode(10) + '  '
-    + runtimeSinTraducir.join(String.fromCharCode(10) + '  '));
-}
+/* La comprobacion de RUNTIME_STRINGS (y la del idioma base) vive ahora en un solo sitio,
+   mas arriba, justo despues de definir RUNTIME_STRINGS -- unificada con la de 'ui-cliente'
+   y corriendo antes que cualquier otro codigo, no despues. Este bloque ya no hace falta. */
 
 if (missingIcons.length) {
   throw new Error('subcategories with a heading but no icon:\n  ' + [...new Set(missingIcons)].join('\n  '));
@@ -7046,11 +7080,36 @@ writeFileSync(
   ].join(NL),
 );
 
+/* El panel es siempre en español, tenga el cliente el idioma que tenga configurado -- por
+   eso necesita SU PROPIA resolucion de la etiqueta en español, no puede esperar a que el
+   visitante elija idioma. Antes esa traduccion vivia HARDCODEADA por segunda vez dentro de
+   admin/index.php (ETIQUETAS_ES), separada de la que de verdad ve el publico en la carta
+   (i18n.es.mjs, via BT()/tr()) -- las dos se desincronizaron con el tiempo y el panel
+   ofrecia "De la casa" para una etiqueta que la carta ya mostraba como "Plato insignia".
+   Aqui se resuelve con la MISMA funcion que usa la carta, nunca con una copia aparte:
+   si el cliente tiene español (base o extra), es esa traduccion, tal cual; si no tiene
+   español configurado, cae a la clave en ingles -- nunca se inventa una traduccion nueva. */
+const LANG_ES = IDIOMA_BASE.code === 'es' ? IDIOMA_BASE : LANGS.find((l) => l.code === 'es');
+const etiquetaEs = (k) => !LANG_ES ? k : (LANG_ES === IDIOMA_BASE ? BT(k, 'ui') : tr(k, 'ui', LANG_ES));
+const ETIQUETAS_ES_RESUELTAS = Object.fromEntries(HIGHLIGHTS.map((k) => [k, etiquetaEs(k)]));
+
 writeFileSync(
   generado('admin/cliente.php'),
   [
     '<?php',
     '/* Generado por gen.mjs desde cliente.mjs. No editar a mano: se sobrescribe en cada build. */',
+    /* Vocabulario cerrado de etiquetas y SU UNICA traduccion al español -- la misma que ve
+       el publico, resuelta arriba con la misma funcion que la carta. admin/index.php ya no
+       lleva su propia copia: la lee de aqui, o cae a un valor neutro si este fichero falta
+       (build a medias), igual que hace con CLIENTE_NOMBRE unas lineas mas abajo en config.php. */
+    "define('ETIQUETAS_DESTACADO', " + JSON.stringify(HIGHLIGHTS) + ');',
+    /* JSON.stringify() de un objeto da {"a":"b"} -- sintaxis de objeto JS/JSON, no de array
+       PHP: define() lo habria aceptado como cadena de texto suelta, no como array asociativo,
+       y ETIQUETAS_ES[$et] habria roto en tiempo de ejecucion. Mismo patron que paises.php:
+       'clave' => 'valor' a mano, dentro de corchetes. */
+    "define('ETIQUETAS_DESTACADO_ES', ["
+      + HIGHLIGHTS.map((k) => JSON.stringify(k) + ' => ' + JSON.stringify(ETIQUETAS_ES_RESUELTAS[k])).join(', ')
+      + ']);',
     "define('CLIENTE_SLUG',   " + JSON.stringify(CLIENTE.slug) + ');',
     "define('CLIENTE_NOMBRE', " + JSON.stringify(CLIENTE.nombre) + ');',
     /* La marca de esta compilacion, para que el panel pueda decir que version corre. Es el
