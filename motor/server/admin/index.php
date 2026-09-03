@@ -995,6 +995,14 @@ function copia_de_seguridad(array $nuevo): void {
 
 function h(?string $s): string { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
+/* mb_strtolower() depende de la extension mbstring. No siempre esta activada (mismo motivo
+   por el que las funciones GD de mas abajo se comprueban con function_exists() antes de
+   usarlas): sin la guarda, un unico plato pintado con acentos tira el panel entero abajo con
+   un error fatal, en vez de tirar solo el minusculado correcto de acentos y enye. */
+function minuscula(string $s): string {
+  return function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+}
+
 /* Los precios de un restaurante acaban en cifras redondas. Un +5% sobre 4,50 da 4,725, y
    4,73 en una carta canta. Se redondea al múltiplo de 0,05 más cercano, que deja 4,75. */
 function redondear(float $n): string {
@@ -4067,7 +4075,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <p class="sub sub-servicio">
         Son las <strong><?= h((new DateTimeImmutable("now", new DateTimeZone(TZ)))->format("H:i")) ?>
         </strong> en Canarias. Los agotados que veas son los del servicio del
-        <strong><?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?>
+        <strong><?= h(minuscula(dia_semana($hoy))) ?>
         <?= h((new DateTimeImmutable($hoy))->format("d/m")) ?></strong> y se limpian solos a
         las <?= (int) CORTE_HORA ?>:00.
       </p>
@@ -4216,7 +4224,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         Marca la casilla y el plato sale <strong>tachado</strong> en la carta. Se limpia solo
         mañana a las <?= (int) CORTE_HORA ?>:00<?php if ($hoy !== $hoyReal): ?>,
         y lo que hay marcado ahora es del servicio del
-        <?= h(mb_strtolower(dia_semana($hoy), "UTF-8")) ?><?php endif; ?>.
+        <?= h(minuscula(dia_semana($hoy))) ?><?php endif; ?>.
       </p>
 
       <?php $tabActual = null; foreach ($lista as $p):
@@ -4226,7 +4234,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           echo '<h2 class="sec">' . h($tabActual) . '</h2><div class="card sec-body">';
         endif;
         $on = isset($agotados[$p['key']]); ?>
-        <div class="row<?= $on ? ' is-out' : '' ?>" data-name="<?= h(mb_strtolower($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
+        <div class="row<?= $on ? ' is-out' : '' ?>" data-name="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
           <label class="tick">
             <input type="checkbox" name="agotado[]" value="<?= h($p['key']) ?>"<?= $on ? ' checked' : '' ?>
                    <?= isset($hermanas[$p['key']]) ? 'data-plato="' . h($p['name'] . ' ' . $p['price']) . '"' : '' ?>>
@@ -4814,7 +4822,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php endif; ?>
       </strong><br>
       En Canarias son las <?= h($ahora_canarias->format('H:i')) ?> del
-      <?= h(mb_strtolower(dia_semana($ahora_canarias->format('Y-m-d')))) ?>.
+      <?= h(minuscula(dia_semana($ahora_canarias->format('Y-m-d')))) ?>.
       <?php if ($oferta['on']): ?>
         La franja va de <?= h(hhmm((int) $oferta['from'])) ?> a <?= h(hhmm(((int) $oferta['to']) - 1)) ?>.
       <?php endif; ?>
@@ -4907,7 +4915,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         $sinPrecio = $p['price'] === ''; ?>
         <div class="row orow<?= $porCat ? ' por-categoria' : '' ?><?= $suelto ? ' is-oferta' : '' ?><?= $sinPrecio ? ' sin-precio' : '' ?>"
              data-cat="<?= h($p['catId'] ?? $p['cat']) ?>"
-             data-name="<?= h(mb_strtolower($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
+             data-name="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
           <label class="tick">
             <input type="checkbox" name="oferta_plato[]" value="<?= h($p['key']) ?>"
                    <?= $suelto ? ' checked' : '' ?><?= ($porCat || $sinPrecio) ? ' disabled' : '' ?>>
@@ -5717,11 +5725,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             $sinExt = substr($c['nombre'], 0, -5);
             if (preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})$/', $sinExt, $m)) {
               $dia   = new DateTimeImmutable($m[1]);
-              $cuando = mb_strtolower(dia_semana($m[1]), 'UTF-8') . ' '
+              $cuando = minuscula(dia_semana($m[1])) . ' '
                       . $dia->format('d/m/y') . ' · ' . $m[2] . ':' . $m[3];
             } elseif (preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $sinExt)) {
               $dia    = new DateTimeImmutable($sinExt);
-              $cuando = mb_strtolower(dia_semana($sinExt), 'UTF-8') . ' ' . $dia->format('d/m/y');
+              $cuando = minuscula(dia_semana($sinExt)) . ' ' . $dia->format('d/m/y');
             } else {
               $cuando = 'de antes';               // anterior.json, si queda alguno
             }

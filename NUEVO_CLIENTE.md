@@ -40,16 +40,19 @@ Sin estas respuestas no se empieza:
 3. **La carta**: fichero, PDF, foto o enlace. Es el trabajo de verdad.
 4. **El impuesto** que se aplica: IGIC en Canarias, IVA en la península, otra cosa fuera de
    España. **No hay valor por defecto y el build revienta si falta**, a propósito.
-5. Los **idiomas**. Por defecto español o el que hable el restaurante — base y extras — y cada
+5. **La zona horaria** (identificador IANA) y **la hora de corte del día de servicio**
+   (0-23): a qué hora caducan los agotados de ayer. No es Canarias por defecto para nadie —
+   depende de dónde está el restaurante y de cuándo cierra de verdad.
+6. Los **idiomas**. Por defecto español o el que hable el restaurante — base y extras — y cada
    extra que no sea inglés son ~110 cadenas de interfaz que traducir. El código de cada idioma
    tiene que estar en el catálogo humano del script (más abajo, paso 7): uno que no esté ahí
    para el alta antes de escribir una sola línea.
-6. **¿El restaurante declara alérgenos plato a plato?** Sí, no, o «todavía no lo sé». Es
+7. **¿El restaurante declara alérgenos plato a plato?** Sí, no, o «todavía no lo sé». Es
    `alergenos.enOrigen` (paso 6) y el script **lo exige como argumento obligatorio** — no hay
    valor por defecto y «todavía no lo sé» es una respuesta legítima para arrancar el alta, pero
    bloquea cualquier build hasta que se decida de verdad. **Nunca se infiere un alérgeno del
    nombre de un plato ni de la receta.**
-7. El **enlace de reseñas de Google**, si lo tiene. Si no, se deja vacío y lo pone él desde el
+8. El **enlace de reseñas de Google**, si lo tiene. Si no, se deja vacío y lo pone él desde el
    panel.
 
 ---
@@ -149,6 +152,8 @@ node nuevo-cliente.mjs \
   --idiomas es,en \
   --impuesto "<la frase del impuesto>" \
   --alergenos-en-origen si|no|desconocido \
+  --zona-horaria "<IANA, p. ej. Europe/Madrid>" \
+  --corte-hora <0-23> \
   [--juego true|false] [--publicidad true|false]
 ```
 
@@ -157,16 +162,31 @@ falta y no escribe nada. Se niega a ejecutarse si el destino existe y contiene a
 toca la carpeta de origen.** Un idioma que no esté en el catálogo humano del script (paso 7)
 aborta aquí mismo.
 
+**Antes de escribir un solo fichero**, dos comprobaciones que reutilizan el contrato real de
+`gen.mjs` (no son reglas nuevas, son las mismas leídas antes):
+- `--url` tiene que contener el nombre de la carpeta de `--destino` — el mismo contrato que
+  `motor/entorno.mjs::CARPETA_CLIENTE` comprueba después del hecho. Si no coincide, aquí falla
+  al instante, sin haber creado nada; antes solo se descubría en `--build-local`, con medio
+  cliente ya escrito.
+- `--zona-horaria` tiene que ser un identificador IANA válido (`Intl.DateTimeFormat` real,
+  igual que la comprobación de `gen.mjs`) y `--corte-hora` un entero 0-23.
+
 Deja hecho, todo en local, nada en GitHub:
 
 - El motor copiado (sección 1) y anclado con su propio `motor.lock` nuevo.
 - `slug` nuevo, derivado del nombre de la carpeta.
-- `cliente.mjs` con los rótulos, `alergenos: { leyenda: [], enOrigen: '<lo que se pasó>' }` y
-  `activacionPanel: true`.
+- `cliente.mjs` con los rótulos, `alergenos: { leyenda: [], enOrigen: '<lo que se pasó>' }`,
+  `zonaHoraria`/`servicio.corteHora` explícitos (nunca `Atlantic/Canary` por defecto — ver
+  sección 6) y `activacionPanel: true`.
 - `carta.json` vacío, marcado **no publicable**: mientras lleve la marca, el build aborta.
-- Plantillas de idiomas (`i18n.<code>.mjs`), con su sección `ui` genérica ya rellena y **sin un
-  solo texto del restaurante de origen** — las 7 claves de Tinge que sí mencionan el
-  restaurante se quitan solas.
+- Plantillas de idiomas (`i18n.<code>.mjs`), con el vocabulario **genérico del motor** ya
+  relleno y **sin un solo texto del restaurante de origen** — las 7 claves de Tinge que sí
+  mencionan el restaurante se quitan solas. Lo que NO rellena, a propósito, es la identidad de
+  ESTE cliente (`impuesto`, `rotulo`, `titulo`, `descripcion` — los 4 campos que pasan por
+  `T(x,'ui')`, ver sección 5.2): el idioma **base** los siembra consigo mismo (no hay nada que
+  traducir, es el mismo idioma); cada idioma **extra** recibe en su lugar un aviso
+  `FALTAN POR TRADUCIR` con las 4 claves exactas y su texto de origen al lado, de referencia
+  — nunca el texto ya traducido, y nunca el del idioma base copiado tal cual dentro del extra.
 - `server/estado.json` nuevo — nunca el de Tinge — que en el primer build se convierte en
   `2-subir/estado-EJEMPLO.json`.
 - `.github/workflows/deploy.yml` sustituido (ruta y grupo de concurrencia propios), **sin**
@@ -185,10 +205,27 @@ es la única vez que se muestra.
 
 ### 5.2 Configurar y traducir, a mano ✅
 
-En `cliente.mjs`, los rótulos y el resto de campos obligatorios (detalle en la sección 6). En
-`i18n.<code>.mjs`, la sección `ui` de cada idioma que no sea el catálogo nativo del motor
-(inglés). Después, la taxonomía de la carta: qué pestañas hay, qué grupos cuelgan de cada una y
-con qué icono — detalle en la sección 7.
+En `cliente.mjs`, los rótulos y el resto de campos obligatorios (detalle en la sección 6).
+
+En cada `i18n.<code>.mjs` de un idioma **extra**, busca el bloque `FALTAN POR TRADUCIR` que
+`--destino` dejó justo encima de `export const ui = {`: lista las 4 claves exactas
+(`impuesto`, `rotulo`, `titulo`, `descripcion`) con su texto de origen al lado. Añade cada una
+a `ui` con su clave literal y **la traducción real** a este idioma:
+
+```js
+export const ui = {
+  "MwSt. inbegriffen": "IVA incluido",   // la clave es EL TEXTO DE ORIGEN, tal cual
+  ...
+};
+```
+
+**Nunca copies el texto de origen como si fuera la traducción** — ni el del idioma base
+dentro de un extra, ni nada a medio traducir: `gen.mjs` no lo detecta como "falta" si la clave
+existe, y publicaría el idioma a medias sin ningún aviso. El build sigue abortando
+(`missing translations`) mientras falte una sola de las 4 claves en cualquier extra.
+
+Después, la taxonomía de la carta: qué pestañas hay, qué grupos cuelgan de cada una y con qué
+icono — detalle en la sección 7.
 
 ### 5.3 Escribir `carta.json` ✅
 
@@ -328,6 +365,12 @@ activacionPanel: true,                              // lo escribe --destino; no 
 
 **Todos obligatorios salvo `cocina`.** Ningún campo tiene valor por defecto en el motor: lo que
 no se declare, no existe, y el build aborta nombrando el que falte.
+
+`zonaHoraria` y `servicio.corteHora` los fija `--destino` a partir de `--zona-horaria` y
+`--corte-hora` (sección 5.1) — **nunca `Atlantic/Canary` por defecto para todos.** `corteHora`
+es política del restaurante, no un dato técnico con default seguro: una cafetería que abre a
+las 05:00 necesita un corte más temprano que uno a medianoche, y equivocarse en silencio
+caduca agotados de un servicio que todavía sigue abierto.
 
 **El build aborta si `titulo`, `tituloSocial`, `tituloJuego` o `descripcion` no mencionan el
 nombre.** Es la guarda que impide publicar con el `og:title` del restaurante anterior.
@@ -514,6 +557,9 @@ Antes de dar el alta por terminada, todo esto tiene que estar en verde:
 - [ ] Impuesto decidido y escrito
 - [ ] `alergenos.enOrigen` decidido (`si`/`no`) — nunca se queda en `desconocido`
 - [ ] Si `enOrigen: 'si'`: al menos un plato con `alergenos` declarados en `carta.json`
+- [ ] `zonaHoraria` y `corteHora` decididos para ESTE restaurante, no heredados de Canarias
+- [ ] Cero avisos `FALTAN POR TRADUCIR` en ningún `i18n.<extra>.mjs` (los 4 campos de
+      identidad traducidos de verdad, nunca con el texto de origen copiado tal cual)
 - [ ] Toda pestaña con icono; todo grupo con subtítulo, con icono
 - [ ] `FTP_REMOTE_PATH` propia, generada por `--publicar-github`, distinta de la de cualquier
       otro cliente

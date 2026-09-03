@@ -6,6 +6,7 @@
  *
  *   node nuevo-cliente.mjs --destino <ruta> --nombre <n> --url <u> --idiomas es,en
  *       --impuesto <texto> --alergenos-en-origen si|no|desconocido
+ *       --zona-horaria <IANA> --corte-hora <0-23>
  *       [--juego true|false] [--publicidad true|false]
  *     Solo local. Copia el motor, escribe cliente.mjs/carta.json/estado.json/i18n,
  *     sustituye deploy.yml. No toca GitHub. Para y espera revision.
@@ -169,6 +170,8 @@ function comandoDestino() {
   const idiomasArg = valor('--idiomas');
   const impuesto = valor('--impuesto');
   const alergenosEnOrigen = valor('--alergenos-en-origen');
+  const zonaHoraria = valor('--zona-horaria');
+  const corteHoraArg = valor('--corte-hora');
   const juego = valor('--juego') !== 'false';
   const publicidad = valor('--publicidad') !== 'false';
 
@@ -179,6 +182,8 @@ function comandoDestino() {
   if (!idiomasArg) faltan.push('--idiomas');
   if (!impuesto) faltan.push('--impuesto');
   if (!alergenosEnOrigen) faltan.push('--alergenos-en-origen (si|no|desconocido)');
+  if (!zonaHoraria) faltan.push('--zona-horaria (identificador IANA, p. ej. Europe/Madrid)');
+  if (!corteHoraArg) faltan.push('--corte-hora (entero 0-23)');
   if (faltan.length) {
     console.error('Faltan argumentos: ' + faltan.join(', '));
     process.exit(1);
@@ -189,6 +194,38 @@ function comandoDestino() {
      bloqueara cualquier build de este cliente hasta que cambie a 'si' o 'no'. */
   if (!['si', 'no', 'desconocido'].includes(alergenosEnOrigen)) {
     console.error('--alergenos-en-origen debe ser "si", "no" o "desconocido": ' + JSON.stringify(alergenosEnOrigen));
+    process.exit(1);
+  }
+  /* Ni Canarias ni ninguna otra por defecto: motor/gen.mjs comprueba exactamente esto mismo
+     (identificador IANA valido) en cuanto arranca el build -- se repite aqui, antes de
+     escribir nada, para no descubrir una zona horaria invalida cuatro pasos mas tarde. */
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: zonaHoraria });
+  } catch {
+    console.error('--zona-horaria no es un identificador IANA valido: ' + JSON.stringify(zonaHoraria));
+    console.error('ejemplos: Atlantic/Canary, Europe/Madrid, Europe/Berlin');
+    process.exit(1);
+  }
+  /* corteHora es politica del restaurante, no un dato tecnico con default seguro: una
+     cafeteria que abre a las 05:00 necesita un corte mas temprano que uno a medianoche, y
+     equivocarse en silencio caduca agotados de un servicio que todavia esta abierto. Mismo
+     rango que valida motor/gen.mjs (entero 0-23). */
+  const corteHora = Number(corteHoraArg);
+  if (!Number.isInteger(corteHora) || corteHora < 0 || corteHora > 23) {
+    console.error('--corte-hora debe ser un entero 0-23: ' + JSON.stringify(corteHoraArg));
+    process.exit(1);
+  }
+  /* El mismo contrato que gen.mjs comprueba despues del hecho (motor/entorno.mjs,
+     CARPETA_CLIENTE): la direccion publica tiene que mencionar el nombre de la carpeta que
+     va a contener a este cliente. Comprobarlo AQUI, antes de escribir un solo fichero, evita
+     descubrir la incoherencia recien en --build-local con medio cliente ya creado. No es una
+     regla nueva -- es la de motor/gen.mjs, leida antes en vez de despues. */
+  const carpetaDestino = path.basename(destino);
+  if (!url.includes(carpetaDestino)) {
+    console.error('--url no contiene el nombre de la carpeta de destino.');
+    console.error('  carpeta: ' + JSON.stringify(carpetaDestino));
+    console.error('  --url:   ' + JSON.stringify(url));
+    console.error('gen.mjs abortara el build por lo mismo (cliente.mjs: base no contiene...) -- mejor ahora, sin haber escrito nada.');
     process.exit(1);
   }
 
@@ -288,8 +325,8 @@ function comandoDestino() {
     '  impuesto: ' + JSON.stringify(impuesto) + ',',
     '  base: ' + JSON.stringify(url) + ',',
     '  moneda: { simbolo: \'€\', iso: \'EUR\' },',
-    '  zonaHoraria: \'Atlantic/Canary\',',
-    '  servicio: { corteHora: 6 },',
+    '  zonaHoraria: ' + JSON.stringify(zonaHoraria) + ',',
+    '  servicio: { corteHora: ' + corteHora + ' },',
     '  alergenos: { leyenda: [], enOrigen: ' + JSON.stringify(alergenosEnOrigen) + ' },',
     '  funciones: { datos: true, juego: ' + juego + ', publicidad: ' + publicidad + ' },',
     '  /* Fase 7: exige PANEL_ACTIVACION_HASH en todo build futuro. El cliente original',
@@ -330,6 +367,16 @@ function comandoDestino() {
     theme: 'laurel',
   }, null, 2) + '\n');
 
+  /* Los UNICOS campos de CLIENTE que pasan por T(x, 'ui'|'ui-cliente') en motor/gen.mjs --
+     verificado leyendo cada llamada a T()/attrs()/tr() contra CLIENTE.*, no supuesto:
+     impuesto (nota fiscal), rotulo (subtitulo de portada), titulo (<title>, y el que cambia
+     al elegir idioma), descripcion (meta description). `nombre` NO esta en esta lista aunque
+     lo parezca: en cada sitio donde sale (portada, <title> del 404, JSON-LD) se escribe tal
+     cual, sin pasar por T() -- el nombre propio del restaurante no se traduce. */
+  const CAMPOS_UI_CLIENTE = {
+    impuesto, rotulo: rotulos.rotulo, titulo: rotulos.titulo, descripcion: rotulos.descripcion,
+  };
+
   /* 5. Plantillas i18n. 'en' es el unico catalogo nativo del motor y nunca necesita
         fichero -- ni de extra ni de base. Cualquier OTRO idioma si lo necesita, sea el
         base o un extra: cliente.mjs (arriba, idiomaObj/necesitaDicts) ya declara
@@ -340,6 +387,7 @@ function comandoDestino() {
   for (const codigo of idiomasConFichero) {
     const origenI18n = path.join(AQUI, 'i18n.' + codigo + '.mjs');
     const destinoI18n = path.join(destinoProyecto, 'i18n.' + codigo + '.mjs');
+    let texto;
     if (existsSync(origenI18n)) {
       const textoOrigen = readFileSync(origenI18n, 'utf8');
       const soloUi = textoOrigen.match(/export const ui = \{[\s\S]*?\n\};/);
@@ -357,9 +405,9 @@ function comandoDestino() {
       ].join('\n');
       const uiFiltrada = soloUi ? filtrarUiGenerica('export const ui = {};\n\n' + soloUi[0])
         .split('\n\n').slice(1).join('\n\n') : 'export const ui = {\n};\n';
-      writeFileSync(destinoI18n, cabecera + uiFiltrada);
+      texto = cabecera + uiFiltrada;
     } else {
-      writeFileSync(destinoI18n, [
+      texto = [
         '/* El ingles es el catalogo nativo del motor: puede ir de extra sin traducir. */',
         'export const names = {};',
         'export const descriptions = {};',
@@ -369,26 +417,57 @@ function comandoDestino() {
         'export const ui = {',
         '};',
         '',
-      ].join('\n'));
+      ].join('\n');
     }
+    /* Aqui NO se copia el texto en español (ni en el que sea el idioma base) dentro de un
+       extra: eso dejaria el build en verde con un idioma a medias publicado, que es
+       precisamente lo que este mecanismo existe para impedir. En vez de eso, se deja un
+       marcador imposible de no ver, con las claves EXACTAS que hacen falta y el texto de
+       origen al lado como referencia -- se traduce a mano (o Claude lo hace durante el
+       alta, antes del primer build), nunca copiando la columna de la derecha tal cual. */
+    if (codigo !== idiomas[0]) {
+      const pendientes = Object.entries(CAMPOS_UI_CLIENTE)
+        .map(([campo, valor]) => '     ' + campo + ': ' + JSON.stringify(valor))
+        .join('\n');
+      const aviso = [
+        '/* ============================================================ FALTAN POR TRADUCIR',
+        ' * Estos 4 campos de cliente.mjs pasan por T(x, \'ui\'|\'ui-cliente\') y EXIGEN una',
+        ' * entrada en el `ui` de abajo para este idioma -- gen.mjs aborta el build si falta',
+        ' * una sola. Añade cada uno con SU CLAVE literal (el texto de origen, tal cual sale',
+        ' * abajo) y como valor la traduccion real a este idioma. Nunca dejes el texto de',
+        ' * origen como si fuera la traduccion: el build no lo detecta y publicaria este',
+        ' * idioma a medias sin ningun aviso.',
+        ' *',
+        pendientes,
+        ' *',
+        ' * Formato esperado dentro de `ui`, una linea por campo:',
+        '     ' + JSON.stringify(impuesto) + ': \'<traduccion real>\',',
+        ' * ============================================================================= */',
+        '',
+      ].join('\n');
+      texto = texto.replace('export const ui = {', aviso + 'export const ui = {');
+    }
+    writeFileSync(destinoI18n, texto);
   }
 
   /* 5b. El idioma base, cuando no es 'en', tambien necesita hablar de si mismo en su propio
-        ui: en gen.mjs, BT() hornea `impuesto` y `rotulo` (los dos unicos campos de CLIENTE
-        que pasan por T(..., 'ui')) contra el diccionario ui del PROPIO base en cuanto el
-        base no es ingles -- aunque el texto ya este en el idioma correcto, sin esa entrada
-        el build aborta por "missing translations". Se siembra aqui, en el fichero recien
-        escrito del base, con el valor de scaffold; si se edita impuesto o rotulo a mano
-        despues, hay que actualizar tambien esta entrada a mano. */
+        ui: en gen.mjs, BT() hornea los 4 campos de CAMPOS_UI_CLIENTE contra el diccionario
+        ui del PROPIO base en cuanto el base no es ingles -- aunque el texto ya este en el
+        idioma correcto, sin esa entrada el build aborta por "missing translations". Esto NO
+        es el mismo caso que un extra: el base habla de si mismo, no hay nada que traducir,
+        asi que sembrarlo aqui con identidad (valor: valor) es correcto y no oculta ninguna
+        traduccion pendiente. Si se edita alguno de los 4 campos a mano despues, hay que
+        actualizar tambien esta entrada a mano. */
   if (necesitaDicts(idiomas[0])) {
     const basePath = path.join(destinoProyecto, 'i18n.' + idiomas[0] + '.mjs');
-    const identidad = [...new Set([impuesto, rotulos.rotulo])]
+    const identidad = [...new Set(Object.values(CAMPOS_UI_CLIENTE))]
       .map((v) => '  ' + JSON.stringify(v) + ': ' + JSON.stringify(v) + ',')
       .join('\n');
     const conIdentidad = readFileSync(basePath, 'utf8').replace(
       'export const ui = {',
       'export const ui = {\n'
-        + '  /* impuesto y rotulo del propio cliente, ya en el idioma base -- actualizar si cambian */\n'
+        + '  /* impuesto, rotulo, titulo y descripcion del propio cliente, ya en el idioma base\n'
+        + '     -- actualizar si cambia alguno de los 4 en cliente.mjs */\n'
         + identidad,
     );
     writeFileSync(basePath, conIdentidad);
