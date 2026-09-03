@@ -60,7 +60,28 @@ export const ICONO = {
   sesame: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M8.5 4.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M8.5 14.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3.5 19.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M13.5 9.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18.5 4.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M13.5 19.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18.5 14.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>`,
   mustard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4v3h-4z"/><path d="M9 6h6l1.5 3v10a2 2 0 0 1 -2 2h-5a2 2 0 0 1 -2 -2v-10z"/><path d="M9 12h6"/></svg>`,
   sulphites: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21l8 0" /> <path d="M12 15l0 6" /> <path d="M17 3l1 7c0 3.012 -2.686 5 -6 5s-6 -1.988 -6 -5l1 -7h10" /> <path d="M6 10a5 5 0 0 1 6 0a5 5 0 0 0 6 0" /></svg>`,
-  /* crustaceans, soybeans, celery, peanuts, lupin, molluscs: sin icono todavia. */
+  /* Los dos que faltaban y ya hacen falta: el primer cliente que declara alergenos plato a
+   * plato marca langostinos y calamares. Dibujados a mano en la misma gramatica que los ocho
+   * de arriba -- rejilla de 24, trazo 1.75, sin relleno, extremos redondeados -- y mirados a
+   * 84px y a 21px antes de aceptarlos, que es como se revisaron cereals_gluten y mustard.
+   *
+   * El crustaceo es la gamba de perfil: lomo curvo, vientre, cola en abanico a la izquierda,
+   * dos antenas y dos patas. El molusco es la concha de vieira: cupula con la charnela abajo
+   * y tres estrias que salen de ella; es el dibujo que usan las cartas y el que se reconoce
+   * sin leer nada al lado. */
+  /* La gamba. Dibujada mirando el tamano REAL, no el ampliado: en la carta se ve a 14px, y a
+   * 14px un icono con muchas patas y varias antenas es una mancha. Cinco elementos y ni uno
+   * mas -- cuerpo curvo, ojo, una antena y la cola en horquilla abierta -- porque a ese tamano
+   * lo unico que separa una gamba de una hoja es la horquilla de la cola: es lo primero que se
+   * reconoce y por eso se lleva casi un tercio de la caja.
+   *
+   * Se descartaron por ilegibles a 14px: la voluta cerrada (se lee como hoja), el cuerpo con
+   * segmentos (oruga) y las versiones con dos antenas y patas (mancha). A 14px este no se
+   * confunde con pescado —que es una lente horizontal con aleta— ni con molusco, que es una
+   * cupula. Trazo 1.75 como los demas: a ese tamano 2 no aporta nada y rompia la familia. */
+  crustaceans: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.4 12.6c2.2 -5 6.8 -7.4 11.4 -6.2c1.2 5.2 -2.4 9.6 -8 9.8c-2.6 .1 -3.8 1.7 -3.4 4.2z" /> <path d="M17.6 9.2v.01" /> <path d="M21.6 5.8l1.4 -1.2" /> <path d="M9.4 12.6l-8 -3.4" /> <path d="M9.4 12.6l-7 5.4" /></svg>`,
+  molluscs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.6 16.4c0 -5.4 3.8 -9.4 8.4 -9.4s8.4 4 8.4 9.4z" /> <path d="M12 7v9.4" /> <path d="M7.5 8.9l1.7 7.5" /> <path d="M16.5 8.9l-1.7 7.5" /></svg>`,
+  /* soybeans, celery, peanuts, lupin: sin icono todavia. */
 };
 
 export const ETIQUETA = {
