@@ -480,7 +480,8 @@ let current = null;
  *
  * Dos motivos para abortar, los dos a proposito y ninguno en silencio:
  *   1. una clave que no esta en el catalogo de motor/alergenos.mjs;
- *   2. una clave legitima que todavia no tiene icono dibujado (seis de las catorce).
+ *   2. una clave legitima que todavia no tiene icono dibujado (las 14 lo tienen ya;
+ *      queda la comprobacion por si el catalogo crece con una futura sin dibujar).
  * Aceptar un alergeno y luego no ensenarlo seria lo peor de las dos opciones: el restaurante
  * creeria que esta avisando y el comensal no veria el aviso. */
 const leerAlergenos = (celda, plato) => {
