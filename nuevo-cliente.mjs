@@ -230,7 +230,14 @@ function comandoDestino() {
     tituloJuego: 'Chilli Rush — ' + nombre,
   };
   const alias = (codigo) => 'I18N_' + codigo.toUpperCase();
-  const necesitaDicts = (codigo) => codigo !== 'en';
+  /* 'en' es el catalogo nativo del motor SOLO para el vocabulario de interfaz (T(x,'ui')
+     cae a si mismo sin diccionario, motor/gen.mjs::tr). Eso nunca eximio a 'en' de llevar
+     diccionario de CONTENIDO (nombres, descripciones...) cuando no es el idioma base: antes
+     de este fix, un 'en' de extra con base != 'en' se quedaba sin dicts y sus lectores veian
+     el texto del idioma base, en silencio, sin build roto -- nunca visto porque Tinge tiene
+     base 'en' y ahi 'en' nunca es un extra. La unica combinacion que de verdad no necesita
+     diccionario es 'en' siendo el propio base. */
+  const necesitaDicts = (codigo) => !(codigo === 'en' && idiomas[0] === 'en');
   const importes = idiomas.filter(necesitaDicts)
     .map((c) => 'import * as ' + alias(c) + ' from \'./i18n.' + c + '.mjs\';');
   const idiomaObj = (codigo) =>
@@ -294,9 +301,14 @@ function comandoDestino() {
     theme: 'laurel',
   }, null, 2) + '\n');
 
-  /* 5. Plantillas i18n para los idiomas extra, ui filtrada. */
-  const idiomasExtra = idiomas.slice(1);
-  for (const codigo of idiomasExtra) {
+  /* 5. Plantillas i18n. 'en' es el unico catalogo nativo del motor y nunca necesita
+        fichero -- ni de extra ni de base. Cualquier OTRO idioma si lo necesita, sea el
+        base o un extra: cliente.mjs (arriba, idiomaObj/necesitaDicts) ya declara
+        `dicts: I18N_<CODIGO>` para todo idioma != 'en', el base incluido -- este bucle
+        tiene que crear el fichero para exactamente esos mismos idiomas, o el import que
+        el propio script genera queda apuntando a un fichero que nunca se escribe. */
+  const idiomasConFichero = idiomas.filter(necesitaDicts);
+  for (const codigo of idiomasConFichero) {
     const origenI18n = path.join(AQUI, 'i18n.' + codigo + '.mjs');
     const destinoI18n = path.join(destinoProyecto, 'i18n.' + codigo + '.mjs');
     if (existsSync(origenI18n)) {
@@ -330,6 +342,27 @@ function comandoDestino() {
         '',
       ].join('\n'));
     }
+  }
+
+  /* 5b. El idioma base, cuando no es 'en', tambien necesita hablar de si mismo en su propio
+        ui: en gen.mjs, BT() hornea `impuesto` y `rotulo` (los dos unicos campos de CLIENTE
+        que pasan por T(..., 'ui')) contra el diccionario ui del PROPIO base en cuanto el
+        base no es ingles -- aunque el texto ya este en el idioma correcto, sin esa entrada
+        el build aborta por "missing translations". Se siembra aqui, en el fichero recien
+        escrito del base, con el valor de scaffold; si se edita impuesto o rotulo a mano
+        despues, hay que actualizar tambien esta entrada a mano. */
+  if (necesitaDicts(idiomas[0])) {
+    const basePath = path.join(destinoProyecto, 'i18n.' + idiomas[0] + '.mjs');
+    const identidad = [...new Set([impuesto, rotulos.rotulo])]
+      .map((v) => '  ' + JSON.stringify(v) + ': ' + JSON.stringify(v) + ',')
+      .join('\n');
+    const conIdentidad = readFileSync(basePath, 'utf8').replace(
+      'export const ui = {',
+      'export const ui = {\n'
+        + '  /* impuesto y rotulo del propio cliente, ya en el idioma base -- actualizar si cambian */\n'
+        + identidad,
+    );
+    writeFileSync(basePath, conIdentidad);
   }
 
   /* 6. deploy.yml sustituido. */

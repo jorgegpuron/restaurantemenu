@@ -389,8 +389,32 @@ EXTRAS.forEach((idioma, i) => {
   escritos.push(fichero);
 });
 
+/* El propio idioma base, cuando no es 'en', tambien se auto-consulta: BT() (motor/gen.mjs)
+   hornea impuesto, rotulo y el intro de cada pestana contra el diccionario ui del PROPIO
+   base en cuanto el base no es ingles -- aunque el texto ya este en su propio idioma.
+   impuesto y rotulo los siembra nuevo-cliente.mjs al dar de alta, porque se conocen en ese
+   momento; el intro de pestana no -- vive en carta.json y solo existe a partir de aqui. Sin
+   esto, un cliente con base != 'en' que use `intro` revienta el build por "missing
+   translations" con una cadena que nunca se escribio en ningun sitio. */
+let baseAutoConsultado = false;
+if (BASE.code !== 'en') {
+  const ruta = aqui('i18n.' + BASE.code + '.mjs');
+  if (existsSync(ruta)) {
+    const viejo = readFileSync(ruta, 'utf8').replace(/\r\n/g, NL);
+    const mUi = viejo.match(/(?:\/\*(?:[^*]|\*(?!\/))*\*\/\s*\n)?export const ui = \{[\s\S]*?\n\};/);
+    if (mUi) {
+      const conIntros = uiConIntros(mUi[0], 0);
+      if (conIntros !== mUi[0]) {
+        writeFileSync(ruta, viejo.replace(mUi[0], conIntros));
+        baseAutoConsultado = true;
+      }
+    }
+  }
+}
+
 console.log('menu.md    ' + n + ' platos en ' + cats.length + ' categorías'
   + (sinNumero ? ' · ' + sinNumero + ' sin número, como en la carta impresa' : ''));
-console.log('idiomas    ' + escritos.join(' · ') + ' (ui intacta en cada uno)');
+console.log('idiomas    ' + escritos.join(' · ') + ' (ui intacta en cada uno)'
+  + (baseAutoConsultado ? ' · i18n.' + BASE.code + '.mjs: intro(s) auto-consultado(s)' : ''));
 console.log('catálogo   names ' + names.size + ' · descriptions ' + descs.size
   + ' · notes ' + notes.size + ' · tabs ' + tabs.size + ' · groups ' + groups.size);

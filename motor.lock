@@ -3,7 +3,7 @@
  "version": "1.1.8",
  "esquemaEstado": 2,
  "esquemaCarta": "carta/2",
- "fecha": "2026-09-02",
+ "fecha": "2026-09-03",
  "envoltorios": {
   "gen.mjs": "3044cde1a1bcaa249a61179a99c0c262e3bdf4bc1f191aedf9759b114edf53a4",
   "importar.mjs": "63c6bec2f4e3810ae4a3d7210849a12e0dc10c66316c22a8aff3d79287d7f920"
@@ -56,9 +56,9 @@
   "carta.EJEMPLO.LEGACY.mjs": "a1303b679b639fdc0d47e2f5b100ea568b0b42d371b1cc61dace47c20fa49806",
   "entorno.mjs": "9bac6a4fd00553f8c5646a2b50a0ab10edb35fb66d6590fff3470b1ab6b3ab64",
   "error404.mjs": "9a0d2f43f19e172c902b001a6223614a1678b4bf593c09b915c507e0ab2fd6b9",
-  "gen.mjs": "5261d2761621717232b602c726c55dae36a40f227e7acb14666dadac7a9389fb",
-  "importar.mjs": "0f1edb6429076043422de6aed7e28ee7d594a82ea5a87a64d84ed289aa910af8",
-  "juego.mjs": "03c18345b1c59a954bc771282e3c72c207d10f3758af34bd8088d822fa7933a9",
+  "gen.mjs": "d92bb5d79cebf2dd4bae2a87398d05dd87749132cc478f1bc9f148f41700a0d0",
+  "importar.mjs": "c400b711790a806b04f9821723a57724e76bdac3673b091afe688e3d3fe7cd28",
+  "juego.mjs": "1b8698fcb27814ff840697c68677d6854c4fb3208ddf8e624ee01ec593294ab8",
   "lock.mjs": "6dd84c5349a37899bfd8522fc1c4faa1dc23836ab95eaf6d48a87af2508fdcd8",
   "migrar.mjs": "41fb3f6c156a6669c4a0006e03ce4cedaab5fcab0d5f2181dfc0522d2af5de33",
   "server/admin/acceso-caoba.jpg": "bb0e5b98fce55522bc11287c5f5a9e066d6ae1abfcba2c1a9c0d8b3cdfa757bb",

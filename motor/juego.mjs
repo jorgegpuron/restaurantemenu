@@ -672,7 +672,25 @@ h1{
 
   var TR = ${JSON.stringify(Object.fromEntries(GAME_STRINGS.map((k) => [k, Object.assign(
     { en: k },
-    Object.fromEntries(LANGS.map((l) => [l.code, l.dicts.ui[k]])),
+    /* Todo idioma extra lleva dicts ahora, 'en' incluido cuando no es el base (gen.mjs lo
+       exige mas arriba, antes de llegar aqui) -- si uno no lo trae es una configuracion
+       invalida y se para, no se disimula con un fallback silencioso. GAME_STRINGS SI es
+       vocabulario nativo del motor de verdad (rotulos fijos del juego, no viene de
+       carta.json ni de cliente.mjs): que 'en' no tenga la clave en su ui es normal y cae a
+       si mismo; que CUALQUIER OTRO idioma no la tenga es un fallo de traduccion real -- y a
+       diferencia de RUNTIME_STRINGS (gen.mjs), GAME_STRINGS no tenia NINGUNA validacion
+       antes de esto: esta es la UNICA red, no una capa de mas. */
+    Object.fromEntries(LANGS.map((l) => {
+      if (!l.dicts || !l.dicts.ui) {
+        throw new Error("juego: el idioma '" + l.code + "' no trae diccionario -- "
+          + 'configuracion invalida de cliente.mjs (deberia haberse parado antes)');
+      }
+      const v = l.dicts.ui[k];
+      if (v === undefined && l.code !== 'en') {
+        throw new Error("juego: falta traducir '" + k + "' para '" + l.code + "' en su i18n.");
+      }
+      return [l.code, v];
+    })),
   )])))};
   var TITLE = ${JSON.stringify(titles)};
   var LANG_CODES = ${JSON.stringify(LANG_CODES)};

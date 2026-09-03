@@ -87,8 +87,11 @@ if (CLIENTE.activacionPanel === true && !process.env.PANEL_ACTIVACION_HASH) {
 
 /* Los idiomas: el base es el texto del documento; los extras van en data-<code>. El catalogo
    nativo del motor esta en ingles (el idioma de su codigo fuente): con base 'en' no hace
-   falta diccionario, y un extra 'en' tampoco lo necesita. Cada idioma declara su BANDERA y
-   se comprueba que el fichero exista: jamas un 'undefined' en el selector. */
+   falta diccionario -- pero eso es solo el vocabulario del propio motor ('ui'). Un 'en' de
+   EXTRA (base distinto de ingles) SI necesita diccionario, igual que cualquier otro idioma:
+   su contenido (nombres, notas...) y su texto de cliente (impuesto, rotulo...) no son
+   vocabulario del motor y no tienen ese privilegio. Cada idioma declara su BANDERA y se
+   comprueba que el fichero exista: jamas un 'undefined' en el selector. */
 const validarIdioma = (l, papel) => {
   if (!l || typeof l.code !== 'string' || !/^[a-z]{2}$/.test(l.code)
       || typeof l.name !== 'string' || !l.name) {
@@ -123,10 +126,14 @@ if (IDIOMA_BASE.code !== 'en'
     + " necesita su diccionario con la seccion ui completa.",
     "importa i18n." + IDIOMA_BASE.code + ".mjs y ponlo en idiomas.base.dicts: el motor horneara su ui como texto del documento");
 }
+/* Todo idioma EXTRA necesita diccionario -- 'en' incluido. El unico 'en' que se libra es el
+   que sea el propio BASE (validado arriba, no aqui): ese nunca puede ir tambien en extras
+   (linea 116), asi que si 'en' aparece aqui es porque el base es otro idioma y 'en' esta de
+   extra de verdad, con su propio contenido que traducir -- igual que cualquier otro idioma. */
 for (const l of LANGS) {
-  if (l.code !== 'en' && !(l.dicts && l.dicts.ui)) {
+  if (!(l.dicts && l.dicts.ui)) {
     abortar("cliente.mjs: el idioma extra " + JSON.stringify(l.code) + " no trae diccionario.",
-      "importa su i18n." + l.code + ".mjs (el ingles es el unico que puede ir sin el: es el catalogo nativo del motor)");
+      "importa su i18n." + l.code + ".mjs y ponlo en `dicts` -- todo extra lo necesita, 'en' incluido cuando no es el base");
   }
 }
 
@@ -783,13 +790,23 @@ const money = (price) =>
  * translation throws at build time rather than leaking an English word into a menu. */
 const missingTr = [];
 const missingIcons = [];
+/* 'ui' es vocabulario NATIVO del motor: literales en ingles escritos en el propio gen.mjs
+   ('Included', 'Important'...). 'ui-cliente' es texto PROPIO DEL CLIENTE que reutiliza el
+   mismo canal y el mismo fichero fisico (impuesto, rotulo, titulo, descripcion, intro de
+   pestana...) -- comparten diccionario ('ui-cliente' lee/escribe en el mismo lang.dicts.ui
+   de siempre, un solo objeto que el operador mantiene) pero NO comparten privilegio: solo
+   'ui' deja a 'en' caer a su propio literal sin traduccion. 'ui-cliente' sin traducir es un
+   fallo de traduccion identico al de cualquier otro idioma, 'en' incluido -- antes se colaba
+   en silencio (mostraba el texto del idioma base) porque el atajo miraba solo lang.dicts, sin
+   distinguir vocabulario del motor de texto del cliente que solo aparenta serlo. */
+const esGrupoUi = (group) => group === 'ui' || group === 'ui-cliente';
 function tr(en, group, lang) {
-  /* El ingles es el catalogo nativo del motor: un extra 'en' sin diccionario traduce a si
-     mismo. Cualquier otro idioma sin la cadena es un error de traduccion de verdad. */
-  const v = lang.dicts && lang.dicts[group] ? lang.dicts[group][en] : undefined;
-  if (v === undefined && lang.code === 'en' && !lang.dicts) return en;
+  const grupoDicc = group === 'ui-cliente' ? 'ui' : group;
+  const v = lang.dicts && lang.dicts[grupoDicc] ? lang.dicts[grupoDicc][en] : undefined;
+  if (v === undefined && lang.code === 'en' && group === 'ui') return en;
   if (v === undefined) {
-    missingTr.push(lang.code + ' / ' + group + ': ' + JSON.stringify(en));
+    missingTr.push(lang.code + ' / ' + grupoDicc + ': ' + JSON.stringify(en)
+      + (group === 'ui-cliente' ? ' (texto propio del cliente, no vocabulario del motor)' : ''));
     return en;
   }
   return v;
@@ -799,9 +816,9 @@ const attrs = (en, group, suffix = '') =>
   LANGS.map((l) => ` data-${l.code}${suffix}="${esc(tr(en, group, l))}"`).join('');
 /* El texto del documento es el idioma BASE. El CONTENIDO (nombres, notas, pestañas...)
    ya llega en base desde carta.json/menu.md y se emite tal cual; solo las cadenas de
-   INTERFAZ ('ui'), que son el catalogo nativo del motor en ingles, se hornean con el
-   diccionario del base cuando el base no es 'en'. */
-const BT = (t, group) => (IDIOMA_BASE.code === 'en' || group !== 'ui') ? t : tr(t, 'ui', IDIOMA_BASE);
+   INTERFAZ ('ui' y 'ui-cliente', que comparten diccionario -- ver tr()) se hornean con el
+   diccionario del propio base cuando el base no es 'en'. */
+const BT = (t, group) => (IDIOMA_BASE.code === 'en' || !esGrupoUi(group)) ? t : tr(t, group, IDIOMA_BASE);
 // a translatable text node
 const T = (en, group, cls) =>
   `<span class="i18n${cls ? ' ' + cls : ''}"${attrs(en, group)}>${esc(BT(en, group))}</span>`;
@@ -1114,7 +1131,7 @@ const renderSub = (g, showSlot) => {
     const resto = (defEscala.fraseBase ? g.note.split(defEscala.fraseBase) : [g.note])
       .map((t) => t.trim())
       .filter((t) => t && !defEscala.ocultasBase.includes(t));
-    note = resto.map((t) => `                <p class="menu-group-note">${T(t, 'ui')}</p>`).join(String.fromCharCode(10))
+    note = resto.map((t) => `                <p class="menu-group-note">${T(t, 'ui-cliente')}</p>`).join(String.fromCharCode(10))
          + (resto.length ? String.fromCharCode(10) : '');
   } else if (g.aviso === 'final' && g.note) {
     avisoFinal = `                <p class="menu-group-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(g.note, 'notes')}</p>` + String.fromCharCode(10);
@@ -1205,7 +1222,7 @@ ${leyendaIconos}
    Deliberadamente pequeña y apagada: es una obligación legal, no información con la que se
    elija un plato, y cada milímetro que ocupe se lo quita a la carta. El asterisco la marca
    como nota al pie sin necesidad de repetirlo en las 312 filas. */
-const notaIgic = `          <p class="nota-igic">${T(CLIENTE.impuesto, 'ui')}</p>`;
+const notaIgic = `          <p class="nota-igic">${T(CLIENTE.impuesto, 'ui-cliente')}</p>`;
 
 const leyenda = !(leyendaMarcas || leyendaAlergenos) ? notaIgic :
   String.fromCharCode(10) + notaIgic + String.fromCharCode(10)
@@ -1221,7 +1238,7 @@ const panes = TAXO.map((t, i) => {
   /* La línea de la pestaña (metadato `intro` en carta.json) va al FINAL, después de todos
      los grupos, con el distintivo IMPORTANTE: es condición de lo que se pide. */
   const cierre = t.intro
-    ? String.fromCharCode(10) + `              <p class="menu-group-aviso tab-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(t.intro, 'ui')}</p>`
+    ? String.fromCharCode(10) + `              <p class="menu-group-aviso tab-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(t.intro, 'ui-cliente')}</p>`
     : '';
   return `              <div class="tab-pane${i === 0 ? ' active' : ''}${showSlot ? ' has-ids' : ''}" id="${id}" role="tabpanel" aria-labelledby="${id}-tab" data-tab="${esc(t.label)}">
 ${body}${cierre}
@@ -1349,7 +1366,7 @@ window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${CLIENTE.titulo}</title>
-<meta name="description" content="${CLIENTE.descripcion}"${attrs(CLIENTE.descripcion, 'ui')}>
+<meta name="description" content="${CLIENTE.descripcion}"${attrs(CLIENTE.descripcion, 'ui-cliente')}>
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
 <meta name="theme-color" content="${derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink']}">
 <link rel="canonical" href="${CLIENTE.base}">
@@ -4039,7 +4056,7 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
         </script>
 
         <div class="title-area">
-          <div class="sub-title">${T(CLIENTE.rotulo, 'ui')}</div>
+          <div class="sub-title">${T(CLIENTE.rotulo, 'ui-cliente')}</div>
           <h1 class="title">${esc(CLIENTE.nombre)}</h1>
         </div>
 
@@ -4220,7 +4237,7 @@ ${sheet}
 
   var nav = document.getElementById('pills-tab');
   var TITLE = ${JSON.stringify(Object.assign({ [IDIOMA_BASE.code]: CLIENTE.titulo },
-      Object.fromEntries(LANGS.map((l) => [l.code, tr(CLIENTE.titulo, 'ui', l)]))))};
+      Object.fromEntries(LANGS.map((l) => [l.code, tr(CLIENTE.titulo, 'ui-cliente', l)]))))};
   var sentinel = document.querySelector('.tab-nav-sentinel');
   var navBar = document.querySelector('.tab-nav');
   var content = document.querySelector('.tab-content');
@@ -4436,7 +4453,10 @@ ${sheet}
      T() vale para el HTML, pero esto no está en el HTML hasta que el panel lo enciende. */
   var TR = ${JSON.stringify(Object.fromEntries(RUNTIME_STRINGS.map((k) => [k, {
     [IDIOMA_BASE.code]: BT(k, 'ui'),
-    ...Object.fromEntries(LANGS.map((l) => [l.code, l.dicts ? l.dicts.ui[k] : k])),
+    /* 'en' es vocabulario nativo del motor: si su diccionario no trae esta cadena en
+       concreto (aqui nunca la trae, HIGHLIGHTS no viene copiado de ningun cliente
+       anterior), cae al literal en ingles -- nunca al idioma base de otro lector. */
+    ...Object.fromEntries(LANGS.map((l) => [l.code, l.dicts?.ui?.[k] ?? k])),
   }])))};
 
   /* ---- la carta del día ----
@@ -6643,7 +6663,7 @@ if (tabsWithoutIcon.length) {
 const runtimeSinTraducir = [];
 for (const k of RUNTIME_STRINGS) {
   for (const l of LANGS) {
-    if (l.code === 'en' && !l.dicts) continue;   // catalogo nativo del motor
+    if (l.code === 'en') continue;   // catalogo nativo del motor: cae a si mismo siempre, con o sin dicts
     if (typeof l.dicts.ui[k] !== 'string') runtimeSinTraducir.push(l.code + ' / ui: "' + k + '"');
   }
 }
