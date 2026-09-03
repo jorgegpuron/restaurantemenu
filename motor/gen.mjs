@@ -98,6 +98,15 @@ const validarIdioma = (l, papel) => {
     abortar("cliente.mjs: idioma " + papel + " invalido: " + JSON.stringify(l && l.code),
       "cada idioma lleva { code: 'xx', name: 'Nombre', bandera: 'xx' }");
   }
+  /* `name` es lo que se LEE en el selector, y por eso no puede ser el codigo: un aleman busca
+     "Deutsch", no "de". Se comprueba aqui porque un cliente nacio con name igual al codigo y
+     el fallo no lo delataba nada -- compilaba contento y salia en pantalla. Un codigo de dos
+     letras nunca es el nombre de un idioma en ningun idioma, asi que la regla no tiene falsos
+     positivos. */
+  if (l.name.trim().toLowerCase() === l.code) {
+    abortar("cliente.mjs: el idioma " + JSON.stringify(l.code) + " tiene como `name` su propio codigo.",
+      "pon el nombre del idioma en su propio idioma (Español, English, Deutsch): es lo que se ve en el selector");
+  }
   if (typeof l.bandera !== 'string' || !l.bandera) {
     abortar("cliente.mjs: el idioma " + JSON.stringify(l.code) + " no declara `bandera`.",
       "elige la bandera del selector entre los ficheros de motor/assets/banderas/");
@@ -277,14 +286,16 @@ export const TOKENS = cssTemas() + `:root{
   --t-sheet-out:240ms;                          /* exit faster than enter */
 
   /* El multiplicador del tamaño de texto. 1 es lo de siempre y es el valor de partida: quien
-     no toque nada ve la carta exactamente igual que antes. Lo suben los tres botones del hero
-     y sólo afecta al texto de los platos — la barra de categorías, los chips y el cajón se
-     quedan con sus medidas, que son áreas de dedo y no texto que leer. */
+     no toque nada ve la carta exactamente igual que antes. Lo suben los tres botones del hero,
+     que SOLO existen en el movil, y lo leen DOS reglas y solo dos: el nombre del plato y su
+     descripcion, dentro del bloque de movil. Todo lo demas —precio, rotulos de grupo, avisos,
+     notas, etiquetas, badges, chips, botones y navegacion— se queda con su medida: unas son
+     areas de dedo y las otras son el andamio de la carta, no lo que se lee de cerca. */
   --escala:1;
 
-  /* El hueco que reserva la línea de número y etiquetas crece con ellas, o el nombre del plato
-     se le monta encima en cuanto se sube el tamaño. */
-  --tags-line:calc(22px * var(--escala));   /* the number/flag line on phones — the price offsets by it */
+  /* El hueco de la linea de numero y etiquetas. Fijo, porque lo que va dentro tambien lo es:
+     las etiquetas no escalan. */
+  --tags-line:22px;   /* the number/flag line on phones — the price offsets by it */
 }
 `;
 
@@ -2449,13 +2460,10 @@ html:not(.js) .lang-menu{position:static;display:block}
 
 .menu-group + .menu-group{margin-top:var(--s5)}
 .tab-pane > .menu-group:first-child > .menu-group-title{margin-top:var(--s3)}
-/* El rótulo del grupo escala con el resto del texto de lectura. La línea que separa lo que
-   escala de lo que no es la de SPEC —áreas de dedo no, texto que leer sí— y este rótulo es
-   texto: no es la barra de categorías, que sigue sin escalar porque sus chips son de 44px. */
 .menu-group-title{
   color:var(--accent-ink);
   font-family:var(--title-font);
-  font-size:calc(13px * var(--escala));
+  font-size:13px;
   font-weight:600;
   line-height:normal;
   text-transform:uppercase;
@@ -2503,8 +2511,8 @@ html:not(.js) .lang-menu{position:static;display:block}
   align-items:center;
   gap:var(--s1) var(--s3);
   color:var(--muted);
-  font-size:calc(13px * var(--escala));
-  line-height:calc(20px * var(--escala));
+  font-size:13px;
+  line-height:20px;
 }
 .legend-item{display:inline-flex;align-items:center;gap:6px}
 .legend-caveat{flex:1 1 260px;min-width:0}
@@ -2519,7 +2527,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   margin:var(--s2) 0 0;
   text-align:right;
   color:var(--muted);
-  font-size:calc(11px * var(--escala));
+  font-size:11px;
   letter-spacing:.02em;
 }
 
@@ -2716,8 +2724,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .menu-group-note{
   color:var(--muted);
   font-family:var(--body-font);
-  font-size:calc(14px * var(--escala));
-  line-height:calc(24px * var(--escala));
+  font-size:14px;
+  line-height:24px;
   margin-top:var(--s2);
 }
 .menu-group-title + .menu-group-note{margin-top:var(--s3)}
@@ -2729,14 +2737,13 @@ html:not(.js) .lang-menu{position:static;display:block}
      el aviso quedaba 21px metido hacia dentro y se leía como otra cosa. */
   margin:var(--s3) 0 0;
   color:var(--ink);
-  /* line-height sin unidad: se multiplica sola con el font-size, no hace falta calc. */
-  font-family:var(--body-font);font-size:calc(14px * var(--escala));line-height:1.45;
+  font-family:var(--body-font);font-size:14px;line-height:1.45;
 }
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
   background:var(--accent-ink);color:var(--surface);
-  font-family:var(--title-font);font-size:calc(11px * var(--escala));font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
 
 /* ---------- grid ---------- */
@@ -2796,7 +2803,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--accent-ink);
   color:var(--surface);
   font-family:var(--title-font);
-  font-size:calc(11px * var(--escala));
+  font-size:11px;
   font-weight:600;
   line-height:16px;
   letter-spacing:.1em;
@@ -2836,7 +2843,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--chip);
   color:var(--muted);
   font-family:var(--title-font);
-  font-size:calc(11px * var(--escala));
+  font-size:11px;
   font-weight:600;
   line-height:16px;
   letter-spacing:.1em;
@@ -3106,6 +3113,11 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   backdrop-filter:blur(10px);
   box-shadow:var(--lift-fab);
 }
+/* El control es del MOVIL y solo del movil: las dos unicas reglas que leen --escala viven en
+   @media (max-width:767px), asi que en escritorio pulsarlo no cambiaria nada y un boton que no
+   hace nada es peor que no tenerlo. Ahi se retira; el valor guardado se queda intacto y vuelve
+   a mandar en cuanto se abre la carta en un movil. */
+@media (min-width:768px){ .txt-size{display:none} }
 .txt-size-btn{
   display:flex;
   align-items:center;
@@ -3319,8 +3331,8 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 .has-offer .price-was{
   display:block;
   color:var(--muted);
-  font-size:calc(14px * var(--escala));
-  line-height:calc(18px * var(--escala));
+  font-size:14px;
+  line-height:18px;
   text-decoration:line-through;
   text-decoration-thickness:1px;
 }
@@ -3333,7 +3345,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   margin-right:8px;
   color:var(--muted);
   font-family:var(--body-font);
-  font-size:calc(13px * var(--escala));
+  font-size:13px;
   font-weight:600;
   font-variant-numeric:tabular-nums;
   vertical-align:1px;
@@ -3354,17 +3366,12 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 @media (min-width:992px){
   .col-lg-6 > .single-menu-items:last-child .menu-content{border-bottom:0}
 }
-/* El tamaño del texto de plato se multiplica por --escala AQUI, en la regla base, y no sólo
-   en el bloque del móvil. Escrito sólo dentro de @media (max-width:767px), el token existía
-   pero por encima de 767 no lo leía ninguna regla: los tres botones movían --escala y la
-   carta no cambiaba de tamaño en tablet ni en escritorio. Con --escala:1 estos calc dan
-   exactamente las mismas medidas de antes, así que quien no toca el control ve lo mismo. */
 .menu-content h3{
   color:var(--ink);
   font-family:var(--title-font);
-  font-size:calc(20px * var(--escala));
+  font-size:20px;
   font-weight:600;
-  line-height:calc(30px * var(--escala));
+  line-height:30px;
   letter-spacing:-0.01em;
   font-optical-sizing:auto;
   /* source section used text-transform:capitalize; dropped so dish names render exactly
@@ -3375,9 +3382,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 .menu-content p{
   color:var(--muted);
   font-family:var(--body-font);
-  font-size:calc(14px * var(--escala));
+  font-size:14px;
   font-weight:400;
-  line-height:calc(24px * var(--escala));
+  line-height:24px;
   /* Sin tope de medida: la frase llega hasta donde llega la columna. Habia un max-width de 46ch
      puesto por legibilidad, y a 900px de pantalla dejaba 300 sin usar y partia descripciones que
      caben de sobra en una linea: «Cafe de filtro preparado en Chemex para 2» y debajo, sola,
@@ -3396,12 +3403,10 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   color:var(--ink);
   text-align:right;
   font-family:var(--title-font);
-  font-size:calc(18px * var(--escala));
+  font-size:18px;
   font-weight:600;
-  /* matches the dish name's line box so the price lands on the same baseline — y por eso
-     escala con el nombre: si el nombre crece y el precio no, los dos dejan de compartir
-     caja de línea y el precio se queda descolgado arriba. */
-  line-height:calc(30px * var(--escala));
+  /* matches the dish name's line box so the price lands on the same baseline */
+  line-height:30px;
   white-space:nowrap;
   padding-left:var(--s3);
   font-variant-numeric:tabular-nums;
@@ -3846,7 +3851,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .menu-content h3{font-size:calc(16px * var(--escala));line-height:calc(22px * var(--escala));margin-bottom:6px}
   .menu-content p{font-size:calc(14px * var(--escala));line-height:calc(21px * var(--escala))}
   /* the price shares the dish name's line box, so the two sit on the same line */
-  .single-menu-items .price{font-size:calc(16px * var(--escala));line-height:calc(22px * var(--escala));padding-left:var(--s2)}
+  .single-menu-items .price{font-size:16px;line-height:22px;padding-left:var(--s2)}
 
   /* chips: 44px tall, filled, so they read as tappable and meet the touch minimum */
   .nav-pills .nav-link{
@@ -7076,6 +7081,82 @@ for (const [desde, destino] of CARPETAS) {
     copiar(new URL(e.name, desde), destinoUrl);
   }
 }
+
+/* ---- lo que el motor exige de los dos .htaccess ----
+ *
+ * Los dos ficheros son del CLIENTE y con razon: llevan su direccion publica (RewriteBase,
+ * ErrorDocument) y este build ya la valida contra cliente.mjs. Pero QUE NO SE SIRVE y COMO SE
+ * RESPONDE a un fichero de estado que todavia no existe no es de ningun restaurante: es
+ * politica del motor. Escrita dentro del fichero de cada cliente, arreglarla obligaria a ir
+ * uno por uno y el siguiente cliente nacería otra vez con el fallo.
+ *
+ * Asi que se escribe AQUI, sobre la copia que va a 2-subir. El fuente del cliente no se toca:
+ * sigue siendo suyo y sigue teniendo solo su ruta. Cada build la vuelve a poner, asi que no se
+ * puede quedar a medias ni depender de que alguien se acuerde.
+ *
+ * Idempotente por la marca, y ABORTA si no encuentra el fichero o el ancla: una politica de
+ * seguridad que falla en silencio es peor que no tenerla, porque nadie se entera. */
+const MARCA_MOTOR = '# === motor (gen.mjs): politica del motor, no editar a mano ===';
+
+const politicaHtaccess = (nombre, bloque, ancla) => {
+  const ruta = new URL(nombre, SUBIR);
+  if (!existsSync(ruta)) {
+    abortar('No hay ' + nombre + ' en lo compilado: el motor no puede aplicar su politica.',
+      'el cliente aporta ese fichero en server/; comprueba que exista y que el build lo copie');
+  }
+  const original = readFileSync(ruta, 'utf8');
+  if (original.includes(MARCA_MOTOR)) return;
+  /* Estos ficheros son CRLF nativos en el repositorio (.gitattributes los deja en paz): se
+     escribe con el final de linea que ya tenga el fichero, no con el de esta maquina. */
+  const nl = original.includes('\r\n') ? '\r\n' : NL;
+  const texto = [MARCA_MOTOR, ...bloque].join(nl);
+  let salidaTexto;
+  if (ancla) {
+    const m = original.match(ancla);
+    if (!m) {
+      abortar(nombre + ': no encuentro donde meter la regla del motor (' + ancla + ').',
+        'ese fichero tiene que conservar su bloque de mod_rewrite con su RewriteBase');
+    }
+    const corte = m.index + m[0].length;
+    salidaTexto = original.slice(0, corte) + nl + texto + original.slice(corte);
+  } else {
+    salidaTexto = original.replace(/\s+$/, '') + nl + nl + texto + nl;
+  }
+  writeFileSync(ruta, salidaTexto);
+};
+
+/* admin/: activacion.consumida es la marca de que el panel ya se activo. La lee PHP del disco
+   con is_file(), que no pasa por Apache, asi que denegarla por HTTP no rompe nada: ni el login
+   normal ni la guardia que impide reutilizar un token. Sus vecinos (clave.php, intentos.json,
+   accesos.log) ya estaban denegados; esta se quedaba fuera solo porque su extension no entraba
+   en ningun FilesMatch. Va al final: el orden de los FilesMatch no cambia el resultado. */
+politicaHtaccess('admin/.htaccess', [
+  '# activacion.consumida es estado interno del panel. PHP la lee del disco; por HTTP, no.',
+  '<FilesMatch "^activacion\\.consumida$">',
+  '  Require all denied',
+  '</FilesMatch>',
+]);
+
+/* raiz: el juego pide record.json al arrancar porque es un fichero plano y no cuesta PHP. En una
+   instalacion sin ninguna marca todavia ese fichero NO EXISTE —lo escribe el endpoint publico la
+   primera vez que alguien juega— y la peticion se comia la regla de abajo y volvia 404. El juego
+   ya lo trataba bien (preguntaba despues a admin/record.php y seguia), pero dejaba un 404 en la
+   consola de cada visita, y "todavia no hay record" es un estado normal, no un error.
+
+   Con esto, y SOLO cuando el fichero no existe, la misma direccion la atiende el endpoint, que
+   contesta el mismo JSON: 200 con {"top":[]} si no hay marca. Existiendo record.json se sirve el
+   fichero plano igual que siempre —la condicion !-f lo garantiza— y un fallo de verdad del PHP
+   sigue saliendo como fallo: aqui no se tapa ningun error, solo se le da respuesta valida a un
+   estado valido.
+
+   Va JUSTO DESPUES de RewriteBase y no al final: mas abajo esta la regla que manda a 404.php
+   todo lo que no existe, y lleva [L]. Detras de ella esto no llegaria a ejecutarse nunca. */
+politicaHtaccess('.htaccess', [
+  '  # Sin record.json todavia (nadie ha jugado aun) contesta el endpoint, que devuelve el',
+  '  # mismo JSON con 200. Con el fichero puesto, manda el fichero: la condicion es !-f.',
+  '  RewriteCond %{REQUEST_FILENAME} !-f',
+  '  RewriteRule ^record\\.json$ admin/record.php [L]',
+], /^[ \t]*RewriteBase[ \t]+\S+/m);
 
 console.log(
   '2-subir rehecha |', copiados, 'ficheros | build', BUILD,

@@ -191,6 +191,24 @@ function comandoDestino() {
   const slug = path.basename(destino).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
   const idiomas = idiomasArg.split(',').map((s) => s.trim()).filter(Boolean);
   const BANDERA_POR_CODIGO = { es: 'es', en: 'gb', de: 'de', fr: 'fr', it: 'it', pt: 'pt' };
+  /* El nombre del idioma EN SU PROPIO IDIOMA, que es lo que se lee en el selector: un aleman
+     busca "Deutsch", no "DE" ni "de". Se escribia el codigo tal cual como name y el selector
+     de un cliente nuevo salia con "es / en / de" en pantalla, mientras Tinge -escrito a mano
+     antes de que esta herramienta existiera- decia "Español / English / Deutsch". El codigo
+     sigue siendo el de siempre para lang, localStorage y la logica; lo que cambia es solo la
+     etiqueta que se ve. Un codigo que no este aqui aborta el alta: es preferible pedir el
+     nombre a publicar una carta con un selector que dice "pt". */
+  const NOMBRE_POR_CODIGO = {
+    es: 'Español', en: 'English', de: 'Deutsch',
+    fr: 'Français', it: 'Italiano', pt: 'Português',
+  };
+  const sinNombre = idiomas.filter((c) => !NOMBRE_POR_CODIGO[c]);
+  if (sinNombre.length) {
+    console.error('No se como se llama el idioma ' + sinNombre.join(', ') + ' en su propio idioma.');
+    console.error('Anadelo a NOMBRE_POR_CODIGO y a BANDERA_POR_CODIGO en nuevo-cliente.mjs:');
+    console.error('el selector ensena ese nombre y no puede quedarse con el codigo.');
+    process.exit(1);
+  }
 
   mkdirSync(destinoProyecto, { recursive: true });
 
@@ -242,7 +260,7 @@ function comandoDestino() {
     .map((c) => 'import * as ' + alias(c) + ' from \'./i18n.' + c + '.mjs\';');
   const idiomaObj = (codigo) =>
     '{ code: ' + JSON.stringify(codigo) + ', label: ' + JSON.stringify(codigo.toUpperCase())
-    + ', name: ' + JSON.stringify(codigo) + ', bandera: ' + JSON.stringify(BANDERA_POR_CODIGO[codigo] || codigo)
+    + ', name: ' + JSON.stringify(NOMBRE_POR_CODIGO[codigo]) + ', bandera: ' + JSON.stringify(BANDERA_POR_CODIGO[codigo] || codigo)
     + (necesitaDicts(codigo) ? ', dicts: ' + alias(codigo) : '') + ' }';
   const clienteMjs = [
     ...importes,
