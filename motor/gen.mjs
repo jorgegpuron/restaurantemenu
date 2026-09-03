@@ -12,6 +12,7 @@ import {
 } from './temas.mjs';
 import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE, resolver as resolverAlergeno,
   CANONICAS, ALIAS } from './alergenos.mjs';
+import { verificarBuild } from './verificar-build.mjs';
 /* Todo lo que es de ESTE restaurante. gen.mjs no lleva dentro ni un nombre ni una
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
 import { CLIENTE, CLAVE, SINONIMOS } from '../cliente.mjs';
@@ -7222,6 +7223,19 @@ politicaHtaccess('.htaccess', [
   '  RewriteCond %{REQUEST_FILENAME} !-f',
   '  RewriteRule ^record\\.json$ admin/record.php [L]',
 ], /^[ \t]*RewriteBase[ \t]+\S+/m);
+
+/* Antes de dar el build por bueno: que este entero. Un dia salieron 18 ficheros en vez de 73
+   -- sin las banderas y sin medio panel -- y el build termino contento porque los cuatro
+   ficheros que se miraban seguian ahi. El contrato de lo que tiene que existir sale de
+   motor.lock y de cliente.mjs, no de volver a listar las carpetas que aquella vez contestaron
+   corto: ver motor/contrato-salida.mjs. */
+const incompleto = verificarBuild();
+if (incompleto.length) {
+  abortar('BUILD INCOMPLETO: faltan ' + incompleto.length + ' fichero(s) obligatorio(s) en 2-subir.'
+    + NL + '  ' + incompleto.join(NL + '  '),
+    'no se sube nada asi. Vuelve a compilar; si el motor esta tocado, registra el cambio con'
+    + NL + '  node motor/lock.mjs --escribir');
+}
 
 console.log(
   '2-subir rehecha |', copiados, 'ficheros | build', BUILD,

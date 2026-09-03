@@ -88,17 +88,21 @@ jobs:
 
       # Una carta rota es peor que una carta vieja. Si el build no dejo lo minimo, se para aqui
       # y el servidor se queda como estaba.
+      # La comprobacion de integridad la hace el MOTOR, con el mismo codigo que corre al
+      # final de gen.mjs: motor/verificar-build.mjs. Antes se miraban aqui cuatro ficheros a
+      # mano y eso dejo pasar el caso real -- un build de 18 ficheros en vez de 73, sin las
+      # banderas y sin medio panel, con esos cuatro presentes. La lista de lo obligatorio sale
+      # de motor.lock y de cliente.mjs (ver motor/contrato-salida.mjs), asi que no hay dos
+      # listas que mantener ni un numero fijo que se quede viejo.
       - name: Comprobar lo compilado
+        working-directory: tinge_of_turmeric/1-proyecto
+        run: node motor/verificar-build.mjs
+
+      # Y al reves: que el build NO haya generado datos que son del servidor. Si un dia
+      # empezara a hacerlo, nos enteramos aqui y no pisandolos por FTP.
+      - name: Comprobar que no se ha generado nada de produccion
         working-directory: tinge_of_turmeric/2-subir
         run: |
-          for f in index.html juego.html version.json admin/index.php; do
-            if [ ! -s "$f" ]; then
-              echo "::error::Falta o esta vacio: $f. No se sube nada."
-              exit 1
-            fi
-          done
-          # Si un dia el build empezara a generar datos de produccion, nos enteramos aqui y no
-          # pisandolos en el servidor.
           for f in estado.json record.json admin/clave.php admin/superclave.php; do
             if [ -e "$f" ]; then
               echo "::error::El build ha generado $f, que es un dato de produccion. Abortado."

@@ -54,9 +54,10 @@
   "assets/logo.svg": "8fc0efd651ff3064d6c867c4c9c503e1582f18bfc9aa79b4df5b06858222a104",
   "banderas.mjs": "48934e609bc6a4827c89c975a59bd9d3aa18e7c7e2af277dc79a4f61dfb8ae1c",
   "carta.EJEMPLO.LEGACY.mjs": "a1303b679b639fdc0d47e2f5b100ea568b0b42d371b1cc61dace47c20fa49806",
+  "contrato-salida.mjs": "3d2748c474f73d69cba50d1c71685424ab3f4371cd453ef9edcfd12a3d497514",
   "entorno.mjs": "9bac6a4fd00553f8c5646a2b50a0ab10edb35fb66d6590fff3470b1ab6b3ab64",
   "error404.mjs": "9a0d2f43f19e172c902b001a6223614a1678b4bf593c09b915c507e0ab2fd6b9",
-  "gen.mjs": "d1058879d0d02c52cdcf9a676baf75bc9f6150ddeba808fdc1d2ddfbb8e1f0b4",
+  "gen.mjs": "8d660c9b7ef0c5566ea4586e08fe3f2f47677137fa321659799165b29b9f7d82",
   "importar.mjs": "c400b711790a806b04f9821723a57724e76bdac3673b091afe688e3d3fe7cd28",
   "juego.mjs": "1b8698fcb27814ff840697c68677d6854c4fb3208ddf8e624ee01ec593294ab8",
   "lock.mjs": "6dd84c5349a37899bfd8522fc1c4faa1dc23836ab95eaf6d48a87af2508fdcd8",
@@ -82,6 +83,7 @@
   "server/admin/SPEC.md": "343d3779f0aeb67964ea8da23cbef30e2990f1ee71b09d9d9b89365241eda53e",
   "server/admin/vista.php": "273f698309a39442fd2aedef200354cd4bd71222e25c2a4ee96734bc8024e709",
   "temas.mjs": "95f40c1d53ce4bcada6f6eb602e1cd044f9b9dd0405a69538bca71c5d0597618",
-  "transaccion-motor.mjs": "f8ad7e8e37416b0d40bfb4517ccff846a934da6615c8dfab97ca7b7d2cd22745"
+  "transaccion-motor.mjs": "f8ad7e8e37416b0d40bfb4517ccff846a934da6615c8dfab97ca7b7d2cd22745",
+  "verificar-build.mjs": "23af13ca753de37d9685075ed0913f0a1ca110ceb3f77ce55e49026f1938367a"
  }
 }
