@@ -5591,35 +5591,25 @@ ${DATOS_ACTIVO ? `
 
 
   /* ---- que idioma se abre ----
-     Manda lo que el cliente eligio la ultima vez. Si no ha elegido nunca, el de su telefono:
-     se recorre navigator.languages entera y no solo la primera, porque un movil configurado
-     en catalan con ingles detras tiene que abrir en ingles y no en el idioma de la casa.
-     Si ninguno de los suyos es de los tres, ingles — es el idioma que mas turistas comparten
-     y ninguno se queda con una carta que no entiende.
+     Manda lo que el cliente eligio la ultima vez. Si no ha elegido nunca, el idioma BASE del
+     restaurante -- nunca el del telefono. Antes se intentaba adivinar por navigator.languages,
+     pero eso hacia que el selector abriera en el idioma del visitante en vez de en el de la
+     carta, y el propio restaurante no podia contar con que su carta abriera en su idioma la
+     primera vez que alguien la mira -- sorprendia igual que "el selector en blanco" que ya se
+     habia corregido antes (ver el comentario que sigue).
 
-     Y se llama SIEMPRE, tambien para el ingles. Antes habia una condicion que se lo saltaba cuando tocaba ingles: con las tres
-     pildoras daba igual, porque el marcado ya venia con el ingles marcado, pero el
-     desplegable pinta su bandera y su nombre desde el JS. El resultado era
-     un selector en blanco en cualquier telefono que no estuviera en español ni en aleman. */
+     Y se llama SIEMPRE, tambien para el idioma base. Antes habia una condicion que se lo saltaba
+     en ese caso: con las tres pildoras daba igual, porque el marcado ya venia marcado, pero el
+     desplegable pinta su bandera y su nombre desde el JS. El resultado era un selector en
+     blanco. */
   function idiomaSoportado(c) {
     for (var i = 0; i < IDIOMAS.length; i++) if (IDIOMAS[i].code === c) return true;
     return false;
   }
 
-  function idiomaDelNavegador() {
-    var lista = (navigator.languages && navigator.languages.length)
-      ? navigator.languages
-      : [navigator.language || ''];
-    for (var i = 0; i < lista.length; i++) {
-      var c = String(lista[i] || '').slice(0, 2).toLowerCase();
-      if (idiomaSoportado(c)) return c;
-    }
-    return '${IDIOMA_BASE.code}';
-  }
-
   var saved;
   try { saved = localStorage.getItem('${CLAVE('lang')}'); } catch (e) {}
-  if (!saved || !idiomaSoportado(saved)) saved = idiomaDelNavegador();
+  if (!saved || !idiomaSoportado(saved)) saved = '${IDIOMA_BASE.code}';
   setLang(saved);
 
   /* ---- category index sheet ---- */
@@ -5688,7 +5678,7 @@ ${DATOS_ACTIVO ? `
     sheetInvocador = document.activeElement;
     /* Una entrada de historial mientras la hoja está abierta: el botón atrás del móvil la
        cierra en vez de sacar al cliente de la carta, que es lo que hacía hasta ahora. */
-    try { history.pushState({ ${CLIENTE.slug}Hoja: 1 }, ''); } catch (e) {}
+    try { history.pushState({ [${JSON.stringify(CLIENTE.slug + 'Hoja')}]: 1 }, ''); } catch (e) {}
     sheet.hidden = false;
     // one frame at the closed position so the browser has something to transition from
     void sheet.offsetHeight;
@@ -5713,7 +5703,7 @@ ${DATOS_ACTIVO ? `
        si viene de él, el navegador ya la ha quitado y volver a llamar retrocedería dos veces
        —sacando al cliente de la carta, que es justo lo que se quería evitar—. */
     if (!porHistorial) {
-      try { if (history.state && history.state.${CLIENTE.slug}Hoja) history.back(); } catch (e) {}
+      try { if (history.state && history.state[${JSON.stringify(CLIENTE.slug + 'Hoja')}]) history.back(); } catch (e) {}
     }
     sheet.classList.remove('is-open');
     fab.setAttribute('aria-expanded', 'false');
@@ -6461,7 +6451,7 @@ ${DATOS_ACTIVO ? `
     rellenarFicha(row);
     /* Una entrada de historial: el botón atrás del móvil cierra la ficha en vez de sacar al
        comensal de la carta. Es lo que hace que esto se sienta como una aplicación. */
-    try { history.pushState({ ${CLIENTE.slug}Ficha: 1 }, ''); } catch (e) {}
+    try { history.pushState({ [${JSON.stringify(CLIENTE.slug + 'Ficha')}]: 1 }, ''); } catch (e) {}
     ficha.hidden = false;
     void ficha.offsetHeight;                 // un fotograma en su sitio, para que haya transición
     ficha.classList.add('is-open');
@@ -6474,7 +6464,7 @@ ${DATOS_ACTIVO ? `    contarVista(row);
   function cerrarFicha(porHistorial) {
     if (!ficha || ficha.hidden) return;
     if (!porHistorial) {
-      try { if (history.state && history.state.${CLIENTE.slug}Ficha) history.back(); } catch (e) {}
+      try { if (history.state && history.state[${JSON.stringify(CLIENTE.slug + 'Ficha')}]) history.back(); } catch (e) {}
     }
     ficha.classList.remove('is-open');
     soltarFondo();
@@ -6789,8 +6779,24 @@ writeFileSync(
 );
 
 /* The panel needs the dish list, and there must be exactly one source of truth for it, so it
-   is emitted here rather than retyped in PHP. Keys match the data-key on every row. */
-const L_PANEL = LANGS[0] || null;
+   is emitted here rather than retyped in PHP. Keys match the data-key on every row.
+
+   El panel es siempre en español (lang="es" fijo en index.php, con translate="no"): el
+   personal lo lee en español, así que también quiere ver los platos en español, con el
+   inglés como referencia secundaria de búsqueda -- 'lo mismo que ve el cliente en la carta
+   en español', decía el comentario original de este bloque. ANTES esto se resolvía como
+   `LANGS[0]` -- el primer EXTRA del cliente, sin más -- que solo daba español porque en
+   Tinge (base 'en') el primer extra ES 'es'. Con un cliente de base 'es' (Guaza), LANGS[0]
+   es 'en': el campo `es` acababa siendo inglés de verdad, y `name_en` (que en PHP se llena
+   con el `name` crudo, es decir, el idioma BASE) acababa siendo español -- el panel entero
+   con los dos idiomas cambiados de sitio. `resolverIdioma` busca 'es'/'en' donde estén
+   configurados -- en el base o en un extra, nunca "el primero que haya" -- y si el cliente
+   no tiene ese idioma en absoluto, cae al base (lo único que hay). */
+const resolverIdioma = (codigo, texto, grupo) => {
+  if (codigo === IDIOMA_BASE.code) return texto;
+  const lang = LANGS.find((l) => l.code === codigo);
+  return lang ? tr(texto, grupo, lang) : null;
+};
 const catalogue = TAXO.flatMap((t) =>
   t.grupos.flatMap((g) =>
     g.items.map((it) => ({
@@ -6806,12 +6812,14 @@ const catalogue = TAXO.flatMap((t) =>
       group: g.sub || t.label,
       cat: g.cat,                            // la categoría que formaba la clave vieja
       price: /^included$/i.test(it.price) ? '' : String(it.price),
-      /* Lo mismo que ve el cliente en la carta en español: el panel lo enseña tal cual, para
-         que «56 · Cordero · Currys» sea igual en los dos sitios. El inglés sigue en name. */
-      es: L_PANEL ? tr(it.name, 'names', L_PANEL) : it.name,
-      tab_es: L_PANEL ? tr(t.label, 'tabs', L_PANEL) : t.label,
-      group_es: g.sub ? (L_PANEL ? tr(g.sub, 'groups', L_PANEL) : g.sub)
-                      : (L_PANEL ? tr(t.label, 'tabs', L_PANEL) : t.label),
+      es: resolverIdioma('es', it.name, 'names') ?? it.name,
+      en: resolverIdioma('en', it.name, 'names') ?? it.name,
+      tab_es: resolverIdioma('es', t.label, 'tabs') ?? t.label,
+      tab_en: resolverIdioma('en', t.label, 'tabs') ?? t.label,
+      group_es: g.sub ? (resolverIdioma('es', g.sub, 'groups') ?? g.sub)
+                      : (resolverIdioma('es', t.label, 'tabs') ?? t.label),
+      group_en: g.sub ? (resolverIdioma('en', g.sub, 'groups') ?? g.sub)
+                      : (resolverIdioma('en', t.label, 'tabs') ?? t.label),
     }))));
 /* Los temas de marca, ya derivados, para que el panel pinte cada muestra con sus colores
    reales sin repetir en PHP la aritmética de contraste. Misma regla que platos.json: una

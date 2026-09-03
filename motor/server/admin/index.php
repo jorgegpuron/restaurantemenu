@@ -93,12 +93,16 @@ function platos(): array {
   $lista = json_decode($raw, true);
   if (!is_array($lista)) return [];
   /* El panel enseña lo mismo que la carta en español: número, nombre y pestaña. El nombre
-     inglés se conserva en name_en para quien conozca el plato por él (y para buscar). Un
-     platos.json antiguo sin los campos en español sigue funcionando, en inglés. */
+     inglés se conserva en name_en para quien conozca el plato por él (y para buscar).
+     `es`/`en` (y sus `tab_`/`group_`) los manda ya resueltos motor/gen.mjs -- español e
+     inglés de verdad, esten donde esten configurados en este cliente (base o extra), nunca
+     "el primer idioma extra que haya". Un platos.json antiguo sin `en`/`tab_en`/`group_en`
+     cae al campo base (`name`/`tab`/`group` crudos, antes de la reescritura de abajo) y
+     sigue funcionando, igual que ya hacía con `es`. */
   foreach ($lista as &$p) {
-    $p['name_en']  = (string) ($p['name'] ?? '');
-    $p['group_en'] = (string) ($p['group'] ?? '');
-    $p['tab_en']   = (string) ($p['tab'] ?? '');
+    $p['name_en']  = (string) ($p['en'] ?? $p['name'] ?? '');
+    $p['group_en'] = (string) ($p['group_en'] ?? $p['group'] ?? '');
+    $p['tab_en']   = (string) ($p['tab_en'] ?? $p['tab'] ?? '');
     $p['name']  = (string) ($p['es'] ?? $p['name'] ?? '');
     $p['group'] = (string) ($p['group_es'] ?? $p['group'] ?? '');
     $p['tab']   = (string) ($p['tab_es'] ?? $p['tab'] ?? '');
@@ -257,6 +261,22 @@ function wa_normalizar(string $t): string {
  */
 const HERO_TIPOS = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
 
+/* is_writable() NO es la última palabra: sobre OneDrive, unidades de red y carpetas con ACL
+   de Windows devuelve false en carpetas donde escribir funciona perfectamente — comprobado
+   en esta misma máquina, con is_writable() a 0 en assets/platos, assets/hero y
+   assets/publicidad y la escritura real funcionando en las tres. Ese falso negativo dejaba
+   el panel diciendo «no puedo escribir» y bloqueaba subidas que habrían ido bien.
+   Así que si is_writable() dice que no, se pregunta al disco: se escribe un fichero de
+   prueba y se borra. Sólo se rechaza cuando el disco también dice que no, que es cuando el
+   mensaje al restaurante («dale permiso de escritura») es verdad. */
+function carpeta_escribible(string $dir): bool {
+  if (is_writable($dir)) return true;
+  $sonda = $dir . '/.escritura-' . bin2hex(random_bytes(4)) . '.tmp';
+  if (@file_put_contents($sonda, '') === false) return false;
+  @unlink($sonda);
+  return true;
+}
+
 function hero_carpeta_lista(): bool {
   if (!is_dir(HERO_DIR) && !@mkdir(HERO_DIR, 0755, true)) return false;
   /* El guardián se escribe una vez y se queda. Si la carpeta ya lo tiene, no se toca. */
@@ -282,7 +302,7 @@ function hero_carpeta_lista(): bool {
       '</IfModule>',
     ]) . PHP_EOL);
   }
-  return is_writable(HERO_DIR);
+  return carpeta_escribible(HERO_DIR);
 }
 
 /* --- publicidad: el banner alquilado de la carta ---------------------------------------
@@ -317,7 +337,7 @@ function pub_carpeta_lista(): bool {
       '</IfModule>',
     ]) . PHP_EOL);
   }
-  return is_writable(PUB_DIR);
+  return carpeta_escribible(PUB_DIR);
 }
 
 /* Borra UNA creatividad por su basename, y nada mas que eso: sin glob, sin recursion, sin
@@ -620,7 +640,7 @@ function fotos_carpeta_lista(): bool {
       '</IfModule>',
     ]) . PHP_EOL);
   }
-  return is_writable(FOTOS_DIR);
+  return carpeta_escribible(FOTOS_DIR);
 }
 
 /* El nombre lleva el plato delante para poder mirar la carpeta por FTP y saber qué es cada
@@ -2541,8 +2561,10 @@ if (DATOS_ACTIVO && $dentro) {
   /* Se mira la carpeta de datos, no la de encima. Si admin/ es escribible y admin/datos/ no,
      esto decia que todo iba bien mientras datos.php no podia apuntar nada. Cuando todavia no
      existe se mira la de encima, que es quien tiene que dejar crearla. */
-  $dt = ["escribible" => is_dir(DATOS_DIR) ? is_writable(DATOS_DIR)
-                                           : is_writable(dirname(DATOS_DIR))];
+  /* Por el mismo motivo que las carpetas de imagenes: is_writable() miente en OneDrive, en
+     unidades de red y con ACL de Windows. Ver carpeta_escribible(). */
+  $dt = ["escribible" => is_dir(DATOS_DIR) ? carpeta_escribible(DATOS_DIR)
+                                           : carpeta_escribible(dirname(DATOS_DIR))];
   /* Contar gente va por dia natural: es la misma fecha que la cabecera, $hoyReal, y no la de
      servicio, que corre el corte a las 6:00 porque eso es cosa de los agotados. */
   $hoyD = new DateTimeImmutable($hoyReal);
@@ -3933,16 +3955,30 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php
     /* La imagen de la puerta va POR TEMA: acceso-laurel.jpg, acceso-mar.jpg… Cada juego de
        color tiene la suya, así que la puerta cambia cuando el restaurante cambia el tema y no
-       queda una foto verde delante de una tarjeta ciruela. No sale de estado.json ni la escribe
-       el panel: son archivos fijos en admin/ que se sustituyen a mano por FTP.
+       queda una foto verde delante de una tarjeta ciruela. `acceso*.jpg` NO sale de
+       estado.json ni la escribe el panel: son archivos fijos en admin/ que el restaurante
+       sustituye a mano por FTP -- y por eso deploy.yml los excluye siempre del despliegue,
+       para no pisar una foto ya personalizada.
 
-       Tres escalones: la del tema en uso, la del tema de la casa, y acceso.jpg como último
-       recurso. Si no hay ninguna, la tarjeta se queda sin foto en vez de enseñar un hueco gris.
+       `motor-acceso*.jpg` es la MISMA idea pero del motor, no del cliente: las 6 mismas
+       fotos genéricas (sin marca de ningún restaurante, solo un fondo por tema), con nombre
+       distinto a propósito para que el exclude de deploy.yml (que solo empieza por
+       "acceso") no las alcance -- SÍ viajan en cada despliegue, así que un cliente recién
+       nacido, sin ninguna foto propia subida todavía, tiene puerta desde el primer día. En
+       cuanto el restaurante sube la suya (acceso.jpg o la de su tema), esa gana siempre: se
+       comprueba primero.
+
+       Seis escalones: la del tema en uso, la del tema de la casa y acceso.jpg -- las tres
+       personalizadas, si existen -- y las tres mismas del motor detrás. Si no hay ninguna
+       (no debería pasar: el motor siempre trae las suyas), sin foto en vez de un hueco gris.
 
        Al src se le cuelga la fecha del archivo: al reemplazarlo, la dirección cambia sola y
        nadie se queda viendo el anterior por la caché. */
     $foto_login = '';
-    foreach (['acceso-' . $tema_actual . '.jpg', 'acceso-' . tema_por_defecto() . '.jpg', 'acceso.jpg'] as $cual) {
+    foreach ([
+      'acceso-' . $tema_actual . '.jpg', 'acceso-' . tema_por_defecto() . '.jpg', 'acceso.jpg',
+      'motor-acceso-' . $tema_actual . '.jpg', 'motor-acceso-' . tema_por_defecto() . '.jpg', 'motor-acceso.jpg',
+    ] as $cual) {
       if (is_file(__DIR__ . '/' . $cual)) { $foto_login = $cual; break; }
     }
     $hay_foto = $foto_login !== '';
