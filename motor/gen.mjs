@@ -2449,10 +2449,13 @@ html:not(.js) .lang-menu{position:static;display:block}
 
 .menu-group + .menu-group{margin-top:var(--s5)}
 .tab-pane > .menu-group:first-child > .menu-group-title{margin-top:var(--s3)}
+/* El rótulo del grupo escala con el resto del texto de lectura. La línea que separa lo que
+   escala de lo que no es la de SPEC —áreas de dedo no, texto que leer sí— y este rótulo es
+   texto: no es la barra de categorías, que sigue sin escalar porque sus chips son de 44px. */
 .menu-group-title{
   color:var(--accent-ink);
   font-family:var(--title-font);
-  font-size:13px;
+  font-size:calc(13px * var(--escala));
   font-weight:600;
   line-height:normal;
   text-transform:uppercase;
@@ -2713,8 +2716,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .menu-group-note{
   color:var(--muted);
   font-family:var(--body-font);
-  font-size:14px;
-  line-height:24px;
+  font-size:calc(14px * var(--escala));
+  line-height:calc(24px * var(--escala));
   margin-top:var(--s2);
 }
 .menu-group-title + .menu-group-note{margin-top:var(--s3)}
@@ -2726,7 +2729,8 @@ html:not(.js) .lang-menu{position:static;display:block}
      el aviso quedaba 21px metido hacia dentro y se leía como otra cosa. */
   margin:var(--s3) 0 0;
   color:var(--ink);
-  font-family:var(--body-font);font-size:14px;line-height:1.45;
+  /* line-height sin unidad: se multiplica sola con el font-size, no hace falta calc. */
+  font-family:var(--body-font);font-size:calc(14px * var(--escala));line-height:1.45;
 }
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
@@ -3144,6 +3148,18 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   gap:4px;
   transition:top var(--t-fast) var(--ease-out),right var(--t-fast) var(--ease-out);
 }
+/* Mientras el menú de idioma está abierto, los controles de la portada suben por encima de la
+   barra de categorías.
+   El z-index del propio .lang-menu (20) no decide nada: .head-tools es posicionado y con
+   z-index, así que crea contexto de apilamiento y encierra a su descendencia. Quien compite
+   con la barra pegajosa (position:sticky, z-index:30) es .head-tools con su 6, y 30 gana: el
+   menú desplegado quedaba por debajo de la barra. Donde la portada es corta y la barra queda
+   cerca —basta con que la barra empiece antes de que termine el menú— la última opción de
+   idioma caía dentro de la banda de la barra y el toque lo recogía un chip de categoría.
+   Sube sólo mientras está abierto: fijo, los controles de la portada pasarían por encima de la
+   barra al desplazarse, y la barra translúcida está pensada para que la carta pase por debajo.
+   Con :has() sin soporte esto no se aplica y queda el comportamiento de siempre: no empeora. */
+.head-tools:has(.lang-trigger[aria-expanded="true"]){z-index:35}
 /* ---- con foto, los controles van ENCIMA de ella ----
    Metidos 13px por sus dos lados desde la esquina de la foto. Alinearlos con el margen del
    contenido —34— los dejaria pegados al borde de la imagen, que no es "mismo margen": es
@@ -3303,8 +3319,8 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 .has-offer .price-was{
   display:block;
   color:var(--muted);
-  font-size:14px;
-  line-height:18px;
+  font-size:calc(14px * var(--escala));
+  line-height:calc(18px * var(--escala));
   text-decoration:line-through;
   text-decoration-thickness:1px;
 }
@@ -3338,12 +3354,17 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 @media (min-width:992px){
   .col-lg-6 > .single-menu-items:last-child .menu-content{border-bottom:0}
 }
+/* El tamaño del texto de plato se multiplica por --escala AQUI, en la regla base, y no sólo
+   en el bloque del móvil. Escrito sólo dentro de @media (max-width:767px), el token existía
+   pero por encima de 767 no lo leía ninguna regla: los tres botones movían --escala y la
+   carta no cambiaba de tamaño en tablet ni en escritorio. Con --escala:1 estos calc dan
+   exactamente las mismas medidas de antes, así que quien no toca el control ve lo mismo. */
 .menu-content h3{
   color:var(--ink);
   font-family:var(--title-font);
-  font-size:20px;
+  font-size:calc(20px * var(--escala));
   font-weight:600;
-  line-height:30px;
+  line-height:calc(30px * var(--escala));
   letter-spacing:-0.01em;
   font-optical-sizing:auto;
   /* source section used text-transform:capitalize; dropped so dish names render exactly
@@ -3354,9 +3375,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 .menu-content p{
   color:var(--muted);
   font-family:var(--body-font);
-  font-size:14px;
+  font-size:calc(14px * var(--escala));
   font-weight:400;
-  line-height:24px;
+  line-height:calc(24px * var(--escala));
   /* Sin tope de medida: la frase llega hasta donde llega la columna. Habia un max-width de 46ch
      puesto por legibilidad, y a 900px de pantalla dejaba 300 sin usar y partia descripciones que
      caben de sobra en una linea: «Cafe de filtro preparado en Chemex para 2» y debajo, sola,
@@ -3375,10 +3396,12 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   color:var(--ink);
   text-align:right;
   font-family:var(--title-font);
-  font-size:18px;
+  font-size:calc(18px * var(--escala));
   font-weight:600;
-  /* matches the dish name's line box so the price lands on the same baseline */
-  line-height:30px;
+  /* matches the dish name's line box so the price lands on the same baseline — y por eso
+     escala con el nombre: si el nombre crece y el precio no, los dos dejan de compartir
+     caja de línea y el precio se queda descolgado arriba. */
+  line-height:calc(30px * var(--escala));
   white-space:nowrap;
   padding-left:var(--s3);
   font-variant-numeric:tabular-nums;
@@ -3823,7 +3846,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .menu-content h3{font-size:calc(16px * var(--escala));line-height:calc(22px * var(--escala));margin-bottom:6px}
   .menu-content p{font-size:calc(14px * var(--escala));line-height:calc(21px * var(--escala))}
   /* the price shares the dish name's line box, so the two sit on the same line */
-  .single-menu-items .price{font-size:16px;line-height:22px;padding-left:var(--s2)}
+  .single-menu-items .price{font-size:calc(16px * var(--escala));line-height:calc(22px * var(--escala));padding-left:var(--s2)}
 
   /* chips: 44px tall, filled, so they read as tappable and meet the touch minimum */
   .nav-pills .nav-link{
