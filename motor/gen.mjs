@@ -8,7 +8,8 @@ import { buildGame } from './juego.mjs';
 import { buildError404 } from './error404.mjs';
 import { PAISES, CODIGOS, imgBandera } from './banderas.mjs';
 import {
-  cssTemas, temasParaPanel, verificar as verificarTemas, derivar, TEMAS, TEMA_POR_DEFECTO,
+  cssMarca, verificar as verificarMarcaDefecto, verificarPaleta, normalizarHex,
+  PRINCIPAL_DEFECTO, SECUNDARIO, OSCURO, NEUTRO,
 } from './temas.mjs';
 import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE, resolver as resolverAlergeno,
   CANONICAS, ALIAS } from './alergenos.mjs';
@@ -25,9 +26,10 @@ import {
    cambiado, ausente o colado aborta aqui, antes de leer un solo dato del cliente. */
 verificarMotor();
 
-/* Antes de escribir nada: si un tema deja un texto por debajo de su umbral WCAG, el build
-   revienta aquí y no llega a producción. */
-verificarTemas();
+/* Antes de escribir nada: si la paleta de fabrica (la que usa un cliente que no trae
+   color propio) deja un texto por debajo de su umbral WCAG, el build revienta aqui y no
+   llega a produccion. Autocomprobacion del motor, no depende de este cliente. */
+verificarMarcaDefecto();
 
 /* ---- el contrato de configuracion (fase 5) ----
  * Nada de esto tiene valor por defecto en el motor: lo que el cliente no declare y sea
@@ -45,6 +47,26 @@ if (!CLIENTE.moneda || typeof CLIENTE.moneda.simbolo !== 'string' || !CLIENTE.mo
     "declara el simbolo (1-3 caracteres) y el codigo ISO-4217 de tres mayusculas");
 }
 const MONEDA = CLIENTE.moneda;
+
+/* El unico color de marca que declara un cliente: colorPrincipal. Secundario, Oscuro y
+   Neutro son constantes del motor (ver motor/temas.mjs) -- no se piden aqui. Si
+   cliente.mjs no trae `marca.colorPrincipal`, se usa el de fabrica: a diferencia del
+   resto de campos de este bloque, este SI tiene valor por defecto, porque el override
+   real (el que de verdad importa a diario) vive en estado.json y lo pone el panel en
+   caliente, sin recompilar -- exigirlo aqui solo estorbaria una alta que todavia no
+   tiene color propio decidido. Si SI lo trae, tiene que ser un hex valido: eso no se
+   perdona, un color a medias no se inventa. */
+if (CLIENTE.marca && CLIENTE.marca.colorPrincipal !== undefined
+    && normalizarHex(CLIENTE.marca.colorPrincipal) === null) {
+  abortar("cliente.mjs: `marca.colorPrincipal` no es un hex valido -- "
+    + JSON.stringify(CLIENTE.marca.colorPrincipal) + '.',
+    "usa el formato #RRGGBB, o quita el campo para heredar el color de fabrica '#FF7517'");
+}
+const COLOR_PRINCIPAL = (CLIENTE.marca && normalizarHex(CLIENTE.marca.colorPrincipal)) || PRINCIPAL_DEFECTO;
+/* El color de ESTE cliente, no el de fabrica: si no da contraste suficiente contra las
+   constantes fijas del motor, el build revienta aqui, con la pareja exacta que falla --
+   antes de escribir un solo fichero. */
+verificarPaleta(COLOR_PRINCIPAL, "la marca de " + CLIENTE.nombre);
 
 if (typeof CLIENTE.zonaHoraria !== 'string' || !CLIENTE.zonaHoraria) {
   abortar("cliente.mjs: falta `zonaHoraria` (identificador IANA, p. ej. 'Europe/Madrid').",
@@ -262,7 +284,7 @@ export const PUB_URL = 'assets/publicidad/';
    Los colores ya no están escritos aquí: los escribe temas.mjs, un bloque por juego de
    marca, y el panel elige cuál manda. Lo que queda en este archivo es lo que no cambia de
    un restaurante a otro — tipografías, espacios, radios y movimiento. */
-export const TOKENS = cssTemas() + `:root{
+export const TOKENS = cssMarca(COLOR_PRINCIPAL) + `:root{
   /* Sans display over serif body — the inverse of the usual pairing, which is what gives
      Jade its voice: the name reads as signage, the dish copy as a printed page. Both faces
      are variable with an optical-size axis, so they reshape with the size instead of being
@@ -1516,7 +1538,7 @@ const html = `<!DOCTYPE html>
      lo que hacía antes, y lo que la protege ahora es que una foto que falla se reintenta con el
      original en vez de esconderse. El panel reescribe el estado con el mapa la primera vez que
      alguien lo abre. -->
-<script>document.documentElement.className+=' js';try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t;var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
+<script>document.documentElement.className+=' js';try{var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
 try{window.__estado=fetch('estado.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
 window.__anchos=function(s,f){var w=s&&s.heroWebp;if(!w||!f)return null;if(Array.isArray(w))return w.indexOf(f)!==-1?${JSON.stringify(HERO_ANCHOS)}:null;var a=w[f];return(a&&a.length)?a:null};
 window.__srcset=function(f,anchos){var b=f.replace(/\\.[^.]+$/,'');return anchos.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ')};
@@ -1526,7 +1548,7 @@ window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var
 <title>${CLIENTE.titulo}</title>
 <meta name="description" content="${CLIENTE.descripcion}"${attrs(CLIENTE.descripcion, 'ui-cliente')}>
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
-<meta name="theme-color" content="${derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink']}">
+<meta name="theme-color" content="${OSCURO}">
 <link rel="canonical" href="${CLIENTE.base}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${CLIENTE.tituloSocial}">
@@ -1537,18 +1559,19 @@ ${CLIENTE.imagenSocial ? `<meta property="og:image" content="${CLIENTE.base}${CL
 <meta name="twitter:card" content="summary_large_image">` : ''}
 ${FONTS_CARTA}
 <style>
-/* Palette. Un bloque por tema, escrito por temas.mjs: el de la casa en :root y los demás
-   colgando de data-tema, que pone el runtime al leer estado.json. Tres semillas por tema
-   —fondo, tarjeta y acento— y los otros doce valores derivados de ellas, porque son el
-   mismo color a distintas opacidades y elegirlos a mano convertiría cada tema en un
-   rediseño.
+/* Palette. Un único :root, escrito por temas.mjs a partir del único color de ESTE
+   cliente (marca.colorPrincipal en cliente.mjs, editable después en caliente desde
+   Admin → Marca) — ya no hay temas entre los que elegir ni data-tema que conmutar.
+   Secundario, Oscuro y Neutral son constantes fijas del motor, iguales para cualquier
+   cliente; los demás valores se derivan de ellas y del color de este cliente, porque
+   son el mismo color a distintas opacidades y elegirlos a mano convertiría cada cliente
+   en un rediseño.
 
-   El original, "Jade", es ahora el tema marino. Su lectura sigue siendo la misma:
-   sobre la tarjeta crema, ink 16.0:1 · muted 6.8:1 · accent 5.2:1. Ningún tema entra sin
-   pasar esas mismas medidas — se comprueban en el build, no a ojo. */
+   Ningún cliente entra sin pasar las mismas medidas WCAG — se comprueban en el build, no
+   a ojo: ver motor/temas.mjs::verificarPaleta(). */
 ${TOKENS}*,*::before,*::after{box-sizing:border-box}
 /* cream on the dark teal, 5.2:1 — navy on it was only 3.3 */
-::selection{background:var(--accent);color:var(--surface)}
+::selection{background:var(--accent);color:var(--accent-ink)}
 /* La barra de la página también es del tema: sobre el navy, la gris del sistema es lo único
    en pantalla que no ha elegido nadie. Aquí la pastilla es crema al 30%, que se ve sin gritar,
    y la canaleta transparente deja pasar el fondo. */
@@ -1624,7 +1647,7 @@ h1,h2,h3,h4,p{margin:0}
 .title-area .sub-title{
   display:block;
   text-align:center;
-  color:var(--accent-ink);
+  color:var(--ink);
   letter-spacing:.08em;
   font-family:var(--title-font);
   /* stepped down from 16px; 8px, the next notch on the 8pt scale, is unreadable
@@ -1685,7 +1708,7 @@ h1,h2,h3,h4,p{margin:0}
   transition:border-color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
 }
 .lang-trigger:active{transform:scale(.96)}
-.lang-trigger:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.lang-trigger:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (hover:hover) and (pointer:fine){
   .lang-trigger:hover{border-color:var(--muted)}
 }
@@ -1746,7 +1769,7 @@ h1,h2,h3,h4,p{margin:0}
   transition:background-color var(--t-fast) ease;
 }
 .lang-opt .lang-name{flex:1 1 auto}
-.lang-opt:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
+.lang-opt:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 @media (hover:hover) and (pointer:fine){
   .lang-opt:hover{background:var(--chip)}
   /* La opción ya elegida lleva el acento como color de texto, y ese acento sobre --chip da
@@ -1757,8 +1780,8 @@ h1,h2,h3,h4,p{margin:0}
      sobre ese fondo vuelve a pasar, y el hover se sigue notando. */
   .lang-opt[aria-checked="true"]:hover{background:color-mix(in srgb,var(--chip) 45%,var(--surface))}
 }
-.lang-opt[aria-checked="true"]{color:var(--accent-ink);font-weight:600}
-.lang-check{width:17px;height:17px;color:var(--accent-ink);opacity:0}
+.lang-opt[aria-checked="true"]{color:var(--ink);font-weight:600}
+.lang-check{width:17px;height:17px;color:var(--accent);opacity:0}
 .lang-opt[aria-checked="true"] .lang-check{opacity:1}
 /* Sin JS el desplegable no abre, asi que se ensena la lista entera: los tres idiomas siguen
    siendo alcanzables aunque el script no llegue nunca. */
@@ -1944,10 +1967,10 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 /* El badge de «Rush»: identico al de la portada del propio juego (motor/juego.mjs,
    regla #s-intro h1 em — mismo rotate, mismo padding, mismo radio). No es
-   --surface/--offer como el resto de esta tarjeta: es --accent-ink sobre --surface,
-   el par que usa el juego para este badge en concreto y que temas.mjs verifica aparte
-   (--accent contra --surface, 4.5:1 en los dos sentidos) en los 5 temas. Fondo solido
-   a proposito: se lee igual se monte sobre el rojo de la tarjeta o sobre la mascota. */
+   --surface/--offer como el resto de esta tarjeta: fondo en el acento LITERAL con su
+   propia tinta encima (--accent-ink sobre --accent, el par que temas.mjs verifica en
+   PAREJAS). Fondo solido a proposito: se lee igual se monte sobre el rojo de la tarjeta
+   o sobre la mascota. */
 /* Brillo que recorre el badge cada 3,6s (arranca con 1s de retraso, para no disparar a
    la vez que el pulso del boton). overflow:hidden en el propio badge recorta la barra
    al tamano de la pastilla, asi que el rotate(-3deg) del padre ya la deja inclinada
@@ -1959,8 +1982,8 @@ html:not(.js) .lang-menu{position:static;display:block}
      horizontal, se leia apretada. Con aire vertical tambien, respira mas. */
   padding:.1em .26em;
   border-radius:.16em;
-  background:var(--accent-ink);
-  color:var(--surface);
+  background:var(--accent);
+  color:var(--accent-ink);
 }
 .game-card-word--badge::after{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -2050,7 +2073,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 .social-link svg{width:32px;height:32px}
 .social-link:active{transform:scale(.9)}
 /* El foco por fuera del disco: dentro de uno lleno y oscuro no se veria. */
-.social-link:focus-visible{outline:3px solid var(--accent-ink);outline-offset:2px}
+.social-link:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 @media (hover:hover) and (pointer:fine){
   .social-link:hover{background:color-mix(in srgb,var(--ink) 82%,var(--surface))}
 }
@@ -2085,7 +2108,7 @@ html:not(.js) .lang-menu{position:static;display:block}
    comensal que ahí se puede pulsar. Un velo del color del texto al 5%, que sobre el papel de
    cualquiera de los cinco temas se ve sin ensuciarlo. */
 .single-menu-items.abre:active{background:color-mix(in srgb,var(--ink) 5%,transparent)}
-.single-menu-items.abre:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:8px}
+.single-menu-items.abre:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 @media (hover:hover) and (pointer:fine){
   .single-menu-items.abre:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
 }
@@ -2145,7 +2168,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   box-shadow:0 1px 3px rgba(0,0,0,.28);
 }
 .dsheet-close svg{width:18px;height:18px}
-.dsheet-close:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.dsheet-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* La foto ES la ficha. En 4:5, que es la vertical del móvil: llena la pantalla y el texto va
    encima, en el pie. El hueco se reserva con aspect-ratio desde el principio, así que la ficha
    se abre ya del alto que va a tener y no pega un salto cuando llega la imagen.
@@ -2225,7 +2248,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Sobre el papel, los colores de siempre. */
 .dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre,
 .dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{text-shadow:none}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{color:var(--accent-ink)}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{color:var(--ink)}
 .dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted)}
 /* Sobre el papel el nombre respira un punto más: sin la foto detrás no hay degradado que
    separe, y el aire lo tiene que poner el espaciado. */
@@ -2318,7 +2341,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 .ds-clear svg{width:16px;height:16px}
 .ds-clear:active{transform:scale(.9)}
-.ds-clear:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.ds-clear:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ds-field.has-text .ds-clear{display:flex}
 
 /* ---- los filtros ----
@@ -2344,9 +2367,9 @@ html:not(.js) .lang-menu{position:static;display:block}
    vacias detras de cada numero de plato; aqui no se repite. */
 .ds-chip[hidden]{display:none}
 .ds-chip:active{transform:scale(.96)}
-.ds-chip:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ds-chip .n{font-variant-numeric:tabular-nums;font-size:11px;opacity:.65}
-.ds-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.ds-chip[aria-pressed="true"]{background:var(--solid);border-color:var(--solid);color:var(--solid-ink)}
 .ds-chip[aria-pressed="true"] .n{opacity:.8}
 
 /* ---- resultados ----
@@ -2373,7 +2396,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   transition:transform var(--t-press) var(--ease-out);
 }
 .ds-hit:active{transform:scale(.99)}
-.ds-hit:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px;border-radius:8px}
+.ds-hit:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
 .ds-hit-num{
   flex:0 0 auto;min-width:26px;
   color:var(--muted);
@@ -2408,7 +2431,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   transition:transform var(--t-press) var(--ease-out);
 }
 .ds-reset:active{transform:scale(.97)}
-.ds-reset:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.ds-reset:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* Al saltar a un plato, un destello para que el ojo lo encuentre entre veinte filas iguales.
    Una vez, y se acabo: nada que siga moviendose mientras se lee. */
@@ -2534,7 +2557,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 .nav-arrow-next{right:0}
 .nav-arrow:not(:disabled):active{transform:scale(.92)}
 .nav-arrow:disabled{opacity:.3;cursor:default}
-.nav-arrow:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.nav-arrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* ---- la lupa ----
    Vive en el racimo de la cabecera, al lado del idioma. Solo de 768 para arriba: por debajo
    esta el boton flotante de categorias, que ya abre la misma hoja y esta siempre a un dedo.
@@ -2555,7 +2578,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 .nav-search svg{width:19px;height:19px}
 .nav-search:active{transform:scale(.92)}
-.nav-search:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.nav-search:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (hover:hover) and (pointer:fine){
   .nav-search:hover{background:var(--border)}
 }
@@ -2599,9 +2622,12 @@ html:not(.js) .lang-menu{position:static;display:block}
   transform-origin:left;
   transition:transform var(--t-fast) var(--ease-out);
 }
-/* touch fires :hover on tap, so the hover shift is gated to real pointers */
+/* El naranja de marca no vale como texto pequeño sobre la tarjeta clara (2.45:1, no
+   llega a 4.5). El aviso de hover pasa del color al propio subrayado: crece a media
+   asta en vez de a tope, que es la marca de "activa" -- el color de marca se queda en
+   el filete, nunca en la letra. touch fires :hover on tap, so it's gated to pointers. */
 @media (hover:hover) and (pointer:fine){
-  .nav-pills .nav-link:hover{color:var(--accent-ink)}
+  .nav-item:not(.active) .nav-link:hover::after{transform:scaleX(.4)}
 }
 /* Hasta ahora la pestana activa y las demas pesaban lo mismo —600 las dos— y solo cambiaban
    de color y de subrayado. Esto anade la jerarquia que faltaba: 500 en reposo, 800 activa, y
@@ -2610,9 +2636,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    ahora 400..800 y 400..600 en vez de pesos separados por comas. Una fuente variable ademas
    pesa menos que las tres estaticas que se bajaban antes. */
 .nav-pills .nav-link{font-variation-settings:"wght" 500}
-.nav-item.active .nav-link{color:var(--accent-ink);font-variation-settings:"wght" 800}
+/* El texto activo se queda en tinta (--ink), no en el acento: es titular corto sobre
+   superficie clara, y ahi el naranja no pasa 4.5:1. El acento sigue siendo la senal de
+   marca, pero vive en el subrayado de abajo (::after) y no en la letra. */
+.nav-item.active .nav-link{color:var(--ink);font-variation-settings:"wght" 800}
 .nav-item.active .nav-link::after{transform:scaleX(1)}
-.nav-pills .nav-link:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px}
+.nav-pills .nav-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 /* "Special menus" separator — Kids / Gluten Free / Vegan are not courses */
 .nav-divider{
@@ -2641,7 +2670,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 .menu-group + .menu-group{margin-top:var(--s5)}
 .tab-pane > .menu-group:first-child > .menu-group-title{margin-top:var(--s3)}
 .menu-group-title{
-  color:var(--accent-ink);
+  color:var(--ink);
   font-family:var(--title-font);
   font-size:13px;
   font-weight:600;
@@ -2667,15 +2696,17 @@ html:not(.js) .lang-menu{position:static;display:block}
 .group-icon{
   flex:0 0 auto;
   display:inline-flex;
-  /* accent-ink, matching the heading it sits beside: raw --accent is 2.1:1 on cream and
-     the shape stopped reading at 17px */
-  color:var(--accent-ink);
+  /* --accent literal a proposito (ajuste Fase 8): el acento vivo es el color de marca en
+     los iconos de categoria, no una version oscurecida de si mismo. Si a este tamano
+     (17px) se pierde contra la tarjeta, la resolucion es agrandar el icono o anadirle
+     trazo -- nunca sustituir el naranja por otro color "de forma general". */
+  color:var(--accent);
 }
 .group-icon svg{width:17px;height:17px}
 
 /* diet marks — informational, so they carry a label rather than aria-hidden */
 .diet-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:1px}
-.diet{display:inline-flex;color:var(--accent-ink)}
+.diet{display:inline-flex;color:var(--accent)}
 .diet svg{width:14px;height:14px}
 /* Los alergenos declarados del plato. Misma caja y misma medida que las marcas de dieta -- van
    en la misma linea y a la misma altura optica-- pero en el gris del texto secundario y no en
@@ -2852,7 +2883,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   transform:translateY(-120%);
   padding:var(--s1) var(--s2);
   background:var(--accent);
-  color:var(--surface);
+  color:var(--accent-ink);
   font-weight:700;
   border-radius:0 0 var(--r-card) var(--r-card);
   text-decoration:none;
@@ -2929,7 +2960,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
-  background:var(--accent-ink);color:var(--surface);
+  background:var(--accent);color:var(--accent-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
 
@@ -2967,13 +2998,13 @@ html:not(.js) .lang-menu{position:static;display:block}
   align-items:center;
   justify-content:flex-end;
   height:30px;
-  color:var(--accent-ink);
+  color:var(--accent);
   opacity:.75;
 }
 .item-icon svg{width:17px;height:17px}
 .item-badge-icon{
   padding:0 5px;
-  color:var(--accent-ink);
+  color:var(--accent);
   line-height:0;
 }
 .item-badge-icon svg{width:14px;height:14px;display:inline-block;vertical-align:-2px}
@@ -2986,9 +3017,10 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:1px 7px;
   border-radius:var(--r-pill);
   /* filled, unlike the muted number badge: eight rows out of 326 are meant to be seen.
-     Cream on accent-ink is 5.2:1; accent-ink on the chip would have been 4.5 at 10px. */
-  background:var(--accent-ink);
-  color:var(--surface);
+     Ajuste Fase 8: fondo en el acento LITERAL, no en una version oscurecida de si mismo
+     -- el texto es --accent-ink (tinta sobre el acento), 5.47:1 con la paleta de fabrica. */
+  background:var(--accent);
+  color:var(--accent-ink);
   font-family:var(--title-font);
   font-size:11px;
   font-weight:600;
@@ -3104,7 +3136,7 @@ html:not(.has-hero) .hero{display:none}
   scrollbar-width:none;
 }
 .hero-track::-webkit-scrollbar{display:none}
-.hero-track:focus-visible{outline:3px solid var(--accent-ink);outline-offset:-3px}
+.hero-track:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 /* Con una sola foto no hay nada que deslizar, y dejar el scroll vivo permite arrastrarla
    fuera de su sitio sin que vuelva. */
 .hero.is-single .hero-track{overflow-x:hidden}
@@ -3156,7 +3188,7 @@ html:not(.has-hero) .hero{display:none}
 .hero-next{right:var(--s2)}
 .hero-arrow:active{transform:scale(.92)}
 .hero-arrow:disabled{opacity:0;pointer-events:none}
-.hero-arrow:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.hero-arrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (hover:hover) and (pointer:fine){
   .hero:not(.is-single) .hero-arrow{display:flex}
 }
@@ -3240,7 +3272,7 @@ html:not(.has-hero) .hero{display:none}
   from{opacity:.45;transform:scale(1)}
   to{opacity:0;transform:scale(3.2)}
 }
-.hero-dot:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-4px;border-radius:8px}
+.hero-dot:focus-visible{outline:2px solid var(--accent);outline-offset:-4px;border-radius:8px}
 @media (hover:hover) and (pointer:fine){
   .hero-dot:not([aria-current="true"]):hover::before{opacity:.85}
 }
@@ -3324,7 +3356,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 }
 .txt-size-btn:active{transform:scale(.94)}
 .txt-size-btn[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
-.txt-size-btn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.txt-size-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Cada botón a su tamaño: la A pequeña es la normal, la grande es la grande. */
 .txt-size-btn:nth-child(1){font-size:13px}
 .txt-size-btn:nth-child(2){font-size:16px}
@@ -3635,13 +3667,15 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   min-width:260px;
   max-width:92vw;
   justify-content:center;
-  border:0;
   border-radius:999px;
-  /* Del color de la marca, no crema: flotando sobre la tarjeta —que también es crema— el botón
-     se perdía en cuanto pasaba por encima de ella. El acento del tema contrasta con las dos
-     cosas, con la tarjeta clara y con el fondo oscuro de la página. */
-  background:var(--accent);
-  color:var(--surface);
+  /* Ajuste Fase 8: el CTA principal es un boton solido, no el acento a toda plancha --
+     el naranja no tiene que cubrir la superficie mas grande y mas fija de la pantalla.
+     Solido (--solid, el secundario) igual que cualquier boton de accion; un filete del
+     acento por fuera es lo que evita que se pierda contra el pie oscuro (--solid e --ink
+     son casi el mismo tono, 1.3:1 entre si -- sin el filete el boton se fundiria ahi). */
+  background:var(--solid);
+  color:var(--solid-ink);
+  border:1.5px solid var(--accent);
   font-family:var(--title-font);
   font-size:15px;
   font-weight:600;
@@ -3651,7 +3685,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 }
 /* translateX(-50%) is doing the centring, so the press scale has to compose with it */
 .menu-fab:active{transform:translateX(-50%) scale(.96)}
-.menu-fab:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-6px}
+.menu-fab:focus-visible{outline:2px solid var(--accent);outline-offset:-6px}
 @media (max-width:767px){.menu-fab{display:flex}}
 
 .sheet[hidden]{display:none}
@@ -3801,7 +3835,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   transition:transform var(--t-press) var(--ease-out);
 }
 .sheet-close:active{transform:scale(.92)}
-.sheet-close:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.sheet-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* El rótulo que parte los resultados del buscador en «Platos» y «También en estas secciones».
    Comparte selector con .sheet-label y no copia sus medidas: es el mismo rótulo, en la misma
    hoja, a la misma distancia de lo que encabeza. Dos reglas gemelas se separan a la tercera
@@ -3842,9 +3876,10 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   transform-origin:left center;
 }
 .sheet-item:active{transform:scale(.985)}
-.sheet-item:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
-.sheet-item[aria-current="true"]{color:var(--accent-ink)}
-/* the dot is redundant with the colour, so state never depends on colour alone */
+.sheet-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sheet-item[aria-current="true"]{color:var(--ink);font-weight:700}
+/* the dot is redundant with the colour, so state never depends on colour alone --
+   and since the ajuste Fase 8, it carries the accent alone: the text stays --ink. */
 .sheet-item .sheet-item-name{flex:1 1 auto}
 .sheet-item[aria-current="true"] .sheet-item-name::before{
   content:"";
@@ -3859,7 +3894,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 .sheet-item-icon{
   flex:0 0 auto;
   display:inline-flex;
-  color:var(--accent-ink);
+  color:var(--accent);
   opacity:.85;
 }
 .sheet-item-icon svg{width:18px;height:18px}
@@ -4060,7 +4095,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   }
   .nav-pills .nav-link:active{transform:scale(.95)}
   .nav-pills .nav-link::after{display:none}
-  .nav-item.active .nav-link{background:var(--accent-ink);color:var(--surface)}
+  .nav-item.active .nav-link{background:var(--solid);color:var(--solid-ink)}
   .nav-divider{margin:0 4px 0 0;padding:0;line-height:1.2}
 }
 @media (max-width:470px){
@@ -4095,7 +4130,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 
 @media (prefers-contrast:more){
   .menu-content{border-bottom-color:var(--ink)}
-  .menu-group-title::after{background:var(--accent-ink)}
+  .menu-group-title::after{background:var(--accent)}
   .tab-nav{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}
 }
 
@@ -5202,31 +5237,10 @@ ${sheet}
      sentado en la mesa— no se entera hasta que recarga. Son 200 bytes por vuelta.
      Si la petición falla se conserva el estado anterior en vez de vaciarlo: un corte de red
      no debe borrar los agotados de la pantalla. */
-  /* ---- el tema de marca ----
-     El juego de colores lo elige el panel y viaja en estado.json, pero estado.json llega
-     por fetch, es decir, después de pintar. Si se aplicara solo ahí, el cliente vería medio
-     segundo de los colores de la casa antes del cambio: un parpadeo feísimo en la primera
-     pantalla del restaurante.
-
-     Por eso el tema se guarda también en el móvil y un script de dos líneas en el <head> lo
-     pone antes de pintar. Este de aquí solo corrige si el panel lo ha cambiado desde la
-     última visita. La primera visita de todas sí ve el tema de la casa un instante: es la
-     única forma de evitarlo del todo, y sería reescribir el HTML en cada cambio. */
-  var TEMAS_OK = ${JSON.stringify(TEMAS.map((t) => t.slug))};
-  var TEMA_DEF = ${JSON.stringify(TEMA_POR_DEFECTO)};
-
-  function aplicarTema(slug) {
-    if (TEMAS_OK.indexOf(slug) === -1) slug = TEMA_DEF;
-    var raiz = document.documentElement;
-    if (slug === TEMA_DEF) delete raiz.dataset.tema;
-    else raiz.dataset.tema = slug;
-    try { localStorage.setItem('${CLAVE('tema')}', slug); } catch (e) {}
-    /* La barra del navegador, del color del fondo de la página: con un valor fijo, al
-       cambiar de tema el móvil seguía enmarcando la carta con el color del tema anterior. */
-    var meta = document.querySelector('meta[name="theme-color"]');
-    var fondo = getComputedStyle(raiz).getPropertyValue('--ink').trim();
-    if (meta && fondo) meta.content = fondo;
-  }
+  /* El color ya no es una eleccion del panel: son los tres de marca.mjs, horneados en el
+     :root del build. Sin conmutacion, sin parpadeo que evitar, sin nada que aplicar en
+     runtime -- el <meta theme-color> del <head> ya lleva el valor correcto desde que sale
+     del build. */
 
   var bannerMq = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
   var bannerUltimo = null;
@@ -5290,7 +5304,7 @@ ${sheet}
       .then(function (r) { return r.ok ? r.json() : null; });
     return peticion
       .then(function (state) {
-        if (state) { estado = state; aplicarTema(state.theme); aplicarMarca(state.marca); }
+        if (state) { estado = state; aplicarMarca(state.marca); }
         estadoLeido = true;
         render();
       })
@@ -5740,6 +5754,37 @@ ${DATOS_ACTIVO ? `
       });
     }
   })();
+  /* El unico color que se puede cambiar sin recompilar. Secundario/Oscuro/Neutro son
+     constantes del motor y no cambian nunca en caliente -- por eso se leen tal cual del
+     :root ya pintado (getComputedStyle) en vez de llevar aqui una copia a mano que
+     pudiera desincronizarse. Misma aritmetica que motor/temas.mjs::derivar() /
+     inkSobre() / metalLegible(), a proposito: un color que el panel ya acepto tiene que
+     dar el mismo resultado aqui que en el build. Si el hex guardado no diera para leerse
+     -- no deberia pasar, el panel valida antes de guardar -- no se toca nada del :root:
+     mejor quedarse con el color de build que pintar un texto ilegible. */
+  function derivarPrincipal(hex) {
+    var raiz = getComputedStyle(document.documentElement);
+    var oscuro = raiz.getPropertyValue('--ink').trim();
+    var neutro = raiz.getPropertyValue('--surface').trim();
+    function aRGB(h) { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+    function canal(c) { var s = c / 255; return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); }
+    function luz(h) { var c = aRGB(h).map(canal); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+    function contraste(a, b) { var x = luz(a), y = luz(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+    function mezcla(a, b, t) {
+      var ca = aRGB(a), cb = aRGB(b);
+      return '#' + [0, 1, 2].map(function (i) {
+        var n = Math.round(Math.min(255, Math.max(0, ca[i] * t + cb[i] * (1 - t))));
+        return (n < 16 ? '0' : '') + n.toString(16);
+      }).join('');
+    }
+    var accentInk = contraste(oscuro, hex) >= 4.5 ? oscuro : (contraste(neutro, hex) >= 4.5 ? neutro : null);
+    var metal = null;
+    for (var t = 100; t >= 40; t -= 1) {
+      var c = mezcla(hex, neutro, t / 100);
+      if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
+    }
+    return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal } : null;
+  }
   function aplicarMarca(marca) {
     var m = marca || {};
     var nombreOv = typeof m.nombreVisible === 'string' ? m.nombreVisible.trim() : '';
@@ -5751,6 +5796,16 @@ ${DATOS_ACTIVO ? `
       IDIOMAS.forEach(function (l) { sub.dataset[l.code] = rotuloOv || MARCA_DEF_ROTULO[l.code]; });
       var actual = document.documentElement.lang;
       sub.textContent = sub.dataset[actual] !== undefined ? sub.dataset[actual] : MARCA_DEF_ROTULO[actual];
+    }
+    var colorOv = typeof m.colorPrincipal === 'string' ? m.colorPrincipal.trim() : '';
+    if (/^#[0-9a-fA-F]{6}$/.test(colorOv)) {
+      var d = derivarPrincipal(colorOv);
+      if (d) {
+        var raizStyle = document.documentElement.style;
+        raizStyle.setProperty('--accent', d.accent);
+        raizStyle.setProperty('--accent-ink', d.accentInk);
+        raizStyle.setProperty('--metal', d.metal);
+      }
     }
   }
 
@@ -7041,9 +7096,7 @@ const juego = !CLIENTE.funciones.juego ? lapida() : buildGame({
      con la misma lista que valida el endpoint. */
   PAISES, imgBandera,
   T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), CLIENTE, CLAVE,
-  ZONA: CLIENTE.zonaHoraria, CORTE: CORTE_HORA, BASE: IDIOMA_BASE.code,
-  TEMAS_SLUGS: [TEMA_POR_DEFECTO].concat(TEMAS.map((t) => t.slug).filter((s) => s !== TEMA_POR_DEFECTO)),
-  TEMA_INK: derivar(TEMAS.find((t) => t.slug === TEMA_POR_DEFECTO))['--ink'],
+  ZONA: CLIENTE.zonaHoraria, CORTE: CORTE_HORA, BASE: IDIOMA_BASE.code, INK: OSCURO,
   /* El mismo titulo en todos los idiomas: es el nombre del juego y el del restaurante. */
   titles: Object.fromEntries([IDIOMA_BASE.code].concat(LANGS.map((l) => l.code))
     .map((c) => [c, CLIENTE.tituloJuego])),
@@ -7058,7 +7111,7 @@ writeFileSync(
      .htaccess sirve este fichero con un 200 y hay que corregirlo aqui. Un 404 que responde 200
      es lo que Google llama un soft 404, y es peor que no tener pagina de error. */
   '<' + '?php http_response_code(404); ?' + '>' + String.fromCharCode(10)
-  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE: IDIOMA_BASE.code })),
+  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE: IDIOMA_BASE.code, INK: OSCURO })),
 );
 
 /* El panel también bebe de aquí. Antes tenía su propia paleta y sus propias fuentes copiadas
@@ -7119,13 +7172,6 @@ const catalogue = TAXO.flatMap((t) =>
       group_en: g.sub ? (resolverIdioma('en', g.sub, 'groups') ?? g.sub)
                       : (resolverIdioma('en', t.label, 'tabs') ?? t.label),
     }))));
-/* Los temas de marca, ya derivados, para que el panel pinte cada muestra con sus colores
-   reales sin repetir en PHP la aritmética de contraste. Misma regla que platos.json: una
-   sola verdad, escrita por el build. */
-writeFileSync(
-  generado('admin/temas.json'),
-  JSON.stringify({ porDefecto: TEMA_POR_DEFECTO, temas: temasParaPanel() }, null, 1),
-);
 
 /* Los ocho caracteres del contador de consultas no pueden chocar: ni entre platos, ni con
    los hashes de las claves viejas, que siguen vivos en los registros mensuales ya escritos.
@@ -7142,7 +7188,7 @@ writeFileSync(
   }
 }
 
-/* Directo a server/admin/, como temas.json: el catálogo se sube desde ahí y tenerlo en la
+/* Directo a server/admin/: el catálogo se sube desde ahí y tenerlo en la
    raíz obligaba a un movimiento a mano que tarde o temprano se olvida. */
 writeFileSync(generado('admin/platos.json'), JSON.stringify(catalogue, null, 1));
 
@@ -7153,7 +7199,7 @@ writeFileSync(generado('admin/platos.json'), JSON.stringify(catalogue, null, 1))
 
    Va en su propio archivo y no dentro de config.php porque config.php se edita a mano (el modo
    demo, los minutos de sesión) y lo que genera el build no puede pisar lo que escribe una
-   persona. Es la misma regla que tokens.css, temas.json y platos.json. */
+   persona. Es la misma regla que tokens.css y platos.json. */
 /* La lista de paises tambien en PHP: la valida record.php y la pinta el panel. Se escribe
    desde banderas.mjs para que no haya dos listas que se separen al anadir un pais. */
 writeFileSync(
@@ -7204,6 +7250,15 @@ writeFileSync(
     /* El de fábrica, para que Marca pueda enseñarlo como pista (placeholder) sin inventar
        ningún texto: si el campo está vacío, esto es lo que se está usando ahora mismo. */
     "define('CLIENTE_ROTULO', " + JSON.stringify(CLIENTE.rotulo) + ');',
+    /* El unico color de cliente (el de build, sin el override de estado.json -- ese lo
+       aplica el panel en caliente, leyendo esta misma constante como "a que restaurar")
+       y las tres constantes fijas del motor, para que Marca las enseñe de referencia.
+       Secundario/Oscuro/Neutral son SIEMPRE estos valores, para cualquier cliente --
+       ver motor/temas.mjs. */
+    "define('CLIENTE_COLOR_PRINCIPAL', " + JSON.stringify(COLOR_PRINCIPAL) + ');',
+    "define('CLIENTE_COLOR_SECUNDARIO', " + JSON.stringify(SECUNDARIO) + ');',
+    "define('CLIENTE_COLOR_OSCURO', " + JSON.stringify(OSCURO) + ');',
+    "define('CLIENTE_COLOR_NEUTRAL', " + JSON.stringify(NEUTRO) + ');',
     /* La marca de esta compilacion, para que el panel pueda decir que version corre. Es el
        mismo numero que viaja en version.json y dentro del HTML de la carta: si los tres no
        coinciden, la subida se quedo a medias o el movil esta enseñando cache. */

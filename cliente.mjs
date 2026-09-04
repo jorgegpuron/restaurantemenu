@@ -54,6 +54,21 @@ export const CLIENTE = {
      vuelve a compartirse sin imagen. Se comprueba abriendo la URL en el navegador. */
   imagenSocial: 'assets/hero/13e8475aef8d2630.jpg',
 
+  /* El único color de marca que declara un cliente. OPCIONAL: sin él, el build usa el
+   * naranja de fábrica ('#FF7517', el mismo valor de aquí abajo). Si se declara, tiene
+   * que superar el contraste contra las constantes fijas del motor (ver verificarPaleta()
+   * en motor/temas.mjs) -- Secundario, Oscuro y Neutro NO se declaran aquí: son
+   * constantes del motor, iguales para cualquier cliente.
+   *
+   * De aquí se deriva --accent/--accent-ink/--metal -- nunca se elige un token suelto a
+   * mano. Editable después, en caliente, desde Admin -> Marca (estado.json), sin
+   * recompilar: este valor es el de partida/restaurar, no el único que puede estar activo.
+   *
+   * Tinge estrena aquí la paleta por defecto del motor (Fase 8): no es una réplica del tema
+   * "onice" que llevaba antes, es la nueva identidad de fábrica puesta a prueba primero en
+   * el cliente de referencia. */
+  marca: { colorPrincipal: '#FF7517' },
+
   /* La nota fiscal del pie de los precios. OBLIGATORIA: el build revienta si falta.
    *
    * Va aquí y no en el motor porque el impuesto no es el mismo en todas partes. En Canarias

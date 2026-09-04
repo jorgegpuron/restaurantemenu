@@ -24,14 +24,12 @@ Estructura en el servidor (dentro de /tinge_of_turmeric/menu2/):
      fuentes.html     fuentes del panel (lo genera gen.mjs)
      .htaccess        endurecido
      hash.php         generador de hash del superadmin (cerrado por defecto)
-     acceso-<tema>.jpg  la imagen de la ventana de entrada, UNA POR TEMA:
-                      acceso-laurel.jpg, acceso-onice.jpg, acceso-caoba.jpg,
-                      acceso-mar.jpg y acceso-ciruela.jpg. El panel sirve la del tema
-                      que este puesto en Marca; si falta, la de laurel; si tampoco,
-                      acceso.jpg. Son archivos fijos: no salen de estado.json y el panel
-                      no los escribe ni los borra. Para cambiar una, sube la tuya encima
-                      por FTP con el mismo nombre (3:2; 900x600 va sobrado).
-                      Si las cambias, no vuelvas a subir las del build por encima.
+     acceso.jpg       la imagen de la ventana de entrada. Si falta, el panel sirve
+                      motor-acceso.jpg (genérica, la trae el motor). Es un archivo fijo:
+                      no sale de estado.json y el panel no lo escribe ni lo borra. Para
+                      cambiarla, sube la tuya encima por FTP con el mismo nombre
+                      (3:2; 900x600 va sobrado). Si la cambias, no vuelvas a subir la
+                      del build por encima.
      clave.php        la escribe el panel: contraseña del restaurante. NO SUBIRLA NUNCA
                       por encima: pisarla deja al restaurante fuera.
      superclave.php   hash del superadministrador. Se crea UNA vez (ver abajo) y no

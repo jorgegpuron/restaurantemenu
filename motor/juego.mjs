@@ -38,7 +38,7 @@ const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
 export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, titles,
-  TEMAS_SLUGS, TEMA_INK, CLIENTE, CLAVE, PAISES, ZONA, CORTE, BASE }) {
+  INK, CLIENTE, CLAVE, PAISES, ZONA, CORTE, BASE }) {
   /* Las opciones del selector de pais.
 
      Un <option> NO admite un <span> dentro: el navegador se lo come y el texto se queda en
@@ -60,10 +60,9 @@ export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, tit
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="${TEMA_INK}">
+<meta name="theme-color" content="${INK}">
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
 <title>${CLIENTE.tituloJuego}</title>
-<script>try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t}catch(e){}</script>
 ${FONTS}
 <style>
 ${TOKENS}
@@ -79,10 +78,18 @@ ${TOKENS}
  * con la paleta que elija el restaurante, cosa que --offer no hacía.
  *
  * Ambos salen de tokens del tema: no hay un color nuevo inventado, y la guarda de contraste
- * del build sigue midiendo los mismos pares. */
+ * del build sigue midiendo los mismos pares. --metal y no --accent-ink a proposito (ajuste
+ * Fase 8): el tablero es un fondo OSCURO, y accent-ink es el texto que va sobre un fondo
+ * del ACENTO -- lo que hace falta aqui es el acento vivo leyendose sobre --ink, que es
+ * exactamente lo que --metal calcula (con la paleta de fabrica, el mismo naranja literal). */
 :root{
-  --juego-go:var(--accent-ink);      /* pulsar, lograr, tu marca: lo que empuja hacia delante */
+  --juego-go:var(--metal);      /* pulsar, lograr, tu marca: lo que empuja hacia delante */
   --juego-peligro:var(--offer);      /* la bomba, el hielo y el tiempo agotándose */
+  /* El "-2" del float de puntuación: antes era #e39992 fijo, un rosa a mano que no pasaba
+     por la guarda de contraste de ningún cliente. Ahora es --offer aclarado con blanco
+     hasta leerse sobre --base (el fondo del tablero) -- mismo criterio que --juego-go/
+     --juego-peligro arriba: ningún color nuevo, uno de tema mezclado con blanco en CSS. */
+  --juego-float-malo:color-mix(in srgb,var(--offer) 65%,white);
 }
 *,*::before,*::after{box-sizing:border-box}
 html,body{height:100%}
@@ -311,7 +318,10 @@ h1{
 #s-intro h1 em{
   font-style:normal;display:inline-block;
   transform:rotate(-3deg);
-  color:var(--surface);background:var(--juego-go);
+  /* --juego-go ahora es --metal, el acento vivo -- la tinta encima ya no puede ser
+     --surface (2.45:1, no llega): --accent-ink, el mismo par que el badge gemelo de la
+     tarjeta en gen.mjs. */
+  color:var(--accent-ink);background:var(--juego-go);
   padding:0 .18em;border-radius:.14em;
 }
 @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -413,7 +423,11 @@ h1{
   padding:0;border:0;
   border-radius:50%;
   background:var(--surface);
-  color:var(--juego-go);
+  /* --ink y no --juego-go: la ficha que hay que tocar es el elemento mas importante del
+     juego, y el acento vivo no llega a 3:1 sobre --surface (2.45:1) -- aqui el naranja
+     cambia de tipo de uso (icono critico -> tinta), como pide la prioridad 2/3 del
+     ajuste de la Fase 8, en vez de arriesgar que la ficha se pierda contra el tablero. */
+  color:var(--ink);
   cursor:pointer;
   opacity:1;
   transition:opacity var(--t-fast) var(--ease-out);
@@ -448,8 +462,11 @@ h1{
    pero se pierde entre las fichas; esto dice QUE HA PASADO desde el rabillo del ojo. */
 .hud-val.boom{animation:boom 420ms var(--ease-out)}
 @keyframes boom{
-  0%{color:var(--juego-go);transform:scale(1.25)}
-  60%{color:var(--juego-go);transform:scale(1)}
+  /* --ink y no --juego-go: mismo hallazgo que .tally.record -- ni el acento ni el rojo
+     leen sobre --base, y este flash es lo bastante rapido (420ms) para que el pulso de
+     escala, no el color, sea quien de verdad avisa. */
+  0%{color:var(--ink);transform:scale(1.25)}
+  60%{color:var(--ink);transform:scale(1)}
   100%{color:inherit;transform:scale(1)}
 }
 .float.boom{font-size:24px}
@@ -464,14 +481,14 @@ h1{
   width:40px;
   font-family:var(--title-font);font-size:18px;font-weight:800;
   text-align:center;
-  /* Sobre el tablero navy: crema para el +, y para el − el rojo de la oferta aclarado con la
-     propia crema hasta 7.65:1. No es un color nuevo, es el mismo aclarado — el #C62828 puro
-     sobre navy no llegaba a leerse. El signo hace de segunda señal: nadie depende del color. */
+  /* Sobre el fondo del tablero: crema para el +, y para el − --juego-float-malo (el rojo
+     de la oferta aclarado, ver el :root de arriba) — el rojo puro no siempre se lee sobre
+     un --base oscuro. El signo hace de segunda señal: nadie depende solo del color. */
   color:var(--surface);
   pointer-events:none;
   animation:floatup 520ms var(--ease-out) forwards;
 }
-.float.bad{color:#e39992}
+.float.bad{color:var(--juego-float-malo)}
 @keyframes floatup{
   from{opacity:1;transform:translateY(0)}
   to{opacity:0;transform:translateY(-42px)}
@@ -489,7 +506,7 @@ h1{
 }
 /* El puesto en curso, marcado. Sin esto, en una pantalla con tres filas iguales hay que leer
    los numeros para saber cual es la tuya. */
-.fila.tuya{background:var(--juego-go);color:var(--surface)}
+.fila.tuya{background:var(--juego-go);color:var(--accent-ink)}
 .fila .pos{width:1.1em;opacity:.55;font-weight:600;font-variant-numeric:tabular-nums}
 .fila .pts{font-weight:800;font-variant-numeric:tabular-nums;min-width:2.4em}
 .fila .quien{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -513,15 +530,21 @@ h1{
 .saltar{background:none;border:0;color:var(--ink);opacity:.65;
   font-family:var(--title-font);font-size:15px;font-weight:600;min-height:48px;cursor:pointer}
 
-/* Batir el récord: lo único que celebra, y no da nada. */
-.eyebrow-record{color:var(--juego-go);animation:sube 240ms var(--ease-out) both}
+/* Batir el récord: lo único que celebra, y no da nada. --ink y no --juego-go: mismo
+   hallazgo que .tally.record un poco mas abajo -- el acento no lee sobre --base. En
+   #s-end esta clase va ademas sobreescrita a --surface (ver mas abajo); esta regla
+   generica es la que aplicaria si .eyebrow-record se usara fuera de #s-end. */
+.eyebrow-record{color:var(--ink);animation:sube 240ms var(--ease-out) both}
 #s-end{gap:0}
 .tally{
   margin:14px 0 0;font-family:var(--title-font);font-size:clamp(72px,32vw,132px);font-weight:800;
   line-height:.86;letter-spacing:-.05em;font-variant-numeric:tabular-nums;
 }
-/* El récord de la partida, en el rojo de la casa. El rótulo se queda en crema sobre la banda. */
-.tally.record{color:var(--juego-go)}
+/* El récord de la partida. Ni el acento ni el rojo leen sobre --base (1.19:1 y 1.76:1 --
+   hallazgo de paso al tocar --juego-go en la Fase 8, preexistente y ahora corregido):
+   el numero gigante se queda en --ink, que es el mismo par que ya usa el resto del
+   marcador sobre este fondo (4.60:1, ver PAREJAS en temas.mjs). */
+.tally.record{color:var(--ink)}
 .tally small{display:block;margin-top:10px;font-family:var(--body-font);font-size:16px;
   font-weight:400;letter-spacing:0;color:var(--ink)}
 #s-end .actions{margin-top:var(--s4)}
@@ -537,14 +560,16 @@ h1{
 #s-count .eyebrow,#s-end .eyebrow{
   display:inline-block;
   transform:rotate(-3deg);
-  background:var(--juego-go);color:var(--surface);
+  /* --accent-ink y no --surface: el fondo es --juego-go (el acento vivo), y el blanco ya
+     no lee encima (2.45:1) desde que el acento dejo de oscurecerse en la Fase 8. */
+  background:var(--juego-go);color:var(--accent-ink);
   padding:.3em .55em;border-radius:.14em;
 }
 #s-count .eyebrow{font-size:15px;letter-spacing:.2em;padding:.28em .6em}
 #s-end .eyebrow:empty{display:none}
 /* «¡Nuevo récord!» ya iba en rojo, y sobre la banda roja no se leía. Ahora lo que cambia es la
    cifra, que se pinta de rojo: se ve desde más lejos que un rótulo de doce píxeles. */
-#s-end .eyebrow.eyebrow-record{color:var(--surface)}
+#s-end .eyebrow.eyebrow-record{color:var(--accent-ink)}
 
 /* ---------- cuenta atrás ---------- */
 #s-count{gap:0}
@@ -730,24 +755,6 @@ h1{
      depende de que el servidor conteste. */
   var CFG = { on: false, top: [] };   // top: [{puntos, nombre, pais}], ya ordenado
 
-  /* El mismo tema de marca que la carta, por la misma vía y con el mismo respaldo en el
-     móvil para no parpadear. La barra del navegador se pinta del color del fondo del juego,
-     que cambia con el tema, así que la meta se actualiza aquí y no en el HTML. */
-  var TEMAS_OK = ${JSON.stringify(TEMAS_SLUGS)};
-  var TEMA_DEF = ${JSON.stringify(TEMAS_SLUGS[0])};
-
-  function aplicarTema(slug) {
-    if (TEMAS_OK.indexOf(slug) === -1) slug = TEMA_DEF;
-    var raiz = document.documentElement;
-    if (slug === TEMA_DEF) delete raiz.dataset.tema;
-    else raiz.dataset.tema = slug;
-    try { localStorage.setItem('${CLAVE('tema')}', slug); } catch (e) {}
-    var meta = document.querySelector('meta[name="theme-color"]');
-    var fondo = getComputedStyle(raiz).getPropertyValue('--base').trim();
-    if (meta && fondo) meta.content = fondo;
-  }
-  aplicarTema(document.documentElement.dataset.tema);
-
   /* ---- el fondo en movimiento ----
 
      Con «menos movimiento» activado el video no se esconde: se quita del todo, para no bajar
@@ -783,11 +790,49 @@ h1{
     vid.addEventListener('error', function () { if (vid) { vid.remove(); vid = null; } });
   }
 
+  /* El unico color que se puede cambiar sin recompilar. Misma funcion, palabra por
+     palabra, que la de motor/gen.mjs (documentos distintos, sin runtime compartido) --
+     ver el comentario de alli para el porque de leer Oscuro/Neutro del propio :root en
+     vez de llevar una copia a mano. */
+  function derivarPrincipal(hex) {
+    var raiz = getComputedStyle(document.documentElement);
+    var oscuro = raiz.getPropertyValue('--ink').trim();
+    var neutro = raiz.getPropertyValue('--surface').trim();
+    function aRGB(h) { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+    function canal(c) { var s = c / 255; return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); }
+    function luz(h) { var c = aRGB(h).map(canal); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+    function contraste(a, b) { var x = luz(a), y = luz(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+    function mezcla(a, b, t) {
+      var ca = aRGB(a), cb = aRGB(b);
+      return '#' + [0, 1, 2].map(function (i) {
+        var n = Math.round(Math.min(255, Math.max(0, ca[i] * t + cb[i] * (1 - t))));
+        return (n < 16 ? '0' : '') + n.toString(16);
+      }).join('');
+    }
+    var accentInk = contraste(oscuro, hex) >= 4.5 ? oscuro : (contraste(neutro, hex) >= 4.5 ? neutro : null);
+    var metal = null;
+    for (var t = 100; t >= 40; t -= 1) {
+      var c = mezcla(hex, neutro, t / 100);
+      if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
+    }
+    return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal } : null;
+  }
+  function aplicarColorPrincipal(marca) {
+    var colorOv = marca && typeof marca.colorPrincipal === 'string' ? marca.colorPrincipal.trim() : '';
+    if (!/^#[0-9a-fA-F]{6}$/.test(colorOv)) return;
+    var d = derivarPrincipal(colorOv);
+    if (!d) return;
+    var raizStyle = document.documentElement.style;
+    raizStyle.setProperty('--accent', d.accent);
+    raizStyle.setProperty('--accent-ink', d.accentInk);
+    raizStyle.setProperty('--metal', d.metal);
+  }
+
   fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (s) {
-      if (s && s.theme) aplicarTema(s.theme);
       if (s && s.game) CFG.on = !!s.game.on;
+      if (s && s.marca) aplicarColorPrincipal(s.marca);
       pintarTextosDinamicos();
     })
     .catch(function () { pintarTextosDinamicos(); });

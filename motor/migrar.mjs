@@ -92,7 +92,6 @@ function rutasRecintoFijas(idiomas) {
     'generado/404.php',
     'generado/version.json',
     'generado/admin/tokens.css',
-    'generado/admin/temas.json',
     'generado/admin/platos.json',
     'generado/admin/paises.php',
     'generado/admin/fuentes.html',

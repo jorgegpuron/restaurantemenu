@@ -7,9 +7,14 @@
  *   node nuevo-cliente.mjs --destino <ruta> --nombre <n> --url <u> --idiomas es,en
  *       --impuesto <texto> --alergenos-en-origen si|no|desconocido
  *       --zona-horaria <IANA> --corte-hora <0-23>
- *       [--juego true|false] [--publicidad true|false]
+ *       [--juego true|false] [--publicidad true|false] [--color-principal '#RRGGBB']
  *     Solo local. Copia el motor, escribe cliente.mjs/carta.json/estado.json/i18n,
  *     sustituye deploy.yml. No toca GitHub. Para y espera revision.
+ *
+ *     --color-principal es del todo opcional -- sin el, el alta usa el naranja de
+ *     fabrica del motor ('#FF7517'), nunca se aborta un alta solo por esto. Secundario,
+ *     Oscuro y Neutro son constantes del motor (ver motor/temas.mjs): no se piden aqui,
+ *     no se declaran en cliente.mjs, son iguales para cualquier cliente que exista.
  *
  *   node nuevo-cliente.mjs --detectar --destino <ruta>
  *     Solo lectura. Falla (no solo avisa) si encuentra restos de Tinge.
@@ -41,6 +46,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { normalizarHex, verificarPaleta, PRINCIPAL_DEFECTO } from './motor/temas.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)); // raiz de 1-proyecto de Tinge
 
@@ -174,6 +180,7 @@ function comandoDestino() {
   const corteHoraArg = valor('--corte-hora');
   const juego = valor('--juego') !== 'false';
   const publicidad = valor('--publicidad') !== 'false';
+  const colorPrincipalArg = valor('--color-principal');
 
   const faltan = [];
   if (!destino) faltan.push('--destino');
@@ -214,6 +221,28 @@ function comandoDestino() {
   if (!Number.isInteger(corteHora) || corteHora < 0 || corteHora > 23) {
     console.error('--corte-hora debe ser un entero 0-23: ' + JSON.stringify(corteHoraArg));
     process.exit(1);
+  }
+  /* El unico color de marca que se pide (Fase 8, ajuste final). Sin el, el naranja de
+     fabrica -- nunca se aborta un alta solo por esto. Si se da, tiene que ser un hex
+     valido Y tiene que leerse con la MISMA funcion que gen.mjs usara despues en cada
+     build de este cliente, contra las constantes fijas del motor (Secundario/Oscuro/
+     Neutral) -- si no da contraste suficiente, mejor saberlo aqui, sin haber escrito
+     nada, que en el primer build. */
+  let colorPrincipal;
+  if (colorPrincipalArg === undefined) {
+    colorPrincipal = PRINCIPAL_DEFECTO;
+  } else {
+    colorPrincipal = normalizarHex(colorPrincipalArg);
+    if (colorPrincipal === null) {
+      console.error('--color-principal no es un hex valido en formato #RRGGBB: ' + JSON.stringify(colorPrincipalArg));
+      process.exit(1);
+    }
+    try {
+      verificarPaleta(colorPrincipal, 'el color dado');
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
   }
   /* El mismo contrato que gen.mjs comprueba despues del hecho (motor/entorno.mjs,
      CARPETA_CLIENTE): la direccion publica tiene que mencionar el nombre de la carpeta que
@@ -322,6 +351,7 @@ function comandoDestino() {
     '  rotulo: ' + JSON.stringify(rotulos.rotulo) + ',',
     '  descripcion: ' + JSON.stringify(rotulos.descripcion) + ',',
     '  tituloJuego: ' + JSON.stringify(rotulos.tituloJuego) + ',',
+    '  marca: { colorPrincipal: ' + JSON.stringify(colorPrincipal) + ' },',
     '  impuesto: ' + JSON.stringify(impuesto) + ',',
     '  base: ' + JSON.stringify(url) + ',',
     '  moneda: { simbolo: \'€\', iso: \'EUR\' },',

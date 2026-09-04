@@ -131,10 +131,6 @@ define('COPIAS_MAX', 3);
 // Catálogo de platos que genera gen.mjs. Se regenera con la carta; no se edita a mano.
 define('PLATOS_PATH', __DIR__ . '/platos.json');
 
-// Juegos de color de marca, también generados por gen.mjs: cada uno con sus doce valores ya
-// derivados y ya verificados en contraste. El panel sólo elige uno; no inventa colores.
-define('TEMAS_PATH', __DIR__ . '/temas.json');
-
 // Carpeta donde el panel deja las fotos del carrusel de cabecera. Tiene que existir y tiene
 // que poder escribir PHP dentro. Lleva su propio .htaccess apagando la ejecución: ahí sólo
 // hay imágenes subidas desde fuera, y una carpeta que acepta archivos y además los ejecuta

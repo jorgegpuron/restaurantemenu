@@ -16,11 +16,6 @@ ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 error_reporting(E_ALL);
 
-/* Si se sube este archivo sin el config.php nuevo, la constante de los temas no existiria y
-   el panel se caeria entero por una pestana. Una subida a medias no puede dejar sin carta a
-   nadie: se define aqui el mismo valor por defecto y listo. */
-if (!defined('TEMAS_PATH')) define('TEMAS_PATH', __DIR__ . '/temas.json');
-
 // El panel no tiene por qué salir en Google, y menos aún con el modo demo abierto.
 header('X-Robots-Tag: noindex, nofollow');
 // Ni dentro de un iframe ajeno, ni con el navegador adivinando tipos, ni contando a otra
@@ -113,28 +108,6 @@ function platos(): array {
   return $lista;
 }
 
-/* Los temas los escribe el build, igual que el catálogo de platos. Si el archivo no está
-   —una subida a medias— el panel no se rompe: se queda con el tema de la casa y la pestaña
-   avisa. Nunca se inventa un color aquí. */
-function temas_json(): array {
-  static $cache = null;                 // se consulta varias veces por peticion: se lee una
-  if ($cache !== null) return $cache;
-  $raw = @file_get_contents(TEMAS_PATH);
-  $d = $raw === false ? null : json_decode($raw, true);
-  $cache = is_array($d) ? $d : [];
-  return $cache;
-}
-
-function temas(): array {
-  $d = temas_json();
-  return !empty($d['temas']) && is_array($d['temas']) ? $d['temas'] : [];
-}
-
-function tema_por_defecto(): string {
-  $d = temas_json();
-  return !empty($d['porDefecto']) ? (string) $d['porDefecto'] : 'marino';
-}
-
 /* ------------------------------------------------------ el mismo plato, en varias filas
  *
  * Un plato ocupa varias filas de la carta: además de su pestaña de comida está en Sin gluten
@@ -173,9 +146,6 @@ function estado_vacio(): array {
     'tags'    => [],
     'offer'   => ['on' => false, 'cats' => [], 'keys' => [], 'percent' => 20, 'from' => 600, 'to' => 720, 'days' => [1,2,3,4,5,6,7]],
     'prices'  => [],
-    /* El juego de color de la marca. Es lo único del estado que no cambia a diario: se
-       elige el día que se monta el restaurante y no se vuelve a tocar. */
-    'theme'   => tema_por_defecto(),
     /* La nota de Google que sale al final de la carta. Arranca apagada y a cero a propósito:
        una carta recién montada no puede heredar la nota de otro restaurante. */
     'reviews' => ['on' => false, 'rating' => 0, 'count' => 0],
@@ -203,10 +173,11 @@ function estado_vacio(): array {
     /* El enlace de reseñas. Es configuración del restaurante y se edita en Marca; la carta lo
        usa al pie. El juego ya no lo toca: se fue con los premios. */
     'review'  => ['url' => ''],
-    /* Override del nombre y del texto pequeño de portada. cliente.mjs trae el de fábrica;
-       esto es lo que el propio restaurante ha escrito para sustituirlo, y nunca al revés —
-       el panel no toca cliente.mjs. Vacío es "sigue mandando el de fábrica", no "sin nombre". */
-    'marca'   => ['nombreVisible' => '', 'rotuloVisible' => ''],
+    /* Override del nombre, el texto pequeño de portada y el color principal. cliente.mjs
+       trae los de fábrica; esto es lo que el propio restaurante ha cambiado desde el
+       panel para sustituirlos, y nunca al revés — el panel no toca cliente.mjs. Vacío es
+       "sigue mandando el de fábrica", no "sin nombre"/"sin color". */
+    'marca'   => ['nombreVisible' => '', 'rotuloVisible' => '', 'colorPrincipal' => ''],
     'actualizado' => null,
   ];
 }
@@ -247,6 +218,64 @@ function wa_normalizar(string $t): string {
   if ($d === '') return '';
   if (strpos($d, '00') === 0) $d = substr($d, 2);
   return $d;
+}
+
+/* ---------------------------------------------------------------- color de marca
+ * El unico color que Marca deja editar. Secundario, Oscuro y Neutral son constantes
+ * fijas del motor -- llegan por cliente.php (CLIENTE_COLOR_*), con el mismo respaldo
+ * NEUTRO que el resto del panel si faltara (build a medias). La aritmetica de aqui es
+ * la MISMA, cifra por cifra, que motor/temas.mjs (Node, al compilar) y que la funcion
+ * gemela en el <script> de la carta (JS, en el navegador de quien la visita): un color
+ * que el panel acepta tiene que dar el mismo resultado en los tres sitios. */
+function color_normalizar(string $valor): ?string {
+  $s = trim($valor);
+  if (!preg_match('/^#?([0-9a-fA-F]{6})$/', $s, $m)) return null;
+  return '#' . strtoupper($m[1]);
+}
+function color_aRGB(string $hex): array {
+  $h = ltrim($hex, '#');
+  return [hexdec(substr($h, 0, 2)), hexdec(substr($h, 2, 2)), hexdec(substr($h, 4, 2))];
+}
+function color_canal(float $c): float {
+  $s = $c / 255;
+  return $s <= 0.04045 ? $s / 12.92 : pow(($s + 0.055) / 1.055, 2.4);
+}
+function color_luz(string $hex): float {
+  $c = array_map('color_canal', color_aRGB($hex));
+  return 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2];
+}
+function color_contraste(string $a, string $b): float {
+  $x = color_luz($a); $y = color_luz($b);
+  return (max($x, $y) + 0.05) / (min($x, $y) + 0.05);
+}
+function color_mezcla(string $a, string $b, float $t): string {
+  $ca = color_aRGB($a); $cb = color_aRGB($b);
+  $out = '#';
+  for ($i = 0; $i < 3; $i++) {
+    $n = (int) round(min(255, max(0, $ca[$i] * $t + $cb[$i] * (1 - $t))));
+    $out .= str_pad(dechex($n), 2, '0', STR_PAD_LEFT);
+  }
+  return $out;
+}
+/* null si el hex no da para un --accent-ink o un --metal legibles contra las
+ * constantes fijas -- o si es practicamente invisible sobre la superficie (el mismo
+ * umbral de sentido comun de temas.mjs, 1.5:1, no un umbral WCAG). Devuelve los tres
+ * tokens que dependen de colorPrincipal, listos para imprimir en un <style>. */
+function derivar_principal(string $hex): ?array {
+  $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#2C2727';
+  $neutro = defined('CLIENTE_COLOR_NEUTRAL') ? CLIENTE_COLOR_NEUTRAL : '#F6F4F4';
+  if (color_contraste($hex, $neutro) < 1.5) return null;
+  $accentInk = null;
+  if (color_contraste($oscuro, $hex) >= 4.5) $accentInk = $oscuro;
+  elseif (color_contraste($neutro, $hex) >= 4.5) $accentInk = $neutro;
+  if ($accentInk === null) return null;
+  $metal = null;
+  for ($t = 100; $t >= 40; $t--) {
+    $c = color_mezcla($hex, $neutro, $t / 100);
+    if (color_contraste($c, $oscuro) >= 4.5) { $metal = $c; break; }
+  }
+  if ($metal === null) return null;
+  return ['--accent' => $hex, '--accent-ink' => $accentInk, '--metal' => $metal];
 }
 
 /* ---------------------------------------------------------------- fotos de cabecera
@@ -2046,15 +2075,12 @@ if ($csrfOk) {
     }
   }
 
-  /* Marca: colores y opiniones en el MISMO guardado. Cuando eran dos formularios distintos
-     en la misma pantalla, guardar uno perdía lo que hubiera escrito en el otro. Un botón.
-
-     Del tema sólo se acepta un slug que exista en temas.json: un valor libre acabaría como un
-     data-tema sin CSS detrás, es decir, la carta en los colores de otro. */
+  /* Marca: nombre, texto de portada, color principal y opiniones en el MISMO guardado.
+     Cuando eran formularios distintos en la misma pantalla, guardar uno perdía lo que
+     hubiera escrito en el otro. Un botón. Secundario/Oscuro/Neutral no se guardan aquí:
+     son constantes del motor, se ven abajo solo de referencia. */
   if (isset($_POST['guardar_marca'])) {
     $pestana = 'marca';
-    $elegido = (string) ($_POST['tema'] ?? '');
-    $validos = array_column(temas(), 'slug');
 
     /* El nombre y el texto pequeño de portada. Vacío es válido a propósito: es la forma de
        volver al de fábrica sin tener que escribirlo de nuevo. maxlength en el HTML es sólo
@@ -2062,6 +2088,23 @@ if ($csrfOk) {
        lo que el navegador deje escribir. */
     $marcaNombre = trim((string) ($_POST['marca_nombre'] ?? ''));
     $marcaRotulo = trim((string) ($_POST['marca_rotulo'] ?? ''));
+
+    /* El color principal. Vacío tambien es valido, y por la misma razon: es «restaurar»,
+       vuelve al de cliente.mjs sin tener que teclearlo. Si trae algo, tiene que ser un
+       hex de verdad Y tiene que leerse con la jerarquia fija (Secundario/Oscuro/Neutral)
+       -- la MISMA comprobacion que hara el build el dia que este color pase a cliente.mjs,
+       para que nunca se pueda guardar en caliente un color que el motor rechazaria en frio. */
+    $colorPost = trim((string) ($_POST['marca_color_principal'] ?? ''));
+    $colorNormalizado = '';
+    $colorError = null;
+    if ($colorPost !== '') {
+      $colorNormalizado = color_normalizar($colorPost) ?? '';
+      if ($colorNormalizado === '') {
+        $colorError = 'Ese color no es un hex válido. Usa el formato #RRGGBB, por ejemplo #FF7517.';
+      } elseif (derivar_principal($colorNormalizado) === null) {
+        $colorError = 'Ese color no se lee bien con los demás colores de la carta (texto, iconos, botones). Prueba con otro más alejado de blanco o negro puro.';
+      }
+    }
 
     $op_on  = !empty($_POST['op_on']);
     $op_not = str_replace(',', '.', trim((string) ($_POST['op_nota'] ?? '0')));
@@ -2088,12 +2131,12 @@ if ($csrfOk) {
       }
     }
 
-    if (!in_array($elegido, $validos, true)) {
-      $error = 'Ese juego de colores no existe. Elige uno de la lista.';
-    } elseif (caracteres($marcaNombre) > 20) {
+    if (caracteres($marcaNombre) > 20) {
       $error = 'El nombre no puede pasar de 20 caracteres (van ' . caracteres($marcaNombre) . ').';
     } elseif (caracteres($marcaRotulo) > 25) {
       $error = 'El texto pequeño no puede pasar de 25 caracteres (van ' . caracteres($marcaRotulo) . ').';
+    } elseif ($colorError !== null) {
+      $error = $colorError;
     } elseif ($op_not < 0 || $op_not > 5) {
       $error = 'La nota tiene que estar entre 0 y 5. Ponla como sale en Google, por ejemplo 4,9.';
     } elseif ($op_num < 0 || $op_num > 100000) {
@@ -2105,8 +2148,7 @@ if ($csrfOk) {
     } elseif ($malas) {
       $error = implode(' ', $malas);
     } else {
-      $estado['theme'] = $elegido;
-      $estado['marca'] = ['nombreVisible' => $marcaNombre, 'rotuloVisible' => $marcaRotulo];
+      $estado['marca'] = ['nombreVisible' => $marcaNombre, 'rotuloVisible' => $marcaRotulo, 'colorPrincipal' => $colorNormalizado];
       $estado['reviews'] = ['on' => $op_on, 'rating' => $op_not, 'count' => $op_num];
       $estado['social'] = $redes;
       /* El enlace es de aquí, y ya es lo único que queda en review. */
@@ -2580,7 +2622,6 @@ $bannerPub = is_array($estado['publicidad'] ?? null) && is_array($estado['public
 /* El enlace de resenas lo pinta Marca. No era del premio y no se va con el. */
 $resena   = is_array($estado['review'] ?? null) ? array_replace(estado_vacio()['review'], $estado['review']) : estado_vacio()['review'];
 $csrf     = (string) ($_SESSION['csrf'] ?? '');
-$temas    = temas();
 $opinion  = is_array($estado['reviews'] ?? null)
   ? array_replace(estado_vacio()['reviews'], $estado['reviews'])
   : estado_vacio()['reviews'];
@@ -2588,11 +2629,19 @@ $fotos    = is_array($estado['hero'] ?? null) ? array_values($estado['hero']) : 
 $redes    = is_array($estado['social'] ?? null)
   ? array_replace(estado_vacio()['social'], $estado['social'])
   : estado_vacio()['social'];
-$tema_actual = (string) ($estado['theme'] ?? tema_por_defecto());
-if (!in_array($tema_actual, array_column($temas, 'slug'), true)) $tema_actual = tema_por_defecto();
 $marca = is_array($estado['marca'] ?? null)
   ? array_replace(estado_vacio()['marca'], $estado['marca'])
   : estado_vacio()['marca'];
+/* El color de verdad ahora mismo: el override si hay uno guardado y valido, si no el de
+   build. `$colorPrincipalOverride` es null cuando no hace falta pintar nada encima del
+   tokens.css de siempre -- ni override guardado, ni override que ya no se leyera bien
+   (un cliente.mjs cambiado a mano tras guardar el override, caso raro pero posible). */
+$colorPrincipalActual = defined('CLIENTE_COLOR_PRINCIPAL') ? CLIENTE_COLOR_PRINCIPAL : '#FF7517';
+$colorPrincipalOverride = null;
+if ($marca['colorPrincipal'] !== '') {
+  $colorPrincipalOverride = derivar_principal($marca['colorPrincipal']);
+  if ($colorPrincipalOverride !== null) $colorPrincipalActual = $marca['colorPrincipal'];
+}
 
 /* Marca va la última a propósito: se toca una vez y las otras cuatro, cada día. */
 /* ---------------------------------------------------------------- datos, antes de pintar
@@ -2751,7 +2800,7 @@ $CUENTAS = [
 ];
 ?>
 <!doctype html>
-<html lang="es" translate="no" class="notranslate"<?= $tema_actual === tema_por_defecto() ? '' : ' data-tema="' . h($tema_actual) . '"' ?>>
+<html lang="es" translate="no" class="notranslate">
 <head>
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
@@ -2760,6 +2809,19 @@ $CUENTAS = [
 <?php /* Las mismas dos tipografías que la carta, escritas por el build. */ ?>
 <?php @include __DIR__ . '/fuentes.html'; ?>
 <link rel="stylesheet" href="tokens.css">
+<?php if ($colorPrincipalOverride !== null): ?>
+<style>
+  /* El color que el propio restaurante guardo desde esta pestana, por encima del de
+     build en tokens.css -- el panel es PHP, asi que aqui se recalcula en cada carga en
+     vez de esperar a un runtime aparte (eso es lo que hace la carta publica, que es
+     HTML estatico: ver aplicarMarca()/derivarPrincipal() en el <script> de gen.mjs). */
+  :root{
+    --accent:<?= h($colorPrincipalOverride['--accent']) ?>;
+    --accent-ink:<?= h($colorPrincipalOverride['--accent-ink']) ?>;
+    --metal:<?= h($colorPrincipalOverride['--metal']) ?>;
+  }
+</style>
+<?php endif; ?>
 <style>
   /* El panel es la carta puesta del revés: la misma tarjeta crema, pero flotando sobre el
      navy de la marca en vez de sobre el teal. Mismo juego tipográfico —Bricolage para lo que
@@ -2816,7 +2878,7 @@ $CUENTAS = [
     margin:0 0 6px;
     font-family:var(--title-font);
     font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--accent-ink);
+    color:var(--ink);
   }
   /* La fecha es el dato, así que va en cifras grandes y tabulares: cambia todos los días y
      no debe bailar de ancho al hacerlo. El día de la semana acompaña, en un peso menos. */
@@ -2878,7 +2940,7 @@ $CUENTAS = [
   .chapa strong{color:var(--surface);font-variant-numeric:tabular-nums}
   .chapa-id{font-variant-numeric:tabular-nums}
   .chapa-mal{color:var(--mal,#b3261e);font-weight:600}
-  .head .sub a{color:var(--accent-ink)}
+  .head .sub a{color:var(--ink)}
 
   /* ---------- pestañas ---------- */
   /* La misma barra de categorías de la carta: una fila, con desplazamiento lateral cuando no
@@ -2921,7 +2983,7 @@ $CUENTAS = [
   .tabs-arrow-next{right:4px}
   .tabs-arrow:not(:disabled):active{transform:scale(.92)}
   .tabs-arrow:disabled{opacity:.3;cursor:default}
-  .tabs-arrow:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+  .tabs-arrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   @media (min-width:768px){
     .tabs-wrap{margin-left:calc(var(--s5) * -1);margin-right:calc(var(--s5) * -1)}
     .tabs-wrap.is-scrollable .tabs-arrow{display:flex}
@@ -2943,8 +3005,8 @@ $CUENTAS = [
     transition:background-color var(--t-fast) ease,color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
   }
   .tabs button:active{transform:scale(.97)}
-  .tabs button:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
-  .tabs button.on{background:var(--accent);color:var(--surface)}
+  .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tabs button.on{background:var(--solid);color:var(--solid-ink)}
   .tabs .n{
     min-width:20px;padding:0 6px;
     border-radius:var(--r-pill);
@@ -2960,7 +3022,7 @@ $CUENTAS = [
   h2{
     font-family:var(--title-font);
     font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--accent-ink);
+    color:var(--ink);
     margin:var(--s4) 0 var(--s2);
   }
   .card{
@@ -3002,7 +3064,7 @@ $CUENTAS = [
     grid-column:1;
     font-family:var(--title-font);
     font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--accent-ink);
+    color:var(--ink);
   }
   .res-val{
     grid-column:1;
@@ -3034,7 +3096,7 @@ $CUENTAS = [
     font-family:var(--body-font);font-size:16px;
   }
   .search::placeholder{color:var(--muted)}
-  .search:focus{outline:2px solid var(--accent-ink);outline-offset:1px;border-color:transparent}
+  .search:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
   .chips{display:flex;gap:var(--s1);margin-top:var(--s2)}
   /* De tablet para arriba, buscador y filtros en la misma línea: el cajón estira y los dos
      botones se quedan a su ancho a la derecha. En móvil siguen uno debajo de otro. */
@@ -3062,7 +3124,7 @@ $CUENTAS = [
   .tick{display:flex;align-items:center;justify-content:center;
         width:44px;height:44px;flex:0 0 auto;margin-left:-6px;cursor:pointer}
   .tick input{width:24px;height:24px;accent-color:var(--offer);cursor:pointer}
-  .tick:has(input:focus-visible){outline:2px solid var(--accent-ink);outline-offset:-2px;border-radius:var(--r-sheet)}
+  .tick:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--r-sheet)}
   .num{
     flex:0 0 auto;min-width:34px;
     font-family:var(--title-font);font-size:12px;font-weight:600;
@@ -3086,12 +3148,12 @@ $CUENTAS = [
   }
   .camara svg{width:21px;height:21px}
   .camara:hover{opacity:1;background:var(--chip)}
-  .camara.tiene{color:var(--accent-ink);opacity:1}
+  .camara.tiene{color:var(--accent);opacity:1}
   .camara.tiene::after{
     content:"";position:absolute;margin:22px 0 0 22px;
-    width:7px;height:7px;border-radius:50%;background:var(--accent-ink);
+    width:7px;height:7px;border-radius:50%;background:var(--accent);
   }
-  .camara:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
+  .camara:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
   /* El recorte. Una capa sobre todo, con el cuadrado en el centro: lo que se ve dentro del
      cuadrado es exactamente lo que se guarda, ni más ni menos. */
@@ -3118,10 +3180,10 @@ $CUENTAS = [
   .recorte .pista{margin:var(--s2) 0 0;color:var(--muted);font-size:13px;text-align:center}
   .recorte .fila-b{display:flex;gap:var(--s2);margin-top:var(--s2)}
   .recorte .fila-b button{flex:1}
-  .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent-ink)}
+  .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent)}
   .recorte .err{margin:var(--s2) 0 0;color:var(--offer);font-size:14px}
   .recorte .err:empty{display:none}
-  .camara.cargando{opacity:1;color:var(--accent-ink)}
+  .camara.cargando{opacity:1;color:var(--accent)}
   .camara.cargando svg{animation:latir 900ms ease-in-out infinite}
   @keyframes latir{0%,100%{opacity:.35}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){ .camara.cargando svg{animation:none} }
@@ -3141,7 +3203,7 @@ $CUENTAS = [
     display:block;margin-bottom:var(--s3);
     font-family:var(--title-font);
     font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--accent-ink);
+    color:var(--ink);
   }
   .fld input,.fld select,.fld textarea{
     display:block;width:100%;margin-top:7px;
@@ -3173,7 +3235,7 @@ $CUENTAS = [
   }
   .fld input:focus,.fld select:focus,.fld textarea:focus{
     outline:none;
-    box-shadow:inset 0 0 0 2px var(--accent-ink);
+    box-shadow:inset 0 0 0 2px var(--accent);
   }
   .fld input::placeholder,.fld textarea::placeholder{color:var(--muted)}
   .opt{color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:none}
@@ -3187,7 +3249,7 @@ $CUENTAS = [
     font-family:var(--body-font);font-size:16px;
     transition:box-shadow var(--t-fast) ease;
   }
-  .combo-q:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accent-ink)}
+  .combo-q:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accent)}
   .combo-q.is-ok{box-shadow:inset 0 0 0 2px var(--accent);font-family:var(--title-font);font-weight:600}
   .combo-lista{
     position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;
@@ -3252,13 +3314,13 @@ $CUENTAS = [
     color:var(--muted);
   }
   .switch-on{display:none}
-  .switch:has(input:checked){background:color-mix(in srgb,var(--accent) 12%,transparent)}
-  .switch:has(input:checked) .switch-pista{background:var(--accent)}
+  .switch:has(input:checked){background:color-mix(in srgb,var(--solid) 10%,transparent)}
+  .switch:has(input:checked) .switch-pista{background:var(--solid)}
   .switch:has(input:checked) .switch-bola{transform:translateX(24px)}
-  .switch:has(input:checked) .switch-txt{color:var(--accent-ink)}
+  .switch:has(input:checked) .switch-txt{color:var(--ink)}
   .switch:has(input:checked) .switch-on{display:inline}
   .switch:has(input:checked) .switch-off{display:none}
-  .switch:has(input:focus-visible){outline:2px solid var(--accent-ink);outline-offset:2px}
+  .switch:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
   @media (prefers-reduced-motion:reduce){ .switch-bola{transition:none} }
   .marca{
     position:relative;
@@ -3281,9 +3343,9 @@ $CUENTAS = [
     color:transparent;
   }
   .marca .tickmark svg{width:12px;height:12px}
-  .marca:has(input:checked){background:var(--accent);color:var(--surface)}
-  .marca:has(input:checked) .tickmark{background:color-mix(in srgb,var(--surface) 28%,transparent);color:var(--surface)}
-  .marca:has(input:focus-visible){outline:2px solid var(--accent-ink);outline-offset:2px}
+  .marca:has(input:checked){background:var(--solid);color:var(--solid-ink)}
+  .marca:has(input:checked) .tickmark{background:color-mix(in srgb,var(--solid-ink) 28%,transparent);color:var(--solid-ink)}
+  .marca:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 
   /* ---------- lista de categorías ----------
      Cuarenta y una casillas: en columnas para no hacer una tira de dos pantallas, con el
@@ -3296,13 +3358,13 @@ $CUENTAS = [
     border-bottom:1px solid var(--hairline);
     break-inside:avoid;cursor:pointer;
   }
-  .cats input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent-ink);cursor:pointer}
+  .cats input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent);cursor:pointer}
   .cats span{font-family:var(--title-font);font-size:15px;font-weight:600;line-height:1.25}
   .cats em{
     display:block;margin-top:1px;
     color:var(--muted);font-style:normal;font-family:var(--body-font);font-size:13px;font-weight:400;
   }
-  .cats label:has(input:checked) span{color:var(--accent-ink)}
+  .cats label:has(input:checked) span{color:var(--ink)}
 
   /* ---------- los porcentajes ----------
      Tres cifras grandes, que es lo que se toca. El texto de al lado ya explica que no
@@ -3317,7 +3379,7 @@ $CUENTAS = [
     font-variant-numeric:tabular-nums;
   }
   @media (hover:hover) and (pointer:fine){
-    .pct:hover{background:var(--accent);color:var(--surface)}
+    .pct:hover{background:var(--solid);color:var(--solid-ink)}
   }
 
   /* El récord, en grande. Es un solo número y es lo único que hay que mirar en esta pestaña. */
@@ -3363,11 +3425,11 @@ $CUENTAS = [
     font-family:var(--title-font);font-size:16px;font-weight:600;
     text-align:right;font-variant-numeric:tabular-nums;
   }
-  .pnuevo:focus{outline:2px solid var(--accent-ink);outline-offset:1px;border-color:transparent}
+  .pnuevo:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
   .pfijo{font-family:var(--title-font);font-weight:700;font-variant-numeric:tabular-nums}
   .badge{
     display:inline-block;padding:2px 9px;border-radius:var(--r-pill);
-    background:var(--accent);color:var(--surface);
+    background:var(--accent);color:var(--accent-ink);
     font-family:var(--title-font);font-size:10px;font-weight:600;
     letter-spacing:.1em;text-transform:uppercase;
   }
@@ -3405,7 +3467,7 @@ $CUENTAS = [
     transition:transform var(--t-press) var(--ease-out),background-color var(--t-fast) ease;
   }
   button:active{transform:scale(.97)}
-  button:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .save{background:var(--ink);color:var(--surface);padding:0 var(--s4)}
   .ghost{
     background:transparent;color:var(--muted);
@@ -3469,11 +3531,11 @@ $CUENTAS = [
   .vp-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-family:var(--title-font);font-size:15px;font-weight:600}
   .vp-n{font-family:var(--title-font);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
-  .vp-pct{width:3.6em;text-align:right;color:var(--accent-ink);
+  .vp-pct{width:3.6em;text-align:right;color:var(--ink);
     font-family:var(--title-font);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
   .vp-vacio{margin:var(--s2) 0 0;color:var(--muted);font-size:15px}
   .vp-mas{margin-top:var(--s2)}
-  .vp-mas summary{cursor:pointer;color:var(--accent-ink);font-family:var(--title-font);
+  .vp-mas summary{cursor:pointer;color:var(--ink);font-family:var(--title-font);
     font-size:14px;font-weight:600}
   .vp-pie{margin:var(--s2) 0 0;color:var(--muted);font-size:13px;line-height:1.5}
   .dt-bento{display:grid;gap:var(--s2);grid-template-columns:1fr;margin-top:var(--s3)}
@@ -3497,7 +3559,7 @@ $CUENTAS = [
   .dt-cab .rotulo{display:flex;align-items:center;gap:6px}
   /* El punto late para decir «esto es de hoy», no por adorno. Es el unico movimiento perpetuo
      de la carta y del panel, y por eso es de 2px y muy lento. */
-  .dt-vivo{width:7px;height:7px;border-radius:50%;background:var(--accent-ink);flex:0 0 auto}
+  .dt-vivo{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:0 0 auto}
   @media (prefers-reduced-motion: no-preference){
     .dt-vivo{animation:dt-late 2.4s ease-in-out infinite}
   }
@@ -3516,11 +3578,11 @@ $CUENTAS = [
   .dt-b{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;
     height:100%;min-width:0}
   .dt-b i{display:block;width:100%;border-radius:var(--r-pill);transform-origin:bottom;
-    background:color-mix(in srgb,var(--accent-ink) 26%,transparent)}
+    background:color-mix(in srgb,var(--accent) 26%,transparent)}
   /* El gesto que se trae del componente: la tocada entera, las de al lado a media luz y las
      demas apagadas. Sin esto, treinta barras del mismo color son una textura, no un dato. */
-  .dt-barras.tocando .dt-b i{background:color-mix(in srgb,var(--accent-ink) 11%,transparent)}
-  .dt-barras.tocando .dt-b.vecina i{background:color-mix(in srgb,var(--accent-ink) 34%,transparent)}
+  .dt-barras.tocando .dt-b i{background:color-mix(in srgb,var(--accent) 11%,transparent)}
+  .dt-barras.tocando .dt-b.vecina i{background:color-mix(in srgb,var(--accent) 34%,transparent)}
   .dt-barras.tocando .dt-b.viva i{background:var(--ink)}
   .dt-b.cero i{min-height:2px;background:color-mix(in srgb,var(--ink) 12%,transparent)}
   @media (prefers-reduced-motion: no-preference){
@@ -3629,7 +3691,7 @@ $CUENTAS = [
     .copia-txt{grid-column:1 / -1}
   }
 
-  a{color:var(--accent-ink)}
+  a{color:var(--ink)}
 
   /* ---------- entrar ----------
      La puerta es la misma tarjeta que la carta, no un formulario aparte: la foto de portada
@@ -3655,7 +3717,7 @@ $CUENTAS = [
     background:#fff;color:var(--ink);
     font-family:var(--body-font);font-size:16px;
   }
-  .login input:focus{outline:2px solid var(--accent-ink);outline-offset:1px;border-color:transparent}
+  .login input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
   .login button{width:100%;background:var(--ink);color:var(--surface)}
 
   .login.is-recepcion{max-width:440px}
@@ -3739,7 +3801,7 @@ $CUENTAS = [
     .pane[data-pane="precios"] .card:has(.pcts){columns:1}
   }
   /* Filas de la pestaña de ofertas */
-  .orow .tick input{accent-color:var(--accent-ink)}
+  .orow .tick input{accent-color:var(--accent)}
   /* Dos veces la misma regla: la primera es el respaldo para un navegador sin color-mix,
      la segunda tiñe la fila con el acento del tema que esté puesto. */
   .orow.is-oferta{background:var(--chip)}
@@ -3817,80 +3879,47 @@ $CUENTAS = [
     cursor:pointer;
   }
 
-  /* ---------- muestras de marca ----------
-     Cada muestra es una carta de verdad en miniatura —fondo, tarjeta, un antetítulo en el
-     acento, dos platos con su precio, un filete y una etiqueta de oferta— porque un cuadrado
-     de color no dice nada de cómo va a quedar. Los colores no salen de aquí: llegan en el
-     atributo style de cada tarjeta, ya derivados y ya medidos por el build. */
-  .temas{
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-    gap:var(--s3);
+  /* ---------- color principal (editable) ----------
+     El unico de los 4 que cambia de un restaurante a otro. Picker nativo + campo de hex,
+     sincronizados por JS (ver el <script> de esta pestaña): el picker da un hex siempre
+     valido, el campo de texto es el que de verdad viaja al servidor -- asi quien prefiera
+     teclear el hex de su manual de marca no depende del selector del navegador. */
+  .color-editable{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-top:7px}
+  .color-editable input[type=color]{
+    width:52px;height:52px;flex:0 0 auto;padding:0;border:1px solid var(--border);
+    border-radius:var(--r-sheet);background:transparent;cursor:pointer;
+  }
+  .color-editable input[type=color]::-webkit-color-swatch-wrapper{padding:4px}
+  .color-editable input[type=color]::-webkit-color-swatch{border:0;border-radius:calc(var(--r-sheet) - 4px)}
+  .color-editable input[type=text]{
+    flex:1 1 140px;min-width:120px;min-height:52px;padding:0 var(--s3);
+    border:1px solid transparent;border-radius:var(--r-sheet);
+    background:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
+    color:var(--ink);font-family:var(--body-font);font-size:16px;
+    text-transform:uppercase;font-variant-numeric:tabular-nums;
+  }
+  .color-editable input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .color-editable input[type=text]:invalid:not(:placeholder-shown){box-shadow:inset 0 0 0 2px var(--offer)}
+  .color-editable .ghost{flex:0 0 auto;white-space:nowrap}
+
+  /* ---------- colores fijos del motor (solo lectura) ----------
+     Secundario, Oscuro y Neutro: constantes del motor, iguales para cualquier cliente
+     -- ver motor/temas.mjs. No se editan desde aquí: no son datos de ESTE restaurante. */
+  .colores-marca{
+    display:flex;flex-wrap:wrap;gap:var(--s3);
     margin:0;
   }
-  .tema{display:block;cursor:pointer}
-  .tema input{position:absolute;opacity:0;width:0;height:0}
-  .tema-muestra{
-    display:block;
-    padding:var(--s2);
-    border-radius:var(--r-sheet);
-    border:2px solid var(--border);
-    background:var(--t-ink);
-    transition:transform var(--t-press) var(--ease-out),border-color var(--t-fast) ease;
+  .color-marca{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 14px 8px 8px;
+    border:1px solid var(--border);border-radius:var(--r-pill);
   }
-  .tema:active .tema-muestra{transform:scale(.98)}
-  /* El fondo de la muestra ES el fondo oscuro del tema, así que un borde oscuro dentro no
-     se ve. La marca de elegido va por fuera, sobre la crema del panel, donde sí se lee. */
-  .tema input:checked + .tema-muestra{outline:3px solid var(--accent-ink);outline-offset:3px}
-  .tema input:focus-visible + .tema-muestra{outline:3px solid var(--ink);outline-offset:3px}
-  .tema-carta{
-    display:block;
-    padding:var(--s2) var(--s2) 10px;
-    border-radius:12px;
-    background:var(--t-surface);
-    font-family:var(--body-font);
+  .color-marca-punto{
+    width:28px;height:28px;flex:none;
+    border-radius:50%;border:1px solid var(--hairline);
   }
-  .tema-eyebrow{
-    display:block;margin-bottom:6px;
-    color:var(--t-accent);
-    font-family:var(--title-font);
-    font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
-  }
-  .tema-fila{
-    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
-    padding:5px 0;
-    border-bottom:1px solid var(--t-hairline);
-    color:var(--t-ink);
-    font-size:12px;
-  }
-  .tema-fila:last-of-type{border-bottom:0}
-  .tema-fila em{color:var(--t-muted);font-style:normal;font-size:10px}
-  .tema-precio{font-family:var(--title-font);font-weight:600;font-variant-numeric:tabular-nums}
-  .tema-pill{
-    display:inline-block;margin-top:8px;
-    padding:2px 8px;border-radius:999px;
-    background:var(--offer);color:var(--t-surface);
-    font-family:var(--title-font);font-size:9px;font-weight:700;letter-spacing:.06em;
-  }
-  .tema-pie{
-    display:flex;align-items:center;gap:6px;
-    margin-top:10px;padding:0 4px;
-    color:var(--t-surface);
-    font-family:var(--title-font);font-size:10px;letter-spacing:.06em;
-  }
-  .tema-punto{width:8px;height:8px;border-radius:50%;background:var(--t-base)}
-  .tema-nombre{
-    display:flex;align-items:center;gap:6px;
-    margin-top:10px;
-    font-family:var(--title-font);font-size:16px;font-weight:700;
-  }
-  .tema-check{
-    display:none;
-    color:var(--accent-ink);
-    font-family:var(--body-font);font-size:12px;font-weight:400;
-  }
-  .tema input:checked ~ .tema-nombre .tema-check{display:inline}
-  .tema-nota{display:block;margin-top:2px;color:var(--muted);font-size:13px;line-height:1.35}
+  .color-marca-nombre{display:block;font-family:var(--title-font);font-size:13px;font-weight:600}
+  .color-marca-hex{display:block;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
   /* El aviso de sin guardar alarga el contador; que se parta él y no el botón. */
   .pane[data-pane="marca"] .save{white-space:nowrap}
 
@@ -3915,7 +3944,7 @@ $CUENTAS = [
     box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 25%,transparent);
   }
   .insignia.is-online{background:var(--surface);color:var(--accent-ink)}
-  .insignia.is-user{background:var(--accent);color:var(--surface)}
+  .insignia.is-user{background:var(--accent);color:var(--accent-ink)}
   .insignia.is-super{background:var(--ink);color:var(--surface);outline:2px solid var(--surface)}
   .insignia.is-demo{background:var(--offer);color:var(--surface)}
 
@@ -4008,32 +4037,21 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
 <?php elseif (!$dentro): ?>
   <?php
-    /* La imagen de la puerta va POR TEMA: acceso-laurel.jpg, acceso-mar.jpg… Cada juego de
-       color tiene la suya, así que la puerta cambia cuando el restaurante cambia el tema y no
-       queda una foto verde delante de una tarjeta ciruela. `acceso*.jpg` NO sale de
-       estado.json ni la escribe el panel: son archivos fijos en admin/ que el restaurante
-       sustituye a mano por FTP -- y por eso deploy.yml los excluye siempre del despliegue,
-       para no pisar una foto ya personalizada.
+    /* La imagen de la puerta. `acceso.jpg` NO sale de estado.json ni la escribe el panel: es
+       un archivo fijo en admin/ que el restaurante sustituye a mano por FTP -- y por eso
+       deploy.yml lo excluye siempre del despliegue, para no pisar una foto ya personalizada.
 
-       `motor-acceso*.jpg` es la MISMA idea pero del motor, no del cliente: las 6 mismas
-       fotos genéricas (sin marca de ningún restaurante, solo un fondo por tema), con nombre
-       distinto a propósito para que el exclude de deploy.yml (que solo empieza por
-       "acceso") no las alcance -- SÍ viajan en cada despliegue, así que un cliente recién
-       nacido, sin ninguna foto propia subida todavía, tiene puerta desde el primer día. En
-       cuanto el restaurante sube la suya (acceso.jpg o la de su tema), esa gana siempre: se
+       `motor-acceso.jpg` es la MISMA idea pero del motor, no del cliente: una foto genérica
+       (sin marca de ningún restaurante), con nombre distinto a propósito para que el exclude
+       de deploy.yml (que solo empieza por "acceso") no la alcance -- SÍ viaja en cada
+       despliegue, así que un cliente recién nacido, sin foto propia subida todavía, tiene
+       puerta desde el primer día. En cuanto el restaurante sube la suya, esa gana siempre: se
        comprueba primero.
-
-       Seis escalones: la del tema en uso, la del tema de la casa y acceso.jpg -- las tres
-       personalizadas, si existen -- y las tres mismas del motor detrás. Si no hay ninguna
-       (no debería pasar: el motor siempre trae las suyas), sin foto en vez de un hueco gris.
 
        Al src se le cuelga la fecha del archivo: al reemplazarlo, la dirección cambia sola y
        nadie se queda viendo el anterior por la caché. */
     $foto_login = '';
-    foreach ([
-      'acceso-' . $tema_actual . '.jpg', 'acceso-' . tema_por_defecto() . '.jpg', 'acceso.jpg',
-      'motor-acceso-' . $tema_actual . '.jpg', 'motor-acceso-' . tema_por_defecto() . '.jpg', 'motor-acceso.jpg',
-    ] as $cual) {
+    foreach (['acceso.jpg', 'motor-acceso.jpg'] as $cual) {
       if (is_file(__DIR__ . '/' . $cual)) { $foto_login = $cual; break; }
     }
     $hay_foto = $foto_login !== '';
@@ -5516,17 +5534,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php /* ---------------------------------------------------------------- marca */ ?>
   <section class="pane" data-pane="marca"<?= $pestana === 'marca' ? '' : ' hidden' ?>>
     <p class="hint">
-      Las fotos de portada, el juego de colores de la carta y las copias de seguridad. Los
-      colores <strong>se eligen una vez</strong>, el día que se monta el restaurante; a las
-      fotos y a las copias se vuelve cuando haga falta.
+      Las fotos de portada, el color de marca y las copias de seguridad. Secundario, Oscuro
+      y Neutro son del motor y no cambian nunca; el Primario es el único tuyo, y se puede
+      <strong>volver a él cuando haga falta</strong> -- igual que las fotos y las copias.
     </p>
-
-    <?php if (!$temas): ?>
-      <div class="msg bad">
-        No encuentro <code>temas.json</code>. Súbelo junto a este archivo: lo genera el build
-        con la carta. Mientras tanto la carta se ve con los colores de la casa.
-      </div>
-    <?php else: ?>
 
       <h2>Fotos de portada</h2>
       <div class="card">
@@ -5599,38 +5610,42 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <form method="post">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
 
-        <div class="temas">
-          <?php foreach ($temas as $t):
-            $tk = is_array($t['tokens'] ?? null) ? $t['tokens'] : []; ?>
-            <label class="tema" style="
-              --t-ink:<?= h($tk['--ink'] ?? '#000') ?>;
-              --t-surface:<?= h($tk['--surface'] ?? '#fff') ?>;
-              --t-accent:<?= h($tk['--accent'] ?? '#000') ?>;
-              --t-muted:<?= h($tk['--muted'] ?? '#666') ?>;
-              --t-base:<?= h($tk['--base'] ?? '#999') ?>;
-              --t-hairline:<?= h($tk['--hairline'] ?? '#ddd') ?>;">
-              <input type="radio" name="tema" value="<?= h($t['slug']) ?>"
-                     <?= $tema_actual === $t['slug'] ? ' checked' : '' ?>>
-              <span class="tema-muestra" aria-hidden="true">
-                <span class="tema-carta">
-                  <span class="tema-eyebrow">Para empezar</span>
-                  <span class="tema-fila"><span>Croquetas de la casa<br><em>seis unidades</em></span><span class="tema-precio">8,50</span></span>
-                  <span class="tema-fila"><span>Ensalada de temporada<br><em>con vinagreta</em></span><span class="tema-precio">9,00</span></span>
-                  <span class="tema-pill">-20% HOY</span>
-                </span>
-                <span class="tema-pie"><span class="tema-punto"></span>PIE DE LA CARTA</span>
-              </span>
-              <span class="tema-nombre">
-                <?= h($t['nombre']) ?><span class="tema-check">· elegido</span>
-              </span>
-              <span class="tema-nota"><?= h($t['nota'] ?? '') ?></span>
-            </label>
-          <?php endforeach; ?>
+        <label class="fld" for="color-principal-hex">Primario
+          <span class="opt">(en blanco, el de fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
+        </label>
+        <div class="color-editable">
+          <input type="color" id="color-principal-picker" value="<?= h($colorPrincipalActual) ?>"
+                 aria-label="Elegir color principal con el selector">
+          <input type="text" id="color-principal-hex" name="marca_color_principal"
+                 value="<?= h($marca['colorPrincipal']) ?>" placeholder="<?= h(CLIENTE_COLOR_PRINCIPAL) ?>"
+                 pattern="#?[0-9A-Fa-f]{6}" maxlength="7" spellcheck="false" autocomplete="off"
+                 aria-label="Color principal en hexadecimal">
+          <button type="button" class="ghost" id="color-principal-restaurar">Restaurar color original</button>
+        </div>
+        <p class="hint" style="margin:6px 2px 0">
+          Se aplica a la carta al momento, sin recompilar. Si no se lee bien con el resto de
+          la carta (texto, iconos, botones), el guardado se rechaza y se explica por qué.
+        </p>
+
+        <div class="colores-marca" style="margin-top:var(--s3)">
+          <span class="color-marca">
+            <span class="color-marca-punto" style="background:<?= h(CLIENTE_COLOR_SECUNDARIO) ?>" aria-hidden="true"></span>
+            <span><span class="color-marca-nombre">Secundario</span><span class="color-marca-hex"><?= h(CLIENTE_COLOR_SECUNDARIO) ?></span></span>
+          </span>
+          <span class="color-marca">
+            <span class="color-marca-punto" style="background:<?= h(CLIENTE_COLOR_OSCURO) ?>" aria-hidden="true"></span>
+            <span><span class="color-marca-nombre">Oscuro</span><span class="color-marca-hex"><?= h(CLIENTE_COLOR_OSCURO) ?></span></span>
+          </span>
+          <span class="color-marca">
+            <span class="color-marca-punto" style="background:<?= h(CLIENTE_COLOR_NEUTRAL) ?>" aria-hidden="true"></span>
+            <span><span class="color-marca-nombre">Neutro</span><span class="color-marca-hex"><?= h(CLIENTE_COLOR_NEUTRAL) ?></span></span>
+          </span>
         </div>
 
         <p class="hint" style="margin-top:var(--s3)">
-          El rojo de las ofertas y del picante no cambia con el tema: no es un color de marca,
-          es un aviso, y significa lo mismo en todos. Los del juego tampoco.
+          Secundario, Oscuro y Neutro son del motor, no del restaurante: iguales para
+          cualquier carta y no se cambian desde aquí. El rojo de las ofertas y del picante
+          tampoco es un color de marca -- es un aviso, y es igual para todos los clientes.
         </p>
 
         <h2>La nota de Google</h2>
@@ -5744,10 +5759,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </div>
 
         <div class="bar">
-          <?php /* Lo que hay guardado, no lo que está marcado: si no coinciden, la propia
-                   clase dirty escribe «sin guardar» detrás. */
-            $nombre_actual = 'el de la casa';
-            foreach ($temas as $t) if ($t['slug'] === $tema_actual) $nombre_actual = $t['nombre']; ?>
+          <?php $nombre_actual = $marca['nombreVisible'] !== '' ? $marca['nombreVisible'] : CLIENTE_NOMBRE; ?>
           <span class="count">En la carta: <?= h($nombre_actual) ?></span>
           <span class="acciones">
             <a class="ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver menú</a>
@@ -5755,7 +5767,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </span>
         </div>
       </form>
-    <?php endif; ?>
 
     <h2>Copias de seguridad</h2>
     <div class="card">
@@ -6048,24 +6059,33 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       });
     })();
 
-    /* El panel se pinta del tema que se toca, antes de guardarlo. Una muestra de 240px
-       convence a medias; ver la aplicación entera cambiar de color convence del todo.
-       Para que nadie confunda probar con guardar, el contador de la barra pasa a rojo y
-       escribe «sin guardar» hasta que se pulsa el botón. */
+    /* El picker da un hex siempre valido; el campo de texto es el que de verdad viaja
+       en el POST (name="marca_color_principal") -- se mantienen sincronizados en los
+       dos sentidos para que escribir el hex a mano funcione igual que elegirlo. La
+       validacion real (contraste contra Secundario/Oscuro/Neutral) es cosa del
+       servidor, al guardar: aqui solo se comprueba formato, para que el picker no
+       reciba un valor que no entienda. */
     (function () {
-      var radios = [].slice.call(document.querySelectorAll('input[name="tema"]'));
-      if (!radios.length) return;
-      var guardado = document.documentElement.dataset.tema || '<?= h(tema_por_defecto()) ?>';
-      var contador = document.querySelector('.pane[data-pane="marca"] .count');
+      var picker = document.getElementById('color-principal-picker');
+      var texto = document.getElementById('color-principal-hex');
+      var restaurar = document.getElementById('color-principal-restaurar');
+      if (!picker || !texto) return;
+      var original = <?= json_encode(CLIENTE_COLOR_PRINCIPAL) ?>;
 
-      radios.forEach(function (r) {
-        r.addEventListener('change', function () {
-          if (r.value === '<?= h(tema_por_defecto()) ?>') delete document.documentElement.dataset.tema;
-          else document.documentElement.dataset.tema = r.value;
-          if (contador) contador.classList.toggle('dirty', r.value !== guardado);
-        });
+      picker.addEventListener('input', function () { texto.value = picker.value.toUpperCase(); });
+      texto.addEventListener('input', function () {
+        var v = texto.value.trim();
+        if (v && v.charAt(0) !== '#') v = '#' + v;
+        if (/^#[0-9A-Fa-f]{6}$/.test(v)) picker.value = v;
       });
+      if (restaurar) {
+        restaurar.addEventListener('click', function () {
+          texto.value = '';
+          picker.value = original;
+        });
+      }
     })();
+
   </script>
 
   <?php endif; ?>

@@ -74,7 +74,7 @@ motor/lock.mjs               verificar/escribir motor.lock
 motor/transaccion-motor.mjs  la transacción de actualización
 motor/actualizar.mjs         actualizar el motor (misma época)
 motor/migrar.mjs             el salto de época (carta/1 → carta/2)
-motor/temas.mjs              los cinco temas de color
+motor/temas.mjs              deriva los tokens de color desde el único color de marca del cliente
 motor/juego.mjs              el juego
 motor/error404.mjs           la página de error
 motor/adelgazar.mjs          quita comentarios del HTML publicado
@@ -154,7 +154,7 @@ node nuevo-cliente.mjs \
   --alergenos-en-origen si|no|desconocido \
   --zona-horaria "<IANA, p. ej. Europe/Madrid>" \
   --corte-hora <0-23> \
-  [--juego true|false] [--publicidad true|false]
+  [--juego true|false] [--publicidad true|false] [--color-principal "#RRGGBB"]
 ```
 
 Todos los que no llevan corchetes son obligatorios; sin uno, el script lista exactamente cuál
@@ -162,7 +162,7 @@ falta y no escribe nada. Se niega a ejecutarse si el destino existe y contiene a
 toca la carpeta de origen.** Un idioma que no esté en el catálogo humano del script (paso 7)
 aborta aquí mismo.
 
-**Antes de escribir un solo fichero**, dos comprobaciones que reutilizan el contrato real de
+**Antes de escribir un solo fichero**, comprobaciones que reutilizan el contrato real de
 `gen.mjs` (no son reglas nuevas, son las mismas leídas antes):
 - `--url` tiene que contener el nombre de la carpeta de `--destino` — el mismo contrato que
   `motor/entorno.mjs::CARPETA_CLIENTE` comprueba después del hecho. Si no coincide, aquí falla
@@ -170,6 +170,13 @@ aborta aquí mismo.
   cliente ya escrito.
 - `--zona-horaria` tiene que ser un identificador IANA válido (`Intl.DateTimeFormat` real,
   igual que la comprobación de `gen.mjs`) y `--corte-hora` un entero 0-23.
+- `--color-principal` es del todo **opcional**: sin él, el naranja de fábrica (`#FF7517`),
+  nunca motivo de aborto. Si se da, tiene que ser un `#RRGGBB` válido Y tiene que leerse con
+  las constantes fijas del motor (`verificarPaleta()` de `motor/temas.mjs`, la misma función
+  que usará luego cada build de este cliente y la misma que valida un cambio posterior desde
+  Admin → Marca). Secundario (`#3E3939`), Oscuro (`#2C2727`) y Neutral (`#F6F4F4`) son
+  constantes del motor — no se piden aquí, no se declaran en `cliente.mjs`, son iguales
+  para cualquier cliente que exista o que se dé de alta mañana.
 
 Deja hecho, todo en local, nada en GitHub:
 
@@ -177,7 +184,9 @@ Deja hecho, todo en local, nada en GitHub:
 - `slug` nuevo, derivado del nombre de la carpeta.
 - `cliente.mjs` con los rótulos, `alergenos: { leyenda: [], enOrigen: '<lo que se pasó>' }`,
   `zonaHoraria`/`servicio.corteHora` explícitos (nunca `Atlantic/Canary` por defecto — ver
-  sección 6) y `activacionPanel: true`.
+  sección 6), `marca: { colorPrincipal }` (el naranja de fábrica si no se dio ninguno) y
+  `activacionPanel: true`. Editable después, en caliente y sin recompilar, desde Admin →
+  Marca — este valor es el de partida/restaurar, no el único que puede estar activo.
 - `carta.json` vacío, marcado **no publicable**: mientras lleve la marca, el build aborta.
 - Plantillas de idiomas (`i18n.<code>.mjs`), con el vocabulario **genérico del motor** ya
   relleno y **sin un solo texto del restaurante de origen** — las 7 claves de Tinge que sí
@@ -589,7 +598,9 @@ Antes de dar el alta por terminada, todo esto tiene que estar en verde:
 
 - Su carta está en `<URL>`.
 - Su panel está en `<URL>admin/`, y **la contraseña la pone él** con el token de activación.
-- Desde el panel cambia precios, agotados, ofertas, fotos y tema, y se ve **al instante**.
+- Desde el panel cambia precios, agotados, ofertas, fotos y el color principal, y se ve
+  **al instante, sin recompilar**. Secundario, Oscuro y Neutral son del motor y no se
+  editan desde ningún cliente: se enseñan de referencia, solo lectura.
 - Cambiar platos o categorías todavía **no** se hace desde el panel: se pide.
 - Si `enOrigen: 'no'`, la carta no lleva información de alérgenos hasta que decida declararlos
   y se recompile con `enOrigen: 'si'` y la carta cargada. Nunca se inventa ni se deduce uno.

@@ -6868,3 +6868,214 @@ reparte el sobrante arriba y abajo por igual — con una ventana de recorte más
 375px y 320px: gafas siguen despejadas, «Chilli»/«Rush» legibles, las cuatro fichas
 sin solape, consola limpia — el margen de sobra que ya traía el -48px alcanza también
 para esta altura menor, no hizo falta recalcular.
+
+## Los cinco temas se sustituyen por 4 colores de marca (4 Sep 2026)
+
+Sustituye entero lo descrito arriba en «Temas de marca (selector de colores en el
+panel)» y en «Una foto de puerta por tema». El propietario pidió primero una
+auditoría y diseño (sin tocar código) del problema que llevaba tiempo latente: cinco
+temas cerrados (`marino`, `terracota`, `bosque`, `carbon`, `vino`, `arena` según las
+vueltas — en producción, `laurel`/`onice`/`caoba`/`mar`/`ciruela` según las entradas
+más recientes; la lista cambió varias veces sin que este documento llevara la cuenta,
+lo cual era ya un síntoma) significaba que un cliente nuevo o bien se conformaba con
+uno de los cinco aspectos ya vistos en otro restaurante, o alguien tenía que diseñar
+un sexto tema entero — semillas, verificación de contraste, imagen de puerta — para
+que una sola carta tuviera un color distinto. Aprobado el diseño, con un contrato
+final MODIFICADO sobre lo propuesto: no 3 colores sino 4, con nombre y rol fijos.
+
+**El contrato.** `cliente.mjs` declara tres, en `marca: { colorPrincipal, colorSecundario,
+colorOscuro }`, obligatorios y sin default silencioso — el build aborta si falta
+alguno o si no es `#RRGGBB` válido. El cuarto, `colorNeutral`, NO se declara nunca por
+cliente: es la constante `NEUTRO = '#F6F4F4'` de `motor/temas.mjs`, igual para todo
+restaurante. Roles, decididos por lo que cada uno ya pintaba en el sistema de
+semillas anterior: `colorPrincipal` hace el papel que hacía `seed` (dos variantes:
+`--accent` oscurecido hasta leerse sobre el neutro, `--metal` aclarado hasta leerse
+sobre `colorOscuro`); `colorSecundario` hace el papel de `surface`-secundario, pinta
+`--base`, el fondo del tablero del juego; `colorOscuro` hace el papel de `ink`: ES
+`--ink`, fondo de página y todo el texto, y de él se derivan por mezcla porcentual
+fija con el neutro `--muted`/`--border`/`--chip`/`--hairline`/`--scrim` y las tres
+sombras — exactamente la misma aritmética que ya hacía `marino` con sus semillas,
+solo que ahora la hace CUALQUIER paleta, no una lista cerrada. `--deep` desaparece:
+no tenía consumidores fuera del propio `derivar()`.
+
+**Verificación generalizada.** `verificar()` dejó de ser "compruebo mis 5 temas fijos"
+y pasó a `verificarPaleta(paleta, nombre)`, invocable sobre CUALQUIER paleta — la de
+fábrica en el arranque del motor, la de cada cliente en cada build, la que
+`nuevo-cliente.mjs` reciba por `--color-*` antes de escribir un solo fichero. Mismos
+umbrales de siempre (titulares 7:1, texto/acento 4.5:1, filetes 1.3:1, más el rojo de
+oferta contra cada superficie), más una comprobación nueva que el sistema de 5 temas
+no necesitaba: si `colorPrincipal`/`colorSecundario` están tan cerca del propio negro
+o blanco que ninguna variante intermedia llega al umbral, la función que la deriva
+devuelve `null` en vez de un valor inventado, y `verificarPaleta` lo detecta antes de
+intentar las parejas de contraste — un motor con 5 temas fijos, elegidos a mano y ya
+medidos uno a uno, nunca podía toparse con esto; uno que deriva de lo que escriba
+cualquier `cliente.mjs` futuro, sí.
+
+**Lo que se elimina, sin dejar sistema paralelo:** `TEMAS`, `TEMA_POR_DEFECTO`,
+`derivar(tema)` con firma de objeto-tema, `cssTemas()`, `temasParaPanel()`,
+`admin/temas.json` y las funciones que lo leían en el panel (`temas()`,
+`temas_json()`, `tema_por_defecto()`); el selector del panel entero —CSS de
+`.tema`/`.tema-muestra`, el JS que repintaba la app en vivo al tocar un radio y
+ponía «sin guardar»—; `data-tema` en `<html>` (carta, panel y 404) y su bootstrap de
+`localStorage` antes del primer pintado; `aplicarTema()` en carta, juego y panel; el
+`theme` de `estado.json` (una clave vieja ahí no rompe nada: simplemente ya no la
+lee nadie); y las cinco imágenes `acceso-<tema>.jpg`/`motor-acceso-<tema>.jpg` de la
+entrada anterior de este documento, sustituidas por un `acceso.jpg`
+(personalización del restaurante, como siempre) y un único `motor-acceso.jpg` de
+fábrica. El panel muestra los 4 colores en Marca, pero **solo de referencia, sin
+editar**: son de build, cambiarlos recalcularía todos los tokens derivados y eso es
+cosa de una compilación, no de un guardado — la pestaña conserva editables el nombre
+visible y el texto de portada, que sí son runtime desde hace unas vueltas.
+
+**Dos hardcodes que el sistema de temas dejaba pasar,** corregidos de paso porque el
+contrato pedía explícitamente no dejar ningún color fijo fuera de lo semántico
+(oferta/picante y el minijuego, que siguen sin tematizar, igual que siempre): el rojo
+del número negativo del juego (`.float.bad`, antes `#e39992` fijo) ahora sale de un
+alias local `--juego-float-malo: color-mix(in srgb, var(--offer) 65%, white)`, mismo
+patrón que ya usaban `--juego-go`/`--juego-peligro` en ese fichero — un color de tema
+mezclado con blanco en CSS, no una constante inventada; y el `theme-color` de la
+página 404, antes clavado al `--ink` de `laurel` (`#17382C`), ahora recibe `INK` como
+cualquier otro consumidor del color de marca.
+
+**Tinge estrena la paleta de fábrica**, no una reproducción de `onice` (su tema en
+producción hasta este cambio): `colorPrincipal '#FF7517'`, `colorSecundario
+'#3E3939'`, `colorOscuro '#2C2727'`, el mismo naranja/grafito que usará cualquier
+cliente que no diga lo contrario. Decisión expresa del propietario — quería evaluar
+la identidad nueva de fábrica en el cliente de referencia, no conservar el aspecto
+anterior con la maquinaria nueva por debajo. **Guaza se queda en su tema `mar` de
+antes de este cambio**, sin migrar todavía — excepción temporal y reportada al
+invariante de motor idéntico entre los dos clientes.
+
+### Ajuste: el acento se conserva literal, no se oscurece (4 Sep 2026)
+
+Visto en pantalla, el `#FF7517` de fábrica salía como `--accent:#ab4e0f` — el propio
+`acentoLegible()` de arriba lo oscurecía hasta un naranja quemado para poder llevar
+texto blanco encima. Cumplía WCAG y no cumplía el encargo: el propietario quería VER
+el naranja de marca, no una versión apagada de sí mismo. Corrección de diseño, en el
+mismo día, sin deshacer nada de lo de arriba — la eliminación de los 5 temas, el
+0/3 de `/nuevo-cliente`, el Neutral fijo, la validación de paletas, todo se queda.
+
+**La regla nueva, en el orden en que se aplica:** (1) `colorPrincipal` se conserva
+EXACTO en `--accent`, siempre — el motor ya no tiene ninguna función que lo oscurezca;
+(2) el texto o icono que va ENCIMA de un fondo `--accent` se elige entre los dos
+colores fijos del sistema, colorOscuro primero, colorNeutro si el oscuro no llegara a
+leer — nunca se fabrica un tercero; (3) donde ni siquiera eso vale — un rótulo naranja
+de 13px sobre la tarjeta clara, por ejemplo — el naranja cambia de PAPEL, no de valor:
+pasa a icono, indicador, borde o fondo de una pastilla, y el texto de verdad se queda
+en `--ink`; (4) fabricar una variante oscurecida ad-hoc queda como último recurso para
+un fondo concreto, nunca como sustituto general del acento visible.
+
+**Token nuevo:** `--solid`/`--solid-ink` (el Secundario literal + su texto, colorNeutro
+primero). No existía como concepto: antes lo único que hacía `colorSecundario` era
+pintar `--base` (el fondo del tablero, mezclado y aclarado, un uso que sigue intacto y
+sin tocar). Ahora además pinta botones/CTA/chips activos — un uso más, no un reemplazo.
+
+**Qué pasó de Primario a Secundario** (superficies de acción, no de marca — «el naranja
+no domina superficies grandes»): el botón flotante de búsqueda de la carta (con un
+filete de `--accent` de 1,5px por fuera, porque `--solid` e `--ink` casi no se
+distinguen entre sí — 1,3:1 — y sin el filete el botón se fundía contra el pie oscuro
+al hacer scroll hasta el final, comprobado en pantalla, no solo calculado); el chip de
+filtro activo del buscador (Vegan/Gluten Free); la pestaña activa del panel y del móvil
+de la carta (en escritorio la pestaña activa ya no lleva fondo: se queda en `--ink` con
+más peso de fuente, y el color de marca vive solo en el filete de abajo); el interruptor
+ON/OFF y la píldora de «destacar» del panel; el botón de porcentaje rápido en Ofertas.
+
+**Dónde se conserva `#FF7517` exacto:** el icono de cada categoría y las marcas de
+dieta/alérgeno; los filetes de foco de CUALQUIER control (antes usaban el acento ya
+oscurecido, que por accidente coincidía con el color de texto; ahora es literal); el
+punto que marca la categoría activa en el buscador y el dato «hoy» del panel; los
+badges rellenos (Bestseller, insignia de usuario, avisos) — con su texto en `--ink`
+encima, no en blanco; el subrayado de la pestaña activa en escritorio; el badge «Rush»
+de la portada del juego y de la tarjeta de la carta; `--metal` (footer, placa del
+marcador) no cambia de comportamiento — con esta paleta ya coincidía con el acento.
+
+**Hallazgo de paso, en el juego:** `--juego-go` (la ficha que hay que tocar, el marcador
+de «tú» en el podio, el número del récord) pintaba directo con el acento ya oscurecido,
+que SÍ leía sobre el fondo del tablero (`--base`, un gris cálido) — 1,72:1, ya
+insuficiente, solo que nadie lo había medido. Con el acento sin oscurecer la cifra baja
+a 1,19:1, así que se corrigió de raíz en vez de solo devolverla a donde estaba: la
+ficha del tablero, el marcador propio y la cifra del récord pasan a `--ink`, que es el
+único de los cuatro colores que sí lee sobre `--base` (4,60:1) — mismo criterio que ya
+usaba el resto del HUD del juego.
+
+Probado en pantalla, no solo en cálculo: carta completa (buscador, chips, categorías,
+precios, ofertas, badges) en los tres idiomas, móvil y escritorio; ficha con foto;
+panel (login, insignias, pestañas, Destacados con un badge real puesto y quitado);
+juego jugado de verdad (ficha, marcador, pantalla de fin); 404. Consola limpia en
+todo. Motor re-lockeado, build limpio, `verificar-build.mjs` en verde.
+
+### Ajuste final: solo el Primario es de cliente (4 Sep 2026)
+
+Tercer y último ajuste del mismo día. Los dos anteriores resolvían CÓMO se usa el color;
+este resuelve QUIÉN lo declara. Contrato anterior: tres colores de cliente
+(colorPrincipal/colorSecundario/colorOscuro) en `cliente.mjs`, fijos desde el build.
+Contrato final: **un solo color de cliente**, colorPrincipal — Secundario (`#3E3939`),
+Oscuro (`#2C2727`) y Neutral (`#F6F4F4`) pasan a ser constantes DEL MOTOR, iguales para
+cualquier cliente, nunca declaradas en `cliente.mjs` ni pedidas en `/nuevo-cliente`. Y
+el Primario deja de ser fijo-desde-el-build: es editable en caliente desde Admin →
+Marca, con la carta reflejando el cambio sin recompilar.
+
+**Por qué.** Con tres colores de cliente, la combinatoria de "qué paleta pasa contraste"
+crecía con cada alta, y en la práctica solo el Primario es lo que un restaurante
+reconoce como "mi color" — el resto ya es el lenguaje visual del producto (heredado,
+además, de la propia jerarquía Secundario/Oscuro/Neutral que la vuelta anterior ya
+había fijado en la práctica: ver el ajuste de arriba). Reducir a un color simplifica el
+contrato (una alta ya no puede fallar el contraste salvo por su único color variable) y
+hace seguro el override en caliente: cambiar un color sin recompilar es mucho más
+seguro que cambiar tres a la vez sin que el motor los reverifique en el momento.
+
+**`motor/temas.mjs`:** `derivar()`/`verificarPaleta()`/`cssMarca()` pasan a recibir un
+string (`colorPrincipal`), no un objeto. `SECUNDARIO`/`OSCURO`/`NEUTRO` son constantes
+exportadas del módulo — antes NEUTRO ya lo era, ahora se les unen las otras dos.
+`PALETA_DEFECTO` (objeto) se sustituye por `PRINCIPAL_DEFECTO` (string, `'#FF7517'`).
+Nueva pareja en `PAREJAS`: `--accent` contra `--surface`, mínimo 1,5:1 — no es un umbral
+WCAG (1.4.11 pide 3:1 para no-texto, y el propio naranja de fábrica se queda en 2,45,
+trade-off ya aceptado en la vuelta anterior); existe solo para el caso degenerado real,
+un colorPrincipal casi idéntico al Neutral, que sin esto pasaría la guardia entera
+porque ninguna de las demás parejas usa el acento como fondo sobre superficie clara.
+
+**El override en caliente, en tres sitios con la MISMA aritmética** (verificado que los
+tres dan bit a bit el mismo resultado, no solo que "deberían"):
+- **Node** (`motor/temas.mjs`), en el build: valida `cliente.mjs` y compone `--accent`/
+  `--accent-ink`/`--metal` de partida.
+- **PHP** (`motor/server/admin/index.php`, funciones `color_*`/`derivar_principal()`):
+  valida lo que llega de Admin → Marca al guardar, y en cada carga del panel recalcula
+  e imprime un `<style>` de override en el `<head>` si hay un color guardado — el panel
+  es PHP, se ejecuta en cada request, así que no necesita runtime aparte.
+- **JavaScript** (`motor/gen.mjs` y `motor/juego.mjs`, función `derivarPrincipal()`
+  duplicada palabra por palabra en cada documento — no comparten runtime): la carta
+  pública y el juego son HTML estático, sin PHP detrás, así que el override se aplica
+  en el navegador de quien visita — al cargar `estado.json` (lo mismo que ya hacía
+  `aplicarMarca()` con nombre/rótulo), si hay `marca.colorPrincipal`, se recalculan los
+  tres tokens y se escriben con `style.setProperty()` sobre el `:root`. Todo lo demás
+  que depende de `--accent`/`--metal` en cascada (`--juego-go`, el borde del FAB...) se
+  actualiza solo, porque son `var()` unas de otras — no hace falta tocarlas aparte.
+  Secundario/Oscuro/Neutro se leen del propio `:root` ya pintado (`getComputedStyle`)
+  en vez de llevar una copia a mano que pudiera desincronizarse.
+
+**Fallback, en los tres sitios:** `estado.json.marca.colorPrincipal` → `cliente.mjs`
+(vía `CLIENTE_COLOR_PRINCIPAL`, el valor de build) → `'#FF7517'`. El de build es
+también «a qué restaura» el botón de Admin → Marca: vaciar el campo y guardar vuelve
+exactamente a ese valor, mismo patrón que ya usaban nombreVisible/rotuloVisible.
+
+**Admin → Marca:** picker nativo (`<input type=color>`) + campo de hex, sincronizados
+por JS en los dos sentidos; botón «Restaurar color original»; Secundario/Oscuro/Neutral
+sin tocar, solo lectura. Validación de formato en el propio `pattern` del campo
+(frontend, HTML5, sin duplicar la aritmética de contraste ahí); validación de contraste
+en PHP al guardar, con el mensaje exacto de qué falla — probado en vivo con un color
+casi blanco: rechazado, `estado.json` sin tocar, nada roto.
+
+**`nuevo-cliente.mjs` y `cliente.mjs`:** `--color-principal` pasa a ser la única
+bandera de color, del todo opcional. La plantilla que escribe ya no lleva
+`colorSecundario`/`colorOscuro`. El propio `cliente.mjs` de Tinge se reescribió igual:
+`marca: { colorPrincipal: '#FF7517' }`, una línea.
+
+Probado en pantalla, de punta a punta: cambiar el Primario a un verde desde Admin →
+Marca; confirmado en el panel (insignia, pestaña) sin recargar la sesión; confirmado en
+la carta pública **sin recompilar** (`index.html` es el mismo fichero de antes) en los
+dos idiomas probados; refresh (persiste); ficha con foto y badge de destacado, los dos
+en el verde nuevo y legibles; el juego (badge «Rush», botón «Play»), también en verde;
+restaurado a `#FF7517` desde el botón, confirmado de vuelta en panel y carta; un color
+sin contraste suficiente, rechazado con mensaje claro y sin persistir nada. Consola
+limpia en carta y juego. Motor re-lockeado, build limpio, `verificar-build.mjs` en
+verde, `git diff --check` limpio, Guaza sin tocar.

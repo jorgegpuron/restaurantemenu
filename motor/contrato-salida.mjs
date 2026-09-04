@@ -29,7 +29,7 @@ const EN_TIERRA = new Set([
 /* Lo que gen.mjs escribe en generado/admin/ y acaba en admin/. No sale del lock porque no es
    codigo del motor: es salida del build, distinta en cada cliente pero SIEMPRE presente. */
 const DERIVADOS_ADMIN = [
-  'cliente.php', 'fuentes.html', 'paises.php', 'platos.json', 'temas.json', 'tokens.css',
+  'cliente.php', 'fuentes.html', 'paises.php', 'platos.json', 'tokens.css',
 ];
 
 /* La raiz de la carta. juego.html va SIEMPRE: cuando el cliente no tiene juego, el build

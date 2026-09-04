@@ -26,7 +26,7 @@
  *    turistas comparten. Sin JavaScript se queda el que sale del build, que es el de la casa.
  */
 
-export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE }) {
+export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE, INK }) {
   /* Los textos, uno por idioma. El inglés es el original y el que se queda si algo falla.
      El cuerpo va partido en dos porque la segunda mitad va en negrita: es lo que se quiere que
      se lleve el que sólo lee media frase —que la carta sigue ahí—, y partirlo permite seguir
@@ -76,12 +76,9 @@ export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE }) {
 <!-- Una página de error no se indexa. El 404 de verdad ya lo dice, pero esto lo dice dos
      veces y no cuesta nada. -->
 <meta name="robots" content="noindex,follow">
-<meta name="theme-color" content="#17382C">
+<meta name="theme-color" content="${INK}">
 <link rel="icon" type="image/svg+xml" href="${ruta}assets/titleIcon-accent.svg">
 <title>${base.pestana} · ${CLIENTE.nombre}</title>
-<!-- El tema que el visitante ya estaba viendo, antes del primer pintado. Sin esto, quien viene
-     de una carta en ciruela ve un error en verde y parece otro sitio. -->
-<script>try{var _t=localStorage.getItem('${CLAVE('tema')}');if(_t)document.documentElement.dataset.tema=_t}catch(e){}</script>
 ${FONTS}
 <style>
 ${TOKENS}
@@ -107,7 +104,7 @@ body{
 
 /* Lo que el navegador pinta y nadie diseña: la selección de texto sale de la paleta, no del
    azul del sistema. Es lo mismo que hace la carta. */
-::selection{background:var(--accent);color:var(--surface)}
+::selection{background:var(--accent);color:var(--accent-ink)}
 
 /* ---- la marca de agua ----
    El código de error, enorme y detrás de todo. No es decoración: es el dato exacto de lo que ha
@@ -260,14 +257,6 @@ h1{
     }
   }
   if (!lang) lang = '${BASE}';
-  /* La barra del navegador, del color del fondo real. El valor que sale del build es el del
-     tema de la casa; si el visitante trae otro guardado, aquí se corrige. Es lo mismo que hace
-     la carta al aplicar un tema. */
-  try {
-    var m = document.querySelector('meta[name="theme-color"]');
-    var fondo = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
-    if (m && fondo) m.content = fondo;
-  } catch (e) {}
 
   var t = T[lang] || T.en;
   document.documentElement.lang = lang;
