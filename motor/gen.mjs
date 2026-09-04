@@ -7135,6 +7135,9 @@ const juego = !CLIENTE.funciones.juego ? lapida() : buildGame({
   PAISES, imgBandera,
   T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), CLIENTE, CLAVE,
   ZONA: CLIENTE.zonaHoraria, CORTE: CORTE_HORA, BASE: IDIOMA_BASE.code, INK: OSCURO,
+  /* Para la excepcion de --rush-ink en el runtime del juego: el hex de fabrica sale de
+     temas.mjs, no se escribe a mano alli. */
+  PRINCIPAL: PRINCIPAL_DEFECTO,
   /* El mismo titulo en todos los idiomas: es el nombre del juego y el del restaurante. */
   titles: Object.fromEntries([IDIOMA_BASE.code].concat(LANGS.map((l) => l.code))
     .map((c) => [c, CLIENTE.tituloJuego])),
