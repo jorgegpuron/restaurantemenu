@@ -64,14 +64,14 @@
  *                      fondo YA oscuro (el pie de pagina, la placa del juego): con el
  *                      naranja de fabrica ya coincide con --accent porque se lee tal
  *                      cual sobre negro.
- *   SECUNDARIO (motor, fijo, '#3E3939')   el color de accion solida: botones/CTA,
+ *   SECUNDARIO (motor, fijo, '#2C2626')   el color de accion solida: botones/CTA,
  *                      pestaña o chip activo, controles solidos. --solid es el valor TAL
  *                      CUAL; --solid-ink es su texto (primero NEUTRO, si no OSCURO).
  *                      Ademas pinta --base, el fondo del tablero del juego -- un uso
  *                      propio y distinto, aclarado contra NEUTRO para que el texto
  *                      (OSCURO) se lea encima. Los dos son SIEMPRE el mismo calculo,
  *                      para cualquier cliente: no hay nada que verificar aqui por alta.
- *   OSCURO (motor, fijo, '#2C2727')   el mas oscuro. Es el fondo de la pagina, todo el
+ *   OSCURO (motor, fijo, '#121212')   el mas oscuro. Es el fondo de la pagina, todo el
  *                      texto de cuerpo, y el texto que va encima del acento cuando este
  *                      es fondo.
  *   NEUTRO (motor, fijo, '#F6F4F4')   la superficie (la tarjeta, el papel). Es lo que
@@ -135,8 +135,8 @@ export function normalizarHex(valor) {
 /* ---- las tres constantes fijas del motor ----
  * Iguales para todo cliente, siempre. No se piden, no se declaran, no se editan --
  * ver el porque en el bloque de arriba. */
-export const SECUNDARIO = '#3E3939';
-export const OSCURO = '#2C2727';
+export const SECUNDARIO = '#2C2626';
+export const OSCURO = '#121212';
 export const NEUTRO = '#F6F4F4';
 
 /** El color de un cliente que no aporta el suyo -- naranja de fabrica. No es un tema,
@@ -215,16 +215,17 @@ const rojoLegible = () => {
  *  --badge-ink: la tinta de los badges/etiquetas de producto (item-tag, dsheet-flag,
  *  aviso-badge, el boton Buscar, los badges del admin) que van rellenos con --accent.
  *  Excepcion visual consciente, pedida expresamente: con el naranja de fabrica exacto
- *  (PRINCIPAL_DEFECTO), blanco fijo -- 2.69:1, por debajo de 4.5, aceptado a proposito.
- *  Con cualquier otro colorPrincipal, ya no hay excepcion: --badge-ink es --accent-ink,
- *  el mismo calculado y validado por contraste que el resto del sistema. No es un color
- *  nuevo -- es blanco solo para ese hex exacto, accent-ink en cualquier otro caso. */
+ *  (PRINCIPAL_DEFECTO), NEUTRO fijo -- 2.45:1, por debajo de 4.5, aceptado a proposito
+ *  (NEUTRO y no blanco puro: es la misma superficie clara que usa el resto del sistema,
+ *  nunca un #fff aparte -- blanco puro daria 2.69:1, tampoco pasa, pero no es el color
+ *  que de verdad se pinta). Con cualquier otro colorPrincipal, sin excepcion:
+ *  --badge-ink es --accent-ink, calculado y validado por contraste como el resto. */
 export function derivar(colorPrincipal) {
   const accent = colorPrincipal;
   const accentInk = inkSobre(accent, OSCURO, NEUTRO);
   const metal = metalLegible(colorPrincipal);
   const metalInk = metal === null ? null : inkSobre(metal, OSCURO, NEUTRO);
-  const badgeInk = accent.toUpperCase() === PRINCIPAL_DEFECTO.toUpperCase() ? '#FFFFFF' : accentInk;
+  const badgeInk = accent.toUpperCase() === PRINCIPAL_DEFECTO.toUpperCase() ? NEUTRO : accentInk;
   return {
     '--accent': accent,
     '--accent-ink': accentInk,

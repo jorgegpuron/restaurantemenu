@@ -2177,28 +2177,33 @@ html:not(.js) .lang-menu{position:static;display:block}
    de verdad y en móvil. */
 .dsheet-foto{
   position:relative;width:100%;aspect-ratio:4/5;
-  /* El mismo tono que el pico del degradado de .dsheet-cuerpo (rgba(9,18,14)), no un tinte
-     claro del papel: admin/index.php guarda las fotos como JPEG baseline (sin
+  /* var(--ink): el mismo token que pinta el pico del degradado de .dsheet-cuerpo (y el
+     fondo real de la pagina, body{background:var(--ink)}), no un tinte claro del papel
+     ni un negro aparte: admin/index.php guarda las fotos como JPEG baseline (sin
      imageinterlace()), asi que en una red lenta la foto tarda en aparecer y este fondo se ve
      un rato de verdad. Con el tinte claro de antes, ese rato ensenaba un hueco palido justo
-     encima del texto ya pintado -- se leia como "falta algo". Con este tono oscuro, el hueco
-     de carga es del mismo color que el degradado que hay debajo: no hay costura que ver. */
-  background:#09120e;
+     encima del texto ya pintado -- se leia como "falta algo". Con este tono, igual al pico
+     del degradado que hay debajo, el hueco de carga no tiene costura que ver. */
+  background:var(--ink);
   overflow:hidden;
 }
 .dsheet-foto[hidden]{display:none}
 .dsheet-foto img{width:100%;height:100%;object-fit:cover;display:block}
 /* El texto, en el pie de la foto. El degradado va en el propio bloque de texto y no en una capa
    de altura fija: así crece con lo que haya escrito y nunca deja una línea sin fondo debajo.
-   Es lo único que hace legible un nombre blanco sobre una foto que puede ser clara. */
+   Es lo único que hace legible un nombre blanco sobre una foto que puede ser clara.
+   var(--ink) en vez de un negro propio (antes rgba(9,18,14,...)): el extremo opaco es el
+   mismo token que pinta el fondo real de la pagina, así que el degradado se funde con lo
+   que haya detrás sin diferencia de tono. Las paradas intermedias, con transparencia,
+   se derivan del mismo --ink via color-mix -- ni un color nuevo ni una copia a mano. */
 .dsheet-cuerpo{
   position:absolute;left:0;right:0;bottom:0;
   padding:var(--s5) var(--s3) calc(var(--s3) + env(safe-area-inset-bottom));
   background:linear-gradient(to top,
-    rgba(9,18,14,.94) 0%,
-    rgba(9,18,14,.86) 34%,
-    rgba(9,18,14,.55) 62%,
-    rgba(9,18,14,0) 100%);
+    var(--ink) 0%,
+    color-mix(in srgb,var(--ink) 86%,transparent) 34%,
+    color-mix(in srgb,var(--ink) 55%,transparent) 62%,
+    transparent 100%);
   color:#fff;
 }
 /* Sin foto no hay escaparate que valga: la ficha vuelve a ser papel con su texto en tinta. Hoy
@@ -2213,9 +2218,9 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-flag{
   display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
-  /* Acento de marca en vez del rojo semantico, --badge-ink por texto -- blanco fijo
-     SOLO con el naranja de fabrica exacto (2.69:1, excepcion consciente); con
-     cualquier otro colorPrincipal, se adapta solo via accent-ink. Ver temas.mjs. */
+  /* Acento de marca en vez del rojo semantico, --badge-ink por texto -- NEUTRO fijo
+     con el naranja de fabrica exacto (excepcion consciente), adaptativo (accent-ink)
+     con cualquier otro colorPrincipal. Ver temas.mjs. */
   background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
@@ -2821,9 +2826,10 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-weight:600;
   letter-spacing:.12em;
   text-transform:uppercase;
-  /* ink, not accent: accent-ink on the chip background measured 4.47:1, and this is the one
-     line on the page that must not be borderline. Size, weight and tracking carry the
-     hierarchy instead of colour. */
+  /* ink, not accent: accent-ink depends on colorPrincipal (a client's Primario can push it
+     close to the 4.5:1 floor against --chip), and this is the one line on the page that must
+     not be borderline for any client. Size, weight and tracking carry the hierarchy instead
+     of colour. */
   color:var(--ink);
   margin-bottom:0;
 }
@@ -2962,8 +2968,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
-  /* --badge-ink: blanco fijo solo con el naranja de fabrica, adaptativo en cualquier
-     otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
+  /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
+     con cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
   background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
@@ -3021,9 +3027,10 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:1px 7px;
   border-radius:var(--r-pill);
   /* filled, unlike the muted number badge: eight rows out of 326 are meant to be seen.
-     Fondo en el acento LITERAL, --badge-ink por texto: blanco fijo solo con el naranja
-     de fabrica, adaptativo con cualquier otro colorPrincipal -- un solo criterio para
-     todo badge/etiqueta con fondo --accent, sin excepcion por tipo de etiqueta. */
+     Fondo en el acento LITERAL, --badge-ink por texto: NEUTRO fijo solo con el naranja
+     de fabrica (excepcion consciente), adaptativo con cualquier otro colorPrincipal --
+     un solo criterio para todo badge/etiqueta con fondo --accent, sin excepcion por
+     tipo de etiqueta. */
   background:var(--accent);
   color:var(--badge-ink);
   font-family:var(--title-font);
@@ -3429,10 +3436,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
    consciente sobre la version anterior de este comentario (que defendia justo lo
    contrario).
 
-   El texto ya no lleva su propio override: --badge-ink, heredado de .item-tag, resuelve
-   lo mismo que llevaba este badge a mano (blanco fijo con el naranja de fabrica) y
-   además se adapta solo si el cliente cambia el Primario -- un solo criterio
-   centralizado, no uno por badge.
+   El texto no lleva su propio override: --badge-ink, heredado de .item-tag, ya resuelve
+   lo mismo que este badge necesitaba (NEUTRO con el naranja de fabrica, accent-ink en
+   cualquier otro caso) -- un solo criterio centralizado, no uno por badge.
 
    Quién se ve y quién no lo decide el runtime con el atributo hidden y con la clase
    has-offer, no una clase global en <html>. Antes iba al revés y fue un error caro: cuando
@@ -3692,9 +3698,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      coincidir con el naranja vivo del resto de acentos, no con el solido. Sin filete:
      con el fondo ya en --accent no hace falta un borde del mismo color para separarse
      del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo.
-     Ajuste posterior, literal y expreso sobre el anterior: --badge-ink por texto/icono,
-     no --accent-ink -- blanco fijo con el naranja de fabrica exacto (2.69:1, excepcion
-     consciente, pedida sabiendo la cifra), adaptativo con cualquier otro colorPrincipal.
+     Ajuste posterior, literal y expreso sobre el anterior: --badge-ink por texto/icono
+     -- NEUTRO fijo con el naranja de fabrica exacto (excepcion consciente, 2.45:1,
+     pedida sabiendo la cifra), adaptativo (accent-ink) con cualquier otro colorPrincipal.
      El icono hereda de aqui via stroke="currentColor", no hace falta tocarlo aparte. */
   background:var(--accent);
   color:var(--badge-ink);
@@ -5806,9 +5812,10 @@ ${DATOS_ACTIVO ? `
       var c = mezcla(hex, neutro, t / 100);
       if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
     }
-    /* --badge-ink: blanco fijo solo con el naranja de fabrica exacto, accent-ink en
-       cualquier otro caso -- misma regla que motor/temas.mjs::derivar(). */
-    var badgeInk = hex.toUpperCase() === ${JSON.stringify(PRINCIPAL_DEFECTO)}.toUpperCase() ? '#FFFFFF' : accentInk;
+    /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica exacto (excepcion
+       consciente, 2.45:1), accent-ink en cualquier otro caso -- misma regla que
+       motor/temas.mjs::derivar(). */
+    var badgeInk = hex.toUpperCase() === ${JSON.stringify(PRINCIPAL_DEFECTO)}.toUpperCase() ? neutro : accentInk;
     return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal, badgeInk: badgeInk } : null;
   }
   function aplicarMarca(marca) {

@@ -95,9 +95,10 @@ ${TOKENS}
 html,body{height:100%}
 body{
   margin:0;
-  /* El teal vivo de la marca con texto navy: 7.58:1. Al revés — crema sobre este teal — son
-     2.11:1, un color que se ve pero no se lee. Es el mismo criterio con el que el pie de la
-     carta acabó en navy en vez de en crema. */
+  /* --ink sobre --base: 4.61:1 con la paleta actual -- pasa el minimo pero con poco margen
+     (--surface sobre --base ni siquiera llega, 3.71:1). Es el color heredado por defecto del
+     body; el texto que de verdad importa lo lee sobre bloques con su propio fondo solido
+     (tarjeta, ficha, marcador), no contra --base a pelo. */
   background:var(--base);
   color:var(--ink);
   font-family:var(--body-font);
@@ -404,10 +405,12 @@ h1{
   min-height:340px;
   margin-top:var(--s2);
   border-radius:var(--r-card);
-  /* Navy sólido, no un velo sobre el teal. Con el teal transparente detrás, la ficha crema
-     medía 2.61:1 contra el tablero, la dorada 1.69 y la de hielo 2.24 — piezas que hay que
-     encontrar y tocar en un segundo y que se confundían con el suelo. Sobre navy miden 16,
-     10.4 y 13.8. El tablero pasa a ser la pantalla del juego dentro de la página. */
+  /* --ink solido, no un velo sobre --base: con un fondo semitransparente detras las piezas
+     se confundian con el suelo -- son piezas que hay que encontrar y tocar en un segundo.
+     Con --ink solido y la paleta actual: la dorada (#f2c14e) mide 11.16:1 contra el tablero,
+     la de hielo (#cfe9f2) 14.80:1. La normal (--ink de fondo, igual que el tablero) no se
+     distingue por color a proposito -- se reconoce por su propio borde y sombra, no por
+     contraste de fondo. El tablero pasa a ser la pantalla del juego dentro de la página. */
   background:var(--ink);
   overflow:hidden;
   touch-action:manipulation;      /* sin doble-toque-zoom: aquí se toca muy rápido */
@@ -544,10 +547,11 @@ h1{
   margin:14px 0 0;font-family:var(--title-font);font-size:clamp(72px,32vw,132px);font-weight:800;
   line-height:.86;letter-spacing:-.05em;font-variant-numeric:tabular-nums;
 }
-/* El récord de la partida. Ni el acento ni el rojo leen sobre --base (1.19:1 y 1.76:1 --
-   hallazgo de paso al tocar --juego-go en la Fase 8, preexistente y ahora corregido):
-   el numero gigante se queda en --ink, que es el mismo par que ya usa el resto del
-   marcador sobre este fondo (4.60:1, ver PAREJAS en temas.mjs). */
+/* El récord de la partida. Ni el acento ni el rojo leen sobre --base (1.51:1 y 1.38:1 con
+   la paleta actual -- el hallazgo original es de la Fase 8, preexistente y ya corregido
+   entonces; las cifras se recalculan aqui con cada cambio de paleta, la decision no
+   cambia): el numero gigante se queda en --ink, que es el mismo par que ya usa el resto
+   del marcador sobre este fondo (4.61:1, ver PAREJAS en temas.mjs). */
 .tally.record{color:var(--ink)}
 .tally small{display:block;margin-top:10px;font-family:var(--body-font);font-size:16px;
   font-weight:400;letter-spacing:0;color:var(--ink)}

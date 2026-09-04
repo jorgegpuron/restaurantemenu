@@ -266,13 +266,13 @@ function color_mezcla(string $a, string $b, float $t): string {
  * colorPrincipal oscuro, metal puede acabar bastante más claro que el hex original (ver
  * el mismo razonamiento en motor/temas.mjs). $badgeInk es la tinta de los badges/
  * etiquetas de producto (item-tag, dsheet-flag, aviso-badge, .badge, .insignia.is-user,
- * el boton Buscar): blanco fijo SOLO con el naranja de fabrica exacto -- '#FF7517',
+ * el boton Buscar): $neutro fijo SOLO con el naranja de fabrica exacto -- '#FF7517',
  * literal a proposito, es el hex del motor, no el de fabrica de un cliente concreto --
- * excepcion visual consciente y pedida; con cualquier otro colorPrincipal, es
- * $accentInk, sin excepcion. Devuelve los cinco tokens que dependen de colorPrincipal,
- * listos para imprimir en un <style>. */
+ * excepcion visual consciente y pedida (2.45:1, aceptado); con cualquier otro
+ * colorPrincipal, es $accentInk, sin excepcion. Devuelve los cinco tokens que dependen
+ * de colorPrincipal, listos para imprimir en un <style>. */
 function derivar_principal(string $hex): ?array {
-  $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#2C2727';
+  $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#121212';
   $neutro = defined('CLIENTE_COLOR_NEUTRAL') ? CLIENTE_COLOR_NEUTRAL : '#F6F4F4';
   $accentInk = null;
   if (color_contraste($oscuro, $hex) >= 4.5) $accentInk = $oscuro;
@@ -288,7 +288,7 @@ function derivar_principal(string $hex): ?array {
   if (color_contraste($oscuro, $metal) >= 4.5) $metalInk = $oscuro;
   elseif (color_contraste($neutro, $metal) >= 4.5) $metalInk = $neutro;
   if ($metalInk === null) return null;
-  $badgeInk = strtoupper($hex) === '#FF7517' ? '#FFFFFF' : $accentInk;
+  $badgeInk = strtoupper($hex) === '#FF7517' ? $neutro : $accentInk;
   return ['--accent' => $hex, '--accent-ink' => $accentInk, '--metal' => $metal, '--metal-ink' => $metalInk, '--badge-ink' => $badgeInk];
 }
 
@@ -3445,8 +3445,8 @@ $CUENTAS = [
   .pfijo{font-family:var(--title-font);font-weight:700;font-variant-numeric:tabular-nums}
   .badge{
     display:inline-block;padding:2px 9px;border-radius:var(--r-pill);
-    /* --badge-ink: blanco fijo solo con el naranja de fabrica, adaptativo con
-       cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
+    /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
+       con cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
     background:var(--accent);color:var(--badge-ink);
     font-family:var(--title-font);font-size:10px;font-weight:600;
     letter-spacing:.1em;text-transform:uppercase;

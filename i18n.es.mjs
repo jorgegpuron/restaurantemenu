@@ -627,6 +627,12 @@ export const ui = {
   'Dairy': 'Lácteos',
   'Nuts': 'Frutos secos',
   'Fish': 'Pescado',
+  'Crustaceans': 'Crustáceos',
+  'Soybeans': 'Soja',
+  'Celery': 'Apio',
+  'Peanuts': 'Cacahuetes',
+  'Lupin': 'Altramuces',
+  'Molluscs': 'Moluscos',
   'Allergies or intolerances?': '¿Alergias o intolerancias?',
   'Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.':
     'Consulta al personal sobre los 14 alérgenos. Los iconos vegano y sin gluten no sustituyen esta información.',
