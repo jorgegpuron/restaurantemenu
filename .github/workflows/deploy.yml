@@ -73,6 +73,25 @@ jobs:
                exit 1 ;;
           esac
 
+      # El contrato de color (motor/tests/contrato-tintas.mjs) compara las CUATRO capas que
+      # calculan la tinta, y una de ellas es PHP: derivar_principal() del panel. Corre dentro
+      # de motor/verificar-build.mjs, que a su vez corre al final de gen.mjs -- o sea que PHP
+      # hace falta ya en el paso de compilar, no solo en el de comprobar.
+      #
+      # La imagen ubuntu-latest de GitHub trae PHP preinstalado, asi que aqui no se instala
+      # nada: solo se comprueba. Si algun dia la imagen dejara de traerlo, el workflow se para
+      # AQUI, con un mensaje que dice exactamente que pasa, en vez de reventar mas abajo con
+      # un fallo de contrato que parece otra cosa. En cualquier caso se para antes del FTP:
+      # nunca se publica una carta cuya capa PHP no se ha podido verificar.
+      - name: Comprobar que hay PHP para el contrato de color
+        run: |
+          if ! command -v php > /dev/null 2>&1; then
+            echo "::error::No hay binario php en el runner. El contrato de color no puede"
+            echo "::error::comparar la capa del panel (derivar_principal) y no se publica nada."
+            exit 1
+          fi
+          php -v
+
       # Sin package.json ni dependencias: gen.mjs solo usa node:fs, node:crypto y modulos del
       # propio repositorio. No hay npm ci que hacer ni cache que guardar.
       #

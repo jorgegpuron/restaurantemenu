@@ -57,7 +57,7 @@
   "contrato-salida.mjs": "ca59806110f8c0defdc3faa940a843b6d4932e41c99eed75130ad1c64bc7d04c",
   "entorno.mjs": "9bac6a4fd00553f8c5646a2b50a0ab10edb35fb66d6590fff3470b1ab6b3ab64",
   "error404.mjs": "baeee5bbb60bef3f7cc8a327d041305e3550d596ced3c3592d2ca8e2c8f7f66e",
-  "gen.mjs": "7459ad96d6c459520f5b472e2c8d87ff33bf0a847df93535722356bb593c370c",
+  "gen.mjs": "426e13c14e2455ddf82bc9dd66ccb8ff28a2fbd7ab86653e4efd669d642f50e2",
   "iconos/alergenos-oficiales/celery.svg": "d1f31ae9f5680e515c611857e2b10082820de4eda79b98450d85d0d1726004a2",
   "iconos/alergenos-oficiales/cereals_gluten.svg": "dd8f8004c0aabba8beef794c4d350ec826a22d574ab12b358539a1c9a71486ff",
   "iconos/alergenos-oficiales/crustaceans.svg": "34b962437e9d6f12f7583969e3310bfabd368c0e1339074a70f6f4b2669d41d1",
@@ -92,7 +92,7 @@
   "iconos/indicadores-adicionales/weight.svg": "82d16a108a7379937e34dc3c8e563bde47441b247bc5a47522854fb214a3b16a",
   "importar.mjs": "c400b711790a806b04f9821723a57724e76bdac3673b091afe688e3d3fe7cd28",
   "indicadores.mjs": "cc33c3547e14e0957e3f2eeb6cd0baf3ea90454166cff1f155aafcfddbb9cc29",
-  "juego.mjs": "b818ae25dbc2ca16513aeadc7bd5141b42ad35b59532b072c1722ba05162e20d",
+  "juego.mjs": "4c438a3946d43dc8bd0f94ded31381482d199c63ed1a8409afd0ef5fe4d50236",
   "lock.mjs": "6dd84c5349a37899bfd8522fc1c4faa1dc23836ab95eaf6d48a87af2508fdcd8",
   "migrar.mjs": "1caf7d45604fe8f8c0f46ba26a7246baa10063e87a06b80300d34b1e8bfa559d",
   "server/admin/acceso.jpg": "b557cab42d53244afd571fad8c172a92c5d3b7295c73fadb3437d4c9a617c7df",
@@ -100,13 +100,14 @@
   "server/admin/copias/.htaccess": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934",
   "server/admin/datos.php": "48130308368881686c8e3564634a5676ccb2aea99b26b8e77640cbfd5707644e",
   "server/admin/hash.php": "e0c3915b9b0a0d50066111af46ce7bce82b1da7cb9a7673b37897450d8fe2e41",
-  "server/admin/index.php": "e93e49e0f324ef4a3659466d236683fe00532281212516753a7ec3513d18d96f",
+  "server/admin/index.php": "44ecbb324d88c2f0df5b672df4e66d992b04b56f6de10d3a5426670016f7b3c7",
   "server/admin/motor-acceso.jpg": "b557cab42d53244afd571fad8c172a92c5d3b7295c73fadb3437d4c9a617c7df",
   "server/admin/record.php": "ec66f85b014439df8c52d00b13c595f0ce285a767c1b7a8f5344b640238b36c4",
   "server/admin/SPEC.md": "343d3779f0aeb67964ea8da23cbef30e2990f1ee71b09d9d9b89365241eda53e",
   "server/admin/vista.php": "273f698309a39442fd2aedef200354cd4bd71222e25c2a4ee96734bc8024e709",
-  "temas.mjs": "4731dc540d115cd3c39ded29b35c0edc8f2e952bdf2529ce5b91baf90fe1f980",
+  "temas.mjs": "9aae2d9b43438e0b9e6e74580464d6c6607a3ac292224d9fa64f02283c8c78e6",
+  "tests/contrato-tintas.mjs": "8a6367929b94afe766fc1aea6fa855d8e97f878cb0cc214a2f061c441e5ebe6d",
   "transaccion-motor.mjs": "f8ad7e8e37416b0d40bfb4517ccff846a934da6615c8dfab97ca7b7d2cd22745",
-  "verificar-build.mjs": "23af13ca753de37d9685075ed0913f0a1ca110ceb3f77ce55e49026f1938367a"
+  "verificar-build.mjs": "8fa922626772eaa336ca4e9a7813cbd93c8524f6c006b50c4208580a35fe1925"
  }
 }

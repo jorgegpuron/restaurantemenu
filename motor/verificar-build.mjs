@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cliente, salida, RAIZ_SALIDA } from './entorno.mjs';
 import { CLIENTE } from '../cliente.mjs';
 import { contratoSalida, CARPETAS_OBLIGATORIAS } from './contrato-salida.mjs';
+import { contratoTintas } from './tests/contrato-tintas.mjs';
 
 const NL = String.fromCharCode(10);
 
@@ -56,6 +57,20 @@ export function verificarBuild() {
       problemas.push('carpeta vacia  ' + dir + '/');
     }
   }
+
+  /* El contrato del motor de color. No mira ficheros de salida: comprueba que las cuatro
+     capas que calculan la tinta (Node, runtime de carta, runtime de juego, PHP del panel)
+     siguen dando lo mismo, y que lo calculado se APLICA de verdad al DOM. Va aqui y no
+     suelto porque un desajuste entre capas no rompe el build -- compila igual y sale una
+     carta con un texto ilegible en produccion, que es peor. Si falla, no se sube nada.
+
+     PHP es OBLIGATORIO aqui, sin excepcion: `exigirPHP` va a true por defecto y este
+     llamador no lo desactiva nunca. Si el binario falta, la prueba mete un fallo y este
+     verificador corta igual que con cualquier otro problema. Una puerta que se salta sola
+     cuando falta una herramienta no es una puerta -- y el panel es justo la capa que
+     ademas RECHAZA colores al guardar, asi que una divergencia suya no se ve compilando,
+     se ve cuando un restaurante guarda un color y la carta sale ilegible. */
+  for (const f of contratoTintas().fallos) problemas.push('contrato de color: ' + f);
 
   return problemas;
 }

@@ -34,23 +34,27 @@
  *      cambia de tipo: el naranja pasa a icono/indicador/borde/fondo de una pastilla, y
  *      el texto de verdad se queda en OSCURO. Nunca naranja como texto pequeño sobre
  *      superficie clara si no pasa 4.5:1 -- ahi 100% de las veces pierde.
- *   4. solo si ni OSCURO ni NEUTRO leen sobre un fondo dado, --accent-ink devuelve null
- *      y el color se rechaza (build: aborta: panel: mensaje claro, no se guarda) -- la
- *      unica situacion en la que tocaria fabricar una variante ad-hoc, y seria para ESE
- *      fondo concreto, nunca para sustituir el acento visible.
+ *   4. si ni OSCURO ni NEUTRO leen sobre un fondo dado, la tinta cae a NEGRO o BLANCO
+ *      puros -- la que mas contraste de sobre ESE fondo. Antes el color se rechazaba
+ *      entero; ver el bloque de inkSobre() para por que ese rechazo era demasiado duro
+ *      y por que el respaldo es seguro. colorPrincipal NO se toca en ningun caso: el
+ *      respaldo es solo la tinta de ENCIMA, nunca una variante del acento.
  *
  * Regla explicita (un colorPrincipal CLARO -- amarillo, beige, naranja pastel -- no se
  * rechaza por ser claro): inkSobre() prueba OSCURO primero SIEMPRE, sea cual sea
  * colorPrincipal. Si colorPrincipal es oscuro, OSCURO no lee sobre si mismo y la funcion
  * cae sola a NEUTRO -- "acento oscuro, texto claro". Si colorPrincipal es claro, OSCURO
  * si lee, y se queda -- "acento claro, texto oscuro". Nunca hay que mirar si el acento
- * es claro u oscuro a mano: el bucle ya lo resuelve, y el unico rechazo real es el del
- * punto 4 -- ni OSCURO ni NEUTRO leen ahi, contra los dos a la vez. Hubo una guardia
- * extra en una version anterior de este fichero (--accent contra --surface, para que el
- * acento no fuera invisible como icono/borde) que en la practica rechazaba colores
- * claros perfectamente legibles como texto/fondo (un amarillo o un beige normal ya
- * quedaban por debajo de su umbral) -- retirada: el unico criterio de rechazo es este
- * punto 4, sobre los usos donde el acento hace de FONDO con texto encima.
+ * es claro u oscuro a mano: el bucle ya lo resuelve. Hubo una guardia extra en una version
+ * anterior de este fichero (--accent contra --surface, para que el acento no fuera
+ * invisible como icono/borde) que en la practica rechazaba colores claros perfectamente
+ * legibles como texto/fondo (un amarillo o un beige normal ya quedaban por debajo de su
+ * umbral) -- retirada.
+ *
+ * Que queda como rechazo, despues del respaldo puro del punto 4: SOLO que no exista un
+ * --metal legible, es decir que ninguna variante aclarada de colorPrincipal llegue a
+ * 4.5:1 sobre --ink (metalLegible() devuelve null). La tinta de encima ya no rechaza
+ * nunca: siempre hay una que pasa el umbral.
  *
  * Los cuatro colores, de que sirve cada uno:
  *
@@ -151,11 +155,30 @@ export const PRINCIPAL_DEFECTO = '#FF7517';
    del sistema -- nunca fabricando uno nuevo. `preferido` se prueba primero porque asi lo
    pide el proyecto (OSCURO antes que NEUTRO, siempre): un naranja vivo con texto
    grafito encima lee mejor que el mismo naranja apagado para poder llevar texto blanco.
-   Si NINGUNO de los dos lee sobre `fondo`, null -- ver verificarPaleta(). */
+
+   El orden preferido/alternativo NO puede cambiar el resultado cuando los dos leerian,
+   porque los dos NO pueden leer nunca a la vez: para que OSCURO llegue a 4.5:1 hace falta
+   L(fondo) >= 0.202220, y para que NEUTRO llegue, L(fondo) <= 0.162946. Las dos bandas no
+   se solapan, asi que como mucho lee uno. "El de mayor contraste cuando ambos valen" y
+   "el preferido primero" son la misma funcion sobre todos los colores que existen.
+
+   RESPALDO PURO (endurecimiento dirigido): entre esas dos bandas queda un hueco --
+   0.162946 < L(fondo) < 0.202220 -- donde no lee NINGUNA de las dos tintas del sistema.
+   Un gris medio como #777777 cae justo ahi: 4.1834:1 contra OSCURO y 4.0868:1 contra
+   NEUTRO, las dos por debajo. Antes eso devolvia null y el color se rechazaba entero
+   (build abortado, panel sin guardar), que es una respuesta demasiado dura para un color
+   perfectamente usable: lo unico que falla es la tinta de encima, no el acento.
+   Ahora cae a NEGRO o BLANCO puros, el que mas contraste de sobre ESE fondo. Es seguro
+   por construccion: el peor caso posible de max(contra negro, contra blanco) es 4.5826:1
+   (en L=0.17913), asi que el respaldo SIEMPRE pasa el umbral de 4.5. Solo aparece cuando
+   las dos tintas normales fallan -- nunca sustituye a OSCURO/NEUTRO cuando alguna vale, y
+   nunca toca colorPrincipal. */
+const NEGRO_PURO = '#000000';
+const BLANCO_PURO = '#FFFFFF';
 const inkSobre = (fondo, preferido, alternativo) => {
   if (contraste(preferido, fondo) >= 4.5) return preferido;
   if (contraste(alternativo, fondo) >= 4.5) return alternativo;
-  return null;
+  return contraste(NEGRO_PURO, fondo) >= contraste(BLANCO_PURO, fondo) ? NEGRO_PURO : BLANCO_PURO;
 };
 
 /* SECUNDARIO, el fondo del juego. Se aclara contra NEUTRO lo justo para que el texto
@@ -197,9 +220,11 @@ const rojoLegible = () => {
   return null;
 };
 
-/** Deriva los 21 tokens CSS a partir del unico color de cliente. `null` en --accent-ink,
- *  --metal o --metal-ink significa "ni OSCURO ni NEUTRO -- o ninguna variante aclarada --
- *  leen sobre este colorPrincipal": ver verificarPaleta(). --badge-ink nunca es null por
+/** Deriva los 21 tokens CSS a partir del unico color de cliente. `null` en --metal (y en
+ *  --metal-ink/--rush-ink por arrastre, que cuelgan de el) significa "ninguna variante
+ *  aclarada de este colorPrincipal se lee sobre --ink": ver verificarPaleta(). --accent-ink
+ *  ya no puede ser null: inkSobre() cae a negro o blanco puro cuando ni OSCURO ni NEUTRO
+ *  leen, y ese respaldo siempre pasa 4.5:1. --badge-ink nunca es null por
  *  si solo (hereda de --accent-ink, salvo la excepcion de fabrica) -- si --accent-ink lo
  *  es, --badge-ink tambien, y el color ya se rechazo antes de llegar aqui. --solid/
  *  --solid-ink/--base/--offer NUNCA son null: no dependen de colorPrincipal, son el mismo
@@ -215,7 +240,7 @@ const rojoLegible = () => {
  *  --badge-ink: la tinta de los badges/etiquetas de producto (item-tag, dsheet-flag,
  *  aviso-badge, el boton Buscar, los badges del admin) que van rellenos con --accent.
  *  Excepcion visual consciente, pedida expresamente: con el naranja de fabrica exacto
- *  (PRINCIPAL_DEFECTO), NEUTRO fijo -- 2.45:1, por debajo de 4.5, aceptado a proposito
+ *  (PRINCIPAL_DEFECTO), NEUTRO fijo -- 2.4543:1, por debajo de 4.5, aceptado a proposito
  *  (NEUTRO y no blanco puro: es la misma superficie clara que usa el resto del sistema,
  *  nunca un #fff aparte -- blanco puro daria 2.69:1, tampoco pasa, pero no es el color
  *  que de verdad se pinta). Con cualquier otro colorPrincipal, sin excepcion:

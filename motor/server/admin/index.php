@@ -274,20 +274,24 @@ function color_mezcla(string $a, string $b, float $t): string {
 function derivar_principal(string $hex): ?array {
   $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#121212';
   $neutro = defined('CLIENTE_COLOR_NEUTRAL') ? CLIENTE_COLOR_NEUTRAL : '#F6F4F4';
-  $accentInk = null;
-  if (color_contraste($oscuro, $hex) >= 4.5) $accentInk = $oscuro;
-  elseif (color_contraste($neutro, $hex) >= 4.5) $accentInk = $neutro;
-  if ($accentInk === null) return null;
+  /* Respaldo puro: si ni OSCURO ni NEUTRO leen sobre un fondo (hueco de luminancia
+     0.162946 < L < 0.202220, donde cae un gris medio como #777777), cae a negro o blanco
+     puro, el que mas contraste de. Misma regla que motor/temas.mjs::inkSobre(); el peor
+     caso del respaldo es 4.5826:1, asi que siempre pasa el umbral. Antes esto devolvia
+     null y el panel rechazaba el color entero. */
+  $tinta = function (string $fondo) use ($oscuro, $neutro): string {
+    if (color_contraste($oscuro, $fondo) >= 4.5) return $oscuro;
+    if (color_contraste($neutro, $fondo) >= 4.5) return $neutro;
+    return color_contraste('#000000', $fondo) >= color_contraste('#FFFFFF', $fondo) ? '#000000' : '#FFFFFF';
+  };
+  $accentInk = $tinta($hex);
   $metal = null;
   for ($t = 100; $t >= 40; $t--) {
     $c = color_mezcla($hex, $neutro, $t / 100);
     if (color_contraste($c, $oscuro) >= 4.5) { $metal = $c; break; }
   }
   if ($metal === null) return null;
-  $metalInk = null;
-  if (color_contraste($oscuro, $metal) >= 4.5) $metalInk = $oscuro;
-  elseif (color_contraste($neutro, $metal) >= 4.5) $metalInk = $neutro;
-  if ($metalInk === null) return null;
+  $metalInk = $tinta($metal);
   $badgeInk = strtoupper($hex) === '#FF7517' ? $neutro : $accentInk;
   return ['--accent' => $hex, '--accent-ink' => $accentInk, '--metal' => $metal, '--metal-ink' => $metalInk, '--badge-ink' => $badgeInk];
 }

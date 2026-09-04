@@ -824,13 +824,21 @@ h1{
         return (n < 16 ? '0' : '') + n.toString(16);
       }).join('');
     }
-    var accentInk = contraste(oscuro, hex) >= 4.5 ? oscuro : (contraste(neutro, hex) >= 4.5 ? neutro : null);
+    /* Respaldo puro: si ni OSCURO ni NEUTRO leen sobre un fondo, cae a negro o blanco
+       puro, el que mas contraste de. Misma regla que motor/temas.mjs::inkSobre(); el
+       peor caso del respaldo es 4.5826:1, asi que siempre pasa el umbral. */
+    function tinta(fondo) {
+      if (contraste(oscuro, fondo) >= 4.5) return oscuro;
+      if (contraste(neutro, fondo) >= 4.5) return neutro;
+      return contraste('#000000', fondo) >= contraste('#FFFFFF', fondo) ? '#000000' : '#FFFFFF';
+    }
+    var accentInk = tinta(hex);
     var metal = null;
     for (var t = 100; t >= 40; t -= 1) {
       var c = mezcla(hex, neutro, t / 100);
       if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
     }
-    var metalInk = metal ? (contraste(oscuro, metal) >= 4.5 ? oscuro : (contraste(neutro, metal) >= 4.5 ? neutro : null)) : null;
+    var metalInk = metal ? tinta(metal) : null;
     /* --rush-ink: la excepcion de "Rush" -- NEUTRO fijo solo con el naranja de fabrica
        exacto, metalInk en cualquier otro caso. Misma regla que motor/temas.mjs::derivar().
        Sin esto, cambiar el Primario desde el panel dejaba --rush-ink en el valor COMPILADO

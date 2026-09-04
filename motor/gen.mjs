@@ -5810,7 +5810,13 @@ ${DATOS_ACTIVO ? `
         return (n < 16 ? '0' : '') + n.toString(16);
       }).join('');
     }
-    var accentInk = contraste(oscuro, hex) >= 4.5 ? oscuro : (contraste(neutro, hex) >= 4.5 ? neutro : null);
+    /* Respaldo puro: si ni OSCURO ni NEUTRO leen sobre el acento (hueco de luminancia
+       0.162946 < L < 0.202220, donde cae un gris medio como #777777), cae a negro o
+       blanco puro, el que mas contraste de. Misma regla que motor/temas.mjs::inkSobre().
+       El peor caso del respaldo es 4.5826:1, asi que siempre pasa el umbral. */
+    var accentInk = contraste(oscuro, hex) >= 4.5 ? oscuro
+      : (contraste(neutro, hex) >= 4.5 ? neutro
+        : (contraste('#000000', hex) >= contraste('#FFFFFF', hex) ? '#000000' : '#FFFFFF'));
     var metal = null;
     for (var t = 100; t >= 40; t -= 1) {
       var c = mezcla(hex, neutro, t / 100);
