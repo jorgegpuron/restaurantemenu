@@ -197,27 +197,40 @@ const rojoLegible = () => {
   return null;
 };
 
-/** Deriva los 18 tokens CSS a partir del unico color de cliente. `null` en --accent-ink,
+/** Deriva los 19 tokens CSS a partir del unico color de cliente. `null` en --accent-ink,
  *  --metal o --metal-ink significa "ni OSCURO ni NEUTRO -- o ninguna variante aclarada --
- *  leen sobre este colorPrincipal": ver verificarPaleta(). --solid/--solid-ink/--base/
- *  --offer NUNCA son null: no dependen de colorPrincipal, son el mismo calculo fijo siempre.
+ *  leen sobre este colorPrincipal": ver verificarPaleta(). --badge-ink nunca es null por
+ *  si solo (hereda de --accent-ink, salvo la excepcion de fabrica) -- si --accent-ink lo
+ *  es, --badge-ink tambien, y el color ya se rechazo antes de llegar aqui. --solid/
+ *  --solid-ink/--base/--offer NUNCA son null: no dependen de colorPrincipal, son el mismo
+ *  calculo fijo siempre.
  *
  *  --metal-ink y no --accent-ink sobre --metal: metal es una variante ACLARADA de accent
  *  (metalLegible mezcla hacia NEUTRO hasta leerse sobre --ink), asi que con un
  *  colorPrincipal oscuro puede acabar bastante mas claro que accent -- el ink calculado
  *  para accent (que en ese caso es NEUTRO, pensado para el accent oscuro original) ya no
  *  lee encima del metal aclarado. Cada fondo lleva su propio ink calculado sobre su propio
- *  valor, nunca uno prestado de otro fondo -- mismo criterio que --solid-ink sobre --solid. */
+ *  valor, nunca uno prestado de otro fondo -- mismo criterio que --solid-ink sobre --solid.
+ *
+ *  --badge-ink: la tinta de los badges/etiquetas de producto (item-tag, dsheet-flag,
+ *  aviso-badge, el boton Buscar, los badges del admin) que van rellenos con --accent.
+ *  Excepcion visual consciente, pedida expresamente: con el naranja de fabrica exacto
+ *  (PRINCIPAL_DEFECTO), blanco fijo -- 2.69:1, por debajo de 4.5, aceptado a proposito.
+ *  Con cualquier otro colorPrincipal, ya no hay excepcion: --badge-ink es --accent-ink,
+ *  el mismo calculado y validado por contraste que el resto del sistema. No es un color
+ *  nuevo -- es blanco solo para ese hex exacto, accent-ink en cualquier otro caso. */
 export function derivar(colorPrincipal) {
   const accent = colorPrincipal;
   const accentInk = inkSobre(accent, OSCURO, NEUTRO);
   const metal = metalLegible(colorPrincipal);
   const metalInk = metal === null ? null : inkSobre(metal, OSCURO, NEUTRO);
+  const badgeInk = accent.toUpperCase() === PRINCIPAL_DEFECTO.toUpperCase() ? '#FFFFFF' : accentInk;
   return {
     '--accent': accent,
     '--accent-ink': accentInk,
     '--metal': metal,
     '--metal-ink': metalInk,
+    '--badge-ink': badgeInk,
     '--solid': SECUNDARIO,
     '--solid-ink': inkSobre(SECUNDARIO, NEUTRO, OSCURO),
     '--ink': OSCURO,

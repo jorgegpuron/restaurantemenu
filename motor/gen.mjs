@@ -2213,11 +2213,10 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-flag{
   display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
-  /* Acento de marca en vez del rojo semantico, texto blanco fijo -- misma regla que
-     todo badge con fondo --accent (item-tag, aviso-badge): un solo criterio, no uno
-     por elemento. Blanco sobre este naranja es 2.69:1, por debajo de 4.5 -- excepcion
-     visual consciente, igual que el badge de descuento y el boton Buscar. */
-  background:var(--accent);color:#fff;
+  /* Acento de marca en vez del rojo semantico, --badge-ink por texto -- blanco fijo
+     SOLO con el naranja de fabrica exacto (2.69:1, excepcion consciente); con
+     cualquier otro colorPrincipal, se adapta solo via accent-ink. Ver temas.mjs. */
+  background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
 }
@@ -2963,8 +2962,9 @@ html:not(.js) .lang-menu{position:static;display:block}
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
-  /* Blanco fijo, no accent-ink: misma regla que todo badge con fondo --accent. */
-  background:var(--accent);color:#fff;
+  /* --badge-ink: blanco fijo solo con el naranja de fabrica, adaptativo en cualquier
+     otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
+  background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
 
@@ -3021,11 +3021,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:1px 7px;
   border-radius:var(--r-pill);
   /* filled, unlike the muted number badge: eight rows out of 326 are meant to be seen.
-     Fondo en el acento LITERAL, texto blanco fijo -- misma regla que .item-tag-offer,
-     que antes rompia esta clase base con su propio override: un solo criterio para
+     Fondo en el acento LITERAL, --badge-ink por texto: blanco fijo solo con el naranja
+     de fabrica, adaptativo con cualquier otro colorPrincipal -- un solo criterio para
      todo badge/etiqueta con fondo --accent, sin excepcion por tipo de etiqueta. */
   background:var(--accent);
-  color:#fff;
+  color:var(--badge-ink);
   font-family:var(--title-font);
   font-size:11px;
   font-weight:600;
@@ -3429,15 +3429,16 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
    consciente sobre la version anterior de este comentario (que defendia justo lo
    contrario).
 
-   El texto es blanco fijo, no --accent-ink heredado de .item-tag -- pedido expreso y
-   literal, sabiendo que blanco sobre #FF7517 es 2.69:1 y --accent-ink (5.47:1) ya
-   pasaba. Excepcion consciente de este badge concreto, igual que en .menu-fab.
+   El texto ya no lleva su propio override: --badge-ink, heredado de .item-tag, resuelve
+   lo mismo que llevaba este badge a mano (blanco fijo con el naranja de fabrica) y
+   además se adapta solo si el cliente cambia el Primario -- un solo criterio
+   centralizado, no uno por badge.
 
    Quién se ve y quién no lo decide el runtime con el atributo hidden y con la clase
    has-offer, no una clase global en <html>. Antes iba al revés y fue un error caro: cuando
    las ofertas pasaron a configurarse desde el panel, el JS dejó de poner esa clase y toda la
    oferta se calculaba bien pero no se veía. Un solo dueño del estado. */
-.item-tag-offer{display:inline-block;background:var(--accent);color:#fff}
+.item-tag-offer{display:inline-block;background:var(--accent)}
 /* Una sola banda, encima de las pestañas. Antes iba una nota bajo el título de cada categoría
    en oferta: con dos o tres categorías se repetía la misma frase tres veces, y con platos
    sueltos aparecía bajo un epígrafe que no gobernaba los platos rebajados. Arriba se lee una
@@ -3691,12 +3692,12 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      coincidir con el naranja vivo del resto de acentos, no con el solido. Sin filete:
      con el fondo ya en --accent no hace falta un borde del mismo color para separarse
      del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo.
-     Ajuste posterior, literal y expreso sobre el anterior: texto/icono blanco fijo, no
-     --accent-ink calculado -- blanco sobre #FF7517 es 2.69:1, por debajo de 4.5, una
-     excepcion consciente de este boton concreto, pedida sabiendo la cifra. El icono
-     hereda de aqui via stroke="currentColor", no hace falta tocarlo aparte. */
+     Ajuste posterior, literal y expreso sobre el anterior: --badge-ink por texto/icono,
+     no --accent-ink -- blanco fijo con el naranja de fabrica exacto (2.69:1, excepcion
+     consciente, pedida sabiendo la cifra), adaptativo con cualquier otro colorPrincipal.
+     El icono hereda de aqui via stroke="currentColor", no hace falta tocarlo aparte. */
   background:var(--accent);
-  color:#fff;
+  color:var(--badge-ink);
   border:0;
   font-family:var(--title-font);
   font-size:15px;
@@ -5805,7 +5806,10 @@ ${DATOS_ACTIVO ? `
       var c = mezcla(hex, neutro, t / 100);
       if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
     }
-    return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal } : null;
+    /* --badge-ink: blanco fijo solo con el naranja de fabrica exacto, accent-ink en
+       cualquier otro caso -- misma regla que motor/temas.mjs::derivar(). */
+    var badgeInk = hex.toUpperCase() === ${JSON.stringify(PRINCIPAL_DEFECTO)}.toUpperCase() ? '#FFFFFF' : accentInk;
+    return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal, badgeInk: badgeInk } : null;
   }
   function aplicarMarca(marca) {
     var m = marca || {};
@@ -5827,6 +5831,7 @@ ${DATOS_ACTIVO ? `
         raizStyle.setProperty('--accent', d.accent);
         raizStyle.setProperty('--accent-ink', d.accentInk);
         raizStyle.setProperty('--metal', d.metal);
+        raizStyle.setProperty('--badge-ink', d.badgeInk);
       }
     }
   }
