@@ -258,13 +258,14 @@ function color_mezcla(string $a, string $b, float $t): string {
   return $out;
 }
 /* null si el hex no da para un --accent-ink o un --metal legibles contra las
- * constantes fijas -- o si es practicamente invisible sobre la superficie (el mismo
- * umbral de sentido comun de temas.mjs, 1.5:1, no un umbral WCAG). Devuelve los tres
- * tokens que dependen de colorPrincipal, listos para imprimir en un <style>. */
+ * constantes fijas -- el UNICO criterio de rechazo: ni Oscuro ni Neutro se leen encima
+ * de este color en los sitios donde el acento hace de FONDO. Un color CLARO (amarillo,
+ * beige, naranja pastel) no se rechaza por ser claro: Oscuro casi siempre lee bien
+ * sobre un fondo claro, así que $accentInk cae ahí solo. Devuelve los tres tokens que
+ * dependen de colorPrincipal, listos para imprimir en un <style>. */
 function derivar_principal(string $hex): ?array {
   $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#2C2727';
   $neutro = defined('CLIENTE_COLOR_NEUTRAL') ? CLIENTE_COLOR_NEUTRAL : '#F6F4F4';
-  if (color_contraste($hex, $neutro) < 1.5) return null;
   $accentInk = null;
   if (color_contraste($oscuro, $hex) >= 4.5) $accentInk = $oscuro;
   elseif (color_contraste($neutro, $hex) >= 4.5) $accentInk = $neutro;
@@ -2102,7 +2103,7 @@ if ($csrfOk) {
       if ($colorNormalizado === '') {
         $colorError = 'Ese color no es un hex válido. Usa el formato #RRGGBB, por ejemplo #FF7517.';
       } elseif (derivar_principal($colorNormalizado) === null) {
-        $colorError = 'Ese color no se lee bien con los demás colores de la carta (texto, iconos, botones). Prueba con otro más alejado de blanco o negro puro.';
+        $colorError = 'El sistema ya prueba texto oscuro y texto claro encima de ese color, y ninguno de los dos se lee bien. Prueba con un color de intensidad media -- ni muy claro ni muy oscuro -- para que alguno de los dos funcione.';
       }
     }
 
@@ -5642,8 +5643,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </div>
         <p class="hint" style="margin:6px 2px 0">
           El Primario (círculo + hex editables) se aplica a la carta al momento, sin
-          recompilar. Si no se lee bien con el resto de la carta (texto, iconos, botones),
-          el guardado se rechaza y se explica por qué.
+          recompilar. Un color claro no se rechaza por serlo: el texto y los iconos que
+          van encima pasan solos a oscuros o a claros, lo que se lea mejor. Solo se
+          rechaza si de verdad no hay forma de leerlo, y se explica por qué.
         </p>
         <p class="hint" style="margin-top:6px">
           Secundario, Oscuro y Neutro son del motor, no del restaurante: iguales para

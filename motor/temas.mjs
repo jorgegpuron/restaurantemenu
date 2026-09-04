@@ -39,6 +39,19 @@
  *      unica situacion en la que tocaria fabricar una variante ad-hoc, y seria para ESE
  *      fondo concreto, nunca para sustituir el acento visible.
  *
+ * Regla explicita (un colorPrincipal CLARO -- amarillo, beige, naranja pastel -- no se
+ * rechaza por ser claro): inkSobre() prueba OSCURO primero SIEMPRE, sea cual sea
+ * colorPrincipal. Si colorPrincipal es oscuro, OSCURO no lee sobre si mismo y la funcion
+ * cae sola a NEUTRO -- "acento oscuro, texto claro". Si colorPrincipal es claro, OSCURO
+ * si lee, y se queda -- "acento claro, texto oscuro". Nunca hay que mirar si el acento
+ * es claro u oscuro a mano: el bucle ya lo resuelve, y el unico rechazo real es el del
+ * punto 4 -- ni OSCURO ni NEUTRO leen ahi, contra los dos a la vez. Hubo una guardia
+ * extra en una version anterior de este fichero (--accent contra --surface, para que el
+ * acento no fuera invisible como icono/borde) que en la practica rechazaba colores
+ * claros perfectamente legibles como texto/fondo (un amarillo o un beige normal ya
+ * quedaban por debajo de su umbral) -- retirada: el unico criterio de rechazo es este
+ * punto 4, sobre los usos donde el acento hace de FONDO con texto encima.
+ *
  * Los cuatro colores, de que sirve cada uno:
  *
  *   colorPrincipal (cliente, editable)   el acento vivo: iconos de categoria,
@@ -224,14 +237,6 @@ const PAREJAS = [
   { a: '--ink', b: '--surface', min: 7, que: 'titulares y precios sobre la tarjeta' },
   { a: '--muted', b: '--surface', min: 4.5, que: 'descripciones sobre la tarjeta' },
   { a: '--accent-ink', b: '--accent', min: 4.5, que: 'el texto/icono sobre un fondo del acento' },
-  /* No es un umbral WCAG (1.4.11 pide 3:1 para "no-texto" y el propio naranja de fabrica
-     se queda en 2.45 -- decision ya tomada y probada en pantalla: el acento vale como
-     icono/borde/indicador aunque no llegue). Este es mas bajo, 1.5, y existe solo para
-     el caso degenerado real: un colorPrincipal casi identico a NEUTRO literalmente no
-     se ve como icono, borde de foco ni subrayado -- ninguno de esos usos depende de
-     texto, asi que 4.5 seria pedir de mas, pero "invisible del todo" hay que rechazarlo
-     igual. */
-  { a: '--accent', b: '--surface', min: 1.5, que: 'el acento como icono/borde/indicador sobre la tarjeta (no es texto: umbral bajo, solo evita que sea invisible)' },
   { a: '--surface', b: '--ink', min: 4.5, que: 'el pie sobre el fondo de la pagina' },
   { a: '--metal', b: '--ink', min: 4.5, que: 'el metal sobre el fondo de la pagina' },
   { a: '--ink', b: '--base', min: 4.5, que: 'el texto del juego sobre su fondo' },
