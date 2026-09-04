@@ -3424,16 +3424,17 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
    Ajuste posterior a la Fase 8, pedido expreso: el "% off" pasa del rojo semantico al
    acento de marca -- ya no distingue "esto es una rebaja" de "esto es la marca", cambio
    consciente sobre la version anterior de este comentario (que defendia justo lo
-   contrario). El color hereda de .item-tag: fondo --accent, texto --accent-ink, 5.47:1
-   con la paleta de fabrica -- de paso corrige un contraste que llevaba roto desde la
-   Fase 8 sin que nadie lo hubiera notado (fondo --offer con el texto --accent-ink que
-   .item-tag ya fija, heredado: 2.62:1, por debajo de 4.5).
+   contrario).
+
+   El texto es blanco fijo, no --accent-ink heredado de .item-tag -- pedido expreso y
+   literal, sabiendo que blanco sobre #FF7517 es 2.69:1 y --accent-ink (5.47:1) ya
+   pasaba. Excepcion consciente de este badge concreto, igual que en .menu-fab.
 
    Quién se ve y quién no lo decide el runtime con el atributo hidden y con la clase
    has-offer, no una clase global en <html>. Antes iba al revés y fue un error caro: cuando
    las ofertas pasaron a configurarse desde el panel, el JS dejó de poner esa clase y toda la
    oferta se calculaba bien pero no se veía. Un solo dueño del estado. */
-.item-tag-offer{display:inline-block;background:var(--accent)}
+.item-tag-offer{display:inline-block;background:var(--accent);color:#fff}
 /* Una sola banda, encima de las pestañas. Antes iba una nota bajo el título de cada categoría
    en oferta: con dos o tres categorías se repetía la misma frase tres veces, y con platos
    sueltos aparecía bajo un epígrafe que no gobernaba los platos rebajados. Arriba se lee una
@@ -3686,9 +3687,13 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      literal -- es el unico acceso a la carta entera desde el movil, y tiene que
      coincidir con el naranja vivo del resto de acentos, no con el solido. Sin filete:
      con el fondo ya en --accent no hace falta un borde del mismo color para separarse
-     del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo. */
+     del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo.
+     Ajuste posterior, literal y expreso sobre el anterior: texto/icono blanco fijo, no
+     --accent-ink calculado -- blanco sobre #FF7517 es 2.69:1, por debajo de 4.5, una
+     excepcion consciente de este boton concreto, pedida sabiendo la cifra. El icono
+     hereda de aqui via stroke="currentColor", no hace falta tocarlo aparte. */
   background:var(--accent);
-  color:var(--accent-ink);
+  color:#fff;
   border:0;
   font-family:var(--title-font);
   font-size:15px;

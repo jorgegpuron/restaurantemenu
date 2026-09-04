@@ -3884,23 +3884,29 @@ $CUENTAS = [
      sincronizados por JS (ver el <script> de esta pestaña): el picker da un hex siempre
      valido, el campo de texto es el que de verdad viaja al servidor -- asi quien prefiera
      teclear el hex de su manual de marca no depende del selector del navegador. */
-  .color-editable{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-top:7px}
+  /* Selector redondo + HEX + restaurar, SIEMPRE en una fila -- pedido expreso, ni en
+     movil se reparten en varias lineas. Mismo patron que .colores-marca: nowrap fuerza
+     la fila, cada hijo se comprime lo que haga falta (el circulo tiene un suelo de 40px
+     por tamano tactil minimo, el campo de texto se encoge antes que el boton). */
+  .color-editable{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-top:7px}
   .color-editable input[type=color]{
-    width:52px;height:52px;flex:0 0 auto;padding:0;border:1px solid var(--border);
-    border-radius:var(--r-sheet);background:transparent;cursor:pointer;
+    width:40px;height:40px;flex:none;padding:0;border:1px solid var(--border);
+    /* Redondo, igual que los puntos de Secundario/Oscuro/Neutral -- no el radio de sheet
+       que llevaba antes, que no era un circulo. */
+    border-radius:50%;background:transparent;cursor:pointer;
   }
-  .color-editable input[type=color]::-webkit-color-swatch-wrapper{padding:4px}
-  .color-editable input[type=color]::-webkit-color-swatch{border:0;border-radius:calc(var(--r-sheet) - 4px)}
+  .color-editable input[type=color]::-webkit-color-swatch-wrapper{padding:3px}
+  .color-editable input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
   .color-editable input[type=text]{
-    flex:1 1 140px;min-width:120px;min-height:52px;padding:0 var(--s3);
+    flex:1 1 0;min-width:0;min-height:40px;padding:0 10px;
     border:1px solid transparent;border-radius:var(--r-sheet);
     background:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
-    color:var(--ink);font-family:var(--body-font);font-size:16px;
+    color:var(--ink);font-family:var(--body-font);font-size:14px;
     text-transform:uppercase;font-variant-numeric:tabular-nums;
   }
   .color-editable input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
   .color-editable input[type=text]:invalid:not(:placeholder-shown){box-shadow:inset 0 0 0 2px var(--offer)}
-  .color-editable .ghost{flex:0 0 auto;white-space:nowrap}
+  .color-editable .ghost{flex:none;white-space:nowrap;padding:0 var(--s2);min-height:40px;font-size:13px}
 
   /* ---------- colores fijos del motor (solo lectura) ----------
      Secundario, Oscuro y Neutro: constantes del motor, iguales para cualquier cliente
