@@ -2089,13 +2089,22 @@ html:not(.js) .lang-menu{position:static;display:block}
 @media (hover:hover) and (pointer:fine){
   .single-menu-items.abre:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
 }
-/* El icono de foto va pegado al nombre y hereda su color. Deja sitio para que un día sea una
-   miniatura de 44: cambia esta regla y nada más. */
+/* Antes heredaba currentColor y medía 14px sin fondo ni borde: exactamente el mismo
+   tratamiento que .alergeno-marks .alergeno unas líneas más abajo, así que al lado de dos o
+   tres alérgenos se leía como uno más, no como "toca aquí para ver la foto". Ahora es un
+   círculo con borde y fondo propios -- ni pill (--r-pill es ovalado si el contenido no es
+   cuadrado; aquí ancho=alto y 50% da un círculo real) ni el mismo plano que un alérgeno.
+   Sigue siendo role=img: quien abre la ficha es la fila entera (role=button más abajo, en
+   render()), esto es la pista visual de que esa fila en concreto tiene algo que enseñar. */
 .has-photo{
-  display:inline-flex;vertical-align:baseline;
-  margin-left:6px;opacity:.5;color:currentColor;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;margin-left:10px;vertical-align:middle;flex:0 0 auto;
+  border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));
+  background:color-mix(in srgb,var(--accent) 14%,transparent);
+  color:var(--accent-ink);
 }
-.has-photo svg{width:14px;height:14px;display:block}
+.has-photo svg{width:16px;height:16px;display:block}
 
 .dsheet[hidden]{display:none}
 .dsheet{position:fixed;inset:0;z-index:55}
@@ -5281,7 +5290,7 @@ ${sheet}
       .then(function (r) { return r.ok ? r.json() : null; });
     return peticion
       .then(function (state) {
-        if (state) { estado = state; aplicarTema(state.theme); }
+        if (state) { estado = state; aplicarTema(state.theme); aplicarMarca(state.marca); }
         estadoLeido = true;
         render();
       })
@@ -5694,6 +5703,57 @@ ${DATOS_ACTIVO ? `
      desplegable propio. A cambio, es el mismo control en los tres sistemas y con la letra y
      los colores de la carta. */
   var IDIOMAS = ${JSON.stringify(IDIOMAS)};
+
+  /* ---- Marca: nombre y rotulo visibles, con override desde el panel ----
+     cliente.mjs (nombre, rotulo) es el valor de fabrica, horneado en el HTML de siempre --
+     esto NUNCA se toca. estado.json puede traer un override en marca.{nombreVisible,
+     rotuloVisible}: si esta vacio o no viene, manda el de fabrica; si trae texto, ese manda.
+     Nunca se escribe cliente.mjs desde el panel -- el override vive solo en estado.json, en
+     el servidor, y sobrevive a un refresh y a un deploy futuro porque no pasa por el build.
+
+     El rotulo (.sub-title) sale de T(), que envuelve el texto en un <span class="i18n">
+     CON el data-<idioma> por cada extra -- el data-* no vive en el propio .sub-title, vive
+     en ese span de dentro (T() siempre mete uno, sea cual sea el contenido). El primer
+     intento de esto leia y escribia en .sub-title directamente: parecia funcionar porque
+     .textContent de un div agrega el de sus hijos, pero .dataset.es del div estaba vacio de
+     verdad, así que al capturar "el valor de fabrica en español" capturaba el ingles por
+     accidente -- se vio al borrar el override: en vez de volver a la traduccion real,
+     ES se quedaba en ingles. Por eso todo esto apunta a .sub-title .i18n, que es el nodo
+     que setLang() de mas abajo relee de verdad en cada cambio de idioma.
+
+     Un override es un unico texto que el restaurante escribe una vez, sin traduccion propia
+     -- se ensena igual en los tres idiomas a proposito (traducirlo solo seria inventarselo).
+     Para que sobreviva a un cambio de idioma despues, hay que dejarlo tambien en cada
+     data-<idioma> del span, no solo en el texto visible: setLang() los pisaria con el de
+     fabrica si no. Los valores de fabrica, capturados aqui UNA vez, antes de que nada los
+     toque, son la vuelta atras cuando el override se borra. */
+  var MARCA_DEF_NOMBRE = null;
+  var MARCA_DEF_ROTULO = null;
+  (function () {
+    var h1 = document.querySelector('.title-area .title');
+    if (h1) MARCA_DEF_NOMBRE = h1.textContent;
+    var sub = document.querySelector('.title-area .sub-title .i18n');
+    if (sub) {
+      MARCA_DEF_ROTULO = {};
+      IDIOMAS.forEach(function (l) {
+        MARCA_DEF_ROTULO[l.code] = sub.dataset[l.code] !== undefined ? sub.dataset[l.code] : sub.textContent;
+      });
+    }
+  })();
+  function aplicarMarca(marca) {
+    var m = marca || {};
+    var nombreOv = typeof m.nombreVisible === 'string' ? m.nombreVisible.trim() : '';
+    var rotuloOv = typeof m.rotuloVisible === 'string' ? m.rotuloVisible.trim() : '';
+    var h1 = document.querySelector('.title-area .title');
+    if (h1 && MARCA_DEF_NOMBRE !== null) h1.textContent = nombreOv || MARCA_DEF_NOMBRE;
+    var sub = document.querySelector('.title-area .sub-title .i18n');
+    if (sub && MARCA_DEF_ROTULO) {
+      IDIOMAS.forEach(function (l) { sub.dataset[l.code] = rotuloOv || MARCA_DEF_ROTULO[l.code]; });
+      var actual = document.documentElement.lang;
+      sub.textContent = sub.dataset[actual] !== undefined ? sub.dataset[actual] : MARCA_DEF_ROTULO[actual];
+    }
+  }
+
   var langCaja = document.getElementById('lang');
   var langTrigger = document.getElementById('lang-trigger');
   var langMenu = document.getElementById('lang-menu');
@@ -7141,6 +7201,9 @@ writeFileSync(
       + ']);',
     "define('CLIENTE_SLUG',   " + JSON.stringify(CLIENTE.slug) + ');',
     "define('CLIENTE_NOMBRE', " + JSON.stringify(CLIENTE.nombre) + ');',
+    /* El de fábrica, para que Marca pueda enseñarlo como pista (placeholder) sin inventar
+       ningún texto: si el campo está vacío, esto es lo que se está usando ahora mismo. */
+    "define('CLIENTE_ROTULO', " + JSON.stringify(CLIENTE.rotulo) + ');',
     /* La marca de esta compilacion, para que el panel pueda decir que version corre. Es el
        mismo numero que viaja en version.json y dentro del HTML de la carta: si los tres no
        coinciden, la subida se quedo a medias o el movil esta enseñando cache. */

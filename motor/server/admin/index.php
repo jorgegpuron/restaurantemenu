@@ -203,6 +203,10 @@ function estado_vacio(): array {
     /* El enlace de reseñas. Es configuración del restaurante y se edita en Marca; la carta lo
        usa al pie. El juego ya no lo toca: se fue con los premios. */
     'review'  => ['url' => ''],
+    /* Override del nombre y del texto pequeño de portada. cliente.mjs trae el de fábrica;
+       esto es lo que el propio restaurante ha escrito para sustituirlo, y nunca al revés —
+       el panel no toca cliente.mjs. Vacío es "sigue mandando el de fábrica", no "sin nombre". */
+    'marca'   => ['nombreVisible' => '', 'rotuloVisible' => ''],
     'actualizado' => null,
   ];
 }
@@ -1001,6 +1005,17 @@ function h(?string $s): string { return htmlspecialchars((string) $s, ENT_QUOTES
    un error fatal, en vez de tirar solo el minusculado correcto de acentos y enye. */
 function minuscula(string $s): string {
   return function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+}
+
+/* Caracteres reales, no bytes: strlen() de un nombre con "ñ" o una tilde cuenta de más, y un
+   límite pensado en caracteres se disparaba antes de tiempo (o, al reves, dejaba pasar menos
+   de los que promete). Misma guarda que minuscula() de arriba: mb_strlen() si mbstring esta
+   activa: si no, puntos de codigo Unicode contados con una expresion regular /u, que no
+   depende de la extension. */
+function caracteres(string $s): int {
+  if (function_exists('mb_strlen')) return mb_strlen($s, 'UTF-8');
+  $n = preg_match_all('/./us', $s);
+  return $n === false ? strlen($s) : $n;
 }
 
 /* Los precios de un restaurante acaban en cifras redondas. Un +5% sobre 4,50 da 4,725, y
@@ -2041,6 +2056,13 @@ if ($csrfOk) {
     $elegido = (string) ($_POST['tema'] ?? '');
     $validos = array_column(temas(), 'slug');
 
+    /* El nombre y el texto pequeño de portada. Vacío es válido a propósito: es la forma de
+       volver al de fábrica sin tener que escribirlo de nuevo. maxlength en el HTML es sólo
+       una ayuda visual -- el límite de verdad se comprueba aquí, en caracteres reales, no en
+       lo que el navegador deje escribir. */
+    $marcaNombre = trim((string) ($_POST['marca_nombre'] ?? ''));
+    $marcaRotulo = trim((string) ($_POST['marca_rotulo'] ?? ''));
+
     $op_on  = !empty($_POST['op_on']);
     $op_not = str_replace(',', '.', trim((string) ($_POST['op_nota'] ?? '0')));
     $op_not = is_numeric($op_not) ? round((float) $op_not, 1) : -1;
@@ -2068,6 +2090,10 @@ if ($csrfOk) {
 
     if (!in_array($elegido, $validos, true)) {
       $error = 'Ese juego de colores no existe. Elige uno de la lista.';
+    } elseif (caracteres($marcaNombre) > 20) {
+      $error = 'El nombre no puede pasar de 20 caracteres (van ' . caracteres($marcaNombre) . ').';
+    } elseif (caracteres($marcaRotulo) > 25) {
+      $error = 'El texto pequeño no puede pasar de 25 caracteres (van ' . caracteres($marcaRotulo) . ').';
     } elseif ($op_not < 0 || $op_not > 5) {
       $error = 'La nota tiene que estar entre 0 y 5. Ponla como sale en Google, por ejemplo 4,9.';
     } elseif ($op_num < 0 || $op_num > 100000) {
@@ -2080,6 +2106,7 @@ if ($csrfOk) {
       $error = implode(' ', $malas);
     } else {
       $estado['theme'] = $elegido;
+      $estado['marca'] = ['nombreVisible' => $marcaNombre, 'rotuloVisible' => $marcaRotulo];
       $estado['reviews'] = ['on' => $op_on, 'rating' => $op_not, 'count' => $op_num];
       $estado['social'] = $redes;
       /* El enlace es de aquí, y ya es lo único que queda en review. */
@@ -2563,6 +2590,9 @@ $redes    = is_array($estado['social'] ?? null)
   : estado_vacio()['social'];
 $tema_actual = (string) ($estado['theme'] ?? tema_por_defecto());
 if (!in_array($tema_actual, array_column($temas, 'slug'), true)) $tema_actual = tema_por_defecto();
+$marca = is_array($estado['marca'] ?? null)
+  ? array_replace(estado_vacio()['marca'], $estado['marca'])
+  : estado_vacio()['marca'];
 
 /* Marca va la última a propósito: se toca una vez y las otras cuatro, cada día. */
 /* ---------------------------------------------------------------- datos, antes de pintar
@@ -5686,6 +5716,30 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <p class="hint" style="margin:0 2px">
             Se comprueba que cada dirección sea de su red antes de guardar: pegar la de
             Instagram en la casilla de Facebook es el error más común, y así no pasa.
+          </p>
+        </div>
+
+        <h2>Nombre en la carta</h2>
+        <div class="card">
+          <p class="hint">
+            Lo que ve el comensal al abrir la carta: el nombre grande y el texto pequeño de
+            encima. Deja los dos en blanco para usar los de fábrica.
+          </p>
+          <label class="fld">Nombre del restaurante
+            <span class="opt">(máximo 20 caracteres; en blanco, el de fábrica)</span>
+            <input name="marca_nombre" maxlength="20"
+                   value="<?= h($marca['nombreVisible']) ?>"
+                   placeholder="<?= h(CLIENTE_NOMBRE) ?>">
+          </label>
+          <label class="fld">Texto pequeño, encima del nombre
+            <span class="opt">(máximo 25 caracteres; en blanco, el de fábrica)</span>
+            <input name="marca_rotulo" maxlength="25"
+                   value="<?= h($marca['rotuloVisible']) ?>"
+                   placeholder="<?= h(defined('CLIENTE_ROTULO') ? CLIENTE_ROTULO : '') ?>">
+          </label>
+          <p class="hint" style="margin:0 2px">
+            El texto pequeño se enseña igual en los tres idiomas: escribir aquí no lo traduce,
+            así que si lo cambias, cámbialo pensando que lo van a leer en cualquiera de ellos.
           </p>
         </div>
 

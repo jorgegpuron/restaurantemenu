@@ -3,7 +3,7 @@
  "version": "1.1.8",
  "esquemaEstado": 2,
  "esquemaCarta": "carta/2",
- "fecha": "2026-09-03",
+ "fecha": "2026-09-04",
  "envoltorios": {
   "gen.mjs": "3044cde1a1bcaa249a61179a99c0c262e3bdf4bc1f191aedf9759b114edf53a4",
   "importar.mjs": "63c6bec2f4e3810ae4a3d7210849a12e0dc10c66316c22a8aff3d79287d7f920"
@@ -57,7 +57,7 @@
   "contrato-salida.mjs": "3d2748c474f73d69cba50d1c71685424ab3f4371cd453ef9edcfd12a3d497514",
   "entorno.mjs": "9bac6a4fd00553f8c5646a2b50a0ab10edb35fb66d6590fff3470b1ab6b3ab64",
   "error404.mjs": "9a0d2f43f19e172c902b001a6223614a1678b4bf593c09b915c507e0ab2fd6b9",
-  "gen.mjs": "c2472ce4cb13780fd96b0c063fc2b6309f2791662ad1d070a0da17a72ffe4f04",
+  "gen.mjs": "a7e9b5bf8e36c1b80b2376b6235bcf6aabcfb39e8739a2c5e5ccaa5ea641b6db",
   "importar.mjs": "c400b711790a806b04f9821723a57724e76bdac3673b091afe688e3d3fe7cd28",
   "juego.mjs": "1b8698fcb27814ff840697c68677d6854c4fb3208ddf8e624ee01ec593294ab8",
   "lock.mjs": "6dd84c5349a37899bfd8522fc1c4faa1dc23836ab95eaf6d48a87af2508fdcd8",
@@ -72,7 +72,7 @@
   "server/admin/copias/.htaccess": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934",
   "server/admin/datos.php": "48130308368881686c8e3564634a5676ccb2aea99b26b8e77640cbfd5707644e",
   "server/admin/hash.php": "e0c3915b9b0a0d50066111af46ce7bce82b1da7cb9a7673b37897450d8fe2e41",
-  "server/admin/index.php": "a29f89e36c99736f982e103c8ec642b68f8b13c66b9f2895f2d4a449a20429e7",
+  "server/admin/index.php": "5c3b092b94653de86b623ec78be0d0e6c38bc86cc1ba9217a0dadeeedb6395ff",
   "server/admin/motor-acceso-caoba.jpg": "bb0e5b98fce55522bc11287c5f5a9e066d6ae1abfcba2c1a9c0d8b3cdfa757bb",
   "server/admin/motor-acceso-ciruela.jpg": "c55bf247993054a3d18ba7ed077d3af9e166809b0fa65ea3bdada4efcf9d7443",
   "server/admin/motor-acceso-laurel.jpg": "8d9d31206b60e57ef55fe1fd17f25aa5a899104fc60d423a0cb78dc0d169206f",
