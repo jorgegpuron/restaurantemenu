@@ -322,9 +322,13 @@ h1{
   /* --juego-go es --metal, el acento vivo -- la tinta encima ya no puede ser --surface
      (2.45:1, no llega). Y no --accent-ink tampoco: con un Primario oscuro, metal se
      aclara para leerse sobre --ink y puede acabar bastante mas claro que accent, asi que
-     el ink pensado para accent deja de leer encima (cae a ~2.9:1). --metal-ink es el ink
-     calculado sobre el metal real, no prestado de otro fondo -- ver temas.mjs. */
-  color:var(--metal-ink);background:var(--juego-go);
+     el ink pensado para accent deja de leer encima (cae a ~2.9:1).
+     --rush-ink y no --metal-ink: es --metal-ink tal cual (el ink calculado sobre el metal
+     real, no prestado de otro fondo) para cualquier colorPrincipal, MENOS con el naranja
+     de fabrica exacto, donde Rush se pide claro -- misma excepcion que --badge-ink en la
+     capsula gemela de la carta. Token aparte para que la excepcion sea SOLO de Rush: el
+     boton Jugar, la fila del marcador y las bandas siguen con --metal-ink. Ver temas.mjs. */
+  color:var(--rush-ink);background:var(--juego-go);
   padding:0 .18em;border-radius:.14em;
 }
 @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}

@@ -197,7 +197,7 @@ const rojoLegible = () => {
   return null;
 };
 
-/** Deriva los 19 tokens CSS a partir del unico color de cliente. `null` en --accent-ink,
+/** Deriva los 21 tokens CSS a partir del unico color de cliente. `null` en --accent-ink,
  *  --metal o --metal-ink significa "ni OSCURO ni NEUTRO -- o ninguna variante aclarada --
  *  leen sobre este colorPrincipal": ver verificarPaleta(). --badge-ink nunca es null por
  *  si solo (hereda de --accent-ink, salvo la excepcion de fabrica) -- si --accent-ink lo
@@ -219,19 +219,31 @@ const rojoLegible = () => {
  *  (NEUTRO y no blanco puro: es la misma superficie clara que usa el resto del sistema,
  *  nunca un #fff aparte -- blanco puro daria 2.69:1, tampoco pasa, pero no es el color
  *  que de verdad se pinta). Con cualquier otro colorPrincipal, sin excepcion:
- *  --badge-ink es --accent-ink, calculado y validado por contraste como el resto. */
+ *  --badge-ink es --accent-ink, calculado y validado por contraste como el resto.
+ *
+ *  --rush-ink: la MISMA excepcion, pero para la palabra "Rush" del juego, que va sobre
+ *  --metal y no sobre --accent. Con el naranja de fabrica exacto, NEUTRO fijo -- pedido
+ *  expresamente para que Rush se lea claro en las dos capsulas (la de la carta resuelve lo
+ *  mismo por --badge-ink). Con cualquier otro colorPrincipal es --metal-ink tal cual: la
+ *  tinta calculada sobre el metal real, sin prestar la de otro fondo. Token propio y no un
+ *  cambio en --metal-ink porque --metal-ink lo comparten el boton Jugar, la fila del
+ *  marcador y las bandas, que NO llevan la excepcion. Fuera de PAREJAS a proposito, igual
+ *  que --badge-ink: la excepcion baja de 4.5:1 a sabiendas. */
 export function derivar(colorPrincipal) {
   const accent = colorPrincipal;
   const accentInk = inkSobre(accent, OSCURO, NEUTRO);
   const metal = metalLegible(colorPrincipal);
   const metalInk = metal === null ? null : inkSobre(metal, OSCURO, NEUTRO);
-  const badgeInk = accent.toUpperCase() === PRINCIPAL_DEFECTO.toUpperCase() ? NEUTRO : accentInk;
+  const esFabrica = accent.toUpperCase() === PRINCIPAL_DEFECTO.toUpperCase();
+  const badgeInk = esFabrica ? NEUTRO : accentInk;
+  const rushInk = metal === null ? null : (esFabrica ? NEUTRO : metalInk);
   return {
     '--accent': accent,
     '--accent-ink': accentInk,
     '--metal': metal,
     '--metal-ink': metalInk,
     '--badge-ink': badgeInk,
+    '--rush-ink': rushInk,
     '--solid': SECUNDARIO,
     '--solid-ink': inkSobre(SECUNDARIO, NEUTRO, OSCURO),
     '--ink': OSCURO,

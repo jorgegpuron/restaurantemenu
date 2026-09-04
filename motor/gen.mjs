@@ -1968,9 +1968,13 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* El badge de «Rush»: identico al de la portada del propio juego (motor/juego.mjs,
    regla #s-intro h1 em — mismo rotate, mismo padding, mismo radio). No es
    --surface/--offer como el resto de esta tarjeta: fondo en el acento LITERAL con su
-   propia tinta encima (--accent-ink sobre --accent, el par que temas.mjs verifica en
-   PAREJAS). Fondo solido a proposito: se lee igual se monte sobre el rojo de la tarjeta
-   o sobre la mascota. */
+   propia tinta encima. Fondo solido a proposito: se lee igual se monte sobre el rojo de
+   la tarjeta o sobre la mascota.
+   La tinta es --badge-ink y no --accent-ink: con el naranja de fabrica exacto Rush se pide
+   claro (NEUTRO), y --badge-ink ya lleva esa excepcion resuelta; con cualquier otro
+   colorPrincipal --badge-ink ES --accent-ink, asi que el contraste sigue calculandose
+   sobre este mismo fondo. La capsula del juego resuelve lo mismo con --rush-ink, que alli
+   cuelga de --metal. Ver temas.mjs. */
 /* Brillo que recorre el badge cada 3,6s (arranca con 1s de retraso, para no disparar a
    la vez que el pulso del boton). overflow:hidden en el propio badge recorta la barra
    al tamano de la pastilla, asi que el rotate(-3deg) del padre ya la deja inclinada
@@ -1983,7 +1987,7 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:.1em .26em;
   border-radius:.16em;
   background:var(--accent);
-  color:var(--accent-ink);
+  color:var(--badge-ink);
 }
 .game-card-word--badge::after{
   content:"";position:absolute;inset:0;pointer-events:none;
