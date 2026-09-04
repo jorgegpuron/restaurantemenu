@@ -2213,10 +2213,11 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-flag{
   display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
-  /* Ajuste posterior a la Fase 8: acento de marca en vez del rojo semantico, texto
-     accent-ink (5.47:1) en vez del blanco fijo que llevaba antes -- blanco sobre este
-     naranja es 2.69:1, no pasaba. */
-  background:var(--accent);color:var(--accent-ink);
+  /* Acento de marca en vez del rojo semantico, texto blanco fijo -- misma regla que
+     todo badge con fondo --accent (item-tag, aviso-badge): un solo criterio, no uno
+     por elemento. Blanco sobre este naranja es 2.69:1, por debajo de 4.5 -- excepcion
+     visual consciente, igual que el badge de descuento y el boton Buscar. */
+  background:var(--accent);color:#fff;
   font-family:var(--title-font);font-size:11px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
 }
@@ -2962,7 +2963,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
-  background:var(--accent);color:var(--accent-ink);
+  /* Blanco fijo, no accent-ink: misma regla que todo badge con fondo --accent. */
+  background:var(--accent);color:#fff;
   font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
 
@@ -3019,10 +3021,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:1px 7px;
   border-radius:var(--r-pill);
   /* filled, unlike the muted number badge: eight rows out of 326 are meant to be seen.
-     Ajuste Fase 8: fondo en el acento LITERAL, no en una version oscurecida de si mismo
-     -- el texto es --accent-ink (tinta sobre el acento), 5.47:1 con la paleta de fabrica. */
+     Fondo en el acento LITERAL, texto blanco fijo -- misma regla que .item-tag-offer,
+     que antes rompia esta clase base con su propio override: un solo criterio para
+     todo badge/etiqueta con fondo --accent, sin excepcion por tipo de etiqueta. */
   background:var(--accent);
-  color:var(--accent-ink);
+  color:#fff;
   font-family:var(--title-font);
   font-size:11px;
   font-weight:600;

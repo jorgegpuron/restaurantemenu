@@ -257,12 +257,15 @@ function color_mezcla(string $a, string $b, float $t): string {
   }
   return $out;
 }
-/* null si el hex no da para un --accent-ink o un --metal legibles contra las
- * constantes fijas -- el UNICO criterio de rechazo: ni Oscuro ni Neutro se leen encima
- * de este color en los sitios donde el acento hace de FONDO. Un color CLARO (amarillo,
- * beige, naranja pastel) no se rechaza por ser claro: Oscuro casi siempre lee bien
- * sobre un fondo claro, así que $accentInk cae ahí solo. Devuelve los tres tokens que
- * dependen de colorPrincipal, listos para imprimir en un <style>. */
+/* null si el hex no da para un --accent-ink, un --metal o un --metal-ink legibles contra
+ * las constantes fijas -- el UNICO criterio de rechazo: ni Oscuro ni Neutro se leen
+ * encima de este color en los sitios donde el acento (o su variante metal) hace de
+ * FONDO. Un color CLARO (amarillo, beige, naranja pastel) no se rechaza por ser claro:
+ * Oscuro casi siempre lee bien sobre un fondo claro, así que $accentInk cae ahí solo.
+ * $metalInk se calcula sobre el $metal YA aclarado, no reutiliza $accentInk: con un
+ * colorPrincipal oscuro, metal puede acabar bastante más claro que el hex original (ver
+ * el mismo razonamiento en motor/temas.mjs). Devuelve los cuatro tokens que dependen de
+ * colorPrincipal, listos para imprimir en un <style>. */
 function derivar_principal(string $hex): ?array {
   $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#2C2727';
   $neutro = defined('CLIENTE_COLOR_NEUTRAL') ? CLIENTE_COLOR_NEUTRAL : '#F6F4F4';
@@ -276,7 +279,11 @@ function derivar_principal(string $hex): ?array {
     if (color_contraste($c, $oscuro) >= 4.5) { $metal = $c; break; }
   }
   if ($metal === null) return null;
-  return ['--accent' => $hex, '--accent-ink' => $accentInk, '--metal' => $metal];
+  $metalInk = null;
+  if (color_contraste($oscuro, $metal) >= 4.5) $metalInk = $oscuro;
+  elseif (color_contraste($neutro, $metal) >= 4.5) $metalInk = $neutro;
+  if ($metalInk === null) return null;
+  return ['--accent' => $hex, '--accent-ink' => $accentInk, '--metal' => $metal, '--metal-ink' => $metalInk];
 }
 
 /* ---------------------------------------------------------------- fotos de cabecera
@@ -2820,6 +2827,7 @@ $CUENTAS = [
     --accent:<?= h($colorPrincipalOverride['--accent']) ?>;
     --accent-ink:<?= h($colorPrincipalOverride['--accent-ink']) ?>;
     --metal:<?= h($colorPrincipalOverride['--metal']) ?>;
+    --metal-ink:<?= h($colorPrincipalOverride['--metal-ink']) ?>;
   }
 </style>
 <?php endif; ?>
@@ -3430,7 +3438,8 @@ $CUENTAS = [
   .pfijo{font-family:var(--title-font);font-weight:700;font-variant-numeric:tabular-nums}
   .badge{
     display:inline-block;padding:2px 9px;border-radius:var(--r-pill);
-    background:var(--accent);color:var(--accent-ink);
+    /* Blanco fijo, no accent-ink: misma regla que todo badge con fondo --accent en la carta. */
+    background:var(--accent);color:#fff;
     font-family:var(--title-font);font-size:10px;font-weight:600;
     letter-spacing:.1em;text-transform:uppercase;
   }
@@ -3951,7 +3960,7 @@ $CUENTAS = [
     box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 25%,transparent);
   }
   .insignia.is-online{background:var(--surface);color:var(--accent-ink)}
-  .insignia.is-user{background:var(--accent);color:var(--accent-ink)}
+  .insignia.is-user{background:var(--accent);color:#fff}
   .insignia.is-super{background:var(--ink);color:var(--surface);outline:2px solid var(--surface)}
   .insignia.is-demo{background:var(--offer);color:var(--surface)}
 

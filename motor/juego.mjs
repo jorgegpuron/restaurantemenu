@@ -318,16 +318,20 @@ h1{
 #s-intro h1 em{
   font-style:normal;display:inline-block;
   transform:rotate(-3deg);
-  /* --juego-go ahora es --metal, el acento vivo -- la tinta encima ya no puede ser
-     --surface (2.45:1, no llega): --accent-ink, el mismo par que el badge gemelo de la
-     tarjeta en gen.mjs. */
-  color:var(--accent-ink);background:var(--juego-go);
+  /* --juego-go es --metal, el acento vivo -- la tinta encima ya no puede ser --surface
+     (2.45:1, no llega). Y no --accent-ink tampoco: con un Primario oscuro, metal se
+     aclara para leerse sobre --ink y puede acabar bastante mas claro que accent, asi que
+     el ink pensado para accent deja de leer encima (cae a ~2.9:1). --metal-ink es el ink
+     calculado sobre el metal real, no prestado de otro fondo -- ver temas.mjs. */
+  color:var(--metal-ink);background:var(--juego-go);
   padding:0 .18em;border-radius:.14em;
 }
 @keyframes sube{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #s-intro .actions{margin-top:var(--s4)}
-/* Flex de verdad: sin él el gap no existe y el SVG cae a la línea base del texto. */
-#btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--juego-go)}
+/* Flex de verdad: sin él el gap no existe y el SVG cae a la línea base del texto.
+   color propio y no el --surface heredado de .big-btn: --surface sobre --juego-go es
+   2.45:1 incluso con la paleta de fabrica -- --metal-ink es el que de verdad lee. */
+#btn-play{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:64px;font-size:20px;background:var(--juego-go);color:var(--metal-ink)}
 #btn-play svg{width:21px;height:21px;flex:0 0 auto}
 #btn-play .i18n{line-height:1}
 @media (prefers-reduced-motion:reduce){ .mascota,.eyebrow-record,.punto,.placa{animation:none} }
@@ -506,7 +510,7 @@ h1{
 }
 /* El puesto en curso, marcado. Sin esto, en una pantalla con tres filas iguales hay que leer
    los numeros para saber cual es la tuya. */
-.fila.tuya{background:var(--juego-go);color:var(--accent-ink)}
+.fila.tuya{background:var(--juego-go);color:var(--metal-ink)}
 .fila .pos{width:1.1em;opacity:.55;font-weight:600;font-variant-numeric:tabular-nums}
 .fila .pts{font-weight:800;font-variant-numeric:tabular-nums;min-width:2.4em}
 .fila .quien{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -560,16 +564,16 @@ h1{
 #s-count .eyebrow,#s-end .eyebrow{
   display:inline-block;
   transform:rotate(-3deg);
-  /* --accent-ink y no --surface: el fondo es --juego-go (el acento vivo), y el blanco ya
-     no lee encima (2.45:1) desde que el acento dejo de oscurecerse en la Fase 8. */
-  background:var(--juego-go);color:var(--accent-ink);
+  /* --metal-ink y no --surface ni --accent-ink: ver el mismo razonamiento en
+     #s-intro h1 em, mas arriba. */
+  background:var(--juego-go);color:var(--metal-ink);
   padding:.3em .55em;border-radius:.14em;
 }
 #s-count .eyebrow{font-size:15px;letter-spacing:.2em;padding:.28em .6em}
 #s-end .eyebrow:empty{display:none}
 /* «¡Nuevo récord!» ya iba en rojo, y sobre la banda roja no se leía. Ahora lo que cambia es la
    cifra, que se pinta de rojo: se ve desde más lejos que un rótulo de doce píxeles. */
-#s-end .eyebrow.eyebrow-record{color:var(--accent-ink)}
+#s-end .eyebrow.eyebrow-record{color:var(--metal-ink)}
 
 /* ---------- cuenta atrás ---------- */
 #s-count{gap:0}
@@ -790,10 +794,13 @@ h1{
     vid.addEventListener('error', function () { if (vid) { vid.remove(); vid = null; } });
   }
 
-  /* El unico color que se puede cambiar sin recompilar. Misma funcion, palabra por
-     palabra, que la de motor/gen.mjs (documentos distintos, sin runtime compartido) --
-     ver el comentario de alli para el porque de leer Oscuro/Neutro del propio :root en
-     vez de llevar una copia a mano. */
+  /* El unico color que se puede cambiar sin recompilar. Misma funcion que la de
+     motor/gen.mjs hasta el calculo de --metal (documentos distintos, sin runtime
+     compartido) -- ver el comentario de alli para el porque de leer Oscuro/Neutro del
+     propio :root en vez de llevar una copia a mano. Diverge en un bloque extra: aqui
+     hace falta --metal-ink (texto sobre el boton Jugar y las bandas del marcador, fondo
+     --metal) porque gen.mjs nunca usa --metal como fondo, solo como texto suelto
+     (.site-footer .brand) -- ver el porque en temas.mjs. */
   function derivarPrincipal(hex) {
     var raiz = getComputedStyle(document.documentElement);
     var oscuro = raiz.getPropertyValue('--ink').trim();
@@ -815,7 +822,8 @@ h1{
       var c = mezcla(hex, neutro, t / 100);
       if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
     }
-    return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal } : null;
+    var metalInk = metal ? (contraste(oscuro, metal) >= 4.5 ? oscuro : (contraste(neutro, metal) >= 4.5 ? neutro : null)) : null;
+    return (accentInk && metal && metalInk) ? { accent: hex, accentInk: accentInk, metal: metal, metalInk: metalInk } : null;
   }
   function aplicarColorPrincipal(marca) {
     var colorOv = marca && typeof marca.colorPrincipal === 'string' ? marca.colorPrincipal.trim() : '';
@@ -826,6 +834,7 @@ h1{
     raizStyle.setProperty('--accent', d.accent);
     raizStyle.setProperty('--accent-ink', d.accentInk);
     raizStyle.setProperty('--metal', d.metal);
+    raizStyle.setProperty('--metal-ink', d.metalInk);
   }
 
   fetch('estado.json?t=' + Date.now(), { cache: 'no-store' })

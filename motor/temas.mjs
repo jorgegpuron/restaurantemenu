@@ -197,18 +197,27 @@ const rojoLegible = () => {
   return null;
 };
 
-/** Deriva los 17 tokens CSS a partir del unico color de cliente. `null` en --accent-ink
- *  o --metal significa "ni OSCURO ni NEUTRO -- o ninguna variante aclarada -- leen
- *  sobre este colorPrincipal": ver verificarPaleta(). --solid/--solid-ink/--base/--offer
- *  NUNCA son null: no dependen de colorPrincipal, son el mismo calculo fijo siempre. */
+/** Deriva los 18 tokens CSS a partir del unico color de cliente. `null` en --accent-ink,
+ *  --metal o --metal-ink significa "ni OSCURO ni NEUTRO -- o ninguna variante aclarada --
+ *  leen sobre este colorPrincipal": ver verificarPaleta(). --solid/--solid-ink/--base/
+ *  --offer NUNCA son null: no dependen de colorPrincipal, son el mismo calculo fijo siempre.
+ *
+ *  --metal-ink y no --accent-ink sobre --metal: metal es una variante ACLARADA de accent
+ *  (metalLegible mezcla hacia NEUTRO hasta leerse sobre --ink), asi que con un
+ *  colorPrincipal oscuro puede acabar bastante mas claro que accent -- el ink calculado
+ *  para accent (que en ese caso es NEUTRO, pensado para el accent oscuro original) ya no
+ *  lee encima del metal aclarado. Cada fondo lleva su propio ink calculado sobre su propio
+ *  valor, nunca uno prestado de otro fondo -- mismo criterio que --solid-ink sobre --solid. */
 export function derivar(colorPrincipal) {
   const accent = colorPrincipal;
   const accentInk = inkSobre(accent, OSCURO, NEUTRO);
   const metal = metalLegible(colorPrincipal);
+  const metalInk = metal === null ? null : inkSobre(metal, OSCURO, NEUTRO);
   return {
     '--accent': accent,
     '--accent-ink': accentInk,
     '--metal': metal,
+    '--metal-ink': metalInk,
     '--solid': SECUNDARIO,
     '--solid-ink': inkSobre(SECUNDARIO, NEUTRO, OSCURO),
     '--ink': OSCURO,
@@ -239,6 +248,7 @@ const PAREJAS = [
   { a: '--accent-ink', b: '--accent', min: 4.5, que: 'el texto/icono sobre un fondo del acento' },
   { a: '--surface', b: '--ink', min: 4.5, que: 'el pie sobre el fondo de la pagina' },
   { a: '--metal', b: '--ink', min: 4.5, que: 'el metal sobre el fondo de la pagina' },
+  { a: '--metal-ink', b: '--metal', min: 4.5, que: 'el texto/icono sobre el metal (boton Jugar, bandas del marcador)' },
   { a: '--ink', b: '--base', min: 4.5, que: 'el texto del juego sobre su fondo' },
   { a: '--solid-ink', b: '--solid', min: 4.5, que: 'el texto de un boton/chip solido sobre su relleno' },
   { a: '--offer', b: '--surface', min: 4.5, que: 'el rojo de oferta sobre la tarjeta' },
@@ -249,15 +259,15 @@ const PAREJAS = [
 /** Verifica un colorPrincipal cualquiera -- el de fabrica, el de un cliente, el que
  *  alguien acabe de escribir en Admin -> Marca. Revienta (lanza) con mensaje exacto de
  *  que pareja falla y cuanto falta si el contraste no llega, o si el color no daba para
- *  ninguna variante legible (derivar() devolvio null en --accent-ink o --metal).
- *  `nombre` solo es para el mensaje -- llamadores no-Node (el panel, en PHP) hacen esta
- *  misma comprobacion con su propia implementacion: ver `derivarPrincipal()` en
+ *  ninguna variante legible (derivar() devolvio null en --accent-ink, --metal o
+ *  --metal-ink). `nombre` solo es para el mensaje -- llamadores no-Node (el panel, en PHP)
+ *  hacen esta misma comprobacion con su propia implementacion: ver `derivarPrincipal()` en
  *  motor/server/admin/index.php, deliberadamente la misma aritmetica. */
 export function verificarPaleta(colorPrincipal, nombre = 'el color') {
   const NL = String.fromCharCode(10);
   const t = derivar(colorPrincipal);
   const fallos = [];
-  for (const k of ['--accent-ink', '--metal']) {
+  for (const k of ['--accent-ink', '--metal', '--metal-ink']) {
     if (t[k] === null) {
       fallos.push('ninguna variante de ' + k + ' se lee -- prueba con un color mas alejado de negro o blanco puro');
     }
