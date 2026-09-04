@@ -2213,14 +2213,16 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-flag{
   display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
-  background:var(--offer);color:#fff;
+  /* Ajuste posterior a la Fase 8: acento de marca en vez del rojo semantico, texto
+     accent-ink (5.47:1) en vez del blanco fijo que llevaba antes -- blanco sobre este
+     naranja es 2.69:1, no pasaba. */
+  background:var(--accent);color:var(--accent-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
 }
-/* Sobre el papel, la pastilla roja sobra: ahí el rojo sobre crema ya se lee. */
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-flag{
-  padding:0;background:none;color:var(--offer);font-size:12px;
-}
+/* Sobre el papel el rojo sin pastilla ya se leia (5.13:1); el acento sin pastilla no
+   llega (2.45:1) -- aqui ya no se puede quitar el fondo, se queda con el mismo que la
+   version con foto. */
 .dsheet-flag[hidden]{display:none}
 /* El nombre manda solo, a todo el ancho, y el precio baja a compartir línea con la
    descripción, sobre su misma base. El cuerpo está anclado al pie de la foto y crece hacia
@@ -3419,14 +3421,19 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .has-hero .head-tools{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}
 }
 /* ---- oferta por franja ----
-   Un cuarto color, a propósito: un descuento que no es rojo no se lee como descuento, y esto
-   es una señal funcional, no decoración. Crema sobre #C62828 es 5.2:1.
+   Ajuste posterior a la Fase 8, pedido expreso: el "% off" pasa del rojo semantico al
+   acento de marca -- ya no distingue "esto es una rebaja" de "esto es la marca", cambio
+   consciente sobre la version anterior de este comentario (que defendia justo lo
+   contrario). El color hereda de .item-tag: fondo --accent, texto --accent-ink, 5.47:1
+   con la paleta de fabrica -- de paso corrige un contraste que llevaba roto desde la
+   Fase 8 sin que nadie lo hubiera notado (fondo --offer con el texto --accent-ink que
+   .item-tag ya fija, heredado: 2.62:1, por debajo de 4.5).
 
    Quién se ve y quién no lo decide el runtime con el atributo hidden y con la clase
    has-offer, no una clase global en <html>. Antes iba al revés y fue un error caro: cuando
    las ofertas pasaron a configurarse desde el panel, el JS dejó de poner esa clase y toda la
    oferta se calculaba bien pero no se veía. Un solo dueño del estado. */
-.item-tag-offer{display:inline-block;background:var(--offer)}
+.item-tag-offer{display:inline-block;background:var(--accent)}
 /* Una sola banda, encima de las pestañas. Antes iba una nota bajo el título de cada categoría
    en oferta: con dos o tres categorías se repetía la misma frase tres veces, y con platos
    sueltos aparecía bajo un epígrafe que no gobernaba los platos rebajados. Arriba se lee una
@@ -3546,7 +3553,16 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 
 
 .has-offer{display:block;text-align:right}
-.has-offer .price-now{display:block;color:var(--offer)}
+/* Ajuste posterior a la Fase 8: acento de marca en vez del rojo semantico. Como texto
+   suelto, el acento no llega a 4.5:1 sobre la tarjeta (2.45:1) -- por eso pasa a pastilla,
+   igual que .dsheet-flag: fondo --accent, texto --accent-ink (5.47:1). width:fit-content +
+   margin-left:auto en vez de inline-block, para no arriesgar que el precio y el tachado de
+   abajo (price-was, hermano siguiente) queden en la misma linea. */
+.has-offer .price-now{
+  display:block;width:fit-content;margin-left:auto;
+  padding:2px 8px;border-radius:var(--r-pill);
+  background:var(--accent);color:var(--accent-ink);
+}
 .has-offer .price-was{
   display:block;
   color:var(--muted);
@@ -3668,14 +3684,14 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   max-width:92vw;
   justify-content:center;
   border-radius:999px;
-  /* Ajuste Fase 8: el CTA principal es un boton solido, no el acento a toda plancha --
-     el naranja no tiene que cubrir la superficie mas grande y mas fija de la pantalla.
-     Solido (--solid, el secundario) igual que cualquier boton de accion; un filete del
-     acento por fuera es lo que evita que se pierda contra el pie oscuro (--solid e --ink
-     son casi el mismo tono, 1.3:1 entre si -- sin el filete el boton se fundiria ahi). */
-  background:var(--solid);
-  color:var(--solid-ink);
-  border:1.5px solid var(--accent);
+  /* Ajuste posterior a la Fase 8, pedido expreso: el CTA principal vuelve al acento
+     literal -- es el unico acceso a la carta entera desde el movil, y tiene que
+     coincidir con el naranja vivo del resto de acentos, no con el solido. Sin filete:
+     con el fondo ya en --accent no hace falta un borde del mismo color para separarse
+     del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo. */
+  background:var(--accent);
+  color:var(--accent-ink);
+  border:0;
   font-family:var(--title-font);
   font-size:15px;
   font-weight:600;

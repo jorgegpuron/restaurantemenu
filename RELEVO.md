@@ -5,23 +5,27 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **4 sep 2026** · **Fase 8 cerrada en local — color de marca
-> configurable — commiteada, sin pushear**
+> Última actualización: **4 sep 2026** · **Fase 8 + ajuste visual, en producción real de
+> Tinge — Guaza sin tocar**
 
 ---
 
 ## Dónde estamos
 
-**Fase 8 cerrada, un commit por delante de `a5380f8` en `main` local de Tinge — sin pushear
-todavía.** El hash exacto es el que dé `git log -1 --oneline` en `tinge_of_turmeric/1-proyecto`;
-no se fija aquí a propósito, porque este fichero forma parte de ese mismo commit.
+**Fase 8 (color de marca configurable) y su ajuste visual posterior (botón Buscar, badges
+y precio de oferta al Primario; fondo general confirmado) están los dos en `main`, pusheados
+y DESPLEGADOS REALMENTE en producción de Tinge.** `origin/main` = `main` local — sin
+diferencia, todo publicado. El hash exacto de cada commit y el build real servido, en
+`git log` y en `version.json` de producción — no se fijan aquí a propósito, para no quedar
+desactualizados en la siguiente sesión.
 
-**Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`) — `main` local por delante de
-`origin/main` (que sigue en `5491a0b`) por **dos commits**: el cierre de Admin → Marca de la
-sesión anterior y el de la Fase 8 de esta. Árbol limpio, nada sin commitear. Sigue habiendo un
-`stash` aparcado de antes de la Fase 7 (auditoría vieja de `NUEVO_CLIENTE.md`) — **no tocado,
-no es de esta fase.** En producción sigue el build **`1788483872209`**, el de antes de la Fase
-8: nada de esto ha salido de este ordenador.
+**Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`) — árbol limpio, `main`
+local = `origin/main`. Sigue habiendo un `stash` aparcado de antes de la Fase 7 (auditoría
+vieja de `NUEVO_CLIENTE.md`) — **no tocado en ninguna de estas sesiones, no es de esta
+fase.** Cada despliegue de esta ronda siguió el procedimiento seguro completo: `DESPLIEGUE_REAL`
+verificado `false` antes, puesto a `true` sin BOM, `workflow_dispatch` identificado por SHA +
+evento + rama + `databaseId` nuevo, esperado hasta `completed`, y restaurado a `false`
+inmediatamente después — verificado en los dos despliegues de esta ronda.
 
 **Bar Restaurante Guaza** (`bar-restaurante-guaza/1-proyecto`, repo `bar-restaurante-guaza`) —
 **sin tocar en toda la Fase 8**, a propósito. `main` local = `origin/main` = **`eaade01`**, árbol
@@ -67,29 +71,44 @@ sobre lo aprobado en la anterior — el contrato que queda cerrado es el de la �
   y backend; consola limpia. `node gen.mjs` y `motor/verificar-build.mjs` en verde,
   `git diff --check` limpio, Guaza confirmado intacto en cada tanda.
 
+**Ajuste visual posterior, mismo día, pedido expreso sobre la Fase 8 ya en producción**:
+- Botón «Buscar platos» (`.menu-fab`): pasó de sólido (`--solid`) + filete del acento a
+  fondo `--accent` liso + texto `--accent-ink` — coincide con el resto de acentos de marca.
+- Badge de descuento (`.item-tag-offer`), etiqueta «OFERTA» de la ficha (`.dsheet-flag`, las
+  dos variantes) y precio rebajado (`.price-now`, que pasó a pastilla porque el acento como
+  texto suelto no llega a 4.5:1): los tres, del rojo semántico fijo (`--offer`) al acento de
+  marca — **decisión consciente que sustituye la de la Fase 8**, que documentaba justo lo
+  contrario («un descuento que no es rojo no se lee como descuento»). De paso corrigió un
+  contraste que llevaba roto en producción desde la Fase 8 sin que nadie lo notara: el badge
+  de descuento heredaba `color:var(--accent-ink)` de `.item-tag` con fondo `--offer` —
+  2.62:1, por debajo de 4.5.
+- Fondo general (`body{background:var(--ink)}`) ya estaba en `#2C2727` desde la Fase 8 —
+  solo se confirmó, no cambió.
+- El rojo de las ofertas se mantiene igual en: la marquesina de aviso (`.offer-banner`, que
+  nunca usó `--offer`, usa `--ink` tenue), y los elementos decorativos del juego (bomba de
+  la tarjeta promocional, el «%» del logo) — ninguno de los dos es un badge/precio de la
+  carta y ninguno se tocó.
+
 ---
 
 ## Qué queda pendiente
 
-1. **Push de Tinge.** `main` local está dos commits por delante de `origin/main` — ni el cierre
-   de Admin → Marca (nombre/rótulo) ni la Fase 8 (color) han salido de este ordenador. Push y
-   despliegue exigen, cada uno, autorización expresa y separada — no asumir ninguna de las dos
-   por venir después de una aprobación de diseño.
-2. **Migrar Guaza al color de marca configurable.** Sigue en el sistema de 5 temas antiguo, sin
-   tocar a propósito durante toda la Fase 8. Motor de los dos clientes divergente mientras esto
-   no se haga — divergencia conocida, no un descuido.
-3. **Prueba en vivo del color de marca contra producción, no hecha.** Igual que ya pasaba con
-   Admin → Marca: no hay contraseña de admin real a mano en este ordenador. Cobertura actual es
-   local, contra el motor real byte a byte.
-4. **Sincronizar el motor entre Tinge y Guaza sigue siendo manual.** Sin herramienta que lo
-   automatice — y ahora mismo, además, los dos motores ya no son iguales (punto 2).
-5. **Icono de «Meat & Seafood» en Tinge**: usa `meat` desde antes de que existiera `seafood`. No
+1. **Migrar Guaza al color de marca configurable.** Sigue en el sistema de 5 temas antiguo, sin
+   tocar a propósito durante toda la Fase 8 y su ajuste posterior. Motor de los dos clientes
+   divergente mientras esto no se haga — divergencia conocida, no un descuido.
+2. **Prueba en vivo del cambio de color desde Admin → Marca, contra producción real, no hecha.**
+   Igual que ya pasaba con el nombre/rótulo: no hay contraseña de admin real de Tinge a mano en
+   este ordenador. Todo lo demás (color visible, badges, botón Buscar, precio de oferta) sí está
+   confirmado en vivo contra producción — ver `git log` para el detalle de cada smoke test.
+3. **Sincronizar el motor entre Tinge y Guaza sigue siendo manual.** Sin herramienta que lo
+   automatice — y ahora mismo, además, los dos motores ya no son iguales (punto 1).
+4. **Icono de «Meat & Seafood» en Tinge**: usa `meat` desde antes de que existiera `seafood`. No
    urgente, sin tocar.
 
 Ya no está pendiente, no hace falta repetirlo en el siguiente cierre: alérgenos de extremo a
 extremo, la Fase 7 entera, la congelación del alta levantada, el botón de foto y Admin → Marca
-(nombre/rótulo) en producción, **el sistema de color de marca configurable, diseñado,
-implementado y probado en Tinge/local — commiteado, pendiente solo de push**.
+(nombre/rótulo) en producción, **el sistema de color de marca configurable y su ajuste visual
+posterior — los dos diseñados, implementados, probados y DESPLEGADOS EN PRODUCCIÓN de Tinge**.
 
 ---
 
