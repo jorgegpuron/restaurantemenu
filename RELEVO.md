@@ -5,112 +5,118 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **4 sep 2026** · **Tinge en producción, Guaza con commits sin subir**
+> Última actualización: **4 sep 2026** · **foto como acción + Admin → Marca, los dos en
+> producción y verificados**
 
 ---
 
 ## Dónde estamos
 
-**Fase 7 cerrada y en `main`**, en los dos repos. La congelación del alta de clientes nuevos,
-levantada (`CLAUDE.md`): `/nuevo-cliente` vuelve a estar autorizado, siguiendo siempre
-`NUEVO_CLIENTE.md`.
+**Fase 7 cerrada y en `main`**, en los dos repos, **y los dos publicados y al día**. La
+congelación del alta de clientes nuevos, levantada (`CLAUDE.md`).
 
 **Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`) — `main` local = `origin/main`
-= **`6a0e98c`**, árbol limpio, **desplegado en producción y validado**:
-<https://socialcard.es/tinge_of_turmeric/menu2/>. Build público **`1788479782183`** (run
-`33819699733`), verificado leyendo `version.json` en directo. Humo de producción en solo
-lectura, todo limpio: carta sin errores de consola, 36 grupos con icono (0 sin icono), los tres
-idiomas (EN/ES/DE) traducen de verdad, 404 real en ruta inventada, `/admin/` pide contraseña sin
-enseñar nada de la carta, el juego carga sin errores. **Persistencia intacta**: `estado.json` en
-vivo sigue con sus 6 etiquetas y 2 fotos reales (no una plantilla vacía), las fotos siguen
-respondiendo 200 — nada de esto lo toca el despliegue, están en la exclusión del workflow.
-`DESPLIEGUE_REAL = false`, verificado leyendo de GitHub antes y después del run.
+= **`5491a0b`**, árbol limpio salvo `RELEVO.md` (este propio fichero, sin commitear a
+propósito). En producción: <https://socialcard.es/tinge_of_turmeric/menu2/>, build
+**`1788483872209`**, verificado leyendo `version.json` en directo.
 
 **Bar Restaurante Guaza** (`bar-restaurante-guaza/1-proyecto`, repo `bar-restaurante-guaza`) —
-`main` local en **`253327a`**, árbol limpio, **4 commits por delante de `origin/main`
-(`2535ee3`), todavía sin push**:
+`main` local = `origin/main` = **`eaade01`**, árbol limpio. En producción:
+<https://socialcard.es/bar-restaurante-guaza/>, build **`1788484550343`**, verificado leyendo
+`version.json` en directo.
 
-```
-253327a feat: ampliar iconos de categorias       (fish/seafood en Pescados/Parrillada de Marisco)
-cdf4ac0 feat: completar iconos de alergenos       (14/14 con icono)
-b9bf7d5 fix: unificar etiquetas de destacados
-85309b8 fix: mb_strtolower sin mbstring no debe romper el panel
-```
-
-Producción de Guaza (<https://socialcard.es/bar-restaurante-guaza/>) sigue sirviendo el build
-`1788452194890`, de antes de estos cuatro commits — nada de esto ha salido de local todavía.
-`DESPLIEGUE_REAL = false` en su repo.
-
-El **motor de los dos clientes es idéntico byte a byte** ahora mismo (`diff` limpio en
-`motor/gen.mjs` y `motor/alergenos.mjs`), pero Guaza va cuatro commits por detrás de Tinge en
-lo que ya tiene *desplegado* — su motor local ya está al día, lo que falta es publicarlo.
+Los dos con **`DESPLIEGUE_REAL = false`**, verificado leyendo de GitHub antes y después de
+cada run. El **motor de los dos clientes es idéntico byte a byte** (`diff` limpio en
+`motor/gen.mjs`, `motor/server/admin/index.php` y `motor.lock`).
 
 ---
 
 ## Qué se hizo, resumido (el detalle está en `git log` de cada repo)
 
-- Alta endurecida: valida destino/URL y zona horaria antes de escribir nada;
-  `--zona-horaria`/`--corte-hora` obligatorios; admin funciona sin `mbstring`.
-- Etiquetas de destacados unificadas entre admin y carta pública.
-- Validación de traducciones consolidada: el idioma base aborta igual que los extras.
-- Catálogo de alérgenos completo, 14/14 con icono.
-- Catálogo de iconos de categoría ampliado con 9 nuevos (fish, seafood, dessert, drinks,
-  coffee, cocktails, breakfast, pizza, burger).
-- Tinge: push + despliegue real, verificado de punta a punta (ver arriba).
-- Guaza: motor sincronizado y `carta.json` corregido (`fish`/`seafood` en vez de `meat`/`rice`
-  para "Pescados"/"Parrillada de Marisco"), todo commiteado en local, sin publicar.
+- **Botón de foto, rediseñado como acción clara**: círculo de 32px con borde y fondo propios
+  (antes heredaba el mismo tratamiento plano que un alérgeno — se confundía con ellos).
+  Validado en producción en los dos clientes, sobre platos reales con foto, junto a alérgenos
+  y etiquetas destacadas sin que se confundan entre sí.
+- **Admin → Marca**: dos campos nuevos, `nombreVisible` (máx. 20 caracteres reales) y
+  `rotuloVisible` (máx. 25) — override que vive en `estado.json`, nunca escribe `cliente.mjs`
+  y nunca toca el slug técnico, la URL, la carpeta, el repo ni el FTP. Validado en las tres
+  capas (HTML, PHP contando caracteres reales no bytes, guardado). Se refleja sin recompilar,
+  sobrevive a refresh y a un deploy futuro. Probado de punta a punta en local en los dos
+  clientes (Tinge base inglés, Guaza base español) — incluido un bug real encontrado y
+  corregido en el propio proceso: el texto pequeño de portada vive en un `<span class="i18n">`
+  dentro de `.sub-title`, no en `.sub-title` mismo, y el primer intento leía/escribía el nodo
+  equivocado — al borrar el override todos los idiomas se quedaban en inglés en vez de volver
+  cada uno a su traducción real. Corregido y reverificado en los tres idiomas antes de darlo
+  por bueno.
+- Tinge y Guaza, cada uno con su ciclo completo: push → ensayo auditado → despliegue real →
+  `DESPLIEGUE_REAL` de vuelta a `false` → humo de producción en solo lectura (alérgenos,
+  destacados, iconos de categoría, ES/EN/DE, 404, admin protegido, consola limpia) — verificado
+  de punta a punta, no dado por supuesto.
 
 ---
 
 ## Qué queda pendiente
 
-1. **Push y despliegue de Guaza.** Los cuatro commits de arriba están solo en local. Mismo
-   procedimiento que ya se siguió con Tinge: push → ensayo (`dry-run: true`, revisar el listado
-   de ficheros) → autorización expresa → `DESPLIEGUE_REAL=true` sólo durante el run → humo de
-   producción → `DESPLIEGUE_REAL=false`.
+1. **Próxima fase: sustituir los temas predefinidos por una identidad de 3 colores por
+   cliente.** Hoy cada cliente elige uno de los 5 temas fijos (`motor/temas.mjs`); la idea es
+   que cada restaurante declare sus propios 3 colores de marca en vez de elegir de una lista
+   cerrada. Sin diseñar todavía.
 2. **Sincronizar el motor entre Tinge y Guaza sigue siendo manual.** No hay herramienta que lo
    automatice; cada cambio de motor se copia a mano y se verifica con `diff`.
 3. **Icono de "Meat & Seafood" en Tinge** (grupo real de su carta): usa `meat` desde antes de
    que existiera `seafood`. No urgente, anotado como tarea aparte, no se ha tocado.
+4. **Prueba en vivo de Admin → Marca contra producción, no hecha.** No hay contraseña de admin
+   de ninguno de los dos clientes a mano en este ordenador, y crear una nueva habría cerrado el
+   acceso real sin autorización para eso en concreto. La cobertura que existe es local, contra
+   el mismo motor byte a byte — si algún día hace falta la prueba en vivo, hace falta también
+   la contraseña real o decidir crear una nueva a propósito.
 
 Ya no está pendiente, y no hace falta repetirlo en el siguiente cierre: alérgenos de extremo a
 extremo, la Fase 7 entera integrada en `main`, la congelación del alta levantada, las etiquetas
-de destacados unificadas, la validación de traducciones del idioma base, **el despliegue real de
-Tinge**.
+de destacados unificadas, la validación de traducciones del idioma base, el catálogo de iconos
+de categoría, **el botón de foto y Admin → Marca, los dos en producción**, el despliegue real
+de Tinge y de Guaza verificado dos veces cada uno.
 
 ---
 
 ## Trampas del entorno, aprendidas a base de perder tiempo
 
 - **Un icono no se juzga por el trazo vectorial ampliado ni con el zoom del navegador: hay que
-  rasterizarlo al tamaño real.** A 14-18px un SVG legible cuando se mira grande puede fundirse
-  en una mancha o un bloque gris. Técnica: dibujar el SVG en un `<canvas>` al tamaño real en
-  píxeles, y sólo entonces volver a dibujarlo ampliado con `imageSmoothingEnabled = false` para
-  inspeccionarlo — eso enseña el píxel real, no una reinterpretación vectorial. El `zoom` del
-  panel de Chrome de esta herramienta no recorta región todavía.
+  rasterizarlo al tamaño real.** Técnica: dibujar el SVG en un `<canvas>` al tamaño real en
+  píxeles, y sólo entonces volver a dibujarlo ampliado con `imageSmoothingEnabled = false`. El
+  `zoom` del panel de Chrome de esta herramienta no recorta región todavía.
+- **Un `<span class="i18n">` puede vivir DENTRO de otro elemento que no lleva sus propios
+  `data-<idioma>`.** Si algo necesita leer o escribir la traducción de verdad, hay que apuntar
+  al span que lleva `class="i18n"`, no al contenedor — `.textContent` del contenedor "funciona"
+  por accidente (agrega el de sus hijos) pero `.dataset` no, y sólo se nota al intentar volver
+  atrás.
 - **Un servidor `php -S` con `2-subir` abierta bloquea su propio `rm` al recompilar.** Parar el
   servidor de pruebas antes de cualquier `node gen.mjs`. Comprobar con
   `Get-CimInstance Win32_Process -Filter "Name='php.exe'"` qué hay corriendo y qué sirve cada
   uno — puede haber más de uno de una sesión anterior.
+- **`session.save_path` de un `php -S` de prueba tiene que existir ANTES de arrancar el
+  servidor, o las sesiones no persisten y cada petición ve un CSRF distinto** — el síntoma es
+  "La página ha caducado" en bucle, aunque el formulario esté bien. `mkdir` la carpeta primero.
 - **El PHP de este ordenador (WinGet) no carga `mbstring` por defecto.** Para probar en local
   algo que dependa de él hace falta pasar
   `-d extension_dir=<ruta>\ext -d extension=php_mbstring.dll` a mano al arrancar `php -S`.
+- **Un cliente con `activacionPanel: true` (nacido de `/nuevo-cliente`) pide token de
+  activación, no sólo contraseña, la primera vez.** Para probarlo en local hace falta generar
+  un token + su SHA-256 a mano, compilar con `PANEL_ACTIVACION_HASH` puesto a ese hash, y
+  activar con el token (nunca con el hash). Un hash inventado sin token conocido no sirve para
+  nada: no hay forma de "adivinar" el texto que lo produce.
 - **`gh run list` sin filtrar puede devolver el run anterior** en los primeros segundos tras un
-  push o un dispatch. Filtrar siempre por SHA completo + evento + rama, y confirmar que el
-  `databaseId` no existiera ya antes de la acción.
+  push o un dispatch. Filtrar siempre por SHA completo + evento + rama.
 - **En el ensayo (`dry-run: true`), que `Uploading`/`Replacing` no sea 0 no es una alarma por sí
-  solo** — leer SIEMPRE la lista de ficheros del log antes de aprobar el despliegue real. Sí es
-  señal de fallo si aparece algo de la lista de exclusión (`estado.json`, `clave.php`,
-  `record.json`, `assets/hero/**`, `assets/platos/**`).
+  sola** — leer siempre la lista de ficheros del log antes de aprobar el despliegue real.
 - **El panel del navegador puede quedar "hidden" para el propio agente** y entonces `computer`
-  (click, screenshot) hace timeout aunque la página siga viva. `read_page` y `javascript_tool`
-  siguen funcionando — usarlos para interactuar y reintentar el screenshot después.
-- **La consola del navegador acumula errores entre navegaciones dentro de la misma pestaña.** Un
-  404 de prueba deliberado puede seguir apareciendo en `read_console_messages` varias
-  navegaciones después, y parecer un fallo nuevo que no lo es. Para un veredicto limpio, probar
-  en una pestaña nueva.
-- **Las pruebas ancladas a un reloj de pared mienten.** La fecha de "servicio" de la carta se
-  calcula con la hora de corte del cliente — anclar las pruebas a esa fecha calculada.
+  (click, screenshot) hace timeout o devuelve una captura en negro sólido, aunque la página siga
+  viva y el DOM esté correcto. `read_page`, `javascript_tool` y `getComputedStyle()` siguen
+  siendo fiables en ese estado — apoyarse en ellos en vez de insistir con la captura.
+- **La consola del navegador acumula errores entre navegaciones dentro de la misma pestaña.**
+  Para un veredicto limpio, probar en una pestaña nueva.
+- **Las pruebas ancladas a un reloj de pared mienten.** Anclar las pruebas a la fecha de
+  servicio calculada, nunca a una fija.
 
 ---
 
