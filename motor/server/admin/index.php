@@ -3879,63 +3879,52 @@ $CUENTAS = [
     cursor:pointer;
   }
 
-  /* ---------- color principal (editable) ----------
-     El unico de los 4 que cambia de un restaurante a otro. Picker nativo + campo de hex,
-     sincronizados por JS (ver el <script> de esta pestaña): el picker da un hex siempre
-     valido, el campo de texto es el que de verdad viaja al servidor -- asi quien prefiera
-     teclear el hex de su manual de marca no depende del selector del navegador. */
-  /* Selector redondo + HEX + restaurar, SIEMPRE en una fila -- pedido expreso, ni en
-     movil se reparten en varias lineas. Mismo patron que .colores-marca: nowrap fuerza
-     la fila, cada hijo se comprime lo que haga falta (el circulo tiene un suelo de 40px
-     por tamano tactil minimo, el campo de texto se encoge antes que el boton). */
-  .color-editable{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-top:7px}
-  .color-editable input[type=color]{
-    width:40px;height:40px;flex:none;padding:0;border:1px solid var(--border);
-    /* Redondo, igual que los puntos de Secundario/Oscuro/Neutral -- no el radio de sheet
-       que llevaba antes, que no era un circulo. */
+  /* ---------- los 4 colores, en una unica fila ----------
+     Corrección de layout, pedido expreso y literal: Primario (picker + hex, los unicos
+     editables) y los tres fijos del motor (Secundario/Oscuro/Neutro, solo lectura -- ver
+     motor/temas.mjs) van en el MISMO contenedor horizontal, nunca repartidos en varias
+     filas. nowrap fuerza la fila; cada control ocupa SOLO su ancho natural -- nada de
+     flex:1 que estire el campo de hex a media pantalla, como pasaba antes. Si en un
+     movil muy estrecho no caben ni comprimidos al minimo, el contenedor scrollea en
+     horizontal (overflow-x:auto) en vez de romper a una segunda fila -- tambien pedido
+     expreso. El picker da un hex siempre valido; el campo de texto es el que de verdad
+     viaja al servidor, sincronizados por JS (ver el <script> de esta pestaña). */
+  .colores-fila{
+    display:flex;align-items:center;gap:8px;flex-wrap:nowrap;
+    margin-top:7px;overflow-x:auto;padding-bottom:2px;
+  }
+  .colores-fila input[type=color]{
+    width:36px;height:36px;flex:none;padding:0;border:1px solid var(--border);
+    /* Redondo, igual que los puntos de Secundario/Oscuro/Neutral. */
     border-radius:50%;background:transparent;cursor:pointer;
   }
-  .color-editable input[type=color]::-webkit-color-swatch-wrapper{padding:3px}
-  .color-editable input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
-  .color-editable input[type=text]{
-    flex:1 1 0;min-width:0;min-height:40px;padding:0 10px;
+  .colores-fila input[type=color]::-webkit-color-swatch-wrapper{padding:3px}
+  .colores-fila input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+  .colores-fila input[type=text]{
+    flex:none;width:92px;min-height:36px;padding:0 8px;
     border:1px solid transparent;border-radius:var(--r-sheet);
     background:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
-    color:var(--ink);font-family:var(--body-font);font-size:14px;
+    color:var(--ink);font-family:var(--body-font);font-size:13px;
     text-transform:uppercase;font-variant-numeric:tabular-nums;
   }
-  .color-editable input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
-  .color-editable input[type=text]:invalid:not(:placeholder-shown){box-shadow:inset 0 0 0 2px var(--offer)}
-  .color-editable .ghost{flex:none;white-space:nowrap;padding:0 var(--s2);min-height:40px;font-size:13px}
-
-  /* ---------- colores fijos del motor (solo lectura) ----------
-     Secundario, Oscuro y Neutro: constantes del motor, iguales para cualquier cliente
-     -- ver motor/temas.mjs. No se editan desde aquí: no son datos de ESTE restaurante. */
-  /* Los tres, SIEMPRE en una fila -- pedido expreso, ni en movil bajan a otra linea.
-     flex-wrap:nowrap fuerza la fila; flex:1 1 0 + min-width:0 en cada pill reparte el
-     ancho disponible a partes iguales y deja que el texto se comprima; el nombre y el hex
-     truncan con ellipsis en vez de desbordar o empujar el layout. */
-  .colores-marca{
-    display:flex;flex-wrap:nowrap;gap:8px;
-    margin:0;
-  }
-  .color-marca{
-    display:flex;align-items:center;gap:6px;
-    flex:1 1 0;min-width:0;overflow:hidden;
-    padding:6px 10px 6px 6px;
+  .colores-fila input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .colores-fila input[type=text]:invalid:not(:placeholder-shown){box-shadow:inset 0 0 0 2px var(--offer)}
+  .colores-fila .ghost{flex:none;white-space:nowrap;padding:0 var(--s2);min-height:36px;font-size:12px}
+  /* Los tres fijos: circulo + hex, compactos -- el nombre (Secundario/Oscuro/Neutro) no
+     va como texto visible aqui, sino en aria-label del grupo (role="group"), para que un
+     lector de pantalla lo siga anunciando sin que ocupe ancho en la fila. */
+  .color-fijo{
+    display:flex;align-items:center;gap:5px;flex:none;
+    padding:4px 8px 4px 4px;
     border:1px solid var(--border);border-radius:var(--r-pill);
   }
-  .color-marca-punto{
+  .color-fijo-punto{
     width:20px;height:20px;flex:none;
     border-radius:50%;border:1px solid var(--hairline);
   }
-  .color-marca-nombre{
-    display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    font-family:var(--title-font);font-size:12px;font-weight:600;
-  }
-  .color-marca-hex{
-    display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums;
+  .color-fijo-hex{
+    display:block;flex:none;white-space:nowrap;
+    color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;
   }
   /* El aviso de sin guardar alarga el contador; que se parta él y no el botón. */
   .pane[data-pane="marca"] .save{white-space:nowrap}
@@ -5627,10 +5616,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <form method="post">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
 
-        <label class="fld" for="color-principal-hex">Primario
-          <span class="opt">(en blanco, el de fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
+        <label class="fld" for="color-principal-hex">Colores
+          <span class="opt">(el Primario es tuyo -- en blanco, el de fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
         </label>
-        <div class="color-editable">
+        <div class="colores-fila">
           <input type="color" id="color-principal-picker" value="<?= h($colorPrincipalActual) ?>"
                  aria-label="Elegir color principal con el selector">
           <input type="text" id="color-principal-hex" name="marca_color_principal"
@@ -5638,28 +5627,25 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                  pattern="#?[0-9A-Fa-f]{6}" maxlength="7" spellcheck="false" autocomplete="off"
                  aria-label="Color principal en hexadecimal">
           <button type="button" class="ghost" id="color-principal-restaurar">Restaurar color original</button>
+          <span class="color-fijo" role="group" aria-label="Secundario, del motor: <?= h(CLIENTE_COLOR_SECUNDARIO) ?>">
+            <span class="color-fijo-punto" style="background:<?= h(CLIENTE_COLOR_SECUNDARIO) ?>" aria-hidden="true"></span>
+            <span class="color-fijo-hex" aria-hidden="true"><?= h(CLIENTE_COLOR_SECUNDARIO) ?></span>
+          </span>
+          <span class="color-fijo" role="group" aria-label="Oscuro, del motor: <?= h(CLIENTE_COLOR_OSCURO) ?>">
+            <span class="color-fijo-punto" style="background:<?= h(CLIENTE_COLOR_OSCURO) ?>" aria-hidden="true"></span>
+            <span class="color-fijo-hex" aria-hidden="true"><?= h(CLIENTE_COLOR_OSCURO) ?></span>
+          </span>
+          <span class="color-fijo" role="group" aria-label="Neutro, del motor: <?= h(CLIENTE_COLOR_NEUTRAL) ?>">
+            <span class="color-fijo-punto" style="background:<?= h(CLIENTE_COLOR_NEUTRAL) ?>" aria-hidden="true"></span>
+            <span class="color-fijo-hex" aria-hidden="true"><?= h(CLIENTE_COLOR_NEUTRAL) ?></span>
+          </span>
         </div>
         <p class="hint" style="margin:6px 2px 0">
-          Se aplica a la carta al momento, sin recompilar. Si no se lee bien con el resto de
-          la carta (texto, iconos, botones), el guardado se rechaza y se explica por qué.
+          El Primario (círculo + hex editables) se aplica a la carta al momento, sin
+          recompilar. Si no se lee bien con el resto de la carta (texto, iconos, botones),
+          el guardado se rechaza y se explica por qué.
         </p>
-
-        <div class="colores-marca" style="margin-top:var(--s3)">
-          <span class="color-marca">
-            <span class="color-marca-punto" style="background:<?= h(CLIENTE_COLOR_SECUNDARIO) ?>" aria-hidden="true"></span>
-            <span><span class="color-marca-nombre">Secundario</span><span class="color-marca-hex"><?= h(CLIENTE_COLOR_SECUNDARIO) ?></span></span>
-          </span>
-          <span class="color-marca">
-            <span class="color-marca-punto" style="background:<?= h(CLIENTE_COLOR_OSCURO) ?>" aria-hidden="true"></span>
-            <span><span class="color-marca-nombre">Oscuro</span><span class="color-marca-hex"><?= h(CLIENTE_COLOR_OSCURO) ?></span></span>
-          </span>
-          <span class="color-marca">
-            <span class="color-marca-punto" style="background:<?= h(CLIENTE_COLOR_NEUTRAL) ?>" aria-hidden="true"></span>
-            <span><span class="color-marca-nombre">Neutro</span><span class="color-marca-hex"><?= h(CLIENTE_COLOR_NEUTRAL) ?></span></span>
-          </span>
-        </div>
-
-        <p class="hint" style="margin-top:var(--s3)">
+        <p class="hint" style="margin-top:6px">
           Secundario, Oscuro y Neutro son del motor, no del restaurante: iguales para
           cualquier carta y no se cambian desde aquí. El rojo de las ofertas y del picante
           tampoco es un color de marca -- es un aviso, y es igual para todos los clientes.
