@@ -3553,16 +3553,14 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 
 
 .has-offer{display:block;text-align:right}
-/* Ajuste posterior a la Fase 8: acento de marca en vez del rojo semantico. Como texto
-   suelto, el acento no llega a 4.5:1 sobre la tarjeta (2.45:1) -- por eso pasa a pastilla,
-   igual que .dsheet-flag: fondo --accent, texto --accent-ink (5.47:1). width:fit-content +
-   margin-left:auto en vez de inline-block, para no arriesgar que el precio y el tachado de
-   abajo (price-was, hermano siguiente) queden en la misma linea. */
-.has-offer .price-now{
-  display:block;width:fit-content;margin-left:auto;
-  padding:2px 8px;border-radius:var(--r-pill);
-  background:var(--accent);color:var(--accent-ink);
-}
+/* Ajuste posterior a la Fase 8, pedido expreso y explicito sobre la version anterior de
+   esta regla (que lo ponia en pastilla: fondo --accent, texto --accent-ink, por el mismo
+   motivo de abajo). El precio rebajado es el acento LITERAL como texto plano, sin fondo
+   ni capsula -- 2.45:1 sobre la tarjeta, por debajo de 4.5, una excepcion consciente y
+   puntual de este elemento, no un cambio en como se valida el Primario en general.
+   var(--accent) y no un hex fijo: tiene que seguir al Primario si alguien lo cambia desde
+   Admin -> Marca, igual que cualquier otro consumidor del acento. */
+.has-offer .price-now{display:block;color:var(--accent)}
 .has-offer .price-was{
   display:block;
   color:var(--muted);

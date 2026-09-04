@@ -3905,21 +3905,32 @@ $CUENTAS = [
   /* ---------- colores fijos del motor (solo lectura) ----------
      Secundario, Oscuro y Neutro: constantes del motor, iguales para cualquier cliente
      -- ver motor/temas.mjs. No se editan desde aquí: no son datos de ESTE restaurante. */
+  /* Los tres, SIEMPRE en una fila -- pedido expreso, ni en movil bajan a otra linea.
+     flex-wrap:nowrap fuerza la fila; flex:1 1 0 + min-width:0 en cada pill reparte el
+     ancho disponible a partes iguales y deja que el texto se comprima; el nombre y el hex
+     truncan con ellipsis en vez de desbordar o empujar el layout. */
   .colores-marca{
-    display:flex;flex-wrap:wrap;gap:var(--s3);
+    display:flex;flex-wrap:nowrap;gap:8px;
     margin:0;
   }
   .color-marca{
-    display:flex;align-items:center;gap:10px;
-    padding:8px 14px 8px 8px;
+    display:flex;align-items:center;gap:6px;
+    flex:1 1 0;min-width:0;overflow:hidden;
+    padding:6px 10px 6px 6px;
     border:1px solid var(--border);border-radius:var(--r-pill);
   }
   .color-marca-punto{
-    width:28px;height:28px;flex:none;
+    width:20px;height:20px;flex:none;
     border-radius:50%;border:1px solid var(--hairline);
   }
-  .color-marca-nombre{display:block;font-family:var(--title-font);font-size:13px;font-weight:600}
-  .color-marca-hex{display:block;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .color-marca-nombre{
+    display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-family:var(--title-font);font-size:12px;font-weight:600;
+  }
+  .color-marca-hex{
+    display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums;
+  }
   /* El aviso de sin guardar alarga el contador; que se parta él y no el botón. */
   .pane[data-pane="marca"] .save{white-space:nowrap}
 
