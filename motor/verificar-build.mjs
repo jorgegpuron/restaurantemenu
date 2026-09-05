@@ -23,6 +23,22 @@ import { contratoTintas } from './tests/contrato-tintas.mjs';
 
 const NL = String.fromCharCode(10);
 
+/* El icono de pestana. La carta, el juego y la pagina de error lo piden en cada visita, y
+   desde el build que arregla E1 el motor garantiza que exista: el del cliente si lo trae en
+   assets/, y si no uno generico que escribe gen.mjs con su color de marca. Se exige AQUI y no
+   en contrato-salida.mjs porque no sale de motor.lock ni de cliente.mjs -- es salida del
+   build, como los derivados del panel. Si falta, cada visita de cada pagina se lleva un 404, y
+   eso no se sube. */
+export const ICONO_PESTANA = 'assets/titleIcon-accent.svg';
+
+/* El contrato de salida mas lo que este verificador anade por su cuenta. Una sola funcion para
+   que la lista que se comprueba y el total que se informa no puedan separarse. */
+function esperadosDeLaSalida(lock, cliente) {
+  const esperados = contratoSalida(lock, cliente);
+  esperados.set(ICONO_PESTANA, 'icono de pestana: lo piden la carta, el juego y el 404');
+  return esperados;
+}
+
 /* Devuelve la lista de problemas. Vacia = build completo. Se exporta para que gen.mjs la
    llame sin lanzar un proceso aparte. */
 export function verificarBuild() {
@@ -33,7 +49,7 @@ export function verificarBuild() {
   }
 
   const lock = JSON.parse(readFileSync(cliente('motor.lock'), 'utf8'));
-  const esperados = contratoSalida(lock, CLIENTE);
+  const esperados = esperadosDeLaSalida(lock, CLIENTE);
 
   for (const [ruta, razon] of esperados) {
     const url = salida(ruta);
@@ -78,7 +94,7 @@ export function verificarBuild() {
 /* Ejecutado como programa: informa y decide el codigo de salida. Importado: solo exporta. */
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const problemas = verificarBuild();
-  const total = contratoSalida(JSON.parse(readFileSync(cliente('motor.lock'), 'utf8')), CLIENTE).size;
+  const total = esperadosDeLaSalida(JSON.parse(readFileSync(cliente('motor.lock'), 'utf8')), CLIENTE).size;
   if (problemas.length) {
     console.error('BUILD INCOMPLETO: ' + problemas.length + ' problema(s) sobre '
       + total + ' ficheros obligatorios.' + NL);

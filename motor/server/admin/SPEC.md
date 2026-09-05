@@ -455,3 +455,98 @@ Las pestañas se centran mientras caben y se pegan al borde en cuanto desbordan,
 sirve: al desbordar deja el primer botón fuera de alcance por la izquierda. Es el mismo truco que
 la barra de categorías de la carta. Medido: a 1280 hay 60px iguales a cada lado; a 375 desborda y
 el primer botón sigue siendo alcanzable con el scroll a cero.
+
+## Fase correctiva de la auditoría de calidad (5 Sep 2026)
+
+Nueve lotes, cada uno con su prueba, salidos del informe `auditorias/auditoria-calidad-2026-09-05.md`.
+Las decisiones que conviene no volver a discutir:
+
+**La subida de portada falla cerrada.** `hero_guardar()` guardaba en crudo lo que GD no podía
+abrir «porque ya había pasado las comprobaciones», y las comprobaciones eran leer una cabecera:
+así entró en la portada un PNG de 4 KB con una anchura inventada de mil millones de píxeles.
+Ahora el orden es fijo y barato-antes-que-caro: peso, tipo real por contenido (con `finfo` si
+existe), extensión que cuadre con el contenido, anchura mínima, tope de lado y de píxeles
+(`IMG_LADO_MAX` 8000, `IMG_PIXELES_MAX` 20 MP —por encima GD pide más memoria de la que da un
+hosting compartido—), memoria disponible, y SOLO entonces se decodifica. Si el servidor no trae
+GD para ese formato no se guarda nada y se dice por qué: una foto sin comprobar no se publica.
+Un JPEG cortado se abre «bien» por defecto porque libjpeg rellena de gris; se pone
+`gd.jpeg_ignore_warning=0` al decodificar para que una foto a medias sea una foto rota.
+
+**Restaurar una copia restaura SOLO los precios.** La ficha se llama copias de precios, cada fila
+dice «Precios de antes del cambio» y la confirmación pregunta por los precios; restaurar el
+estado entero se llevaba en silencio los agotados, destacados, ofertas, banner, fotos y marca
+posteriores a la copia. Las claves de la copia pasan por `estado_vista()`, así que una copia
+anterior a los identificadores permanentes sigue valiendo. Si los precios de la copia son los de
+ahora no se escribe nada y se dice. La copia preventiva la sigue escribiendo `guardar_estado()`.
+
+**Las copias llevan segundos y contador.** `AAAA-MM-DD-HHMMSSnn.json`: dos cambios en el mismo
+minuto —o una restauración justo después de un cambio— ya no se pisan. El listado sigue
+reconociendo los nombres viejos (`-HHMM` y solo fecha) y el orden textual sigue siendo el
+temporal porque un nombre nuevo del mismo día compara mayor que uno viejo.
+
+**Sólo las casillas ensucian Agotados.** El oyente `change` del pane ignora todo lo que no sea
+`agotado[]`: el buscador al perder el foco y el selector de foto del recortador —que vive dentro
+del pane— hacían saltar el aviso de «cambios sin guardar» sin haber tocado ninguna casilla.
+
+**Los códigos de subida de PHP se traducen.** `subida_error_texto()` dice qué ha pasado y el tope
+que aplica DE VERDAD (`subida_tope_bytes()`: el del panel o el del hosting, el menor), en MB y
+sin exponer nada más de la configuración. Lo usan la portada, el banner y las fotos de plato.
+
+**320 px.** Un `@media (max-width:359px)` y nada más: las dos horas de la oferta se reparten el
+ancho en vez de medir 120 px fijos, y el grupo de periodos de «Platos más consultados» baja a
+su propia línea. Medido: a 375, 768, 1280 y 1920 las cajas no se mueven un píxel.
+
+**`dia[]` se normaliza en servidor:** válidos, sin repetidos y ordenados.
+
+**Accesibilidad:** el botón de cámara cambia su `aria-label` a la vez que su `title`; la
+contraseña del login tiene un `<label>` de verdad (oculto con `.sr`); el nombre del récord pasa
+por `strip_tags()` antes de quitar ángulos sueltos.
+
+**El precio canónico de la carta** se calcula una vez por fila en `render()` y se deja en
+`data-precio-final`: el precio vigente (el del panel o, si no hay, el de la carta) con la oferta
+aplicada SOLO si el plato se puede pedir. Un plato agotado no tiene descuento que anunciar y su
+precio es el vigente sin rebaja. La lista pinta desde ahí, la hoja de búsqueda lo lee de ahí y
+la ficha copia el marcado de la lista: tres sitios, un cálculo. Antes la hoja releía
+`.price-now` y un agotado en oferta salía rebajado allí y sin rebajar en la lista. Consecuencia
+asumida: el filtro «En oferta» de la hoja ya no cuenta los agotados, que es lo que dice la banda.
+
+## mbstring deja de ser un requisito del panel (6 Sep 2026)
+
+La auditoría multicliente encontró que en un PHP **sin `mbstring`** el panel moría a media
+página: `mb_strtoupper()` en las iniciales de los días de la oferta lanzaba «Call to undefined
+function» y el HTML se cortaba ahí. Llegaban las ocho pestañas de la barra pero **sólo tres de
+los ocho paneles** —Precios, Juego, Publicidad, Analítica y Marca no existían— y sin ningún
+mensaje a la vista. `record.php` caía igual al guardar un nombre: error fatal, sin JSON de
+vuelta y con la partida perdida.
+
+Lo curioso es que este mismo fichero ya sabía que la extensión puede faltar: dos de sus llamadas
+—`minuscula()` y `caracteres()`— llevaban `function_exists()` desde el principio, con su
+comentario explicándolo. Faltaban las otras tres, y una sola de ellas bastaba para tirar la
+página.
+
+**No se convierte `mbstring` en requisito.** En hosting compartido no se puede dar por hecha, y
+el arreglo no necesita ninguna dependencia nueva:
+
+- **Cuatro funciones y ni una llamada suelta.** `minuscula()`, `mayuscula()`, `recorte()` y
+  `caracteres()` viven juntas y son el ÚNICO sitio del fichero donde se nombra una `mb_*`. Todas
+  siguen la misma regla: mbstring si está —comportamiento idéntico al de siempre— y si no, un
+  camino equivalente.
+- **El recorte, por caracteres y nunca por bytes.** Sin mbstring se parten puntos de código con
+  `preg_split('//u')`, la misma técnica que ya usaba `caracteres()`. Cortar a la brava dejaría
+  media tilde en pantalla y en el JSON.
+- **La caja, con `strtr()` sobre las 26 letras ASCII más un mapa de acentos latinos.** No con
+  `strtolower()`: en algunas versiones y locales toca bytes por encima de 0x7F y parte un
+  carácter UTF-8. El mapa cubre las lenguas del producto, no Unicode entero — eso es justo lo que
+  hace mbstring y por eso se prefiere cuando está.
+- `record.php` repite las tres que necesita porque es un punto de entrada propio: el juego lo
+  llama sin pasar por el panel, y no hay un fichero común donde ponerlas sin inventar uno.
+
+Medido con el mismo cliente servido por dos PHP, uno con la extensión y otro sin ella: **8 de 8
+pestañas** en los dos, mismas iniciales de día (`L M M J V S D`), y `record.json` **idéntico byte
+a byte** tras guardar once nombres con acentos, eñes, diéresis, CJK, emoji y una etiqueta
+`<script>`. Cero errores fatales, cero warnings, cero errores de consola. El HTML servido por el
+panel pesa **exactamente lo mismo** que antes del cambio: el código PHP añadido no viaja al
+navegador.
+
+Lo que sigue dependiendo del hosting es **GD**, y ahí la política no se toca: sin GD la portada
+se rechaza con su mensaje y el estado no se modifica.

@@ -95,7 +95,7 @@ Nada de esto se hereda: se escribe nuevo para cada restaurante.
 | `cliente.mjs` | Identidad, rótulos, URL, impuesto, cocina, moneda, zona horaria, corte del día, idiomas (con bandera), leyenda de alérgenos + `enOrigen`, funciones (datos, juego, publicidad), `activacionPanel: true` |
 | `carta.json` | Platos y categorías, con sus identificadores auto-generados |
 | `i18n.*.mjs` | Un diccionario por idioma, con su sección `ui` |
-| `assets/` | La marca del restaurante (vacía al nacer: la sube el panel) |
+| `assets/` | La marca del restaurante (vacía al nacer: la sube el panel). El **icono de pestaña** es la excepción y no hace falta ponerlo: si esta carpeta no trae `titleIcon-accent.svg`, el build escribe uno genérico con el color de marca del cliente (sección 5.4) |
 | `.github/workflows/deploy.yml` | El despliegue, con su ruta y su grupo de concurrencia propios |
 
 ## 3. Qué se elimina ✅
@@ -272,6 +272,20 @@ tantas veces como haga falta mientras se ajusta la carta.
 `gen.mjs` corre `motor/verificar-build.mjs` al final: si `2-subir` sale incompleta (falta un
 fichero que `motor.lock` + `cliente.mjs` dicen que debía existir), el build no llega a decir
 «compilado» — falla cerrado, sin necesitar un número fijo de ficheros por cliente.
+
+**El icono de pestaña lo pone el build ✅.** La carta, el juego y la página de error piden
+`assets/titleIcon-accent.svg` en cada visita. Como `assets/` nace vacía, hasta septiembre de 2026
+un cliente recién dado de alta servía un **404 por página** — y ni el verificador ni esta lista
+lo veían. Ahora `gen.mjs` lo resuelve sobre la copia que va a `2-subir`, sin tocar el fuente:
+
+- Si el restaurante trae **el suyo** en `assets/titleIcon-accent.svg`, se usa ese y no se
+  sobrescribe nunca, ni en la primera compilación ni en la número mil.
+- Si no lo trae, el motor escribe uno **genérico** —una tarjeta de carta con tres renglones—
+  teñido con `marca.colorPrincipal` de ESTE cliente. Sin dependencias, sin dibujo heredado de
+  ningún otro restaurante y byte a byte igual en cada build.
+- `verificar-build.mjs` lo exige: si falta en `2-subir`, el build está incompleto y no se sube.
+
+Para cambiarlo basta con dejar un SVG con ese nombre en `assets/` del cliente y recompilar.
 
 Después, la batería de pruebas contra el servidor local. **Ninguna puede fallar.**
 
@@ -583,6 +597,7 @@ Antes de dar el alta por terminada, todo esto tiene que estar en verde:
       otro cliente
 - [ ] `carta.json` sin la marca de no publicable
 - [ ] `motor/verificar-build.mjs` pasa sin problemas, en local y en el workflow
+- [ ] Icono de pestaña presente en `2-subir/assets/titleIcon-accent.svg` (lo pone el build; sólo hay que revisarlo si el restaurante quiere el suyo)
 - [ ] Sin `clave.php`, `superclave.php`, `estado.json`, fotos ni logs del origen
 - [ ] Ensayo de despliegue limpio, sin ficheros de servidor en el listado
 - [ ] Panel pidiendo el token de activación, **no** ofreciendo poner contraseña

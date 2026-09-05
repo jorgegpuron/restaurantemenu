@@ -454,40 +454,177 @@ function hero_archivos(): array {
   return $out;
 }
 
-/** Devuelve el nombre guardado, o un mensaje de error. */
+/* ---------------------------------------------------------------- comprobar una imagen
+ * Lo que una foto tiene que pasar ANTES de que nadie la decodifique. La cabecera de un
+ * fichero se puede escribir a mano: getimagesize() se cree unas dimensiones de miles de
+ * millones de píxeles si se las ponen delante, y con eso GD pediría más memoria de la que
+ * tiene el hosting entero. Por eso los límites van primero y la decodificación, la última.
+ *
+ * 20 megapíxeles son 5.000 × 4.000: más de lo que cabe en el mega de la portada. */
+const IMG_LADO_MAX = 8000;
+const IMG_PIXELES_MAX = 20000000;
+
+/** El tipo real del fichero por su contenido, o null si no es una imagen admitida. Con
+ *  finfo, el MIME del contenido tiene que coincidir con el de la cabecera; sin finfo queda
+ *  la cabecera, que es lo que había. Nunca se mira lo que dice el navegador. */
+function imagen_tipo_real(string $ruta): ?int {
+  $info = @getimagesize($ruta);
+  if ($info === false || !isset(HERO_TIPOS[$info[2]])) return null;
+  if (function_exists('finfo_open')) {
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($ruta);
+    if ($mime !== image_type_to_mime_type($info[2])) return null;
+  }
+  return $info[2];
+}
+
+/** La extensión con la que llega el fichero tiene que ser la de lo que lleva dentro. Sin
+ *  extensión se acepta: manda el contenido. Un .jpg con un PNG dentro es, casi siempre, un
+ *  renombrado a mano, y eso es justo lo que no hay que guardar sin decir nada. */
+function imagen_extension_cuadra(string $nombre, int $tipo): bool {
+  $ext = strtolower((string) pathinfo($nombre, PATHINFO_EXTENSION));
+  if ($ext === '') return true;
+  $de = ['jpg' => IMAGETYPE_JPEG, 'jpeg' => IMAGETYPE_JPEG, 'jpe' => IMAGETYPE_JPEG,
+         'png' => IMAGETYPE_PNG, 'webp' => IMAGETYPE_WEBP];
+  return isset($de[$ext]) && $de[$ext] === $tipo;
+}
+
+/** La función de GD que abre este tipo, o null si el servidor no puede abrirlo. */
+function imagen_decodificador(int $tipo): ?string {
+  if (!function_exists('imagecreatetruecolor')) return null;
+  $fn = [IMAGETYPE_JPEG => 'imagecreatefromjpeg', IMAGETYPE_PNG => 'imagecreatefrompng',
+         IMAGETYPE_WEBP => 'imagecreatefromwebp'][$tipo] ?? null;
+  return ($fn !== null && function_exists($fn)) ? $fn : null;
+}
+
+/** Un valor de php.ini con sufijo (128M, 2G, 512K) en bytes. Vacío o -1 (sin límite): 0. */
+function ini_a_bytes(string $v): int {
+  $v = trim($v);
+  if ($v === '' || $v === '-1') return 0;
+  $n = (float) $v;
+  switch (strtolower(substr($v, -1))) {
+    case 'g': $n *= 1024;   // sigue
+    case 'm': $n *= 1024;   // sigue
+    case 'k': $n *= 1024;
+  }
+  return (int) $n;
+}
+
+/** memory_limit en bytes; sin límite devuelve PHP_INT_MAX. */
+function memoria_limite_bytes(): int {
+  $b = ini_a_bytes((string) ini_get('memory_limit'));
+  return $b > 0 ? $b : PHP_INT_MAX;
+}
+
+/* ---------------------------------------------------------------- errores de subida
+ * PHP resume lo que ha pasado con un fichero subido en un código numérico. Al restaurante
+ * un «código 1» no le dice nada, y además el tope que de verdad aplica no es solo el del
+ * panel: si el hosting pone upload_max_filesize o post_max_size por debajo, manda el hosting
+ * y el fichero ni llega. Aquí se dice el tope REAL en MB y nada más de la configuración. */
+function subida_tope_bytes(int $topePanel): int {
+  $tope = $topePanel;
+  foreach (['upload_max_filesize', 'post_max_size'] as $clave) {
+    $b = ini_a_bytes((string) ini_get($clave));
+    if ($b > 0 && $b < $tope) $tope = $b;
+  }
+  return $tope;
+}
+
+/** «500 KB», «1 MB», «1,9 MB»: lo que lee una persona, sin decimales de más. */
+function peso_texto(int $bytes): string {
+  if ($bytes < 1048576) return (string) round($bytes / 1024) . ' KB';
+  $mb = $bytes / 1048576;
+  return (abs($mb - round($mb)) < 0.05 ? (string) round($mb) : number_format($mb, 1, ',', '.')) . ' MB';
+}
+
+/** El mensaje para un código de error de subida distinto de UPLOAD_ERR_OK. `$que` es la
+ *  palabra con la que la pantalla llama a lo que se sube: «foto», «imagen». */
+function subida_error_texto(int $codigo, int $topePanel, string $que): string {
+  $tope = peso_texto(subida_tope_bytes($topePanel));
+  switch ($codigo) {
+    case UPLOAD_ERR_INI_SIZE:
+    case UPLOAD_ERR_FORM_SIZE:
+      return 'La ' . $que . ' pesa más de lo que admite este servidor: el máximo es ' . $tope
+           . '. Redúcela y vuelve a subirla.';
+    case UPLOAD_ERR_PARTIAL:
+      return 'La ' . $que . ' ha llegado a medias: se cortó la conexión mientras subía. Vuelve a intentarlo.';
+    case UPLOAD_ERR_NO_FILE:
+      return 'Elige primero una ' . $que . '.';
+    case UPLOAD_ERR_NO_TMP_DIR:
+    case UPLOAD_ERR_CANT_WRITE:
+    case UPLOAD_ERR_EXTENSION:
+      return 'El servidor no ha podido guardar la ' . $que . ' (fallo del hosting, código ' . $codigo
+           . '). Avisa a quien lleva el hosting.';
+  }
+  return 'La subida de la ' . $que . ' ha fallado (código ' . $codigo . '). Vuelve a intentarlo.';
+}
+
+/** GD guarda cada píxel en 4 bytes y trabaja con dos imágenes a la vez al reescalar. Con
+ *  margen: si no cabe, mejor decirlo que dejar el panel en blanco a mitad de subida. */
+function imagen_cabe_en_memoria(int $ancho, int $alto): bool {
+  $necesita = $ancho * $alto * 5 + 4 * 1048576;
+  return memory_get_usage() + $necesita < memoria_limite_bytes();
+}
+
+/** Devuelve el nombre guardado, o un mensaje de error.
+ *
+ *  Falla cerrado: una foto que el servidor no ha podido ABRIR ENTERA no se guarda, y sin GD
+ *  no se guarda ninguna. Antes, si GD faltaba o fallaba con el fichero, se guardaba tal cual
+ *  «porque ya había pasado las comprobaciones» — y las comprobaciones eran leer una cabecera.
+ *  Así entró en la portada un PNG de 4 KB con una cabecera inventada, que la carta pedía y no
+ *  podía pintar. */
 function hero_guardar(array $f) {
-  if (!isset($f['error']) || $f['error'] !== UPLOAD_ERR_OK) {
-    if (($f['error'] ?? 0) === UPLOAD_ERR_INI_SIZE || ($f['error'] ?? 0) === UPLOAD_ERR_FORM_SIZE) {
-      return ['error' => 'La foto pesa más de 1 MB.'];
-    }
-    return ['error' => 'No ha llegado la foto. Inténtalo otra vez.'];
+  $codigo = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+  if ($codigo !== UPLOAD_ERR_OK) {
+    return ['error' => subida_error_texto($codigo, HERO_MAX_BYTES, 'foto')];
   }
   if ($f['size'] > HERO_MAX_BYTES) {
-    return ['error' => 'La foto pesa ' . round($f['size'] / 1048576, 1) . ' MB y el máximo es 1 MB.'];
+    return ['error' => 'La foto pesa ' . peso_texto((int) $f['size']) . ' y el máximo es '
+                     . peso_texto(subida_tope_bytes(HERO_MAX_BYTES)) . '.'];
   }
   if (!is_uploaded_file($f['tmp_name'])) return ['error' => 'Archivo no válido.'];
 
-  $info = @getimagesize($f['tmp_name']);
-  if ($info === false || !isset(HERO_TIPOS[$info[2]])) {
+  $tipo = imagen_tipo_real($f['tmp_name']);
+  if ($tipo === null) {
     return ['error' => 'Eso no es una imagen JPG, PNG o WebP.'];
   }
-  if ($info[0] < 800) {
-    return ['error' => 'La foto mide ' . (int) $info[0] . ' px de ancho. Hacen falta 800 como mínimo, '
+  if (!imagen_extension_cuadra((string) ($f['name'] ?? ''), $tipo)) {
+    return ['error' => 'El archivo se llama .' . strtolower((string) pathinfo((string) $f['name'], PATHINFO_EXTENSION))
+                     . ' pero dentro lleva una imagen ' . strtoupper(HERO_TIPOS[$tipo])
+                     . '. Guárdalo con su extensión de verdad y vuelve a subirlo.'];
+  }
+  $info = @getimagesize($f['tmp_name']);
+  $ancho = (int) ($info[0] ?? 0);
+  $alto  = (int) ($info[1] ?? 0);
+  if ($ancho < 800) {
+    return ['error' => 'La foto mide ' . $ancho . ' px de ancho. Hacen falta 800 como mínimo, '
                      . 'o se verá borrosa en una pantalla grande.'];
+  }
+  if ($ancho > IMG_LADO_MAX || $alto > IMG_LADO_MAX || $ancho * $alto > IMG_PIXELES_MAX) {
+    return ['error' => 'La foto mide ' . $ancho . ' × ' . $alto . ' px: demasiado grande para procesarla aquí. '
+                     . 'Redúcela por debajo de ' . IMG_LADO_MAX . ' px de lado ('
+                     . (IMG_PIXELES_MAX / 1000000) . ' megapíxeles) y vuelve a subirla.'];
+  }
+  if (imagen_decodificador($tipo) === null) {
+    return ['error' => 'Este servidor no puede comprobar imágenes ' . strtoupper(HERO_TIPOS[$tipo])
+                     . ' (le falta la extensión GD con ese formato). Por seguridad no se guarda ninguna '
+                     . 'foto sin comprobar: avisa a quien lleva el hosting.'];
+  }
+  if (!imagen_cabe_en_memoria($ancho, $alto)) {
+    return ['error' => 'La foto mide ' . $ancho . ' × ' . $alto . ' px y este servidor no tiene memoria '
+                     . 'para abrirla. Redúcela y vuelve a subirla.'];
   }
   if (!hero_carpeta_lista()) {
     return ['error' => 'No puedo escribir en assets/hero/. Crea la carpeta en el servidor y dale permiso de escritura.'];
   }
 
-  $nombre = bin2hex(random_bytes(8)) . '.' . HERO_TIPOS[$info[2]];
+  $nombre = bin2hex(random_bytes(8)) . '.' . HERO_TIPOS[$tipo];
   $destino = HERO_DIR . '/' . $nombre;
   /* La portada se ve a lo sumo a pantalla de móvil o tablet: por encima de 1600 px de ancho
-     el mega entero sólo paga datos. Si el hosting trae GD —cualquier cPanel lo trae— se
-     reescala y recomprime; si no, o si GD falla con este archivo, se guarda tal cual, que
-     ya pasó todas las comprobaciones. La foto nunca se pierde por optimizarla. */
-  if (!hero_recomprimir($f['tmp_name'], $info, $destino)
-      && !@move_uploaded_file($f['tmp_name'], $destino)) {
-    return ['error' => 'No he podido guardar la foto.'];
+     el mega entero sólo paga datos. Se reescala y recomprime con GD, y de paso es GD quien
+     certifica que la imagen se abre entera. Si no se abre, no hay foto: no se guarda en crudo. */
+  if (!hero_recomprimir($f['tmp_name'], $info, $destino)) {
+    @unlink($destino);
+    return ['error' => 'La imagen está dañada: el servidor no ha podido abrirla entera. No se ha guardado.'];
   }
   @chmod($destino, 0644);
   /* Las variantes, aquí mismo: es una sola foto y el que acaba de subirla está esperando. Si
@@ -497,11 +634,16 @@ function hero_guardar(array $f) {
   return ['ok' => $nombre];
 }
 
-/** Reescala a 1600 px de ancho como mucho y reencoda en su mismo formato. */
+/** Reescala a 1600 px de ancho como mucho y reencoda en su mismo formato. Devuelve false si
+ *  la imagen no se ha podido abrir entera o no se ha podido escribir: quien llama decide, y
+ *  no queda ningún fichero a medias en el destino. */
 function hero_recomprimir(string $tmp, array $info, string $destino): bool {
   if (!function_exists('imagecreatetruecolor')) return false;
   $tipo = $info[2];
   $img = false;
+  /* Un JPEG cortado a la mitad se abre «bien» por defecto: libjpeg rellena de gris lo que
+     falta y GD se calla. Aquí una foto a medias es una foto rota, y tiene que fallar. */
+  @ini_set('gd.jpeg_ignore_warning', '0');
   if ($tipo === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) $img = @imagecreatefromjpeg($tmp);
   if ($tipo === IMAGETYPE_PNG  && function_exists('imagecreatefrompng'))  $img = @imagecreatefrompng($tmp);
   if ($tipo === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) $img = @imagecreatefromwebp($tmp);
@@ -709,12 +851,14 @@ function fotos_nombre(string $key): string {
 
 /** Devuelve ['ok' => nombre] o ['error' => mensaje]. No toca el estado: eso lo hace quien llama. */
 function fotos_guardar(array $f) {
-  if (!isset($f['error']) || $f['error'] !== UPLOAD_ERR_OK) {
-    return ['error' => 'No ha llegado la foto. Inténtalo otra vez.'];
+  $codigo = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+  if ($codigo !== UPLOAD_ERR_OK) {
+    return ['error' => subida_error_texto($codigo, FOTOS_MAX_BYTES, 'foto')];
   }
   if (!is_uploaded_file($f['tmp_name'])) return ['error' => 'Archivo no válido.'];
   if ($f['size'] > FOTOS_MAX_BYTES) {
-    return ['error' => 'La foto pesa más de ' . round(FOTOS_MAX_BYTES / 1024) . ' KB.'];
+    return ['error' => 'La foto pesa ' . peso_texto((int) $f['size']) . ' y el máximo es '
+                     . peso_texto(subida_tope_bytes(FOTOS_MAX_BYTES)) . '.'];
   }
   /* El tipo REAL, no el que dice el navegador ni la extensión. */
   $mime = function_exists('finfo_open')
@@ -976,7 +1120,7 @@ function copias_listar(): array {
     /* El nombre de ahora lleva hora: 2026-08-26-0223.json. Se siguen reconociendo los dos de
        antes —anterior.json y el de solo fecha— para poder listarlos y borrarlos desde aqui;
        lo que no se reconoce no se lista, no se descarga y no se restaura. */
-    if (!preg_match('/^(anterior|[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4})?)\.json$/', $f)) continue;
+    if (!preg_match('/^(anterior|[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4}|-[0-9]{8})?)\.json$/', $f)) continue;
     $ruta = COPIAS_DIR . '/' . $f;
     $out[] = ['nombre' => $f, 'bytes' => (int) @filesize($ruta), 'ts' => (int) @filemtime($ruta)];
   }
@@ -1038,20 +1182,68 @@ function copia_de_seguridad(array $nuevo): void {
 
      La fecha va en el nombre y no se saca de filemtime porque el fichero se puede mover o
      restaurar y la fecha del sistema deja de decir cuando se hizo el cambio. */
-  $sello = (new DateTimeImmutable('now', new DateTimeZone(TZ)))->format('Y-m-d-Hi');
-  escribir_atomico(COPIAS_DIR . '/' . $sello . '.json', $raw);
+  /* Con segundos y dos cifras de contador por si dos cambios caen en el mismo segundo. Antes
+     el nombre solo llevaba hora y minuto, y una restauracion hecha en el mismo minuto que el
+     ultimo cambio de precios PISABA la copia de ese cambio: la salida de emergencia se
+     borraba a si misma. Los nombres viejos (solo minuto) se siguen listando y ordenando. */
+  $sello = (new DateTimeImmutable('now', new DateTimeZone(TZ)))->format('Y-m-d-His');
+  $ruta = COPIAS_DIR . '/' . $sello . '00.json';
+  for ($n = 0; $n < 100; $n++) {
+    $ruta = COPIAS_DIR . '/' . $sello . sprintf('%02d', $n) . '.json';
+    if (!is_file($ruta)) break;
+  }
+  escribir_atomico($ruta, $raw);
   copias_purgar();
 }
 
 
 function h(?string $s): string { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
-/* mb_strtolower() depende de la extension mbstring. No siempre esta activada (mismo motivo
-   por el que las funciones GD de mas abajo se comprueban con function_exists() antes de
-   usarlas): sin la guarda, un unico plato pintado con acentos tira el panel entero abajo con
-   un error fatal, en vez de tirar solo el minusculado correcto de acentos y enye. */
+/* ------------------------------------------------------------------ texto Unicode
+ * mbstring NO es un requisito de este panel, y estas cuatro funciones son la razon: son el
+ * UNICO sitio del fichero donde se nombra una mb_*, y todas siguen la misma regla —mbstring si
+ * la extension esta, y si no un camino equivalente que no depende de ella—. Cualquier llamada
+ * suelta a mb_* fuera de aqui vuelve a abrir el agujero que se tapa con esto.
+ *
+ * El agujero era real y se midio: en un PHP sin mbstring, `mb_strtoupper()` en las iniciales de
+ * los dias de la oferta lanzaba «Call to undefined function» a media pagina. El panel se
+ * renderizaba hasta la pestana Ofertas y moria ahi: llegaban las ocho pestañas de la barra pero
+ * solo tres de los ocho paneles, sin un mensaje de error a la vista. record.php caia igual al
+ * guardar un nombre. Este fichero ya trataba a GD asi (function_exists antes de usarla) y ya
+ * trataba asi a dos de las mb_*: faltaban las otras tres.
+ *
+ * Los acentos latinos que un camino ASCII no sabria cambiar de caja. No es Unicode entero —eso
+ * es exactamente lo que hace mbstring y por eso se prefiere cuando esta—, pero cubre las
+ * lenguas del producto. Lo que NO puede pasar es corromper bytes: por eso la parte ASCII va con
+ * strtr() sobre las 26 letras y no con strtolower(), que en algunas versiones y locales toca
+ * bytes por encima de 0x7F y parte un caracter UTF-8 por la mitad. */
+const CAJA_MAY = ['Á','À','Â','Ä','Ã','Å','Ç','É','È','Ê','Ë','Í','Ì','Î','Ï','Ñ',
+                  'Ó','Ò','Ô','Ö','Õ','Ú','Ù','Û','Ü','Ý','Æ','Œ'];
+const CAJA_MIN = ['á','à','â','ä','ã','å','ç','é','è','ê','ë','í','ì','î','ï','ñ',
+                  'ó','ò','ô','ö','õ','ú','ù','û','ü','ý','æ','œ'];
+const CAJA_AZ_MAY = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const CAJA_AZ_MIN = 'abcdefghijklmnopqrstuvwxyz';
+
 function minuscula(string $s): string {
-  return function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+  if (function_exists('mb_strtolower')) return mb_strtolower($s, 'UTF-8');
+  return strtr(str_replace(CAJA_MAY, CAJA_MIN, $s), CAJA_AZ_MAY, CAJA_AZ_MIN);
+}
+
+function mayuscula(string $s): string {
+  if (function_exists('mb_strtoupper')) return mb_strtoupper($s, 'UTF-8');
+  return strtr(str_replace(CAJA_MIN, CAJA_MAY, $s), CAJA_AZ_MIN, CAJA_AZ_MAY);
+}
+
+/* Recorte por CARACTERES, no por bytes: cortar un UTF-8 a la brava parte una tilde en dos y
+   deja basura en pantalla y en el JSON. Sin mbstring se cuentan puntos de codigo con una
+   expresion regular /u, la misma tecnica que caracteres() de aqui abajo; si el texto no es
+   UTF-8 valido preg_split() devuelve false (sin aviso) y ahi si se cae a bytes, que es lo unico
+   que queda cuando la cadena ya venia rota. */
+function recorte(string $s, int $desde, ?int $largo = null): string {
+  if (function_exists('mb_substr')) return mb_substr($s, $desde, $largo, 'UTF-8');
+  $trozos = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY);
+  if ($trozos === false) return $largo === null ? substr($s, $desde) : substr($s, $desde, $largo);
+  return implode('', $largo === null ? array_slice($trozos, $desde) : array_slice($trozos, $desde, $largo));
 }
 
 /* Caracteres reales, no bytes: strlen() de un nombre con "ñ" o una tilde cuenta de más, y un
@@ -1940,21 +2132,34 @@ if ($csrfOk) {
       if (!is_array($vuelta)) {
         $error = 'La copia no se puede leer. No se ha cambiado nada.';
       } else {
-        /* Restaurar pasa por guardar_estado(), asi que lo primero que hace es copiar el estado
-           de AHORA a anterior.json. Deshacer una restauracion es, por tanto, otra restauracion:
-           nadie se queda sin salida por haber pulsado el boton equivocado. */
-        $estado = array_replace(estado_vacio(), $vuelta);
-        /* La copia manda: si es de antes de los identificadores, se restaura COMO esquema 1 y
-           el panel vuelve a ofrecer la migracion explicita. Sin esto, estado_vacio() le
-           regalaba el esquema 2 de la plantilla y la copia vieja quedaba mal etiquetada. */
-        $estado['esquema'] = (int) ($vuelta['esquema'] ?? 1);
-        if (guardar_estado($estado)) {
-          $aviso = $encontrada === 'anterior.json'
-                 ? 'Deshecho el ultimo guardado. La carta vuelve a como estaba antes de el.'
-                 : 'Restaurada la copia del '
-                 . (new DateTimeImmutable(substr($encontrada, 0, 10)))->format('d/m/y') . '.';
+        /* SOLO LOS PRECIOS. La ficha se llama «copias de precios», cada fila dice «Precios de
+           antes del cambio» y la confirmacion pregunta por los precios. Restaurar el estado
+           entero —como se hacia antes— se llevaba en silencio los agotados, destacados,
+           ofertas, banner, fotos y datos de marca posteriores a la copia. Nada de eso se toca.
+
+           Las claves de la copia se traducen al esquema de ahora con la misma vista que usa el
+           panel al leer el estado: una copia anterior a los identificadores permanentes sigue
+           valiendo, y una copia con las dos claves (id + nombre viejo) no duplica nada. */
+        $copiaVista = estado_vista(array_replace(estado_vacio(), $vuelta), $porKey, $mapaLegacy, $catIdDe);
+        $preciosCopia = is_array($copiaVista['prices'] ?? null) ? $copiaVista['prices'] : [];
+        $preciosAhora = is_array($estado['prices'] ?? null) ? $estado['prices'] : [];
+        $cuando = $encontrada === 'anterior.json'
+                ? 'de antes del último guardado'
+                : 'del ' . (new DateTimeImmutable(substr($encontrada, 0, 10)))->format('d/m/y');
+        if ($preciosCopia == $preciosAhora) {
+          $aviso = 'Los precios de la copia ' . $cuando . ' son los mismos que hay ahora: no hay nada que restaurar.';
         } else {
-          $error = 'No se ha podido escribir estado.json. No se ha cambiado nada.';
+          /* guardar_estado() apunta antes el estado de AHORA en otra copia (copia_de_seguridad
+             salta porque cambian los precios): deshacer una restauracion es otra restauracion.
+             Nadie se queda sin salida por haber pulsado el boton equivocado. */
+          $estado['prices'] = $preciosCopia;
+          if (guardar_estado($estado)) {
+            $aviso = 'Restaurados los precios de la copia ' . $cuando . ': ' . count($preciosCopia)
+                   . ' precio(s) distintos de la carta. Lo demás (agotados, destacados, ofertas, '
+                   . 'banner, fotos y marca) sigue como estaba.';
+          } else {
+            $error = 'No se ha podido escribir estado.json. No se ha cambiado nada.';
+          }
         }
       }
     }
@@ -1999,7 +2204,7 @@ if ($csrfOk) {
         $r = hero_guardar($f);
         if (isset($r['error'])) {
           $nombre = trim((string) ($f['name'] ?? ''));
-          $fallos[] = ($nombre !== '' ? mb_substr(basename($nombre), 0, 40) . ': ' : '') . $r['error'];
+          $fallos[] = ($nombre !== '' ? recorte(basename($nombre), 0, 40) . ': ' : '') . $r['error'];
         } else {
           $hero[] = $r['ok'];
           $puestas++;
@@ -2250,9 +2455,12 @@ if ($csrfOk) {
         return is_string($k) && isset($porKey[$k])
             && !in_array((string) ($porKey[$k]['catId'] ?? ''), $catsSel, true);
       }));
-    $dias = array_values(array_filter(array_map('intval', (array) ($_POST['dia'] ?? [])), function ($d) {
+    /* Validos (1-7), sin repetidos y en orden: `dia[]` repetido en el POST dejaba [1,7,7]
+       escrito en el estado. La carta no se rompia, pero el fichero mentia. */
+    $dias = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['dia'] ?? [])), function ($d) {
       return $d >= 1 && $d <= 7;
-    }));
+    })));
+    sort($dias);
     $pct   = (int) ($_POST['pct'] ?? 0);
     $desde = minutos((string) ($_POST['desde'] ?? ''), 600);
     $hasta = minutos((string) ($_POST['hasta'] ?? ''), 720);
@@ -2445,15 +2653,15 @@ if ($csrfOk) {
   if (isset($_POST['subir_banner'])) {
     $pestana = 'publicidad';
     $f = $_FILES['pub_img'] ?? null;
-    if (!$f || !is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-      $error = 'Elige primero una imagen.';
-    } elseif ($f['error'] !== UPLOAD_ERR_OK) {
-      $error = 'La subida ha fallado (codigo ' . (int) $f['error'] . '). Vuelve a intentarlo.';
+    if (!$f || !is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+      /* El codigo de PHP traducido a algo que se entiende, con el tope que aplica de verdad
+         (el del panel o el del hosting, el que sea mas bajo). Ver subida_error_texto(). */
+      $error = subida_error_texto((int) (is_array($f) ? ($f['error'] ?? UPLOAD_ERR_NO_FILE) : UPLOAD_ERR_NO_FILE), PUB_MAX_BYTES, 'imagen');
     } elseif ($f['size'] > PUB_MAX_BYTES) {
-      /* dos decimales y el maximo DERIVADO de la constante: que jamas parezca que se
+      /* el peso real y el maximo DERIVADO de la constante: que jamas parezca que se
          rechaza algo dentro del limite ("pesa 2 MB y el maximo es 2 MB"). */
       $error = 'La imagen pesa ' . number_format($f['size'] / 1048576, 2, ',', '.') . ' MB '
-             . 'y el maximo es ' . number_format(PUB_MAX_BYTES / 1048576, 2, ',', '.') . ' MB.';
+             . 'y el maximo es ' . peso_texto(subida_tope_bytes(PUB_MAX_BYTES)) . '.';
     } elseif (!is_uploaded_file($f['tmp_name'])) {
       $error = 'Archivo no valido.';
     } else {
@@ -4951,6 +5159,14 @@ $CUENTAS = [
   .adm-rango .adm-campo{width:120px;flex:none}
   .adm-rango-f{flex:none;color:var(--base);display:grid;place-items:center}
   .adm-rango-f svg{width:17px;height:17px}
+  /* ---- 320 px: los dos sitios que no cabian. Solo por debajo de 360 para no mover nada
+     en los anchos que ya estaban bien (375, 768, 1280, 1920, medidos). Las dos horas de la
+     oferta dejan de medir 120 fijos y se reparten el ancho; la cabecera de «Platos mas
+     consultados» baja su grupo de periodos a una segunda linea en vez de empujar la caja. */
+  @media (max-width:359px){
+    .adm-rango .adm-campo{width:auto;flex:1 1 0;min-width:0}
+    .adm-f-cab .der.adm-a-platos{margin-left:0;flex:1 0 100%;justify-content:flex-start}
+  }
   /* La frase del reloj cierra la ficha: es un dato de lo que pasa, no el pie de un control. */
   .adm-regla-pie{
     margin:var(--s3) 0 0;padding-top:var(--s2);border-top:1px solid var(--hairline);
@@ -5376,7 +5592,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
       <form method="post">
         <div class="clave-campo">
-          <input type="password" name="clave" placeholder="Contraseña" aria-label="Contraseña" autocomplete="current-password" required autofocus>
+          <?php /* La etiqueta de verdad, oculta a la vista: el placeholder desaparece al
+                   escribir y aria-label no cuenta como etiqueta para todas las herramientas. */ ?>
+          <label for="clave" class="sr">Contraseña</label>
+          <input type="password" id="clave" name="clave" placeholder="Contraseña" autocomplete="current-password" required autofocus>
           <span class="clave-mascara" aria-hidden="true"></span>
         </div>
         <button type="submit">Entrar</button>
@@ -5788,12 +6007,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           });
       }
 
+      /* Solo las casillas de agotado ensucian la pantalla. El buscador (al salir del campo) y
+         el selector de foto del recortador —que vive dentro de este pane— tambien disparan
+         change aqui, y con ellos el aviso de «cambios sin guardar» saltaba sin haber tocado
+         ninguna casilla: escribir «sopa» y cambiar de pestaña ya preguntaba si querias salir. */
       pane.addEventListener('change', function (e) {
+        if (!e.target || e.target.name !== 'agotado[]') return;
         var fila = e.target.closest('.adm-orow');
-        if (fila && e.target.name === 'agotado[]') {
-          fila.classList.toggle('es-agotado', e.target.checked);
-          marcarHermanas(e.target);
-        }
+        if (fila) fila.classList.toggle('es-agotado', e.target.checked);
+        marcarHermanas(e.target);
         sucio = true;
         refrescar();
       });
@@ -6018,6 +6240,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             actual.dataset.foto = j.foto;
             actual.classList.add('tiene');
             actual.title = 'Cambiar la foto';
+            /* El nombre accesible cambia con el title: si no, el lector de pantalla seguia
+               diciendo «Poner foto» sobre un boton que ya cambia la foto. */
+            actual.setAttribute('aria-label', 'Cambiar la foto de ' + (actual.dataset.nombre || ''));
             cerrar();
           }).catch(function (e) {
             var m = e && e.message;
@@ -6044,6 +6269,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             actual.dataset.foto = '';
             actual.classList.remove('tiene');
             actual.title = 'Poner foto';
+            actual.setAttribute('aria-label', 'Poner foto a ' + (actual.dataset.nombre || ''));
             cerrar();
           }).catch(function (e) { error((e && e.message) || 'No se ha podido quitar.'); });
         });
@@ -6481,7 +6707,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                 <?php foreach (DIAS as $n => $nombre): ?>
                   <label class="adm-dia">
                     <input type="checkbox" name="dia[]" value="<?= (int) $n ?>" form="ofertas-form"<?= in_array($n, (array) $oferta['days'], true) ? ' checked' : '' ?>>
-                    <span aria-hidden="true"><?= h(mb_strtoupper(mb_substr($nombre, 0, 1, 'UTF-8'), 'UTF-8')) ?></span>
+                    <span aria-hidden="true"><?= h(mayuscula(recorte($nombre, 0, 1))) ?></span>
                     <span class="sr"><?= h($nombre) ?></span>
                   </label>
                 <?php endforeach; ?>
@@ -7313,7 +7539,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <span class="dt-b<?= $x["n"] > 0 ? "" : " cero" ?>" data-i="<?= $i ?>"
                     style="--i:<?= $i ?>">
                 <span class="dt-globo"><?= number_format($x["n"], 0, ",", ".") ?>
-                  · <?= h(mb_substr(dia_semana($x["fecha"]), 0, 3, "UTF-8")) ?> <?= h($f->format("d/m")) ?></span>
+                  · <?= h(recorte(dia_semana($x["fecha"]), 0, 3)) ?> <?= h($f->format("d/m")) ?></span>
                 <i style="height:<?= $alto ?>%"></i>
               </span>
             <?php endforeach; ?>
@@ -7715,7 +7941,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                    volver a subir, y entonces su fecha de sistema deja de decir cuando se hizo el
                    cambio de precios, que es lo unico que interesa saber de el. */
                 $sinExt = substr($c['nombre'], 0, -5);
-                if (preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})$/', $sinExt, $m)) {
+                if (preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})$/', $sinExt, $m)) {
+                  /* El nombre de ahora: hora, minuto, segundo y un contador por si dos
+                     cambios caen en el mismo segundo (solo se enseña cuando pasa). */
+                  $dia   = new DateTimeImmutable($m[1]);
+                  $cuando = minuscula(dia_semana($m[1])) . ' '
+                          . $dia->format('d/m/y') . ' · ' . $m[2] . ':' . $m[3] . ':' . $m[4]
+                          . ($m[5] !== '00' ? ' (' . ((int) $m[5] + 1) . ')' : '');
+                } elseif (preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})$/', $sinExt, $m)) {
                   $dia   = new DateTimeImmutable($m[1]);
                   $cuando = minuscula(dia_semana($m[1])) . ' '
                           . $dia->format('d/m/y') . ' · ' . $m[2] . ':' . $m[3];

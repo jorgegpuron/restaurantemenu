@@ -5109,7 +5109,8 @@ ${sheet}
       var leg = row.dataset.legacy;
       var de = function (m) { return m[key] !== undefined ? m[key] : m[leg]; };
 
-      row.classList.toggle('is-sold-out', hoy !== null && de(out) === hoy);
+      var agotado = hoy !== null && de(out) === hoy;
+      row.classList.toggle('is-sold-out', agotado);
 
       /* La marca de que hay foto. El nombre de archivo se guarda en la fila para que la ficha
          no tenga que volver a mirar el estado, y el icono se pone o se quita aquí: render() se
@@ -5158,27 +5159,40 @@ ${sheet}
       // precio: primero el que haya puesto el panel, y encima la oferta si toca
       var precio = row.querySelector('.price');
       var base = row.dataset.price;
+      /* EL PRECIO CANÓNICO se calcula UNA vez por fila y se deja en data-precio-final: lo que
+         se cobra hoy por este plato. Es el vigente (el del panel o, si no hay, el de la carta)
+         con la oferta aplicada SOLO si el plato se puede pedir: un plato agotado no tiene
+         descuento que anunciar, así que su precio es el vigente sin rebaja. La lista, la hoja
+         de búsqueda y la ficha leen este dato. Antes la hoja de búsqueda leía .price-now y un
+         agotado en oferta salía allí rebajado y en la lista sin rebajar. */
+      var conOferta = enOferta(row) && !agotado;
       if (precio && base) {
         var vigente = de(precios) ? Number(de(precios)) : Number(base);
         if (!isFinite(vigente)) vigente = Number(base);
-        if (enOferta(row)) {
+        var final = vigente;
+        if (conOferta) {
           /* En céntimos enteros: 4.35 × 0.8 en coma flotante da 3.4799…, que toFixed pinta
              como 3.48 pero otros redondeos (el TPV, el camarero a mano) dan 3.48 también —
              y con otros precios el error cae al lado malo y muestra un céntimo de menos. */
-          var rebajado = Math.round(Math.round(vigente * 100) * (100 - cfg.percent) / 100) / 100;
+          final = Math.round(Math.round(vigente * 100) * (100 - cfg.percent) / 100) / 100;
+        }
+        row.dataset.precioFinal = euros(final);
+        if (conOferta) {
           precio.className = 'price has-offer';
           precio.innerHTML = '<span class="price-now"></span><span class="price-was"></span>';
-          precio.firstChild.textContent = euros(rebajado);
+          precio.firstChild.textContent = euros(final);
           precio.lastChild.textContent = euros(vigente);
         } else {
           precio.className = 'price';
           precio.textContent = euros(vigente);
         }
+      } else {
+        delete row.dataset.precioFinal;
       }
 
       var oferta = row.querySelector('.item-tag-offer');
       if (oferta) {
-        var visible = enOferta(row) && !!row.dataset.price;
+        var visible = conOferta && !!row.dataset.price;
         oferta.textContent = visible ? fill(tr('{pct}% off'), { pct: cfg.percent }) : '';
         oferta.hidden = !visible;
         if (visible && !row.hidden) hayOfertaVisible = true;
@@ -6234,7 +6248,11 @@ ${DATOS_ACTIVO ? `
     return t ? DS_SIN[t] || null : null;
   }
 
+  /* El precio de la hoja es el MISMO dato que pinta la lista —data-precio-final, ver
+     render()—, no una relectura del marcado. Con la relectura, un agotado en oferta salía
+     aquí con la rebaja y en la lista sin ella. */
   function dsPrecioTexto(f) {
+    if (f.el.dataset.precioFinal) return f.el.dataset.precioFinal;
     var p = f.el.querySelector('.price-now') || f.el.querySelector('.price');
     return p ? p.textContent.trim() : '';
   }
@@ -7481,6 +7499,45 @@ for (const [desde, destino] of CARPETAS) {
     if (existsSync(destinoUrl)) pisados.add(destino + e.name); else copiados++;
     copiar(new URL(e.name, desde), destinoUrl);
   }
+}
+
+/* ---- el icono de pestana, que las tres paginas publicas piden en cada visita ----
+ *
+ * La carta, el juego y la pagina de error llevan
+ * <link rel="icon" href="assets/titleIcon-accent.svg">. Ese fichero vive en assets/, que es la
+ * MARCA del cliente y nace VACIA a proposito (nunca se hereda la de otro restaurante). Tinge lo
+ * tiene porque se lo pusieron a mano hace tiempo; cualquier cliente nacido de /nuevo-cliente
+ * servia un 404 en cada visita de cada una de las tres paginas, y ni el verificador ni el
+ * procedimiento de alta lo veian.
+ *
+ * Se arregla como la politica de los .htaccess de aqui abajo: SOBRE LA COPIA que va a 2-subir,
+ * sin tocar el fuente del cliente.
+ *
+ *   - Si el restaurante trae el suyo en assets/, ya esta copiado y no se toca. La condicion es
+ *     existsSync() sobre el DESTINO, asi que una personalizacion no se pisa nunca, ni la primera
+ *     vez ni en la compilacion numero mil.
+ *   - Si no lo trae, se escribe uno generico del motor tenido con SU color de marca. No se copia
+ *     el dibujo de ningun cliente, no hay nombre, dominio ni ruta de nadie dentro, y no hace
+ *     falta ninguna dependencia nueva.
+ *
+ * Byte a byte igual en cada compilacion —no lleva fecha, ni azar, ni el sello del build—, asi
+ * que dos builds seguidos siguen sin diferenciarse en este fichero.
+ */
+const ICONO_PESTANA = 'assets/titleIcon-accent.svg';
+const iconoPestanaUrl = new URL(ICONO_PESTANA, SUBIR);
+if (!existsSync(iconoPestanaUrl)) {
+  /* Una tarjeta de carta con tres renglones: trazo del Primario del cliente sobre fondo
+     transparente, igual de sobrio que cualquier icono de pestana a 16 px. */
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">',
+    '<rect x="3.25" y="1.75" width="13.5" height="16.5" rx="2.5" stroke="' + COLOR_PRINCIPAL + '" stroke-width="1.5"/>',
+    '<path d="M6.75 6.5h6.5M6.75 10h6.5M6.75 13.5h4" stroke="' + COLOR_PRINCIPAL + '" stroke-width="1.5" stroke-linecap="round"/>',
+    '</svg>',
+    '',
+  ].join(NL);
+  mkdirSync(new URL('./', iconoPestanaUrl), { recursive: true });
+  writeFileSync(iconoPestanaUrl, svg);
+  copiados++;
 }
 
 /* ---- lo que el motor exige de los dos .htaccess ----
