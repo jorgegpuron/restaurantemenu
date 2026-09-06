@@ -1,0 +1,26 @@
+{
+  "nota": "Allowlist de bloqueos aprobados. SOLO estos identificadores pueden aparecer como BLOCKED sin romper la suite. Cualquier otro BLOCKED es un fallo de la bateria (Chrome ausente, PHP ausente, GD o mbstring no cargables, Lighthouse no ejecutable, servidor que no arranca, sesion no abierta, fixture ausente, permisos, timeout, baseline incompatible, commit de control no disponible) y devuelve codigo distinto de cero. Anadir una entrada aqui es una decision consciente y versionada, no un ajuste.",
+  "politica": {
+    "no_aprobado": "FAIL del gate",
+    "aprobado_ausente": "UNEXPECTED PASS: la lista se ha quedado atras y hay que revisarla",
+    "unexpected_pass_en_ci": "codigo distinto de cero"
+  },
+  "aprobados": [
+    {
+      "id": "MC-32",
+      "cubre": ["NC-PUBLICAR", "NC-CERRAR"],
+      "que": "--publicar-github y --cerrar-activacion del alta de clientes",
+      "motivo": "efecto remoto inevitable: crean un repositorio y escriben Secrets. Ninguna fase ha autorizado una operacion remota.",
+      "suites": ["full", "weekly"],
+      "condicion_para_retirarlo": "una autorizacion expresa para operar contra GitHub desde la bateria"
+    },
+    {
+      "id": "MC-33",
+      "cubre": ["UP-MIGRAR"],
+      "que": "motor/migrar.mjs: salto de esquema de datos",
+      "motivo": "hoy no existe un motor con otro esquemaCarta contra el que migrar; no hay nada que ejecutar.",
+      "suites": ["full", "weekly"],
+      "condicion_para_retirarlo": "que exista un motor con un esquemaCarta distinto"
+    }
+  ]
+}

@@ -31,3 +31,9 @@ server/admin/activacion.php
 # settings.local.json, estado o cache que aparezca.
 .claude/*
 !.claude/skills/
+
+# La bateria de calidad (fase 17). El codigo de qa/ SI se versiona; lo que genera al correr, no:
+# dependencias descargadas, informes de cada pasada y cualquier temporal que se le escape.
+qa/node_modules/
+qa/informes/
+qa/tmp/
