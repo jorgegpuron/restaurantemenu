@@ -1,0 +1,486 @@
+{
+  "medidas": {
+    "carta-movil": {
+      "performance": 71,
+      "accesibilidad": 97,
+      "buenasPracticas": 100,
+      "seo": 92,
+      "fcp": 4457.214799999999,
+      "lcp": 4893.962,
+      "cls": 0.018477110125613764,
+      "tbt": 7,
+      "speedIndex": 4457.214799999999,
+      "peticiones": 13,
+      "peticionesLocales": 10,
+      "peticionesExternas": 3,
+      "bytes": 1003878,
+      "bytesLocales": 874138,
+      "bytesExternos": 129740,
+      "kb": 980
+    },
+    "carta-escritorio": {
+      "performance": 99,
+      "accesibilidad": 100,
+      "buenasPracticas": 100,
+      "seo": 92,
+      "fcp": 781.2688,
+      "lcp": 866.222125,
+      "cls": 0.006256516668404564,
+      "tbt": 0,
+      "speedIndex": 781.2688,
+      "peticiones": 12,
+      "peticionesLocales": 9,
+      "peticionesExternas": 3,
+      "bytes": 920712,
+      "bytesLocales": 790969,
+      "bytesExternos": 129743,
+      "kb": 899
+    },
+    "admin-movil": {
+      "performance": 56,
+      "accesibilidad": 98,
+      "buenasPracticas": 100,
+      "seo": 45,
+      "fcp": 9632.286499999995,
+      "lcp": 13284.246399999995,
+      "cls": 0,
+      "tbt": 0,
+      "speedIndex": 9632.286499999995,
+      "peticiones": 11,
+      "peticionesLocales": 7,
+      "peticionesExternas": 4,
+      "bytes": 2409601,
+      "bytesLocales": 2257052,
+      "bytesExternos": 152549,
+      "kb": 2353
+    },
+    "admin-escritorio": {
+      "performance": 90,
+      "accesibilidad": 98,
+      "buenasPracticas": 100,
+      "seo": 45,
+      "fcp": 1290.7800000000004,
+      "lcp": 1643.4307000000003,
+      "cls": 0.02834317372901969,
+      "tbt": 0,
+      "speedIndex": 1290.7800000000004,
+      "peticiones": 11,
+      "peticionesLocales": 7,
+      "peticionesExternas": 4,
+      "bytes": 2409601,
+      "bytesLocales": 2257052,
+      "bytesExternos": 152549,
+      "kb": 2353
+    }
+  },
+  "manifiestos": {
+    "carta-movil": [
+      {
+        "url": "/assets/banderas/de.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 810
+      },
+      {
+        "url": "/assets/banderas/es.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 1159
+      },
+      {
+        "url": "/assets/banderas/gb.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 2405
+      },
+      {
+        "url": "/assets/hero/HASH-800.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 18876
+      },
+      {
+        "url": "/assets/logo.svg",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 8643
+      },
+      {
+        "url": "/assets/publicidad/HASH.png",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 85775
+      },
+      {
+        "url": "/assets/titleIcon-accent.svg",
+        "tipo": "Other",
+        "estado": 200,
+        "bytes": 2444
+      },
+      {
+        "url": "/estado.json",
+        "tipo": "Fetch",
+        "estado": 200,
+        "bytes": 1434
+      },
+      {
+        "url": "/index.html",
+        "tipo": "Document",
+        "estado": 200,
+        "bytes": 752417
+      },
+      {
+        "url": "/version.json?t=SELLO",
+        "tipo": "Fetch",
+        "estado": 200,
+        "bytes": 175
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@14,400..600&display=swap",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 1238
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInHWVyNJ.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 76905
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kDXr4Y3qwzQ.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 50958
+      }
+    ],
+    "carta-escritorio": [
+      {
+        "url": "/assets/banderas/de.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 810
+      },
+      {
+        "url": "/assets/banderas/es.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 1159
+      },
+      {
+        "url": "/assets/banderas/gb.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 2405
+      },
+      {
+        "url": "/assets/hero/HASH-1200.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 21482
+      },
+      {
+        "url": "/assets/logo.svg",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 8643
+      },
+      {
+        "url": "/assets/titleIcon-accent.svg",
+        "tipo": "Other",
+        "estado": 200,
+        "bytes": 2444
+      },
+      {
+        "url": "/estado.json",
+        "tipo": "Fetch",
+        "estado": 200,
+        "bytes": 1434
+      },
+      {
+        "url": "/index.html",
+        "tipo": "Document",
+        "estado": 200,
+        "bytes": 752417
+      },
+      {
+        "url": "/version.json?t=SELLO",
+        "tipo": "Fetch",
+        "estado": 200,
+        "bytes": 175
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@14,400..600&display=swap",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 1238
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInHWVyNJ.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 77022
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kDXr4Y3qwzQ.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 51484
+      }
+    ],
+    "admin-movil": [
+      {
+        "url": "/admin/index.php?t=agotados",
+        "tipo": "Document",
+        "estado": 200,
+        "bytes": 1358292
+      },
+      {
+        "url": "/admin/tokens.css",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 3407
+      },
+      {
+        "url": "/assets/banderas/de.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 810
+      },
+      {
+        "url": "/assets/banderas/es.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 1159
+      },
+      {
+        "url": "/assets/hero/HASH.jpg",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 55192
+      },
+      {
+        "url": "/assets/publicidad/HASH.png",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 85775
+      },
+      {
+        "url": "/favicon.ico",
+        "tipo": "Other",
+        "estado": 200,
+        "bytes": 752417
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@14,400..600&display=swap",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 866
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 1080
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInHWVyNJ.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 76905
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/inter/v20/UcCo3FwrK3iLTcviYwYZ8UA3.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 73053
+      }
+    ],
+    "admin-escritorio": [
+      {
+        "url": "/admin/index.php?t=agotados",
+        "tipo": "Document",
+        "estado": 200,
+        "bytes": 1358292
+      },
+      {
+        "url": "/admin/tokens.css",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 3407
+      },
+      {
+        "url": "/assets/banderas/de.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 810
+      },
+      {
+        "url": "/assets/banderas/es.webp",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 1159
+      },
+      {
+        "url": "/assets/hero/HASH.jpg",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 55192
+      },
+      {
+        "url": "/assets/publicidad/HASH.png",
+        "tipo": "Image",
+        "estado": 200,
+        "bytes": 85775
+      },
+      {
+        "url": "/favicon.ico",
+        "tipo": "Other",
+        "estado": 200,
+        "bytes": 752417
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Serif+4:opsz,wght@14,400..600&display=swap",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 864
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap",
+        "tipo": "Stylesheet",
+        "estado": 200,
+        "bytes": 1078
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInHWVyNJ.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 77022
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/inter/v20/UcCo3FwrK3iLTcviYwYZ8UA3.woff2",
+        "tipo": "Font",
+        "estado": 200,
+        "bytes": 73585
+      }
+    ]
+  },
+  "cls": {
+    "carta-movil": [],
+    "carta-escritorio": [],
+    "admin-movil": [],
+    "admin-escritorio": []
+  },
+  "fixtura": {
+    "pasos": [
+      "sesion abierta",
+      "portada guardada (1)",
+      "banner guardado",
+      "banner encendido",
+      "juego encendido",
+      "podio con 2 marcas",
+      "3 banderas en el podio",
+      "canonicalizado (2 identificadores)"
+    ],
+    "hashDocroot": "df030e9f418f1cfdda174a23683c2871007466b8e56537ed37629f5356e1c677",
+    "ficherosDocroot": 76,
+    "hashCarta": "69aa94a1486d148a825d91189f64b34c839826bedfad082ca99feb162f7cf591",
+    "hashEstado": "0d5006c2913cb163c9ad3a1ca41fd0d46189a5cd744ae3e57607355ede190578",
+    "hashBuildSinSellos": "9f9e39fa9dcd9d52848e4087f824b72cd46e453e0addb7a5e8769f2d89ed45d8",
+    "bytesCarta": 752256,
+    "podio": [
+      "QA Uno/es",
+      "QA Dos/de"
+    ],
+    "identificadoresCanonicos": [
+      "aaaaaaaaaaaaaaa1",
+      "bbbbbbbbbbbbbbb1"
+    ],
+    "entorno": {
+      "node": "v24.19.0",
+      "plataforma": "win32 x64",
+      "php": "8.4.24",
+      "navegador": "Chrome 152.0.7977.82",
+      "playwright": "1.56.1",
+      "lighthouse": "13.4.1"
+    },
+    "plataforma": "win32 x64"
+  },
+  "identidad": {
+    "commit": "54ed519",
+    "sucio": false,
+    "sucioProducto": [],
+    "hashProducto": "87592b7658833ec6",
+    "ficherosProducto": 124,
+    "exclusiones": [
+      ".git/",
+      "qa/",
+      "auditorias/",
+      ".github/",
+      ".claude/",
+      ".gitignore",
+      "node_modules/",
+      "generado/",
+      "2-subir/",
+      "3-copias/"
+    ],
+    "etiqueta": "54ed519 · producto 87592b7658833ec6"
+  },
+  "huella": {
+    "plataforma": "win32 x64",
+    "navegador": "Chrome 152.0.7977.82",
+    "lighthouse": "13.4.1",
+    "node": "v24.19.0",
+    "php": "8.4.24"
+  },
+  "versiones": {
+    "node": "v24.19.0",
+    "plataforma": "win32 x64",
+    "php": "8.4.24",
+    "navegador": "Chrome 152.0.7977.82",
+    "playwright": "1.56.1",
+    "lighthouse": "13.4.1"
+  },
+  "configuracion": {
+    "categorias": "performance,accessibility,best-practices,seo",
+    "throttling": "simulate",
+    "chromeFlags": "--headless=new --no-sandbox --disable-gpu",
+    "pasadas": 5,
+    "agregacion": "mediana",
+    "paginaAdmin": "admin/index.php?t=agotados",
+    "paginaCarta": "index.html"
+  },
+  "perfiles": [
+    {
+      "id": "carta-movil",
+      "viewport": "412x823 movil simulado",
+      "pagina": "carta"
+    },
+    {
+      "id": "carta-escritorio",
+      "viewport": "1350x940 escritorio",
+      "pagina": "carta"
+    },
+    {
+      "id": "admin-movil",
+      "viewport": "412x823 movil simulado",
+      "pagina": "admin"
+    },
+    {
+      "id": "admin-escritorio",
+      "viewport": "1350x940 escritorio",
+      "pagina": "admin"
+    }
+  ],
+  "commit": "54ed519",
+  "fecha": "2026-09-06T03:38:19.615Z",
+  "nota": "Linea base de Lighthouse LOCAL sobre la fixtura determinista de qa/lib/fixtura-lh.mjs. NO es PageSpeed de produccion y NO es comparable con una medida hecha en otro sistema operativo o con otro Chrome: para eso esta el modo control-contra-candidato. No se actualiza sola: hace falta `npm --prefix qa run baseline:escribir` y autorizacion expresa.",
+  "tolerancias": {
+    "puntuacion": 1,
+    "cls": 0.005,
+    "tiempoRelativo": 0.05,
+    "tbtMs": 20,
+    "peticiones": 0,
+    "bytes": 0
+  }
+}

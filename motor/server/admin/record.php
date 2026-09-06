@@ -154,10 +154,45 @@ const FEO = ['puta', 'puto', 'mierda', 'joder', 'cabron', 'gilipollas', 'coño',
              'follar', 'zorra', 'maricon', 'fuck', 'shit', 'cunt', 'bitch', 'nazi', 'hitler',
              'porn', 'sexo', 'xxx'];
 
+/* Texto Unicode sin depender de mbstring, con la misma regla que index.php: mb_* si la
+   extension esta, y si no un camino equivalente. Se repiten aqui a proposito porque record.php
+   es un punto de entrada por su cuenta —el juego lo llama sin pasar por el panel—, asi que no
+   hay ningun sitio comun donde ponerlas sin inventar un fichero nuevo. Sin esto, en un hosting
+   sin mbstring guardar un nombre en el marcador terminaba en «Call to undefined function
+   mb_strtolower()»: error fatal, sin JSON de vuelta y con la partida perdida. */
+const CAJA_MAY = ['Á','À','Â','Ä','Ã','Å','Ç','É','È','Ê','Ë','Í','Ì','Î','Ï','Ñ',
+                  'Ó','Ò','Ô','Ö','Õ','Ú','Ù','Û','Ü','Ý','Æ','Œ'];
+const CAJA_MIN = ['á','à','â','ä','ã','å','ç','é','è','ê','ë','í','ì','î','ï','ñ',
+                  'ó','ò','ô','ö','õ','ú','ù','û','ü','ý','æ','œ'];
+
+function minuscula(string $s): string {
+  if (function_exists('mb_strtolower')) return mb_strtolower($s, 'UTF-8');
+  /* La parte ASCII con strtr() sobre las 26 letras, nunca con strtolower(): asi no se toca
+     ningun byte por encima de 0x7F y un caracter UTF-8 no se puede partir. */
+  return strtr(str_replace(CAJA_MAY, CAJA_MIN, $s),
+               'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+}
+
+function caracteres(string $s): int {
+  if (function_exists('mb_strlen')) return mb_strlen($s, 'UTF-8');
+  $n = preg_match_all('/./us', $s);
+  return $n === false ? strlen($s) : $n;
+}
+
+function recorte(string $s, int $desde, ?int $largo = null): string {
+  if (function_exists('mb_substr')) return mb_substr($s, $desde, $largo, 'UTF-8');
+  $trozos = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY);
+  if ($trozos === false) return $largo === null ? substr($s, $desde) : substr($s, $desde, $largo);
+  return implode('', $largo === null ? array_slice($trozos, $desde) : array_slice($trozos, $desde, $largo));
+}
+
 function nombre_limpio(string $s): string {
   $s = preg_replace('/[\x00-\x1F\x7F]/u', '', $s);
   /* Los ángulos fuera: un nombre no los necesita, y así no hay que confiar en que los tres
      sitios que lo pintan escapen bien. Se escapan igual; esto es el cinturón. */
+  /* Las etiquetas se QUITAN enteras. Antes solo se borraban los angulos y «<b>ñ</b>» se
+     quedaba en «bñ/b»: ni etiqueta ni nombre. Los angulos sueltos que sobrevivan se van igual. */
+  $s = strip_tags($s);
   $s = str_replace(['<', '>'], '', $s);
   $s = trim(preg_replace('/\s+/u', ' ', (string) $s));
   if ($s === '') return '';
@@ -165,7 +200,7 @@ function nombre_limpio(string $s): string {
   if (preg_match('~https?://|www\.|\.(com|net|org|es)\b|@~iu', $s)) return '';
   /* La lista se mira sobre el texto ENTERO y ANTES de recortar. Recortando primero,
      «gil1poll4s» se quedaba en «gil1po» y colaba: la palabra desaparecía con el recorte. */
-  $plano = mb_strtolower($s, 'UTF-8');
+  $plano = minuscula($s);
   $plano = strtr($plano, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u',
                           '0'=>'o','1'=>'i','3'=>'e','4'=>'a','5'=>'s','7'=>'t','@'=>'a','$'=>'s']);
   $plano = preg_replace('/[^a-zñ]/u', '', $plano);
@@ -173,7 +208,7 @@ function nombre_limpio(string $s): string {
     if ($plano !== '' && str_contains($plano, $mala)) return '';
   }
   /* Y ahora sí, el recorte: doce es lo que cabe en la tarjeta de la carta sin romperla. */
-  return mb_strlen($s, 'UTF-8') > 12 ? mb_substr($s, 0, 12, 'UTF-8') : $s;
+  return caracteres($s) > 12 ? recorte($s, 0, 12) : $s;
 }
 
 function pais_limpio(string $s): string {

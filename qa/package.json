@@ -1,0 +1,24 @@
+{
+  "name": "totm-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bateria automatica de calidad del motor de cartas. Vive aparte del producto: nada de aqui se publica ni se carga en la carta o el panel.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "fast": "node suites/fast.mjs",
+    "smoke": "node suites/smoke.mjs",
+    "full": "node suites/full.mjs",
+    "pagespeed": "node suites/pagespeed.mjs",
+    "comparativa": "node suites/pagespeed.mjs --control 54ed519",
+    "weekly": "node suites/weekly.mjs",
+    "autoprueba": "node suites/autoprueba.mjs",
+    "baseline:escribir": "node suites/pagespeed.mjs --escribir-baseline"
+  },
+  "devDependencies": {
+    "lighthouse": "13.4.1",
+    "playwright-core": "1.56.1"
+  }
+}

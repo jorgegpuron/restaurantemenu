@@ -1,0 +1,145 @@
+# Batería de calidad. NO despliega, NO sube nada por FTP y NO toca producción.
+#
+# Permisos de sólo lectura y sin un solo secreto: este workflow no puede publicar aunque quisiera.
+# El de despliegue (deploy.yml) sigue siendo otro fichero, con su propia autorización, y esta
+# batería no lo llama ni lo modifica.
+#
+# Reparto del trabajo:
+#   - en cada pull request: `fast` (estática, segundos) y `smoke` (funcional con navegador real:
+#     build, panel, ocho pestañas, carta, icono, consola, red, precio canónico y modo oscuro);
+#   - los lunes y a mano: `weekly`, que es `full` + Lighthouse control-contra-candidato + informe.
+#
+# Por qué `fetch-depth: 0` en el job semanal: la comparación de Lighthouse mide el commit de
+# control (54ed519) y el candidato EN EL MISMO RUNNER, con el mismo Chrome y la misma fixtura. Un
+# checkout superficial no trae ese commit, y sin él la medición falla a propósito en vez de
+# comparar contra una línea base hecha en otro sistema operativo, que no es una comparación.
+#
+# El informe Markdown se sube SIEMPRE como artefacto, también cuando la suite falla: es
+# justamente cuando más falta hace poder leerlo.
+name: Calidad
+
+on:
+  workflow_dispatch:
+  pull_request:
+  schedule:
+    # Lunes a las 05:17 UTC. Minuto raro a propósito: en punto se juntan miles de workflows.
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calidad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rapida:
+    name: Rápida y humo funcional (fast + smoke)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: qa/package-lock.json
+
+      - uses: shivammathur/setup-php@c541c155eee45413f5b09a52248675b1a2575231 # v2.31.1
+        with:
+          php-version: '8.3'
+          extensions: gd, mbstring
+          coverage: none
+
+      - name: Instalar las herramientas de QA
+        run: npm --prefix qa ci --no-audit --no-fund
+
+      # Chrome no se da por supuesto: si el runner cambia de imagen y deja de traerlo, esto para
+      # aquí con un mensaje claro en vez de dejar media batería BLOCKED y el job en verde.
+      - name: Localizar Chrome y dejar constancia
+        id: chrome
+        run: |
+          ruta=""
+          for c in "$CHROME_BIN" /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium-browser /usr/bin/chromium; do
+            if [ -n "$c" ] && [ -x "$c" ]; then ruta="$c"; break; fi
+          done
+          if [ -z "$ruta" ]; then
+            echo "::error::No hay Chrome ni Chromium en este runner. La batería funcional no puede correr y no se va a fingir que sí."
+            exit 1
+          fi
+          echo "ruta=$ruta" >> "$GITHUB_OUTPUT"
+          echo "Chrome en: $ruta"
+          "$ruta" --version || true
+
+      - name: Suite rápida (estática)
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.ruta }}
+        run: npm --prefix qa run fast
+
+      - name: Humo funcional (navegador real)
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.ruta }}
+        run: npm --prefix qa run smoke
+
+  completa:
+    name: Completa y Lighthouse (weekly)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Hace falta el historial para poder extraer el commit de control con `git archive`.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: qa/package-lock.json
+
+      - uses: shivammathur/setup-php@c541c155eee45413f5b09a52248675b1a2575231 # v2.31.1
+        with:
+          php-version: '8.3'
+          extensions: gd, mbstring
+          coverage: none
+
+      - name: Instalar las herramientas de QA
+        run: npm --prefix qa ci --no-audit --no-fund
+
+      - name: Localizar Chrome y dejar constancia
+        id: chrome
+        run: |
+          ruta=""
+          for c in "$CHROME_BIN" /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium-browser /usr/bin/chromium; do
+            if [ -n "$c" ] && [ -x "$c" ]; then ruta="$c"; break; fi
+          done
+          if [ -z "$ruta" ]; then
+            echo "::error::No hay Chrome ni Chromium en este runner. Lighthouse no puede medir y no se va a fingir que sí."
+            exit 1
+          fi
+          echo "ruta=$ruta" >> "$GITHUB_OUTPUT"
+          echo "Chrome en: $ruta"
+          "$ruta" --version || true
+
+      # Sin el commit de control no hay comparación válida, y es mejor saberlo antes de gastar
+      # veinte minutos de Lighthouse.
+      - name: Comprobar que el commit de control está disponible
+        run: git cat-file -e 54ed519^{commit} || { echo "::error::El commit de control 54ed519 no está en este checkout."; exit 1; }
+
+      - name: Suite semanal (full + Lighthouse control/candidato + informe)
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.ruta }}
+        run: npm --prefix qa run weekly
+
+      # Se sube pase lo que pase: un informe de una pasada en rojo es el que hay que leer.
+      - name: Guardar el informe
+        if: always()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: auditoria-semanal
+          path: qa/informes/
+          if-no-files-found: warn
+          retention-days: 30

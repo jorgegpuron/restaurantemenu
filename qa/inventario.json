@@ -1,0 +1,1361 @@
+{
+  "version": 1,
+  "descripcion": "Catalogo de toda la superficie que la bateria tiene que cubrir. Legible por maquina: qa/suites/inventario.mjs vuelve a extraer la superficie del codigo y falla si aparece algo que no este aqui con su prueba. No se acepta una muestra: o hay prueba, o el elemento se declara BLOCKED con su motivo.",
+  "commit_de_referencia": "54ed519",
+  "estados_validos": [
+    "cubierto",
+    "blocked",
+    "no_aplica"
+  ],
+  "acciones_panel": [
+    {
+      "id": "AC-LOGIN",
+      "clave": "clave",
+      "donde": "pantalla de acceso",
+      "prueba": "admin.mjs::acceso",
+      "esperado": "entra al panel y aparecen las pestanas",
+      "caso_positivo": "clave correcta",
+      "entrada_invalida": "clave incorrecta -> 'Contrasena incorrecta.' y sigue fuera",
+      "persistencia": "la sesion sobrevive a una recarga",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SALIR",
+      "clave": "salir",
+      "donde": "enlace ?salir=1",
+      "prueba": "admin.mjs::acceso",
+      "esperado": "vuelve a pedir contrasena",
+      "caso_positivo": "clic en Salir",
+      "entrada_invalida": "no aplica (GET sin parametros)",
+      "persistencia": "tras salir, recargar sigue pidiendo clave",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-CSRF",
+      "clave": "csrf",
+      "donde": "todos los formularios",
+      "prueba": "admin.mjs::csrf",
+      "esperado": "un POST con csrf invalido no cambia el estado",
+      "caso_positivo": "csrf de la pagina",
+      "entrada_invalida": "csrf inventado -> el estado no cambia",
+      "persistencia": "estado.json identico antes y despues",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-ACTIVACION",
+      "clave": "token_activacion",
+      "donde": "primera visita de un cliente con activacionPanel",
+      "prueba": "multicliente.mjs::activacion",
+      "esperado": "con el token correcto se crea la clave y se consume la activacion",
+      "caso_positivo": "token correcto + clave de 8+",
+      "entrada_invalida": "token falso -> 'El token de activacion no es correcto.'; clave corta -> rechazada sin consumir el token",
+      "persistencia": "aparece admin/activacion.consumida y activacion.php se reescribe con un valor muerto",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-CLAVE-NUEVA",
+      "clave": "nueva",
+      "donde": "pantalla de configurar acceso",
+      "prueba": "multicliente.mjs::activacion",
+      "esperado": "guarda la contrasena del restaurante",
+      "caso_positivo": "clave de 8+ caracteres",
+      "entrada_invalida": "clave corta -> rechazada",
+      "persistencia": "se escribe admin/clave.php",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-AGOTADOS",
+      "clave": "guardar_agotados",
+      "donde": "pestana Agotados",
+      "prueba": "admin.mjs::agotados",
+      "esperado": "'Guardado: N plato(s) agotados'",
+      "caso_positivo": "marcar dos platos",
+      "entrada_invalida": "sin ninguno marcado -> 'hoy no hay nada agotado'",
+      "persistencia": "estado.soldOut con doble clave",
+      "reflejo_publico": "el plato sale tachado y sin rebaja en la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-AGOTADO-CAMPO",
+      "clave": "agotado",
+      "donde": "casillas de la pestana Agotados",
+      "prueba": "admin.mjs::agotados",
+      "esperado": "solo los marcados llegan al estado",
+      "caso_positivo": "dos dishId validos",
+      "entrada_invalida": "clave inexistente -> se ignora",
+      "persistencia": "estado.soldOut",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-DESTACADO-ADD",
+      "clave": "destacado_add",
+      "donde": "pestana Destacados",
+      "prueba": "admin.mjs::destacados",
+      "esperado": "'Destacado anadido'",
+      "caso_positivo": "plato existente + etiqueta del catalogo",
+      "entrada_invalida": "etiqueta fuera del catalogo -> rechazada",
+      "persistencia": "estado.tags",
+      "reflejo_publico": "insignia en la carta y ficha de filtro en el buscador",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-DESTACADO-DEL",
+      "clave": "destacado_del",
+      "donde": "pestana Destacados",
+      "prueba": "admin.mjs::destacados",
+      "esperado": "el destacado desaparece",
+      "caso_positivo": "quitar el que se acaba de anadir",
+      "entrada_invalida": "clave inexistente -> no rompe",
+      "persistencia": "estado.tags sin esa clave",
+      "reflejo_publico": "la insignia desaparece",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-HL-KEY",
+      "clave": "hl_key",
+      "donde": "buscador de Destacados",
+      "prueba": "admin.mjs::destacados",
+      "esperado": "identifica el plato elegido",
+      "caso_positivo": "dishId de la sugerencia",
+      "entrada_invalida": "vacio -> no se anade nada",
+      "persistencia": "estado.tags",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-HL-LABEL",
+      "clave": "hl_label",
+      "donde": "selector de etiqueta",
+      "prueba": "admin.mjs::destacados",
+      "esperado": "guarda la etiqueta elegida",
+      "caso_positivo": "una del catalogo",
+      "entrada_invalida": "texto inventado -> rechazado",
+      "persistencia": "estado.tags",
+      "reflejo_publico": "el texto de la insignia",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA",
+      "clave": "guardar_oferta",
+      "donde": "pestana Ofertas",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "'Oferta guardada y encendida: N%'",
+      "caso_positivo": "20%, franja horaria, dias y una categoria",
+      "entrada_invalida": "pct fuera de 1-90 con la oferta encendida -> 'El descuento tiene que estar entre 1 y 90'; sin categoria -> 'Elige al menos una categoria'; sin dias -> 'Elige al menos un dia'",
+      "persistencia": "estado.offer",
+      "reflejo_publico": "insignia de descuento y precio rebajado",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-CAT",
+      "clave": "cat",
+      "donde": "categorias en oferta",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "solo categoryId validos",
+      "caso_positivo": "categoria de la carta",
+      "entrada_invalida": "id inventado -> se descarta",
+      "persistencia": "estado.offer.cats",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-PLATO",
+      "clave": "oferta_plato",
+      "donde": "platos sueltos en oferta",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "guarda platos sueltos",
+      "caso_positivo": "un dishId",
+      "entrada_invalida": "plato de una categoria ya marcada -> no se duplica",
+      "persistencia": "estado.offer.keys",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-DIA",
+      "clave": "dia",
+      "donde": "circulos de dias",
+      "prueba": "lotes.mjs::lote6",
+      "esperado": "dias validos, sin repetidos y ordenados",
+      "caso_positivo": "1,3,5",
+      "entrada_invalida": "5,2,5,2,9,0,7,2 -> [2,5,7]",
+      "persistencia": "estado.offer.days",
+      "reflejo_publico": "la oferta solo corre esos dias",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-PCT",
+      "clave": "pct",
+      "donde": "campo de descuento",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "entero 1-90 con la oferta encendida",
+      "caso_positivo": "20",
+      "entrada_invalida": "95 con la oferta encendida -> rechazado",
+      "persistencia": "estado.offer.percent",
+      "reflejo_publico": "el porcentaje de la insignia",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-DESDE",
+      "clave": "desde",
+      "donde": "hora de inicio",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "minutos desde medianoche",
+      "caso_positivo": "00:00",
+      "entrada_invalida": "texto no horario -> valor por defecto",
+      "persistencia": "estado.offer.from",
+      "reflejo_publico": "la oferta solo corre en esa franja",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-HASTA",
+      "clave": "hasta",
+      "donde": "hora de fin",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "minutos desde medianoche",
+      "caso_positivo": "23:59",
+      "entrada_invalida": "texto no horario -> valor por defecto",
+      "persistencia": "estado.offer.to",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OFERTA-ON",
+      "clave": "oferta_on",
+      "donde": "interruptor de la oferta",
+      "prueba": "admin.mjs::ofertas",
+      "esperado": "enciende y apaga",
+      "caso_positivo": "marcado",
+      "entrada_invalida": "encendida sin categoria ni plato -> rechazada",
+      "persistencia": "estado.offer.on",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PRECIOS-CALC",
+      "clave": "precios_calcular",
+      "donde": "pestana Precios",
+      "prueba": "admin.mjs::precios",
+      "esperado": "muestra la lista con los precios propuestos",
+      "caso_positivo": "subida del 5%",
+      "entrada_invalida": "porcentaje fuera de rango -> aviso",
+      "persistencia": "no escribe estado hasta publicar",
+      "reflejo_publico": "ninguno hasta publicar",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PRECIOS-SUBIR",
+      "clave": "subir",
+      "donde": "atajos +3/+5/+10/+15 y campo libre",
+      "prueba": "admin.mjs::precios",
+      "esperado": "calcula con ese porcentaje",
+      "caso_positivo": "5",
+      "entrada_invalida": "texto no numerico -> aviso",
+      "persistencia": "ninguna",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PRECIOS-MANUAL",
+      "clave": "precios_manual",
+      "donde": "boton 'A mano, uno a uno'",
+      "prueba": "admin.mjs::precios",
+      "esperado": "abre la lista editable sin aplicar porcentaje",
+      "caso_positivo": "clic",
+      "entrada_invalida": "no aplica",
+      "persistencia": "ninguna",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PRECIOS-PUB",
+      "clave": "precios_publicar",
+      "donde": "boton Publicar precios",
+      "prueba": "admin.mjs::precios",
+      "esperado": "'Publicado: N precio(s) distintos de la carta'",
+      "caso_positivo": "publicar la lista calculada",
+      "entrada_invalida": "precio no numerico -> se ignora esa fila",
+      "persistencia": "estado.prices con doble clave",
+      "reflejo_publico": "el precio de la carta cambia",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PRECIO-CAMPO",
+      "clave": "precio",
+      "donde": "campos de la lista de precios",
+      "prueba": "admin.mjs::precios",
+      "esperado": "un precio por plato",
+      "caso_positivo": "6.85",
+      "entrada_invalida": "vacio o texto -> no se guarda ese plato",
+      "persistencia": "estado.prices",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PRECIOS-RESET",
+      "clave": "precios_reset",
+      "donde": "boton 'Volver a los de la carta'",
+      "prueba": "admin.mjs::precios",
+      "esperado": "vacia los precios del panel",
+      "caso_positivo": "clic",
+      "entrada_invalida": "no aplica",
+      "persistencia": "estado.prices queda vacio",
+      "reflejo_publico": "la carta vuelve a su precio de origen",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-JUEGO",
+      "clave": "guardar_juego",
+      "donde": "pestana Juego",
+      "prueba": "admin.mjs::juego",
+      "esperado": "'El juego sale/no sale en la carta'",
+      "caso_positivo": "encender y apagar",
+      "entrada_invalida": "no aplica (casilla)",
+      "persistencia": "estado.game.on",
+      "reflejo_publico": "el enlace al juego aparece o desaparece",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-JUEGO-ON",
+      "clave": "juego_on",
+      "donde": "interruptor del juego",
+      "prueba": "admin.mjs::juego",
+      "esperado": "refleja el interruptor",
+      "caso_positivo": "marcado",
+      "entrada_invalida": "ausente -> apagado",
+      "persistencia": "estado.game.on",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUBLICIDAD",
+      "clave": "guardar_publicidad",
+      "donde": "pestana Publicidad",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "'Guardado. El banner esta activo/desactivado'",
+      "caso_positivo": "URL, fechas y encendido",
+      "entrada_invalida": "fin <= inicio -> 'El fin del banner tiene que ser DESPUES del inicio'",
+      "persistencia": "estado.publicidad.banner",
+      "reflejo_publico": "el banner sale en la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUB-ON",
+      "clave": "pub_on",
+      "donde": "interruptor del banner",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "enciende y apaga",
+      "caso_positivo": "marcado",
+      "entrada_invalida": "ausente -> apagado",
+      "persistencia": "estado.publicidad.banner.on",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUB-URL",
+      "clave": "pub_url",
+      "donde": "destino del banner",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "guarda la URL",
+      "caso_positivo": "https valido",
+      "entrada_invalida": "texto que no es URL -> el navegador lo rechaza y el servidor no lo guarda",
+      "persistencia": "estado.publicidad.banner.url",
+      "reflejo_publico": "el enlace del banner",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUB-BLANK",
+      "clave": "pub_blank",
+      "donde": "abrir en pestana nueva",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "guarda la preferencia",
+      "caso_positivo": "marcado",
+      "entrada_invalida": "ausente -> false",
+      "persistencia": "estado.publicidad.banner.blank",
+      "reflejo_publico": "target del enlace",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUB-INICIO",
+      "clave": "pub_inicio",
+      "donde": "fecha de inicio",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "guarda la fecha en UTC",
+      "caso_positivo": "datetime-local valido",
+      "entrada_invalida": "posterior al fin -> rechazado",
+      "persistencia": "estado.publicidad.banner.startAt",
+      "reflejo_publico": "el banner solo sale dentro del tramo",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUB-FIN",
+      "clave": "pub_fin",
+      "donde": "fecha de fin",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "guarda la fecha en UTC",
+      "caso_positivo": "datetime-local valido",
+      "entrada_invalida": "anterior al inicio -> rechazado",
+      "persistencia": "estado.publicidad.banner.endAt",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-BANNER-SUBIR",
+      "clave": "subir_banner",
+      "donde": "imagen del banner",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "'Imagen guardada'",
+      "caso_positivo": "PNG valido",
+      "entrada_invalida": "fichero por encima del tope del servidor -> mensaje con el tope efectivo",
+      "persistencia": "assets/publicidad y estado.publicidad.banner.img",
+      "reflejo_publico": "el banner de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-BANNER-BORRAR",
+      "clave": "eliminar_banner",
+      "donde": "quitar imagen del banner",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "quita la imagen",
+      "caso_positivo": "clic",
+      "entrada_invalida": "sin imagen -> no rompe",
+      "persistencia": "estado.publicidad.banner.img vacio",
+      "reflejo_publico": "el banner deja de salir",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PUB-IMG",
+      "clave": "pub_img",
+      "donde": "campo de fichero del banner",
+      "prueba": "admin.mjs::publicidad",
+      "esperado": "acepta imagen valida",
+      "caso_positivo": "PNG 1120x480",
+      "entrada_invalida": "no imagen -> rechazada",
+      "persistencia": "assets/publicidad",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-MARCA",
+      "clave": "guardar_marca",
+      "donde": "pestana Marca",
+      "prueba": "admin.mjs::marca",
+      "esperado": "'Guardado'",
+      "caso_positivo": "nombre, rotulo, color, resenas y redes",
+      "entrada_invalida": "color sin contraste -> rechazado",
+      "persistencia": "estado.marca, estado.reviews, estado.social, estado.review",
+      "reflejo_publico": "rotulo, color y pie de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-MARCA-NOMBRE",
+      "clave": "marca_nombre",
+      "donde": "nombre visible",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda el nombre",
+      "caso_positivo": "texto con acentos",
+      "entrada_invalida": "texto larguisimo -> recortado",
+      "persistencia": "estado.marca.nombreVisible",
+      "reflejo_publico": "portada de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-MARCA-ROTULO",
+      "clave": "marca_rotulo",
+      "donde": "rotulo visible",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda el rotulo",
+      "caso_positivo": "texto con enes y dieresis",
+      "entrada_invalida": "texto larguisimo -> recortado",
+      "persistencia": "estado.marca.rotuloVisible",
+      "reflejo_publico": "subtitulo de la portada",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-MARCA-COLOR",
+      "clave": "marca_color_principal",
+      "donde": "color principal",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda un hex valido",
+      "caso_positivo": "#4FA3D1",
+      "entrada_invalida": "hex invalido o sin contraste -> rechazado",
+      "persistencia": "estado.marca.colorPrincipal",
+      "reflejo_publico": "toda la paleta de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OP-ON",
+      "clave": "op_on",
+      "donde": "nota de Google",
+      "prueba": "admin.mjs::marca",
+      "esperado": "enciende la nota",
+      "caso_positivo": "marcado",
+      "entrada_invalida": "ausente -> apagada",
+      "persistencia": "estado.reviews.on",
+      "reflejo_publico": "bloque de resenas del pie",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OP-NOTA",
+      "clave": "op_nota",
+      "donde": "nota media",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda un numero",
+      "caso_positivo": "4,6",
+      "entrada_invalida": "texto -> no se guarda",
+      "persistencia": "estado.reviews.rating",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OP-CUANTAS",
+      "clave": "op_cuantas",
+      "donde": "numero de resenas",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda un entero",
+      "caso_positivo": "128",
+      "entrada_invalida": "negativo -> no se guarda",
+      "persistencia": "estado.reviews.count",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-OP-URL",
+      "clave": "op_url",
+      "donde": "enlace de resenas",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda la URL",
+      "caso_positivo": "https valido",
+      "entrada_invalida": "no https -> rechazada por el navegador",
+      "persistencia": "estado.review.url",
+      "reflejo_publico": "boton de resenas",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-RED-WA",
+      "clave": "red_whatsapp",
+      "donde": "redes",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda solo digitos",
+      "caso_positivo": "+34600111222 -> 34600111222",
+      "entrada_invalida": "letras -> se limpian",
+      "persistencia": "estado.social.whatsapp",
+      "reflejo_publico": "icono de WhatsApp",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-RED-IG",
+      "clave": "red_instagram",
+      "donde": "redes",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda la URL",
+      "caso_positivo": "https valido",
+      "entrada_invalida": "no URL -> rechazada",
+      "persistencia": "estado.social.instagram",
+      "reflejo_publico": "icono de Instagram",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-RED-FB",
+      "clave": "red_facebook",
+      "donde": "redes",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda la URL",
+      "caso_positivo": "https valido",
+      "entrada_invalida": "no URL -> rechazada",
+      "persistencia": "estado.social.facebook",
+      "reflejo_publico": "icono de Facebook",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-RED-TA",
+      "clave": "red_tripadvisor",
+      "donde": "redes",
+      "prueba": "admin.mjs::marca",
+      "esperado": "guarda la URL",
+      "caso_positivo": "https valido",
+      "entrada_invalida": "no URL -> rechazada",
+      "persistencia": "estado.social.tripadvisor",
+      "reflejo_publico": "icono de Tripadvisor",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PORTADA-SUBIR",
+      "clave": "subir_foto",
+      "donde": "fotos de portada",
+      "prueba": "lotes.mjs::lote1",
+      "esperado": "'Foto subida'",
+      "caso_positivo": "JPG o PNG de 800+ px de ancho",
+      "entrada_invalida": "corrupta, extension mentirosa, 9000 px, no imagen, por encima del tope -> mensaje concreto y NADA guardado",
+      "persistencia": "estado.hero y assets/hero",
+      "reflejo_publico": "la portada de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-FOTO-CAMPO",
+      "clave": "foto",
+      "donde": "campo de fichero de portada",
+      "prueba": "lotes.mjs::lote1",
+      "esperado": "acepta varias",
+      "caso_positivo": "una imagen valida",
+      "entrada_invalida": "ver AC-PORTADA-SUBIR",
+      "persistencia": "estado.hero",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PORTADA-QUITAR",
+      "clave": "quitar_foto",
+      "donde": "fotos de portada",
+      "prueba": "admin.mjs::portada",
+      "esperado": "quita esa foto",
+      "caso_positivo": "la que se acaba de subir",
+      "entrada_invalida": "nombre inexistente -> no rompe",
+      "persistencia": "estado.hero sin ese fichero",
+      "reflejo_publico": "la portada cambia",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PORTADA-MOVER",
+      "clave": "mover_foto",
+      "donde": "orden de las portadas",
+      "prueba": "admin.mjs::portada",
+      "esperado": "cambia el orden",
+      "caso_positivo": "con dos fotos, mover una",
+      "entrada_invalida": "con una sola foto -> no cambia nada",
+      "persistencia": "orden de estado.hero",
+      "reflejo_publico": "el orden del carrusel",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PORTADA-DIR",
+      "clave": "dir",
+      "donde": "direccion del movimiento",
+      "prueba": "admin.mjs::portada",
+      "esperado": "sube o baja",
+      "caso_positivo": "1 o -1",
+      "entrada_invalida": "otro valor -> se ignora",
+      "persistencia": "orden de estado.hero",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-FOTOS-ORDENAR",
+      "clave": "ordenar_fotos",
+      "donde": "reordenar por arrastre",
+      "prueba": "admin.mjs::portada",
+      "esperado": "guarda el orden enviado",
+      "caso_positivo": "lista de nombres existentes",
+      "entrada_invalida": "nombres inventados -> se descartan",
+      "persistencia": "estado.hero",
+      "reflejo_publico": "el orden del carrusel",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-FOTOS-ORDEN",
+      "clave": "orden",
+      "donde": "campo del orden",
+      "prueba": "admin.mjs::portada",
+      "esperado": "lista de nombres",
+      "caso_positivo": "orden invertido",
+      "entrada_invalida": "vacio -> no cambia",
+      "persistencia": "estado.hero",
+      "reflejo_publico": "si",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-FOTO-PLATO",
+      "clave": "foto_plato",
+      "donde": "camara de cada plato",
+      "prueba": "lotes.mjs::lote8",
+      "esperado": "guarda el recorte como WebP",
+      "caso_positivo": "imagen recortada",
+      "entrada_invalida": "datos que no son imagen -> rechazado",
+      "persistencia": "estado.fotos y assets/platos",
+      "reflejo_publico": "la ficha del plato se puede abrir y muestra la foto",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-FOTO-ACCION",
+      "clave": "foto_accion",
+      "donde": "guardar o quitar la foto de un plato",
+      "prueba": "lotes.mjs::lote8",
+      "esperado": "'guardar' pone y 'quitar' retira",
+      "caso_positivo": "guardar y despues quitar",
+      "entrada_invalida": "accion desconocida -> se ignora",
+      "persistencia": "estado.fotos",
+      "reflejo_publico": "la ficha deja de abrirse al quitar la foto",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-COPIA-RESTAURAR",
+      "clave": "restaurar_copia",
+      "donde": "copias de seguridad en Marca",
+      "prueba": "lotes.mjs::lote2",
+      "esperado": "'Restaurados los precios de la copia...'",
+      "caso_positivo": "restaurar una copia anterior",
+      "entrada_invalida": "nombre de copia inexistente -> aviso, sin tocar el estado",
+      "persistencia": "solo cambia estado.prices; las otras claves quedan intactas",
+      "reflejo_publico": "los precios de la carta vuelven",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-COPIA-DESCARGAR",
+      "clave": "descargar_copia",
+      "donde": "copias de seguridad",
+      "prueba": "admin.mjs::copias",
+      "esperado": "descarga el JSON de esa copia",
+      "caso_positivo": "una copia existente",
+      "entrada_invalida": "nombre inventado -> no descarga",
+      "persistencia": "ninguna",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-COPIAS-VACIAR",
+      "clave": "vaciar_copias",
+      "donde": "copias de seguridad",
+      "prueba": "admin.mjs::copias",
+      "esperado": "borra todas las copias",
+      "caso_positivo": "clic con copias presentes",
+      "entrada_invalida": "sin copias -> no rompe",
+      "persistencia": "admin/copias vacia",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-ESTADO-DESCARGAR",
+      "clave": "descargar_estado",
+      "donde": "Marca",
+      "prueba": "admin.mjs::copias",
+      "esperado": "descarga estado.json",
+      "caso_positivo": "clic",
+      "entrada_invalida": "no aplica",
+      "persistencia": "ninguna",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-RECORD-BORRAR",
+      "clave": "borrar_nombre",
+      "donde": "marcador del juego",
+      "prueba": "admin.mjs::marcador",
+      "esperado": "borra el nombre de esa marca",
+      "caso_positivo": "indice existente",
+      "entrada_invalida": "indice fuera de rango -> no rompe",
+      "persistencia": "marcador.json y record.json",
+      "reflejo_publico": "el podio del juego",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-RECORD-RESET",
+      "clave": "reiniciar_record",
+      "donde": "marcador del juego",
+      "prueba": "admin.mjs::marcador",
+      "esperado": "vacia el marcador",
+      "caso_positivo": "clic con marcas",
+      "entrada_invalida": "sin marcas -> no rompe",
+      "persistencia": "marcador.json vacio",
+      "reflejo_publico": "el juego deja de ensenar record",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-MIGRAR",
+      "clave": "migrar_estado",
+      "donde": "aviso de esquema antiguo",
+      "prueba": "admin.mjs::migrar",
+      "esperado": "migra el estado al esquema actual",
+      "caso_positivo": "estado con esquema anterior",
+      "entrada_invalida": "estado ya migrado -> el boton no aparece",
+      "persistencia": "estado.esquema al dia",
+      "reflejo_publico": "la carta sigue leyendo el estado",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SALIR-DEMO",
+      "clave": "salir_demo",
+      "donde": "modo demo",
+      "prueba": "admin.mjs::demo",
+      "esperado": "cierra el modo demo poniendo contrasena",
+      "caso_positivo": "clave de 8+",
+      "entrada_invalida": "clave corta -> 'La contrasena necesita al menos 8 caracteres'",
+      "persistencia": "admin/clave.php escrita",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-DEMO-CLAVE",
+      "clave": "clave_nueva",
+      "donde": "formulario de salir del demo",
+      "prueba": "admin.mjs::demo",
+      "esperado": "es la contrasena que queda",
+      "caso_positivo": "clave de 8+",
+      "entrada_invalida": "clave corta -> rechazada",
+      "persistencia": "admin/clave.php",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SUPER-RESET",
+      "clave": "reset_cliente",
+      "donde": "sesion de superadministrador",
+      "prueba": "admin.mjs::superadmin",
+      "esperado": "cambia la contrasena del restaurante",
+      "caso_positivo": "clave de 8+ con sesion super",
+      "entrada_invalida": "clave corta -> rechazada; sin sesion super -> no se ejecuta",
+      "persistencia": "admin/clave.php",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SUPER-CLIENTE-NUEVA",
+      "clave": "cliente_nueva",
+      "donde": "sesion de superadministrador",
+      "prueba": "admin.mjs::superadmin",
+      "esperado": "es la clave nueva del restaurante",
+      "caso_positivo": "8+ caracteres",
+      "entrada_invalida": "menos de 8 -> rechazada",
+      "persistencia": "admin/clave.php",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SUPER-CAMBIAR",
+      "clave": "cambiar_super",
+      "donde": "sesion de superadministrador",
+      "prueba": "admin.mjs::superadmin",
+      "esperado": "cambia la clave del superadministrador",
+      "caso_positivo": "actual correcta y nueva de 8+",
+      "entrada_invalida": "actual incorrecta -> rechazada",
+      "persistencia": "admin/superclave.php reescrito; la sesion abierta se expulsa",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SUPER-ACTUAL",
+      "clave": "super_actual",
+      "donde": "cambio de clave del super",
+      "prueba": "admin.mjs::superadmin",
+      "esperado": "verifica la clave actual",
+      "caso_positivo": "la correcta",
+      "entrada_invalida": "incorrecta -> rechazada",
+      "persistencia": "admin/superclave.php reescrito; la sesion abierta se expulsa",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SUPER-NUEVA",
+      "clave": "super_nueva",
+      "donde": "cambio de clave del super",
+      "prueba": "admin.mjs::superadmin",
+      "esperado": "guarda la clave nueva",
+      "caso_positivo": "8+ caracteres",
+      "entrada_invalida": "corta -> rechazada",
+      "persistencia": "admin/superclave.php reescrito; la sesion abierta se expulsa",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-SUPER-CLAVE",
+      "clave": "super",
+      "donde": "campo de clave del super",
+      "prueba": "admin.mjs::superadmin",
+      "esperado": "identifica la sesion como super",
+      "caso_positivo": "la clave del super",
+      "entrada_invalida": "otra -> sesion de cliente",
+      "persistencia": "ninguna",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-PESTANA",
+      "clave": "t",
+      "donde": "parametro de pestana",
+      "prueba": "responsive.mjs::pestanas",
+      "esperado": "abre la pestana pedida",
+      "caso_positivo": "cada una de las ocho",
+      "entrada_invalida": "nombre inventado -> abre la de por defecto",
+      "persistencia": "ninguna",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-REC-PUNTOS",
+      "clave": "puntos",
+      "donde": "admin/record.php, primera llamada",
+      "prueba": "carta.mjs::marcador",
+      "esperado": "guarda la puntuacion y devuelve id si entra en el podio",
+      "caso_positivo": "entero dentro de RECORD_MAX",
+      "entrada_invalida": "texto, 0 o por encima de RECORD_MAX -> 400 sin cuerpo",
+      "persistencia": "marcador.json y record.json",
+      "reflejo_publico": "el podio del juego",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-REC-ID",
+      "clave": "id",
+      "donde": "admin/record.php, segunda llamada",
+      "prueba": "carta.mjs::marcador",
+      "esperado": "identifica la marca a la que ponerle nombre",
+      "caso_positivo": "8 hex devueltos por la primera llamada",
+      "entrada_invalida": "id mal formado -> 400",
+      "persistencia": "marcador.json",
+      "reflejo_publico": "el nombre del podio",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-REC-NOMBRE",
+      "clave": "nombre",
+      "donde": "admin/record.php, segunda llamada",
+      "prueba": "lotes.mjs::lote8",
+      "esperado": "nombre saneado y recortado a 12 caracteres",
+      "caso_positivo": "texto con acentos, enes y CJK",
+      "entrada_invalida": "etiquetas HTML, enlaces y palabrotas -> vacio o sin etiquetas",
+      "persistencia": "record.json",
+      "reflejo_publico": "el podio del juego",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-REC-PAIS",
+      "clave": "pais",
+      "donde": "admin/record.php, segunda llamada",
+      "prueba": "carta.mjs::marcador",
+      "esperado": "solo codigos de la lista cerrada",
+      "caso_positivo": "es",
+      "entrada_invalida": "codigo inventado -> vacio",
+      "persistencia": "record.json",
+      "reflejo_publico": "la bandera del podio",
+      "estado": "cubierto"
+    }
+  ],
+  "endpoints": [
+    {
+      "id": "EP-ADMIN",
+      "ruta": "admin/index.php",
+      "prueba": "admin.mjs",
+      "esperado": "panel completo tras autenticarse",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-RECORD",
+      "ruta": "admin/record.php",
+      "prueba": "lotes.mjs::lote8 y carta.mjs::marcador",
+      "esperado": "guarda puntuacion y nombre saneado, devuelve JSON",
+      "entrada_invalida": "puntos fuera de rango o id mal formado -> 400 sin cuerpo",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-DATOS",
+      "ruta": "admin/datos.php",
+      "prueba": "carta.mjs::analitica",
+      "esperado": "cuenta una apertura de la carta",
+      "entrada_invalida": "user-agent de robot -> 204",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-VISTA",
+      "ruta": "admin/vista.php",
+      "prueba": "carta.mjs::vista",
+      "esperado": "responde al contador de vistas de plato",
+      "entrada_invalida": "sin datos -> no cuenta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-HASH",
+      "ruta": "admin/hash.php",
+      "prueba": "admin.mjs::hash",
+      "esperado": "cerrado por defecto: sin permitir-hash.txt no genera nada",
+      "entrada_invalida": "peticion directa -> denegada",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-CONFIG",
+      "ruta": "admin/config.php",
+      "prueba": "carta.mjs::sin-fugas",
+      "esperado": "no devuelve cuerpo por HTTP",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-CLIENTE",
+      "ruta": "admin/cliente.php",
+      "prueba": "carta.mjs::sin-fugas",
+      "esperado": "no devuelve cuerpo por HTTP",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-ESTADO",
+      "ruta": "estado.json",
+      "prueba": "carta.mjs::estado",
+      "esperado": "JSON legible por la carta",
+      "entrada_invalida": "ausente -> la carta sigue funcionando con los precios de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "EP-RECORDJSON",
+      "ruta": "record.json",
+      "prueba": "carta.mjs::marcador",
+      "esperado": "JSON del podio",
+      "entrada_invalida": "ausente -> el juego pregunta al endpoint",
+      "estado": "cubierto"
+    }
+  ],
+  "manejadores_js_panel": [
+    {
+      "id": "JS-SUCIO",
+      "que": "aviso de cambios sin guardar",
+      "prueba": "lotes.mjs::lote3",
+      "esperado": "solo salta con un cambio real de agotado[]",
+      "caso_positivo": "marcar un plato -> beforeunload",
+      "entrada_invalida": "escribir en el buscador -> sin aviso",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-BUSCADOR-AGOTADOS",
+      "que": "filtro de la lista de agotados (#q)",
+      "prueba": "lotes.mjs::lote3",
+      "esperado": "filtra sin ensuciar el formulario",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-CAMARA",
+      "que": "aria-label del boton de camara",
+      "prueba": "lotes.mjs::lote8",
+      "esperado": "pasa de 'Poner foto a X' a 'Cambiar la foto de X' sin recargar",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-RECORTE",
+      "que": "recorte de la foto de plato",
+      "prueba": "lotes.mjs::lote8",
+      "esperado": "abre el panel de recorte y guarda",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-COMBO-DESTACADOS",
+      "que": "autocompletado de Destacados (#hl-q)",
+      "prueba": "admin.mjs::destacados",
+      "esperado": "sugiere platos y rellena #hl-key",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-COLOR",
+      "que": "sincronia entre selector de color y hex",
+      "prueba": "admin.mjs::marca",
+      "esperado": "escribir el hex mueve el selector",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-PESTANAS",
+      "que": "cambio de pestana sin recargar",
+      "prueba": "responsive.mjs::pestanas",
+      "esperado": "muestra la pane pedida y oculta las demas",
+      "estado": "cubierto"
+    },
+    {
+      "id": "JS-AYUDAS",
+      "que": "globos de ayuda",
+      "prueba": "responsive.mjs::ayudas",
+      "esperado": "abren y cierran con teclado",
+      "estado": "cubierto"
+    }
+  ],
+  "claves_estado": [
+    {
+      "id": "ST-ESQUEMA",
+      "clave": "esquema",
+      "escribe": "migrar_estado",
+      "prueba": "admin.mjs::migrar",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-SOLDOUT",
+      "clave": "soldOut",
+      "escribe": "guardar_agotados",
+      "prueba": "admin.mjs::agotados",
+      "reflejo_publico": "plato tachado",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-TAGS",
+      "clave": "tags",
+      "escribe": "destacado_add/destacado_del",
+      "prueba": "admin.mjs::destacados",
+      "reflejo_publico": "insignia",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-OFFER",
+      "clave": "offer",
+      "escribe": "guardar_oferta",
+      "prueba": "admin.mjs::ofertas",
+      "reflejo_publico": "precio rebajado",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-PRICES",
+      "clave": "prices",
+      "escribe": "precios_publicar/precios_reset/restaurar_copia",
+      "prueba": "admin.mjs::precios",
+      "reflejo_publico": "precio de la carta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-REVIEWS",
+      "clave": "reviews",
+      "escribe": "guardar_marca",
+      "prueba": "admin.mjs::marca",
+      "reflejo_publico": "nota de Google",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-HERO",
+      "clave": "hero",
+      "escribe": "subir_foto/quitar_foto/mover_foto",
+      "prueba": "admin.mjs::portada",
+      "reflejo_publico": "portada",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-HEROWEBP",
+      "clave": "heroWebp",
+      "escribe": "subir_foto",
+      "prueba": "lotes.mjs::lote1",
+      "reflejo_publico": "variantes responsive de la portada",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-FOTOS",
+      "clave": "fotos",
+      "escribe": "foto_plato",
+      "prueba": "lotes.mjs::lote8",
+      "reflejo_publico": "ficha del plato",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-SOCIAL",
+      "clave": "social",
+      "escribe": "guardar_marca",
+      "prueba": "admin.mjs::marca",
+      "reflejo_publico": "iconos de redes",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-GAME",
+      "clave": "game",
+      "escribe": "guardar_juego",
+      "prueba": "admin.mjs::juego",
+      "reflejo_publico": "enlace al juego",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-REVIEW",
+      "clave": "review",
+      "escribe": "guardar_marca",
+      "prueba": "admin.mjs::marca",
+      "reflejo_publico": "boton de resenas",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-MARCA",
+      "clave": "marca",
+      "escribe": "guardar_marca",
+      "prueba": "admin.mjs::marca",
+      "reflejo_publico": "nombre, rotulo y color",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-PUBLICIDAD",
+      "clave": "publicidad",
+      "escribe": "guardar_publicidad/subir_banner/eliminar_banner",
+      "prueba": "admin.mjs::publicidad",
+      "reflejo_publico": "banner",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-ACTUALIZADO",
+      "clave": "actualizado",
+      "escribe": "cualquier guardado",
+      "prueba": "admin.mjs::persistencia",
+      "reflejo_publico": "ninguno",
+      "estado": "cubierto"
+    },
+    {
+      "id": "ST-THEME",
+      "clave": "theme",
+      "escribe": "no editable desde el panel hoy",
+      "prueba": "admin.mjs::persistencia",
+      "reflejo_publico": "paleta",
+      "estado": "cubierto"
+    }
+  ],
+  "paginas_publicas": [
+    {
+      "id": "PP-CARTA",
+      "ruta": "index.html",
+      "prueba": "carta.mjs::carga",
+      "esperado": "carga sin errores de consola ni peticiones fallidas",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-JUEGO",
+      "ruta": "juego.html",
+      "prueba": "carta.mjs::juego",
+      "esperado": "Chilli Rush carga; con el juego apagado es una lapida",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-404",
+      "ruta": "404.php",
+      "prueba": "carta.mjs::error404",
+      "esperado": "devuelve 404 y pinta la carta de error; su icono responde 200",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-FAVICON",
+      "ruta": "assets/titleIcon-accent.svg",
+      "prueba": "fast.mjs::favicon y carta.mjs::carga",
+      "esperado": "existe siempre y responde 200",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-IDIOMAS",
+      "ruta": "index.html (selector)",
+      "prueba": "carta.mjs::idiomas",
+      "esperado": "cambia titulo, platos, alergenos y nota fiscal",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-BUSCADOR",
+      "ruta": "index.html (#nav-search y FAB)",
+      "prueba": "carta.mjs::buscador",
+      "esperado": "filtra y ensena el precio canonico",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-FICHA",
+      "ruta": "index.html (.dsheet)",
+      "prueba": "carta.mjs::ficha",
+      "esperado": "abre, ensena alergenos y cierra con Escape",
+      "estado": "cubierto"
+    },
+    {
+      "id": "PP-ALERGENOS",
+      "ruta": "index.html (.alergeno por plato)",
+      "prueba": "carta.mjs::alergenos (CAR-09, CAR-10) y multicliente.mjs::MC-23",
+      "esperado": "cada plato con alergenos declarados pinta su etiqueta con aria-label; el que no los declara no pinta ninguna",
+      "estado": "no_aplica",
+      "motivo_no_aplica": "Tinge no declara alergenos por plato, asi que sobre Tinge no hay nada que medir. La funcionalidad del motor se prueba en MC-23, sobre un cliente nuevo que si los declara (nueve iconos en pantalla)."
+    }
+  ],
+  "nuevo_cliente": [
+    {
+      "id": "NC-DESTINO",
+      "comando": "--destino",
+      "prueba": "multicliente.mjs::alta",
+      "esperado": "crea el cliente con motor copiado, cliente.mjs propio y carta vacia marcada no publicable",
+      "entrada_invalida": "url que no contiene la carpeta -> aborta sin escribir",
+      "estado": "cubierto"
+    },
+    {
+      "id": "NC-DETECTAR",
+      "comando": "--detectar",
+      "prueba": "multicliente.mjs::contaminacion",
+      "esperado": "limpio en un cliente recien creado",
+      "entrada_invalida": "resto de Tinge -> falla",
+      "estado": "cubierto"
+    },
+    {
+      "id": "NC-BUILD",
+      "comando": "--build-local",
+      "prueba": "multicliente.mjs::build",
+      "esperado": "compila y borra el activacion.php temporal",
+      "entrada_invalida": "carta marcada no publicable -> aborta",
+      "estado": "cubierto"
+    },
+    {
+      "id": "NC-PUBLICAR",
+      "comando": "--publicar-github",
+      "prueba": "ninguna",
+      "esperado": "crea repositorio y secretos",
+      "estado": "blocked",
+      "motivo_blocked": "efecto remoto inevitable; la fase 17 prohibe cualquier operacion remota"
+    },
+    {
+      "id": "NC-CERRAR",
+      "comando": "--cerrar-activacion",
+      "prueba": "ninguna",
+      "esperado": "sustituye el secreto de activacion",
+      "estado": "blocked",
+      "motivo_blocked": "efecto remoto inevitable"
+    }
+  ],
+  "actualizacion_motor": [
+    {
+      "id": "UP-VALIDA",
+      "comando": "motor/actualizar.mjs --desde",
+      "prueba": "multicliente.mjs::actualizacion",
+      "esperado": "solo cambian motor/** y motor.lock",
+      "entrada_invalida": "arbol git sucio o lock que no cuadra -> aborta sin tocar nada",
+      "estado": "cubierto"
+    },
+    {
+      "id": "UP-DATOS",
+      "comando": "motor/actualizar.mjs",
+      "prueba": "multicliente.mjs::actualizacion",
+      "esperado": "configuracion, carta, estado, clave, imagenes, copias, registros y analitica intactos",
+      "estado": "cubierto"
+    },
+    {
+      "id": "UP-ROLLBACK",
+      "comando": "MOTOR_FALLO_PRUEBA",
+      "prueba": "multicliente.mjs::rollback",
+      "esperado": "un fallo a mitad deja el arbol byte a byte como estaba",
+      "estado": "cubierto"
+    },
+    {
+      "id": "UP-MIGRAR",
+      "comando": "motor/migrar.mjs",
+      "prueba": "MC-33",
+      "esperado": "salto de esquema de datos",
+      "estado": "blocked",
+      "motivo_blocked": "no hay hoy un motor con otro esquemaCarta contra el que migrar; se probara cuando exista"
+    }
+  ],
+  "defectos_abiertos": [
+    {
+      "id": "E3",
+      "titulo": "motor.lock de un cliente nuevo dice version 1.0.0",
+      "prueba": "conocidos.mjs::e3",
+      "sigue_abierto_si": "el lock de un cliente recien creado no declara la version del motor que copia",
+      "estado": "known open"
+    },
+    {
+      "id": "E4",
+      "titulo": "--detectar no revisa server/**",
+      "prueba": "conocidos.mjs::e4",
+      "sigue_abierto_si": "RUTAS_EN_PROYECTO no incluye server y quedan menciones a la carpeta de Tinge en comentarios",
+      "estado": "known open"
+    },
+    {
+      "id": "E5",
+      "titulo": "porcentaje de oferta fuera de rango se guarda con la oferta apagada",
+      "prueba": "conocidos.mjs::e5",
+      "sigue_abierto_si": "un POST sin oferta_on y con pct=950 deja 950 escrito en estado.offer.percent",
+      "estado": "known open"
+    }
+  ],
+  "campos_sin_accion": {
+    "descripcion": "Nombres que aparecen en el HTML del panel y no son acciones ni datos del estado: se listan para que el comprobador de cobertura no los reclame. MAX_FILE_SIZE es el campo estandar que PHP mira para cortar una subida antes de recibirla: no es una accion del panel.",
+    "claves": [
+      "csrf",
+      "viewport",
+      "google",
+      "MAX_FILE_SIZE"
+    ]
+  }
+}
