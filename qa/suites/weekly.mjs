@@ -51,7 +51,7 @@ function porSeccion(items) {
   return bloques;
 }
 
-export function escribirInforme(informe, { medidas, control, base, baselineComparable, regresiones, comparativa: comp, commitControl, duracionMs }) {
+export function escribirInforme(informe, { medidas, control, base, baselineComparable, regresiones, arbitradas = 0, comparativa: comp, commitControl, duracionMs }) {
   mkdirSync(DIR_INFORMES, { recursive: true });
   const v = versiones();
   const commit = commitActual();
@@ -167,6 +167,8 @@ ${regresiones && regresiones.length
 
 Tolerancias aplicadas: ${Object.entries(TOLERANCIAS).map(([k, x]) => k + ' ' + x).join(' · ')}.
 
+${arbitradas ? '**Arbitraje:** ' + arbitradas + ' perfil(es) mostraban contra la linea base guardada una diferencia SOLO de tiempos. La linea base se midio otro dia y los tiempos se mueven con la maquina, asi que manda la medida contemporanea del control, hecha hoy e intercalada. El delta historico sigue arriba, entero: no ha desaparecido, ha dejado de ser el gate. Peticiones, bytes, CLS y puntuaciones nunca se arbitran.' : 'Sin arbitrajes: la comparacion historica cuadra por si sola.'}
+
 ## Consola, red y PHP
 
 ${(() => {
@@ -200,7 +202,7 @@ export async function weekly({ commitControl = COMMIT_CONTROL } = {}) {
   const t0 = Date.now();
   const informe = new Informe('QA semanal (weekly)', 'weekly');
   let comp = null; let medidas = null; let control = null; let base = null;
-  let regresiones = []; let baselineComparable = false;
+  let regresiones = []; let baselineComparable = false; let arbitradas = 0;
   try {
     await full(informe);
 
@@ -214,9 +216,14 @@ export async function weekly({ commitControl = COMMIT_CONTROL } = {}) {
 
     base = leerBaseline();
     if (medidas) {
-      const g = gateBaseline(informe, { medidas, huellaCandidato: comp.candidato.huella, base });
+      /* La comparativa contemporanea acaba de correr, intercalada y en esta misma maquina: es el
+         arbitro natural de la comparacion historica. */
+      const g = gateBaseline(informe, {
+        medidas, huellaCandidato: comp.candidato.huella, base, arbitro: comp,
+      });
       baselineComparable = g.modo === 'comparado';
-      regresiones = regresiones.concat(g.regresiones);
+      regresiones = regresiones.concat(g.regresiones.filter((r) => !r.arbitrada));
+      arbitradas = g.arbitradas || 0;
     }
   } finally {
     cerrarTodos();
@@ -247,7 +254,7 @@ export async function weekly({ commitControl = COMMIT_CONTROL } = {}) {
   informe.aplicaPolitica();
 
   const ruta = escribirInforme(informe, {
-    medidas, control, base, baselineComparable, regresiones,
+    medidas, control, base, baselineComparable, regresiones, arbitradas,
     comparativa: comp, commitControl, duracionMs: Date.now() - t0,
   });
   return { informe, ruta };

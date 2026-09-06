@@ -1,26 +1,155 @@
 {
-  "nota": "Allowlist de bloqueos aprobados. SOLO estos identificadores pueden aparecer como BLOCKED sin romper la suite. Cualquier otro BLOCKED es un fallo de la bateria (Chrome ausente, PHP ausente, GD o mbstring no cargables, Lighthouse no ejecutable, servidor que no arranca, sesion no abierta, fixture ausente, permisos, timeout, baseline incompatible, commit de control no disponible) y devuelve codigo distinto de cero. Anadir una entrada aqui es una decision consciente y versionada, no un ajuste.",
+  "nota": "Allowlist de estados no bloqueantes. SOLO estos identificadores pueden aparecer como BLOCKED o como NO APLICA sin romper la suite. Cualquier otro es un fallo de la bateria (Chrome ausente, PHP ausente, GD o mbstring no cargables, Lighthouse no ejecutable, servidor que no arranca, sesion no abierta, fixture ausente, permisos, timeout, baseline incompatible, commit de control no disponible) y devuelve codigo distinto de cero. Anadir una entrada aqui es una decision consciente y versionada, no un ajuste.",
   "politica": {
-    "no_aprobado": "FAIL del gate",
-    "aprobado_ausente": "UNEXPECTED PASS: la lista se ha quedado atras y hay que revisarla",
-    "unexpected_pass_en_ci": "codigo distinto de cero"
+    "no_aprobado": "FAIL del gate, tanto si es BLOCKED como si es NO APLICA",
+    "aprobado_ausente": "UNEXPECTED PASS: la lista se ha quedado atras y hay que revisarla; no se exige a las entradas marcadas condicional",
+    "unexpected_pass_en_ci": "codigo distinto de cero",
+    "por_que_NO_APLICA_tambien_se_controla": "NO APLICA dice 'aqui no hay nada que medir'. Sin allowlist seria la via mas comoda para tapar un fallo: basta con declararlo inaplicable. Con allowlist, declarar algo inaplicable es una decision que se ve en el diff."
   },
   "aprobados": [
     {
       "id": "MC-32",
-      "cubre": ["NC-PUBLICAR", "NC-CERRAR"],
+      "cubre": [
+        "NC-PUBLICAR",
+        "NC-CERRAR"
+      ],
       "que": "--publicar-github y --cerrar-activacion del alta de clientes",
       "motivo": "efecto remoto inevitable: crean un repositorio y escriben Secrets. Ninguna fase ha autorizado una operacion remota.",
-      "suites": ["full", "weekly"],
+      "suites": [
+        "full",
+        "weekly"
+      ],
       "condicion_para_retirarlo": "una autorizacion expresa para operar contra GitHub desde la bateria"
     },
     {
       "id": "MC-33",
-      "cubre": ["UP-MIGRAR"],
+      "cubre": [
+        "UP-MIGRAR"
+      ],
       "que": "motor/migrar.mjs: salto de esquema de datos",
       "motivo": "hoy no existe un motor con otro esquemaCarta contra el que migrar; no hay nada que ejecutar.",
-      "suites": ["full", "weekly"],
+      "suites": [
+        "full",
+        "weekly"
+      ],
       "condicion_para_retirarlo": "que exista un motor con un esquemaCarta distinto"
+    }
+  ],
+  "no_aplica_aprobados": [
+    {
+      "id": "CAR-09",
+      "que": "alergenos por plato en la carta de Tinge",
+      "motivo": "Tinge no declara alergenos por plato, asi que sobre este cliente no hay nada que medir. La funcionalidad del motor SI se prueba, en MC-23, sobre un cliente nuevo que si los declara.",
+      "suites": [
+        "full",
+        "weekly"
+      ],
+      "condicional": false,
+      "condicion_para_retirarlo": "que Tinge declare alergenos por plato en su carta"
+    },
+    {
+      "id": "CAR-10",
+      "que": "plato sin alergenos en la carta de Tinge",
+      "motivo": "igual que CAR-09: sin alergenos declarados no hay caso negativo que comprobar aqui. Cubierto por MC-23.",
+      "suites": [
+        "full",
+        "weekly"
+      ],
+      "condicional": false,
+      "condicion_para_retirarlo": "que Tinge declare alergenos por plato en su carta"
+    },
+    {
+      "id": "FAST-13",
+      "que": "el 2-subir del repositorio no se ha tocado",
+      "motivo": "la carpeta de subida vive FUERA del repositorio, al lado de 1-proyecto. En un checkout limpio (CI, o un clon recien hecho) no existe, y comparar hashes de una carpeta ausente daria un PASS vacio que no comprueba nada.",
+      "suites": [
+        "fast",
+        "full",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "que la carpeta publicada forme parte del repositorio, cosa que no debe pasar"
+    },
+    {
+      "id": "FAST-19",
+      "que": "la carpeta publicada contra el manifiesto de salida",
+      "motivo": "mismo motivo que FAST-13: sin carpeta publicada no hay manifiesto publicado que comparar.",
+      "suites": [
+        "fast",
+        "full",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "que la carpeta publicada forme parte del repositorio"
+    },
+    {
+      "id": "FULL-93",
+      "que": "el 2-subir publicado no ha cambiado durante la bateria",
+      "motivo": "mismo motivo que FAST-13.",
+      "suites": [
+        "full",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "que la carpeta publicada forme parte del repositorio"
+    },
+    {
+      "id": "LH-HUELLA",
+      "que": "la linea base versionada como segundo gate",
+      "motivo": "la linea base se midio en un entorno concreto. Si la huella no coincide (otro sistema operativo, otro Chrome) no se compara, porque comparar tiempos entre maquinas distintas no es comparar. El gate obligatorio sigue siendo el control medido en el mismo runner.",
+      "suites": [
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "medir la linea base en el mismo entorno que la pasada"
+    },
+    {
+      "id": "LHB-CMP-carta-movil",
+      "que": "comparacion historica de carta-movil contra la linea base guardada",
+      "motivo": "la linea base se midio otro dia; entre aquel dia y hoy la maquina cambia de temperatura y de carga, y eso mueve los TIEMPOS sin que el producto cambie. Cuando la unica diferencia es de tiempos y existe una medida contemporanea del control —hecha hoy, intercalada, en esta misma maquina— manda esa. El delta historico se sigue enseñando entero: no desaparece, deja de ser el gate.",
+      "suites": [
+        "pagespeed",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "medir de nuevo la linea base en las condiciones de la pasada, con autorizacion expresa",
+      "limite": "solo metricas de tiempo (fcp, lcp, speedIndex, tbt). Peticiones, bytes, CLS y puntuaciones no se arbitran nunca."
+    },
+    {
+      "id": "LHB-CMP-carta-escritorio",
+      "que": "comparacion historica de carta-escritorio contra la linea base guardada",
+      "motivo": "la linea base se midio otro dia; entre aquel dia y hoy la maquina cambia de temperatura y de carga, y eso mueve los TIEMPOS sin que el producto cambie. Cuando la unica diferencia es de tiempos y existe una medida contemporanea del control —hecha hoy, intercalada, en esta misma maquina— manda esa. El delta historico se sigue enseñando entero: no desaparece, deja de ser el gate.",
+      "suites": [
+        "pagespeed",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "medir de nuevo la linea base en las condiciones de la pasada, con autorizacion expresa",
+      "limite": "solo metricas de tiempo (fcp, lcp, speedIndex, tbt). Peticiones, bytes, CLS y puntuaciones no se arbitran nunca."
+    },
+    {
+      "id": "LHB-CMP-admin-movil",
+      "que": "comparacion historica de admin-movil contra la linea base guardada",
+      "motivo": "la linea base se midio otro dia; entre aquel dia y hoy la maquina cambia de temperatura y de carga, y eso mueve los TIEMPOS sin que el producto cambie. Cuando la unica diferencia es de tiempos y existe una medida contemporanea del control —hecha hoy, intercalada, en esta misma maquina— manda esa. El delta historico se sigue enseñando entero: no desaparece, deja de ser el gate.",
+      "suites": [
+        "pagespeed",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "medir de nuevo la linea base en las condiciones de la pasada, con autorizacion expresa",
+      "limite": "solo metricas de tiempo (fcp, lcp, speedIndex, tbt). Peticiones, bytes, CLS y puntuaciones no se arbitran nunca."
+    },
+    {
+      "id": "LHB-CMP-admin-escritorio",
+      "que": "comparacion historica de admin-escritorio contra la linea base guardada",
+      "motivo": "la linea base se midio otro dia; entre aquel dia y hoy la maquina cambia de temperatura y de carga, y eso mueve los TIEMPOS sin que el producto cambie. Cuando la unica diferencia es de tiempos y existe una medida contemporanea del control —hecha hoy, intercalada, en esta misma maquina— manda esa. El delta historico se sigue enseñando entero: no desaparece, deja de ser el gate.",
+      "suites": [
+        "pagespeed",
+        "weekly"
+      ],
+      "condicional": true,
+      "condicion_para_retirarlo": "medir de nuevo la linea base en las condiciones de la pasada, con autorizacion expresa",
+      "limite": "solo metricas de tiempo (fcp, lcp, speedIndex, tbt). Peticiones, bytes, CLS y puntuaciones no se arbitran nunca."
     }
   ]
 }

@@ -11,6 +11,7 @@
  *
  * Al final se apaga todo y se comprueba que el repositorio esta igual que al empezar.
  */
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { Informe } from '../lib/informe.mjs';
 import {
@@ -22,7 +23,7 @@ import { abrir, cerrarTodos, capacidadesPhp } from '../lib/servidor.mjs';
 import { abrirNavegador, nuevaPagina } from '../lib/navegador.mjs';
 import { fabricarFixtures } from '../lib/fixtures.mjs';
 import { clonarTinge, compilar, docrootDesde, hashesDe, comparaHashes, CLAVE_QA } from '../lib/clientes.mjs';
-import { fast } from './fast.mjs';
+import { fast, MOTIVO_SIN_SALIDA } from './fast.mjs';
 import { pruebasAdmin, pruebasSuperadmin, entrarAlPanel } from './admin.mjs';
 import { pruebasResponsive } from './responsive.mjs';
 import { pruebasOscuro } from './oscuro.mjs';
@@ -215,9 +216,14 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
   const dr = comparaHashes(antesRepo, hashesDe(CLIENTE, (rel) => !rel.startsWith('qa/') && !rel.startsWith('.git/')));
   informe.comprueba('FULL-92', 'ningun fichero del producto ha cambiado durante la bateria',
     dr.iguales, `cambiados: ${dr.cambiados.join(', ')} | nuevos: ${dr.nuevos.join(', ')}`);
-  const ds = comparaHashes(antesSalida, hashesDe(SALIDA));
-  informe.comprueba('FULL-93', 'el 2-subir publicado no ha cambiado', ds.iguales,
-    `cambiados: ${ds.cambiados.join(', ')}`);
+  if (!existsSync(SALIDA)) {
+    informe.noAplica('FULL-93', 'el 2-subir publicado no ha cambiado', MOTIVO_SIN_SALIDA);
+  } else {
+    const despuesSalida = hashesDe(SALIDA);
+    const ds = comparaHashes(antesSalida, despuesSalida);
+    informe.comprueba('FULL-93', 'el 2-subir publicado no ha cambiado', ds.iguales,
+      `${Object.keys(despuesSalida).length} ficheros | cambiados: ${ds.cambiados.join(', ') || '(ninguno)'}`);
+  }
   const dc = correr('git', ['diff', '--check'], { cwd: CLIENTE });
   informe.comprueba('FULL-94', 'git diff --check sigue limpio', dc.ok && !dc.salida.trim(), dc.texto.trim());
 

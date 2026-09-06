@@ -132,21 +132,31 @@ export class Informe {
    * en esta suite y no aparecieron. Es una función pura: la usan la salida por consola, el informe
    * Markdown y las autopruebas, y las tres ven exactamente lo mismo. */
   politicaBlocked(lista = leerBlockedAprobados()) {
-    const aprobados = lista.aprobados || [];
-    const porId = new Map(aprobados.map((a) => [a.id, a]));
-    const vistos = this.items.filter((i) => i.estado === 'BLOCKED');
-    const idsVistos = new Set(vistos.map((i) => i.id));
-
-    const inesperados = vistos.filter((i) => !porId.has(i.id));
-    const esperadosAqui = this.suite
-      ? aprobados.filter((a) => Array.isArray(a.suites) && a.suites.includes(this.suite))
-      : [];
-    const ausentes = esperadosAqui.filter((a) => !idsVistos.has(a.id));
+    const mira = (estado, aprobados) => {
+      const porId = new Map(aprobados.map((a) => [a.id, a]));
+      const vistos = this.items.filter((i) => i.estado === estado);
+      const idsVistos = new Set(vistos.map((i) => i.id));
+      const esperadosAqui = this.suite
+        ? aprobados.filter((a) => Array.isArray(a.suites) && a.suites.includes(this.suite)
+          && a.condicional !== true)
+        : [];
+      return {
+        aprobadosVistos: vistos.filter((i) => porId.has(i.id)),
+        inesperados: vistos.filter((i) => !porId.has(i.id)),
+        ausentes: esperadosAqui.filter((a) => !idsVistos.has(a.id)),
+        total: vistos.length,
+      };
+    };
+    const b = mira('BLOCKED', lista.aprobados || []);
+    const n = mira('NO APLICA', lista.no_aplica_aprobados || []);
     return {
-      aprobadosVistos: vistos.filter((i) => porId.has(i.id)),
-      inesperados,
-      ausentes,
-      total: vistos.length,
+      ...b,
+      noAplica: n,
+      /* Lo que rompe el gate es la union: un NO APLICA que nadie aprobo es tan grave como un
+         BLOCKED que nadie aprobo. Declarar algo inaplicable es la forma mas comoda de tapar un
+         fallo, y por eso pasa por la misma puerta. */
+      inesperados: [...b.inesperados, ...n.inesperados],
+      ausentes: [...b.ausentes, ...n.ausentes],
     };
   }
 
@@ -158,15 +168,16 @@ export class Informe {
     if (this._politicaAplicada) return this._politicaAplicada;
     const p = this.politicaBlocked(lista);
     this.seccion('politica de bloqueos');
-    this.comprueba('POL-01', 'ningun BLOCKED fuera de la allowlist aprobada',
+    this.comprueba('POL-01', 'ningun BLOCKED ni NO APLICA fuera de la allowlist aprobada',
       p.inesperados.length === 0,
       p.inesperados.map((i) => `${i.id}: ${i.texto}${i.detalle ? ' — ' + i.detalle : ''}`).join(' | '));
     if (p.ausentes.length) {
-      this.unexpected('POL-02', 'un bloqueo aprobado ha dejado de aparecer: revisar la lista',
+      this.unexpected('POL-02', 'una excepcion aprobada ha dejado de aparecer: revisar la lista',
         p.ausentes.map((a) => a.id).join(', '));
     } else {
-      this.pass('POL-02', 'los bloqueos aprobados que tocaban en esta suite han aparecido',
-        p.aprobadosVistos.map((i) => i.id).join(', ') || '(ninguno esperado)');
+      this.pass('POL-02', 'las excepciones aprobadas que tocaban en esta suite han aparecido',
+        [...p.aprobadosVistos, ...p.noAplica.aprobadosVistos].map((i) => i.id).join(', ')
+          || '(ninguna esperada)');
     }
     this._politicaAplicada = p;
     return p;

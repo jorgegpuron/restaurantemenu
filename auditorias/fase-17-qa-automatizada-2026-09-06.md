@@ -1,19 +1,32 @@
 # Batería automática permanente de calidad
 
-**Documento consolidado · 6 de septiembre de 2026 · commit `54ed519` · rama `feature/publicidad-fechas`**
+**Documento consolidado · 6 de septiembre de 2026 · rama `feature/publicidad-fechas`**
+**Commit de control: `54ed519` · candidato medido: `d0bcdf2` con el árbol sucio (`d0bcdf2+dirty`)**
 
-Este informe sustituye por completo a las versiones anteriores (fases 17, 17.1 y 17.2). Lo que
-aquí se afirma es lo que está vigente hoy; lo que se corrigió por el camino está contado, como
-historia, en §20 — y sólo ahí.
+Este informe sustituye por completo a las versiones anteriores (fases 17, 17.1, 17.2, 17.3 y 17.4).
+Lo que aquí se afirma es lo que está vigente hoy; lo que se corrigió por el camino está contado,
+como historia, en §20 — y sólo ahí.
 
 > **Veredicto**
 >
-> **FASE 17 QA AUTOMATIZADA: APTO LOCAL**
-> **VALIDACIÓN GITHUB ACTIONS: PENDIENTE**
+> **FASE 17 QA AUTOMATIZADA: APTO LOCAL CON UN `FAIL` ABIERTO EN `comparativa`**
+> **VALIDACIÓN GITHUB ACTIONS: PENDIENTE DE UN RUN VERDE**
+>
+> Seis de las siete suites devuelven `0`. `comparativa` devuelve `1` por
+> `LHC-CMP-carta-escritorio`: 866 → 939 ms de LCP con **la misma carta byte a byte** en los dos
+> lados. Es ruido de medida de esta máquina contra una tolerancia relativa del 5 %, no una
+> regresión —§15 lo demuestra con los bytes, las peticiones y una medida del propio candidato en
+> 866 ms media hora antes—. No se ha tocado la tolerancia para taparlo.
 >
 > Todo lo que sigue se ha ejecutado en Windows 11 con Chrome 152.0.7977.82, PHP 8.4.24 y Node
-> v24.19.0. El workflow está escrito y comprobado por la propia batería, pero **no se ha disparado
-> nunca**: hacerlo es una operación remota y ninguna fase la ha autorizado.
+> v24.19.0. El workflow **sí se ha disparado** en GitHub Actions, dos veces, y las dos en rojo:
+> `34023665406` y `34024245556`. Las dos causas están identificadas y corregidas —§20— pero
+> **todavía no existe una ejecución verde en un runner real**, y hasta que exista el veredicto de
+> CI es ese y no otro.
+>
+> El candidato que se mide **no es el árbol limpio**: lleva la corrección del favicon del panel
+> (fase 17.3) y la infraestructura de QA de las fases 17.4 y 17.4.1. La única diferencia de
+> producto entre el control y el candidato es `admin/index.php`.
 
 ## 1. Qué es esto, y qué no
 
@@ -228,19 +241,88 @@ válido. No se sirve al navegador —devuelve cuerpo vacío— y se comprueba ap
 Resultado: dos montajes cualesquiera, incluso a un lado y otro de un cambio de minuto, dan el mismo
 `hashDocroot`, el mismo `hashEstado` y el mismo `hashCarta`.
 
-### Lo que se exige antes de medir
+### Lo que se exige antes de medir, y lo que puede cambiar
 
 `comparativa` monta **las dos** fixturas antes de medir ninguna. Exigir igualdad después de medir
 no serviría de nada: ya se habrían comparado dos páginas distintas.
 
+Lo que tiene que ser idéntico es **la fixtura y las condiciones de medida**. Lo que puede —y suele—
+cambiar es **el producto**: es lo que se está midiendo.
+
 | Id | Qué exige |
 |---|---|
-| `LHC-FIX-01` | control y candidato miden el mismo docroot, fichero a fichero |
-| `LHC-FIX-02` | coinciden `hashDocroot`, `hashEstado` y `hashCarta` |
-| `LHC-FIX-03` | el mismo número de ficheros en el docroot |
+| `LHC-FIX-01` | control y candidato comparten la misma **fixtura**, fichero a fichero |
+| `LHC-FIX-02` | coinciden el hash de la fixtura, el del estado sembrado y el podio |
+| `LHC-FIX-03` | el mismo número de ficheros **de la fixtura** |
 | `LHC-FIX-04` | portada, banner y banderas se llaman igual y pesan igual |
-| `LHC-FIX-05` | si algo de lo anterior falla, **no se mide**: se para |
+| `LHC-FIX-05` | si la fixtura no coincide, **no se mide**: se para |
+| `LHC-COND-01` | entorno, configuración de Lighthouse, viewports, PHP y Node idénticos |
 | `LHC-PET-*` | el mismo número de peticiones por perfil, antes de mirar un solo tiempo |
+
+Y dos que **registran** en vez de bloquear:
+
+| Id | Qué registra |
+|---|---|
+| `LHC-PROD-01` | qué ficheros del producto difieren entre control y candidato |
+| `LHC-REC-*` | qué recursos entran y salen, con su delta de bytes |
+
+`LHC-REC-*` sólo falla cuando el producto es **idéntico** y aun así los recursos cambian: eso sería
+una fixtura no determinista. Cuando el producto cambia, el cambio de recursos es la consecuencia
+esperada y se enseña con su delta.
+
+> **Por qué esto es así (corrección 17.4).** La primera versión de la guarda exigía que los dos
+> docroots fueran idénticos byte a byte. Funcionó mientras no hubo ningún cambio de producto que
+> medir, y bloqueó la comparación en cuanto lo hubo — es decir, se rompió exactamente el día en que
+> hacía falta. La medida es del cambio; la fixtura es lo que hay que congelar.
+>
+> **Y lo que quedó a medias (corrección 17.4.1).** La 17.4 separó los hashes pero dejó `LHC-FIX-03`
+> contando los ficheros del **docroot entero**. Con eso, un cambio de producto que sólo *modifique*
+> ficheros —el del favicon, por ejemplo— pasaba, y uno que *añada* o *retire* un fichero seguía
+> rompiendo la comparación con la fixtura intacta. Era la misma limitación, escondida detrás de una
+> comprobación que ese día cuadraba por casualidad. Hoy `LHC-FIX-03` cuenta sólo los ficheros de la
+> fixtura y enseña al lado, como evidencia, cuántos ficheros de producto tiene cada lado.
+
+La guarda entera vive en una función, `guardaDeFixtura()`, y por eso se puede ejercitar en seco:
+`SEM-12k`, `SEM-12l` y `SEM-12m` le pasan árboles fabricados y comprueban que añadir o retirar un
+fichero de producto deja medir —registrándolo—, y que añadir, retirar o modificar uno de la fixtura
+corta la comparación.
+
+### Medición intercalada
+
+Las cinco muestras de cada perfil se toman **alternando** control y candidato, no en dos bloques.
+Medir cinco del control y después cinco del candidato mete la deriva de la máquina —temperatura,
+carga, veinte minutos de diferencia— entera en el segundo. Intercaladas, la deriva le toca por
+igual a los dos.
+
+No es teórico: con medidas en bloque, la carta de escritorio del candidato salía 80 ms por encima
+del control de forma repetible, con los mismos bytes y las mismas peticiones. Intercalada, la
+diferencia desaparece y el control llega a salir el más lento de los dos.
+
+Si una muestra no llega a escribirse, se repone hasta reunir cinco válidas. El reintento cubre
+**sólo** el caso de que Lighthouse no produzca fichero; nunca se descarta una muestra por su valor.
+
+### Arbitraje de la comparación histórica
+
+La línea base guardada se midió otro día. Entre aquel día y hoy la máquina cambia de temperatura y
+de carga, y eso mueve los **tiempos** sin que el producto haya cambiado. Lo que no se mueve solo es
+el número de peticiones, los bytes, el CLS ni las puntuaciones.
+
+Por eso, cuando la diferencia contra la línea base es **sólo de tiempos** y existe una medida
+contemporánea del control —hecha hoy, intercalada, en esta misma máquina— que sale limpia, manda la
+contemporánea. El delta histórico **no desaparece**: se sigue enseñando entero, con su número y con
+la razón por la que no cuenta como gate.
+
+| Situación | Qué pasa |
+|---|---|
+| Sin diferencias | `LHB-CMP-*` en verde |
+| Diferencia sólo de tiempos, con árbitro limpio | `LHB-CMP-*` como `NO APLICA`, con el delta a la vista, y `LHB-ARB` explicando quién arbitra |
+| Diferencia sólo de tiempos, sin árbitro | **falla** |
+| Diferencia sólo de tiempos, con árbitro que a su vez tiene regresiones | **falla** |
+| Peticiones, bytes, CLS o puntuaciones | **falla siempre**: no se arbitran nunca |
+
+`pagespeed` paga la medida del control **sólo cuando hace falta**: si la única pega contra la línea
+base son tiempos, mide el control y arbitra; si hay bytes o peticiones de por medio, no gasta veinte
+minutos en algo que va a ser rojo lo mida quien lo mida.
 
 ## 8. Lighthouse: la regla, en un solo sitio
 
@@ -481,82 +563,129 @@ la arregla. Generada aquí, con su comentario al lado, se ve que la corrupción 
 
 ## 15. Resultados de la pasada de hoy
 
-Todo medido en esta máquina, sobre el commit `54ed519`, con el producto limpio.
+Las siete suites, seguidas, el 6 de septiembre de 2026 entre las 19:48 y las 20:23, en esta máquina.
+El control es el commit `54ed519`; el candidato es `d0bcdf2` con el árbol sucio —la corrección del
+favicon de la fase 17.3 más la infraestructura de QA de las fases 17.4 y 17.4.1—, identificado por
+su hash de producto `bfac5b6fa71d660f`.
 
 | Comando | PASS | FAIL | BLOCKED | NO APLICA | KNOWN OPEN | Duración | Salida |
 |---|---|---|---|---|---|---|---|
-| `fast` | 30 | 0 | 0 | 0 | 0 | 6,3 s | `0` |
-| `smoke` | 16 | 0 | 0 | 0 | 0 | 9,8 s | `0` |
-| `full` | 196 | 0 | 2 | 2 | 3 | 3,5 min | `0` |
-| `pagespeed` | 15 | 0 | 0 | 0 | 0 | 5,4 min | `0` |
-| `comparativa` | 34 | 0 | 0 | 0 | 0 | 10,5 min | `0` |
-| `weekly` | 235 | 0 | 2 | 2 | 3 | 14,0 min | `0` |
-| `autoprueba` | 43 | 0 | 0 | 0 | 0 | 19,5 s | `0` |
+| `fast` | 30 | 0 | 0 | 0 | 0 | 6,4 s | `0` |
+| `smoke` | 16 | 0 | 0 | 0 | 0 | 10,4 s | `0` |
+| `full` | 196 | 0 | 2 | 2 | 3 | 216,0 s | `0` |
+| `pagespeed` | 15 | 0 | 0 | 0 | 0 | 336,9 s | `0` |
+| `comparativa` | 34 | **1** | 0 | 0 | 0 | 638,9 s | **`1`** |
+| `weekly` | 236 | 0 | 2 | 2 | 3 | 839,8 s | `0` |
+| `autoprueba` | 61 | 0 | 0 | 0 | 0 | 20,8 s | `0` |
 
-Los dos BLOCKED son exactamente los dos de la allowlist. Los dos `NO APLICA` son los alérgenos de
-Tinge. Los tres `KNOWN OPEN` son E3, E4 y E5. **Ningún bloqueo inesperado en ninguna de las siete
-pasadas.**
+Los dos BLOCKED son exactamente los dos de la allowlist (`MC-32`, `MC-33`). Los dos `NO APLICA` son
+los alérgenos de Tinge (`CAR-09`, `CAR-10`). Los tres `KNOWN OPEN` son E3, E4 y E5. Ningún bloqueo
+inesperado en ninguna de las siete pasadas, y ningún `NO APLICA` nuevo.
+
+**`comparativa` está en rojo.** No por el producto: por el ruido de medida de esta máquina. El
+detalle, con sus números, está al final de esta sección.
 
 ### Identidad de lo medido
 
 ```
-control    54ed519 · producto 87592b7658833ec6   (limpio)
-candidato  54ed519 · producto 87592b7658833ec6   (limpio)
+control    54ed519            (árbol limpio, extraído con git archive)
+candidato  d0bcdf2+dirty      producto bfac5b6fa71d660f
+entorno    win32 x64 · Chrome 152.0.7977.82 · Lighthouse 13.4.1 · Node v24.19.0 · PHP 8.4.24
 ```
 
-El hash de producto cubre **124 ficheros** y excluye, por declaración: `.git/`, `qa/`,
-`auditorias/`, `.github/`, `.claude/`, `.gitignore`, `node_modules/`, `generado/`, `2-subir/` y
-`3-copias/`. Los cambios de esta fase están todos en esas exclusiones, y por eso el hash del
-producto es el mismo en los dos árboles: no se ha tocado el producto.
-
-### Igualdad exigida antes de medir
+### Lo que se exigió igual antes de medir
 
 | Id | Resultado |
 |---|---|
-| `LHC-FIX-01` | mismo docroot, fichero a fichero: sin diferencias |
-| `LHC-FIX-02` | `docroot df030e9f418f` en los dos; `estado 0d5006c2913c` en los dos |
-| `LHC-FIX-03` | 76 ficheros en los dos |
+| `LHC-FIX-01` | fixtura idéntica fichero a fichero: sin diferencias |
+| `LHC-FIX-02` | `fixtura ced6b1cc3137` y `estado 0d5006c2913c` en los dos |
+| `LHC-FIX-03` | **14 ficheros de fixtura en los dos**; 62 ficheros de producto en cada lado |
 | `LHC-FIX-04` | portada, banner y banderas con el mismo nombre y el mismo peso |
-| `LHC-PET-*` | 13, 12, 11 y 11 peticiones en los dos |
-| `LHC-HUELLA` | mismo entorno por construcción |
+| `LHC-COND-01` | mismo entorno, misma configuración de Lighthouse, mismos viewports |
+| `LHC-PET-*` | 13, 12, 11 y 11 peticiones, iguales en los dos |
 
-### Control contra candidato
+### Lo que se dejó cambiar, y quedó registrado
 
-| Perfil | Control | Candidato | Bytes locales | Bytes externos |
-|---|---|---|---|---|
-| carta móvil | perf 71 · lcp 4877 · cls 0,018 · 13 pet. | perf 71 · lcp 4877 · cls 0,018 · 13 pet. | 874.138 = 874.138 | 129.740 / 129.741 |
-| carta escritorio | perf 99 · lcp 867 · cls 0,006 · 12 pet. | perf 99 · lcp 866 · cls 0,006 · 12 pet. | 790.969 = 790.969 | 129.740 / 129.741 |
-| panel móvil | perf 56 · lcp 13.305 · cls 0,000 · 11 pet. | perf 56 · lcp 13.301 · cls 0,000 · 11 pet. | 2.257.052 = 2.257.052 | 152.549 / 152.551 |
-| panel escritorio | perf 90 · lcp 1.661 · cls 0,028 · 11 pet. | perf 90 · lcp 1.639 · cls 0,028 · 11 pet. | 2.257.052 = 2.257.052 | 152.526 / 152.549 |
+| Id | Evidencia |
+|---|---|
+| `LHC-PROD-01` | **1 fichero modificado: `admin/index.php`** |
+| `LHC-REC-carta-movil` | mismos recursos · bytes 1.003.236 → 1.003.882 (+646, todo de la CDN de fuentes) |
+| `LHC-REC-carta-escritorio` | mismos recursos · bytes 920.710 → 920.710 (+0) |
+| `LHC-REC-admin-movil` | sale `/favicon.ico` (752.417 B), entra `/assets/titleIcon-accent.svg` (2.444 B) · **2.409.291 → 1.658.747 B (−750.544)** |
+| `LHC-REC-admin-escritorio` | lo mismo · **2.409.267 → 1.659.372 B (−749.895)** |
 
-**Los bytes locales coinciden exactamente en los cuatro perfiles**, que es lo que el gate de
-tolerancia cero exige. Los externos varían en 1 y en 23 bytes, todo de `fonts.gstatic.com`, y por
-eso no entran en el gate. Los manifiestos de recursos son idénticos en los cuatro perfiles: ni uno
-de más ni uno de menos.
+Los 752 KB que sale a deber `/favicon.ico` no son un icono: son el `index.html` de la carta, que
+`php -S` sirve con `200` cuando le piden un fichero que no existe en la raíz del docroot. En un
+Apache de verdad eso es un `404`. En los dos casos el navegador se traía una página entera para
+pintar el icono de una pestaña, y ese es el defecto que corrigió la fase 17.3 declarando el SVG que
+el motor ya generaba: **el panel pide ahora 750 KB menos**.
 
-### La línea base, antes y después
+### Control contra candidato — medianas de 5 muestras intercaladas
 
-Se regeneró **una sola vez** y por un motivo concreto: la fixtura canonicalizada cambia los nombres
-de los ficheros subidos y el sello del build, así que la línea base anterior ya no era del mismo
-contenido. Las tolerancias **no se han tocado**.
-
-| Perfil | Antes | Después | Qué cambió |
+| Perfil | Control `54ed519` | Candidato `d0bcdf2+dirty` | Bytes locales |
 |---|---|---|---|
-| carta móvil | perf 71 · cls 0,018 · 13 pet. · 980 KB | perf 71 · cls 0,018 · 13 pet. · 874.138 B locales | mismas métricas; ahora hay bytes exactos |
-| carta escritorio | perf 98 · cls 0,006 · 12 pet. · 899 KB | perf 99 · cls 0,006 · 12 pet. · 790.969 B | +1 punto, dentro del ruido |
-| panel móvil | perf 56 · cls 0,000 · 11 pet. · 2.353 KB | perf 56 · cls 0,000 · 11 pet. · 2.257.052 B | mismas métricas |
-| panel escritorio | perf 90 · cls 0,028 · 11 pet. · 2.353 KB | perf 90 · cls 0,028 · 11 pet. · 2.257.052 B | mismas métricas |
+| carta móvil | perf 71 · lcp 4.877 · cls 0,018 · 13 pet. | perf 71 · lcp 4.877 · cls 0,018 · 13 pet. | 874.138 = 874.138 |
+| carta escritorio | perf 99 · lcp **866** · cls 0,006 · 12 pet. | perf 98 · lcp **939** · cls 0,006 · 12 pet. | 790.969 = 790.969 |
+| panel móvil | perf 56 · lcp 13.385 · cls 0,000 · 11 pet. | perf 56 · lcp 9.820 · cls 0,000 · 11 pet. | 2.256.742 → 1.506.846 |
+| panel escritorio | perf 89 · lcp 1.692 · cls 0,028 · 11 pet. | perf 89 · lcp 1.693 · cls 0,028 · 11 pet. | 2.256.742 → 1.506.846 |
 
-Ninguna puntuación empeora y ningún recurso cambia. Lo que se gana es que la línea base guarda ahora
-bytes exactos, separados en locales y externos, los manifiestos de recursos, la huella del entorno y
-la identidad del árbol medido.
+El panel móvil baja de 13.385 a 9.820 ms de LCP y de 2,26 a 1,51 MB locales. Es el mismo cambio de
+una línea, visto desde el otro lado.
+
+### La línea base: sin tocar, y sin necesidad de arbitraje
+
+`qa/baseline/lighthouse.json` **no se ha modificado** en las fases 17.4 ni 17.4.1 —hash
+`4c1f9fc6…` antes y después— y **las tolerancias tampoco**. En esta pasada no hizo falta arbitrar
+nada: `LH-HUELLA` reconoce el entorno y los cuatro `LHB-CMP-*` pasan contra la línea base guardada,
+tanto en `pagespeed` como en `weekly`. El informe semanal lo dice con esas palabras: «Sin
+arbitrajes: la comparacion historica cuadra por si sola.»
+
+### El `FAIL` de `comparativa`
+
+```
+FAIL  LHC-CMP-carta-escritorio  carta-escritorio dentro de las tolerancias
+      lcp: 866 -> 939 ms (+8.4 %)          tolerancia: +5 %
+```
+
+**No puede ser una regresión del producto.** La carta es byte a byte la misma en los dos árboles: la
+única diferencia de producto es `admin/index.php`, que es el panel y no interviene en la carta.
+`LHC-REC-carta-escritorio` lo confirma recurso a recurso: los mismos ficheros y **920.710 → 920.710
+bytes, +0**. Doce peticiones en los dos. El CLS, idéntico. Lo único que se mueve es un tiempo.
+
+Y se mueve dentro de la misma sesión: media hora antes, `pagespeed` midió **ese mismo árbol
+candidato** en carta-escritorio y le salió una mediana de **866 ms** —exactamente la del control—.
+El mismo código, la misma fixtura, la misma máquina, 866 y 939 con treinta minutos de diferencia.
+
+El histórico apunta a lo mismo, con el signo cambiando de lado:
+
+| Pasada | Control | Candidato | Diferencia |
+|---|---|---|---|
+| 17.4, primera | 948 ms | 866 ms | el **candidato** 82 ms más rápido |
+| 17.4, segunda | 866 ms | 866 ms | ninguna |
+| 17.4.1 (ésta) | 866 ms | 939 ms | el **candidato** 73 ms más lento |
+
+La causa es aritmética: el 5 % de 866 ms son **43 ms**, y la dispersión de esta máquina entre
+pasadas de la misma página es de **70–80 ms**. La mediana de cinco muestras intercaladas amortigua
+la deriva lenta —por eso el panel, el perfil móvil y los bytes salen estables— pero no baja el ruido
+por debajo de una tolerancia relativa tan estrecha en el perfil más rápido de los cuatro.
+
+Clasificación: **supuesto local incorrecto de la batería**, no regresión del producto ni
+incompatibilidad de entorno.
+
+**No se ha tocado nada para ponerlo verde.** La fase 17.4.1 prohíbe expresamente cambiar
+tolerancias, descartar muestras y repetir hasta que salga bien, y ninguna de las tres cosas se ha
+hecho. Lo que haría falta —darle a las métricas de tiempo un suelo absoluto además del porcentaje,
+o subir el número de muestras del perfil rápido— es un cambio de gate y necesita autorización
+expresa. Queda anotado en §22.
 
 ### El informe semanal
 
 `qa/informes/auditoria-semanal-2026-09-06.md`. Sus totales salen del mismo objeto que imprime la
-consola: **235 PASS · 0 FAIL · 2 BLOCKED · 2 NO APLICA · 3 KNOWN OPEN**, y el total de la tabla es
-la suma. La política de bloqueos y el cierre se anotan **antes** de escribir el fichero, así que no
-puede haber dos números distintos.
+consola: **236 PASS · 0 FAIL · 2 BLOCKED · 2 NO APLICA · 3 KNOWN OPEN · 243 en total**, y el total
+de la tabla es la suma. La política de bloqueos y el cierre se anotan **antes** de escribir el
+fichero, así que no puede haber dos números distintos. `weekly` no ejecuta la comparativa
+intercalada contra el control —eso es `comparativa`, y son otros diez minutos—, así que su verde no
+contradice el rojo de arriba: son dos gates distintos, y los dos están en este informe.
 
 ## 16. La prueba de la prueba: fallos sembrados
 
@@ -578,7 +707,27 @@ exactamente la clase de cosa que se queda puesta.
 | 8 | sin Chrome, sin PHP, línea base de otro entorno | `SEM-8a` … `SEM-8d` |
 | 9 | **un solo byte de más** | `SEM-9a` … `SEM-9f` |
 | 10 | **las cuatro situaciones de entorno, y con `CI=true`** | `SEM-10a` … `SEM-10e` |
+| 11 | de dónde sale el nombre de la carpeta del cliente | `SEM-11` |
+| 12 | **cuándo se puede medir y cuándo no**: fixtura, producto y arbitraje | `SEM-12a` … `SEM-12m` |
 | — | el repositorio original no quedó tocado | `SEM-90` |
+
+La familia 12 es la de las fases 17.4 y 17.4.1, y merece el detalle:
+
+| Id | Qué demuestra |
+|---|---|
+| `SEM-12a` | una diferencia de producto deja medir y queda como evidencia |
+| `SEM-12b` | una fixtura distinta bloquea la comparación |
+| `SEM-12c` | entorno, configuración, viewports, PHP o fixtura distintos impiden comparar |
+| `SEM-12d` | un byte de más **no** se arbitra: sigue siendo rojo |
+| `SEM-12e` | una diferencia sólo de tiempos se arbitra sin ocultar el delta |
+| `SEM-12f` | sin medida contemporánea, la diferencia de tiempos **no** se arbitra |
+| `SEM-12g` | un árbitro con regresiones propias no sirve de árbitro |
+| `SEM-12h` | una mejora y una medida idéntica no producen regresión |
+| `SEM-12j` | la diferencia de recursos se calcula con su delta de bytes |
+| `SEM-12k` | **añadir** un fichero de producto deja medir y queda registrado |
+| `SEM-12l` | **retirar** un fichero de producto deja medir y queda registrado |
+| `SEM-12m` | añadir, retirar o modificar un fichero de la **fixtura** bloquea la comparación |
+| `SEM-12i` | la línea base no se ha modificado durante la autoprueba |
 
 Dos de ellas merecen el detalle.
 
@@ -651,8 +800,10 @@ Un `KNOWN OPEN` no cuenta como cobertura y no cambia el código de salida en loc
 
 Lo que la batería **no** puede comprobar hoy, dicho y no escondido:
 
-- **La validación en GitHub Actions está pendiente.** Nada se ha ejecutado en un runner real:
-  disparar el workflow es una operación remota y no está autorizada.
+- **La validación en GitHub Actions está pendiente de un run verde.** El workflow se ha ejecutado
+  ya en un runner real —`34023665406` y `34024245556`, los dos en rojo— y las dos causas están
+  corregidas, pero **ninguna ejecución posterior está autorizada todavía**, así que a día de hoy no
+  existe una pasada verde en Linux.
 - **Apache de verdad.** `php -S` ignora `.htaccess`, así que `deflate`, HSTS, `ErrorDocument` y la
   regla de `record.json` no se ejercitan.
 - **Un punto ciego del servidor de pruebas.** `php -S`, cuando no encuentra un fichero, sube por el
@@ -699,6 +850,20 @@ uno de estos fallos explica por qué la batería está hecha como está.
    errores.
 10. **El nombre de una foto subida no es determinista**: el panel usa 16 hexadecimales que no
     derivan del contenido, así que dos montajes pedían URLs distintas para el mismo fichero.
+11. **`clonarTinge()` daba por hecho el nombre de la carpeta del cliente.** En este ordenador la
+    carpeta se llama como el cliente; en el checkout de GitHub Actions se llama `restaurantemenu`,
+    que es el nombre del repositorio. El run **`34023665406`** murió por eso. Ahora el nombre se
+    deriva del contrato del motor —la URL pública declarada en `cliente.mjs`— y `SEM-11` lo
+    comprueba con bases de cliente distintas y sin nombres escritos a mano.
+12. **La comparación exigía dos docroots idénticos byte a byte.** El run **`34024245556`** destapó
+    el 404 real del favicon del panel (`SMK-06`), y al corregirlo —fase 17.3, una línea declarando
+    el SVG que el motor ya genera— la comparativa se bloqueó a sí misma: el producto había
+    cambiado, que es exactamente para lo que existe. La fase 17.4 separó la huella en fixtura y
+    producto.
+13. **`LHC-FIX-03` seguía contando el docroot entero.** La 17.4 arregló los hashes y se dejó el
+    recuento sin tocar, así que la limitación seguía viva para cualquier cambio de producto que
+    añada o retire un fichero; ese día no se vio porque el cambio del favicon sólo modificaba uno.
+    Corregido en la 17.4.1, con `SEM-12k`, `SEM-12l` y `SEM-12m` cubriendo los tres casos.
 
 ### Afirmaciones que estuvieron en informes anteriores y hoy son falsas
 
@@ -710,8 +875,12 @@ uno de estos fallos explica por qué la batería está hecha como está.
 | «en pull request corre `fast`» | **corren `fast` y `smoke`.** El encargo pedía pruebas funcionales y el workflow se había quedado sólo con las estáticas |
 | «línea base de 11/11/7/7 peticiones» | **13/12/11/11**, las mismas de la referencia anterior. Aquella línea base se midió sobre el estado de ejemplo: sin portada, sin banner y con el marcador vacío |
 | «sólo un `FAIL` cambia el código de salida» | **también lo cambia un BLOCKED que nadie aprobó**, y en CI un `UNEXPECTED PASS` |
-| «cinco fallos sembrados» | **diez familias**, con 43 comprobaciones |
-| «FASE 17 QA AUTOMATIZADA: APTO» | **APTO LOCAL**, con la validación en GitHub Actions pendiente |
+| «cinco fallos sembrados» | **doce familias**; el número de comprobaciones está en §15 |
+| «FASE 17 QA AUTOMATIZADA: APTO» | **APTO LOCAL con un `FAIL` abierto en `comparativa`**, y la validación en GitHub Actions pendiente de un run verde |
+| «el workflow no se ha disparado nunca» | **se ha disparado dos veces**, `34023665406` y `34024245556`, las dos en rojo. Lo que no existe todavía es un run verde |
+| «control y candidato miden el mismo producto» | **ya no.** El candidato lleva la corrección del favicon: la diferencia de producto es `admin/index.php`, y está declarada en `LHC-PROD-01` |
+| «`LHC-FIX-03`: el mismo número de ficheros en el docroot» | **el mismo número de ficheros de la fixtura.** El recuento del docroot entero volvía a prohibir lo que la 17.4 acababa de permitir |
+| «la carpeta publicada conserva su hash» (en el sentido de que nada cambió nunca) | **la carpeta publicada no cambió durante las fases 17.4 y 17.4.1**, y sus 64 ficheros siguen ahí; pero no es byte a byte la de antes de la corrección del favicon, porque `admin/index.php` sí cambió en la 17.3 |
 | «tolerancia de bytes: 0» comparando kilobytes | **enteros exactos.** Comparar `Math.round(bytes/1024)` con tolerancia cero dejaba pasar hasta 511 bytes de diferencia |
 
 ### El caso del byte que faltaba
@@ -757,8 +926,13 @@ Tres cosas que conviene saber:
 
 ## 22. Lo que queda para otra fase
 
-- Ejecutar el workflow en GitHub Actions y convertir el veredicto de CI en algo distinto de
-  «pendiente».
+- **Conseguir un run verde en GitHub Actions.** El workflow ya se ha ejecutado dos veces y las dos
+  causas están corregidas en el árbol; falta la autorización para volver a dispararlo.
+- **Que el gate de tiempos aguante el perfil rápido.** El 5 % de la carta de escritorio son 43 ms y
+  esta máquina se mueve 70–80 ms entre pasadas de la misma página. Las salidas posibles son un
+  suelo absoluto además del porcentaje, más muestras en ese perfil, o declarar que las métricas de
+  tiempo del control se arbitran igual que las de la línea base. Las tres cambian el gate y ninguna
+  está autorizada: hoy el `FAIL` de `LHC-CMP-carta-escritorio` se queda a la vista.
 - Cubrir Apache de verdad exigiría un contenedor con Apache y `mod_rewrite`.
 - Confirmar `ext-gd` en el hosting real.
 - Retirar `admin/temas.json` de la carpeta publicada, que es un cambio del producto.
@@ -768,22 +942,30 @@ Tres cosas que conviene saber:
 
 ## 23. Veredicto
 
-Nada del producto ha cambiado: los 64 ficheros publicados conservan su hash, el hash del producto es
-el mismo en el control y en el candidato, `git diff --check` sale limpio y el árbol sólo tiene
-añadidos de infraestructura de pruebas.
+Del producto ha cambiado **una sola cosa**, autorizada en la fase 17.3: `admin/index.php` declara el
+icono de pestaña que el motor ya generaba. No hay ningún otro cambio de producto, `git diff --check`
+sale limpio y todo lo demás del árbol es infraestructura de pruebas. La carpeta publicada sigue con
+sus 64 ficheros y **no cambió durante las fases 17.4 ni 17.4.1**.
 
-Las siete suites corren en verde y devuelven `0`. La cobertura de la superficie inventariada es
-completa: 123 elementos con prueba ejecutable, 3 BLOCKED aprobados con su motivo y 1 NO APLICA
-cubierto en otro sitio. Los diez tipos de fallo sembrado se detectan y se retiran. Los tres defectos
-abiertos por orden expresa siguen abiertos y vigilados.
+Seis de las siete suites corren en verde y devuelven `0`; `comparativa` devuelve `1` por un tiempo
+que se mueve con la página idéntica en los dos lados —§15, con los números—. La cobertura de la
+superficie inventariada es completa: 123 elementos con prueba ejecutable, 3 BLOCKED aprobados con su
+motivo y 1 NO APLICA cubierto en otro sitio. Las doce familias de fallo sembrado se detectan y se
+retiran. Los tres defectos abiertos por orden expresa siguen abiertos y vigilados. La línea base y
+las tolerancias **no se han tocado** en las fases 17.4 ni 17.4.1.
 
-**FASE 17 QA AUTOMATIZADA: APTO LOCAL**
-**VALIDACIÓN GITHUB ACTIONS: PENDIENTE**
+**FASE 17 QA AUTOMATIZADA: APTO LOCAL CON UN `FAIL` ABIERTO EN `comparativa`**
+**VALIDACIÓN GITHUB ACTIONS: PENDIENTE DE UN RUN VERDE**
 
-El segundo renglón no es una formalidad. El workflow está escrito, revisado y comprobado por la
-propia batería, pero **no se ha ejecutado nunca en GitHub Actions**, porque hacerlo es una operación
-remota y ninguna fase la ha autorizado. Hasta que exista una ejecución real en verde, el veredicto
-de CI es pendiente y no otra cosa.
+El primer renglón se queda como está a propósito. El `FAIL` es de la batería, no del producto, y
+arreglarlo pide un cambio de gate —un suelo absoluto en las métricas de tiempo, o más muestras en el
+perfil rápido— que ninguna fase ha autorizado. Bajar el listón para que salga verde sería
+exactamente lo que §21 prohíbe.
+
+El segundo renglón tampoco es una formalidad. El workflow se ha ejecutado dos veces en GitHub Actions,
+`34023665406` y `34024245556`, y las dos veces en rojo; las dos causas están identificadas y
+corregidas en el árbol. Lo que falta es la autorización para volver a dispararlo. Hasta que exista
+una ejecución real en verde, el veredicto de CI es ese y no otra cosa.
 
 Ninguna de estas fases autoriza commit, push, PR, merge, workflow remoto, despliegue, FTP ni
 escritura en producción, y ninguna de esas operaciones se ha ejecutado.

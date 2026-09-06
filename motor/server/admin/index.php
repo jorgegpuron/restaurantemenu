@@ -3053,6 +3053,11 @@ $CUENTAS = [
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>La carta de hoy — <?= h(CLIENTE_NOMBRE) ?></title>
+<?php /* El icono de pestaña. Sin esta línea el navegador pide /favicon.ico por su cuenta y se lleva
+         un 404: la carta sí declaraba el suyo y el panel no. Es el mismo SVG que ya genera el build
+         con el color del cliente, así que no hay icono nuevo que mantener ni fichero que duplicar.
+         La ruta relativa vale igual desde /admin/ que desde /admin/index.php. */ ?>
+<link rel="icon" type="image/svg+xml" href="../assets/titleIcon-accent.svg">
 <?php /* Las mismas dos tipografías que la carta, escritas por el build. */ ?>
 <?php @include __DIR__ . '/fuentes.html'; ?>
 <?php /* La tipografia del PANEL, que no es la de la carta. Bricolage y Source Serif tienen

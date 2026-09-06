@@ -41,20 +41,43 @@ const RE_BASE = /\bbase:\s*['"]([^'"]+)['"]/;
  * Se saca del contrato, que es lo único que viaja con el cliente: los segmentos de la ruta de
  * `CLIENTE.base`. Si el nombre de la carpeta local es uno de ellos, se respeta —así en local no
  * cambia nada—; si no, se usa el primer segmento, que es lo que el motor va a exigir. */
+export const CARPETA_POR_DEFECTO = 'cliente-qa';
+
+/* Un nombre de carpeta y nada más: ni `.`, ni `..`, ni barras, ni unidades de Windows, ni nada que
+   pueda sacar el clon del temporal donde tiene que vivir. Lo que sale de aquí se concatena a una
+   ruta, así que se filtra aquí y no se confía en quien llame. */
+export function esNombreDeCarpetaSeguro(nombre) {
+  return typeof nombre === 'string'
+    && nombre.length > 0 && nombre.length <= 64
+    && nombre !== '.' && nombre !== '..'
+    && !/[/\\]/.test(nombre)
+    && !/^[A-Za-z]:/.test(nombre)
+    && !/^[.\s]|[.\s]$/.test(nombre)
+    && /^[A-Za-z0-9._-]+$/.test(nombre);
+}
+
 export function carpetaDelCliente(proyecto = CLIENTE) {
-  const local = path.basename(path.dirname(proyecto));
+  const localCrudo = path.basename(path.dirname(proyecto));
+  const local = esNombreDeCarpetaSeguro(localCrudo) ? localCrudo : CARPETA_POR_DEFECTO;
   let base = '';
   try {
     const texto = readFileSync(path.join(proyecto, 'cliente.mjs'), 'utf8');
     base = (RE_BASE.exec(texto) || [])[1] || '';
   } catch { /* sin cliente.mjs no hay contrato que respetar */ }
   if (!base) return local;
+
   let segmentos = [];
   try {
-    segmentos = new URL(base).pathname.split('/').filter(Boolean);
+    segmentos = new URL(base).pathname.split('/');
   } catch {
-    segmentos = base.split('/').filter(Boolean);
+    segmentos = String(base).replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split('/');
   }
+  /* Sólo segmentos que ya son un nombre de carpeta válido. Un `..` o un segmento con caracteres
+     raros en la URL del cliente no puede convertirse en una ruta de escritura. */
+  segmentos = segmentos.map((s) => {
+    try { return decodeURIComponent(s); } catch { return s; }
+  }).filter(esNombreDeCarpetaSeguro);
+
   if (!segmentos.length) return local;
   return segmentos.includes(local) ? local : segmentos[0];
 }

@@ -22,7 +22,7 @@ import path from 'node:path';
 import { abrir } from './servidor.mjs';
 import { docrootDesde, CLAVE_QA } from './clientes.mjs';
 import { fabricarFixtures } from './fixtures.mjs';
-import { carpetaTemporal, versiones } from './entorno.mjs';
+import { QA, carpetaTemporal, versiones } from './entorno.mjs';
 
 /* Un agente normal: `record.php` rechaza por User-Agent lo que huela a robot, y con el agente por
    defecto de Node la fixtura se quedaría sin podio sin decir por qué. */
@@ -194,7 +194,10 @@ export async function montarFixtura(salida) {
   const huella = {
     pasos,
     hashDocroot: docHuella.hash,
+    hashFixtura: docHuella.fixtura.hash,
+    hashProductoServido: docHuella.producto.hash,
     ficherosDocroot: docHuella.ficheros,
+    ficherosFixtura: docHuella.fixtura.ficheros,
     hashCarta: sha(readFileSync(carta)),
     hashEstado: sha(readFileSync(estado)),
     hashBuildSinSellos: hashBuildSinSellos(salida),
@@ -346,17 +349,51 @@ export function canonicalizaDocroot(raiz) {
 /* La huella del docroot ya canonicalizado: hash por fichero y hash del conjunto. Con esto, exigir
    que el control y el candidato midan exactamente lo mismo deja de ser una declaración de
    intenciones y pasa a ser una comprobación que nombra el fichero culpable. */
+/* Los ficheros que produce el BUILD, leidos del manifiesto aprobado. Todo lo demas que haya en el
+   docroot lo ha puesto la fixtura: el estado, las fotos subidas, el marcador y los registros. */
+function ficherosDelProducto() {
+  try {
+    const m = JSON.parse(readFileSync(path.join(QA, 'manifiesto-build.json'), 'utf8'));
+    return new Set([
+      ...(m.ficheros_obligatorios || []),
+      ...(m.opcionales || []).map((o) => o.ruta || o),
+      ...(m.obsoletos_tolerados_en_la_carpeta_publicada || []).map((o) => o.ruta || o),
+    ]);
+  } catch {
+    return new Set();
+  }
+}
+
+/* La huella del docroot, separada en dos.
+ *
+ * Por que separada (fase 17.4): exigir que el control y el candidato tuvieran docroots identicos
+ * byte a byte tenia sentido mientras el producto no cambiaba, y dejo de tenerlo en cuanto hubo un
+ * cambio de producto que medir, que es justo para lo que existe la comparacion. Lo que tiene que
+ * ser identico es la FIXTURA: el estado sembrado, las fotos, el marcador y los registros. Las
+ * diferencias del PRODUCTO son la razon de medir y se registran como evidencia. */
 export function huellaDocroot(raiz) {
   const fuera = new Set(FUERA_DE_LA_HUELLA.map((x) => x.ruta));
+  const delProducto = ficherosDelProducto();
   const porFichero = {};
+  const producto = {};
+  const fixtura = {};
   const partes = [];
   for (const f of ficherosDe(raiz)) {
     if (fuera.has(f.rel)) continue;
     const h = sha(readFileSync(f.abs));
     porFichero[f.rel] = h;
+    (delProducto.has(f.rel) ? producto : fixtura)[f.rel] = h;
     partes.push(f.rel + ':' + h);
   }
-  return { hash: sha(Buffer.from(partes.join('\n'), 'utf8')), porFichero, ficheros: partes.length };
+  const hashDe = (o) => sha(Buffer.from(
+    Object.keys(o).sort().map((k) => k + ':' + o[k]).join(String.fromCharCode(10)), 'utf8'));
+  return {
+    hash: sha(Buffer.from(partes.join(String.fromCharCode(10)), 'utf8')),
+    porFichero,
+    ficheros: partes.length,
+    producto: { porFichero: producto, hash: hashDe(producto), ficheros: Object.keys(producto).length },
+    fixtura: { porFichero: fixtura, hash: hashDe(fixtura), ficheros: Object.keys(fixtura).length },
+  };
 }
 
 /* Qué ficheros difieren entre dos huellas de docroot, dicho con nombre y apellidos. */
@@ -370,4 +407,43 @@ export function diferenciaDocroots(a, b) {
     else if (x !== y) distintos.push(k);
   }
   return { soloA, soloB, distintos, iguales: !soloA.length && !soloB.length && !distintos.length };
+}
+
+/* Diferencias entre dos docroots, separando lo que tiene que ser igual de lo que puede cambiar.
+ * `fixtura` es el veredicto: si no coincide, no se mide. `producto` es la evidencia: se enseña. */
+export function comparaDocroots(a, b) {
+  const dif = (x = {}, y = {}) => {
+    const claves = new Set([...Object.keys(x), ...Object.keys(y)]);
+    const soloA = []; const soloB = []; const distintos = [];
+    for (const k of [...claves].sort()) {
+      if (x[k] && !y[k]) soloA.push(k);
+      else if (!x[k] && y[k]) soloB.push(k);
+      else if (x[k] !== y[k]) distintos.push(k);
+    }
+    return { soloA, soloB, distintos, iguales: !soloA.length && !soloB.length && !distintos.length };
+  };
+  return {
+    fixtura: dif(a.fixtura?.porFichero, b.fixtura?.porFichero),
+    producto: dif(a.producto?.porFichero, b.producto?.porFichero),
+  };
+}
+
+/* Todo lo que tiene que ser idéntico para que dos medidas se puedan comparar: el entorno, la
+   configuración de Lighthouse, los viewports y la fixtura. El producto NO entra: es lo que se
+   mide. Devuelve la lista de diferencias, vacía cuando la comparación es válida. */
+export function condicionesIncomparables(a, b) {
+  const fallos = [];
+  const igual = (etiqueta, x, y) => {
+    const sx = JSON.stringify(x); const sy = JSON.stringify(y);
+    if (sx !== sy) fallos.push(`${etiqueta}: ${sx} != ${sy}`);
+  };
+  igual('entorno', a.huella, b.huella);
+  igual('configuracion de lighthouse', a.configuracion, b.configuracion);
+  igual('perfiles y viewports', a.perfiles, b.perfiles);
+  igual('php', a.versiones?.php, b.versiones?.php);
+  igual('node', a.versiones?.node, b.versiones?.node);
+  igual('hash de la fixtura', a.fixtura?.hashFixtura, b.fixtura?.hashFixtura);
+  igual('podio sembrado', a.fixtura?.podio, b.fixtura?.podio);
+  igual('estado sembrado', a.fixtura?.hashEstado, b.fixtura?.hashEstado);
+  return fallos;
 }

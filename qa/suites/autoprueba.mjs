@@ -10,6 +10,7 @@
 import { cpSync, existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 import { Informe } from '../lib/informe.mjs';
 import {
   CLIENTE, QA, NODE, carpetaTemporal, limpiarTemporales, chromePath, versiones, commitActual,
@@ -17,8 +18,14 @@ import {
 import { correr } from '../lib/proc.mjs';
 import { abrir, cerrarTodos, capacidadesPhp } from '../lib/servidor.mjs';
 import { abrirNavegador, nuevaPagina } from '../lib/navegador.mjs';
-import { clonarTinge, compilar, verificarBuild, docrootDesde } from '../lib/clientes.mjs';
-import { comparar, compararConBaseline, comparativa, gateBaseline, TOLERANCIAS } from './pagespeed.mjs';
+import {
+  clonarTinge, compilar, verificarBuild, docrootDesde, carpetaDelCliente, esNombreDeCarpetaSeguro,
+} from '../lib/clientes.mjs';
+import {
+  comparar, compararConBaseline, comparativa, gateBaseline, guardaDeFixtura, TOLERANCIAS, RUTA_BASELINE,
+  diferenciaManifiestos,
+} from './pagespeed.mjs';
+import { comparaDocroots, condicionesIncomparables } from '../lib/fixtura-lh.mjs';
 import { problemasDeTotales } from './inventario.mjs';
 
 const ICONO = 'assets/titleIcon-accent.svg';
@@ -36,7 +43,20 @@ console.log(JSON.stringify({ huecos: r.huecos, sobrantes: r.sobrantes }));`;
   try { return JSON.parse(r.salida.trim().split('\n').pop()); } catch { return { huecos: ['(no se pudo leer)'], sobrantes: [], error: r.texto.slice(-300) }; }
 }
 
+/* Los ficheros del producto que ya estaban tocados, sin contar la propia bateria ni los informes.
+   Es la foto contra la que se compara al final. */
+function estadoDelArbol() {
+  const st = correr('git', ['status', '--short'], { cwd: CLIENTE });
+  return st.salida.trim().split(String.fromCharCode(10)).filter(Boolean)
+    .map((l) => l.trim())
+    .filter((l) => !/(^|[ ])qa[/]|[.]gitignore|quality[.]yml|auditorias[/]/.test(l));
+}
+
 export async function autoprueba(informe = new Informe('Autoprueba de la bateria')) {
+  const sucioAlEmpezar = new Set(estadoDelArbol());
+  /* La linea base no se toca aqui, y esto lo demuestra en vez de prometerlo. */
+  const hashBaselineAlEmpezar = createHash('sha256')
+    .update(readFileSync(RUTA_BASELINE)).digest('hex');
   const caps = capacidadesPhp();
   if (!caps.hayPhp || !chromePath()) {
     informe.blocked('SEM-00', 'autoprueba', 'hacen falta PHP y Chrome');
@@ -409,13 +429,280 @@ export async function autoprueba(informe = new Informe('Autoprueba de la bateria
     verdeEnCi === true && rojoEnCi === false, `linux con base de windows=${verdeEnCi} · un byte=${rojoEnCi}`);
 
 
+  /* ---------- 11. el nombre de la carpeta del cliente ---------- */
+  informe.seccion('fallo sembrado 11: de donde sale el nombre de la carpeta del cliente');
+
+  /* Casos sinteticos. Ni un nombre real escrito a mano: cada caso declara su carpeta y su base, y
+     lo que se comprueba es el CONTRATO —que `base` contenga el nombre devuelto— y que el nombre
+     sea utilizable como carpeta. Asi la prueba sigue valiendo para cualquier cliente futuro. */
+  const raizCasos = carpetaTemporal('totm-carpeta-');
+  const caso = (id, carpeta, base) => {
+    const proyecto = path.join(raizCasos, id, carpeta, '1-proyecto');
+    mkdirSync(proyecto, { recursive: true });
+    if (base !== null) {
+      writeFileSync(path.join(proyecto, 'cliente.mjs'),
+        `export const CLIENTE = {\n  base: '${base}',\n};\n`, 'utf8');
+    }
+    return { id, carpeta, base, proyecto, resultado: carpetaDelCliente(proyecto) };
+  };
+
+  const NOMBRE_REPO = 'repo-' + Math.random().toString(36).slice(2, 8);
+  const NOMBRE_CLIENTE = 'cli-' + Math.random().toString(36).slice(2, 8);
+  const casos = [
+    /* el checkout se llama como el repositorio y no aparece en la base: manda el contrato */
+    caso('checkout', NOMBRE_REPO, `https://ejemplo.invalido/${NOMBRE_CLIENTE}/menu/`),
+    /* la carpeta local ya es un segmento de la base: se respeta y no se cambia nada */
+    caso('local-vale', NOMBRE_CLIENTE, `https://ejemplo.invalido/${NOMBRE_CLIENTE}/menu/`),
+    /* otro cliente, otra base, otra profundidad */
+    caso('otro-cliente', NOMBRE_REPO, `https://otra.invalido/sub/${NOMBRE_CLIENTE}/`),
+    /* base sin ruta: no hay contrato que aplicar, se queda la carpeta local */
+    caso('base-sin-ruta', NOMBRE_CLIENTE, 'https://ejemplo.invalido/'),
+    /* sin cliente.mjs */
+    caso('sin-cliente', NOMBRE_CLIENTE, null),
+  ];
+
+  const contrato = casos.every((c) => {
+    if (!esNombreDeCarpetaSeguro(c.resultado)) return false;
+    /* El motor exige que `base` contenga el nombre de la carpeta. Cuando hay base con ruta, el
+       resultado tiene que cumplirlo; cuando no la hay, basta con que sea la carpeta local. */
+    if (c.base && new URL(c.base).pathname.split('/').filter(Boolean).length) {
+      return c.base.includes(c.resultado);
+    }
+    return c.resultado === c.carpeta;
+  });
+  informe.comprueba('SEM-11a', 'el nombre sale del contrato del cliente y lo cumple en todos los casos',
+    contrato, casos.map((c) => `${c.id}:${c.carpeta}->${c.resultado}`).join(' | '));
+
+  informe.comprueba('SEM-11b', 'un checkout que no se llama como el cliente no rompe el contrato',
+    casos[0].resultado !== casos[0].carpeta && casos[0].base.includes(casos[0].resultado),
+    `${casos[0].carpeta} -> ${casos[0].resultado}`);
+
+  informe.comprueba('SEM-11c', 'si la carpeta local ya vale, se respeta',
+    casos[1].resultado === casos[1].carpeta, `${casos[1].carpeta} -> ${casos[1].resultado}`);
+
+  /* Y lo que nunca puede salir de aqui: nada que se salga del temporal. */
+  const venenos = [
+    caso('veneno-puntos', NOMBRE_REPO, 'https://ejemplo.invalido/../../etc/'),
+    caso('veneno-absoluta', NOMBRE_REPO, 'https://ejemplo.invalido//C:/Windows/'),
+    caso('veneno-barras', NOMBRE_REPO, 'https://ejemplo.invalido/%2e%2e%2f%2e%2e/'),
+    caso('veneno-vacio', NOMBRE_REPO, 'https://ejemplo.invalido/////'),
+  ];
+  const seguros = venenos.every((c) => {
+    if (!esNombreDeCarpetaSeguro(c.resultado)) return false;
+    const destino = path.resolve(path.join(raizCasos, c.resultado));
+    return destino.startsWith(path.resolve(raizCasos) + path.sep);
+  });
+  informe.comprueba('SEM-11d', 'ninguna base tramposa saca el clon de su carpeta temporal',
+    seguros, venenos.map((c) => `${c.base} -> ${c.resultado}`).join(' | '));
+
+  const nombresRaros = ['.', '..', 'con/barra', 'con\\contrabarra', 'C:', '', '   ', 'punto.',
+    'con espacio y raro!', '.oculto'];
+  informe.comprueba('SEM-11e', 'el filtro de nombres rechaza lo que no es un nombre de carpeta',
+    nombresRaros.every((n) => !esNombreDeCarpetaSeguro(n))
+      && esNombreDeCarpetaSeguro('un_nombre-normal.2'),
+    nombresRaros.map((n) => JSON.stringify(n)).join(' '));
+
+
+  /* ---------- 12. el arbitraje de la comparacion ---------- */
+  informe.seccion('fallo sembrado 12: cuando se puede medir y cuando no');
+
+  const perfilRef = {
+    performance: 90, accesibilidad: 100, buenasPracticas: 100, seo: 100,
+    fcp: 1000, lcp: 1200, cls: 0.01, tbt: 0, speedIndex: 1000,
+    peticiones: 13, peticionesLocales: 10, peticionesExternas: 3,
+    bytes: 1003878, bytesLocales: 874138, bytesExternos: 129740, kb: 980,
+  };
+  const con = (cambios) => ({ 'carta-movil': { ...perfilRef, ...cambios } });
+  const HUELLA = { plataforma: 'win32 x64', navegador: 'Chrome 152.0.0.0', lighthouse: '13.4.1' };
+  const baseRef = { commit: 'aaaaaaa', fecha: '2020-01-01T00:00:00.000Z', huella: HUELLA, medidas: con({}) };
+  const arbitroLimpio = { valida: true, candidato: { medidas: con({}) } };
+
+  /* (a) una diferencia de producto NO impide medir: la fixtura es la que manda */
+  const dA = { fixtura: { porFichero: { 'estado.json': 'x' } }, producto: { porFichero: { 'admin/index.php': '1' } } };
+  const dB = { fixtura: { porFichero: { 'estado.json': 'x' } }, producto: { porFichero: { 'admin/index.php': '2' } } };
+  const cmpProd = comparaDocroots(dA, dB);
+  informe.comprueba('SEM-12a', 'una diferencia de producto deja medir y queda como evidencia',
+    cmpProd.fixtura.iguales === true && cmpProd.producto.iguales === false
+      && cmpProd.producto.distintos.includes('admin/index.php'),
+    `fixtura iguales=${cmpProd.fixtura.iguales} · producto distintos=${cmpProd.producto.distintos.join(',')}`);
+
+  /* (b) una fixtura distinta SI bloquea */
+  const dC = { fixtura: { porFichero: { 'estado.json': 'OTRO' } }, producto: { porFichero: { 'admin/index.php': '1' } } };
+  const cmpFix = comparaDocroots(dA, dC);
+  informe.comprueba('SEM-12b', 'una fixtura distinta bloquea la comparacion',
+    cmpFix.fixtura.iguales === false && cmpFix.fixtura.distintos.includes('estado.json'),
+    `fixtura distintos=${cmpFix.fixtura.distintos.join(',')}`);
+
+  /* (c) un entorno o una configuracion distintos tambien bloquean */
+  const medidaA = {
+    huella: HUELLA, configuracion: { pasadas: 5 }, perfiles: [{ id: 'x', viewport: 'v' }],
+    versiones: { php: '8.4.24', node: 'v24' }, fixtura: { hashFixtura: 'f', podio: ['a'], hashEstado: 'e' },
+  };
+  const cambia = (k, v) => ({ ...medidaA, [k]: v });
+  const bloqueos = [
+    ['entorno', condicionesIncomparables(medidaA, cambia('huella', { ...HUELLA, navegador: 'Chrome 99' }))],
+    ['configuracion', condicionesIncomparables(medidaA, cambia('configuracion', { pasadas: 3 }))],
+    ['viewports', condicionesIncomparables(medidaA, cambia('perfiles', [{ id: 'x', viewport: 'otro' }]))],
+    ['php', condicionesIncomparables(medidaA, cambia('versiones', { php: '8.3.0', node: 'v24' }))],
+    ['fixtura', condicionesIncomparables(medidaA, cambia('fixtura', { hashFixtura: 'OTRO', podio: ['a'], hashEstado: 'e' }))],
+  ];
+  informe.comprueba('SEM-12c', 'entorno, configuracion, viewports, PHP o fixtura distintos impiden comparar',
+    bloqueos.every(([, f]) => f.length > 0) && condicionesIncomparables(medidaA, medidaA).length === 0,
+    bloqueos.map(([n, f]) => `${n}:${f.length}`).join(' '));
+
+  /* (d) una regresion real sembrada se detecta, con arbitro o sin el */
+  const iReg = new Informe('interna', 'weekly');
+  const gReg = gateBaseline(iReg, {
+    medidas: con({ bytesLocales: 874139 }), huellaCandidato: HUELLA, base: baseRef, arbitro: arbitroLimpio,
+  });
+  informe.comprueba('SEM-12d', 'un byte de mas no se arbitra: sigue siendo rojo',
+    iReg.verdeReal() === false && gReg.regresiones.some((r) => !r.arbitrada),
+    JSON.stringify(gReg.regresiones.map((r) => r.problemas)).slice(0, 140));
+
+  /* (e) una diferencia SOLO de tiempos con arbitro limpio no rompe, y el delta sigue a la vista */
+  const iArb = new Informe('interna', 'weekly');
+  const gArb = gateBaseline(iArb, {
+    medidas: con({ lcp: 1400 }), huellaCandidato: HUELLA, base: baseRef, arbitro: arbitroLimpio,
+  });
+  const lineaArb = iArb.items.find((x) => x.id === 'LHB-CMP-carta-movil');
+  informe.comprueba('SEM-12e', 'una diferencia solo de tiempos se arbitra sin ocultar el delta',
+    iArb.verdeReal() === true && lineaArb?.estado === 'NO APLICA'
+      && /lcp: 1200 -> 1400/.test(lineaArb.detalle || '') && gArb.arbitradas === 1,
+    `${lineaArb?.estado} · ${(lineaArb?.detalle || '').slice(0, 90)}`);
+
+  /* (f) la misma diferencia de tiempos SIN arbitro sigue siendo roja */
+  const iSin = new Informe('interna', 'weekly');
+  gateBaseline(iSin, { medidas: con({ lcp: 1400 }), huellaCandidato: HUELLA, base: baseRef, arbitro: null });
+  informe.comprueba('SEM-12f', 'sin medida contemporanea, la diferencia de tiempos no se arbitra',
+    iSin.verdeReal() === false,
+    iSin.items.filter((x) => x.estado === 'FAIL').map((x) => x.id).join(', '));
+
+  /* (g) un arbitro que a su vez esta en rojo no arbitra nada */
+  const iMal = new Informe('interna', 'weekly');
+  gateBaseline(iMal, {
+    medidas: con({ lcp: 1400 }), huellaCandidato: HUELLA, base: baseRef,
+    arbitro: { valida: false, candidato: { medidas: con({}) } },
+  });
+  informe.comprueba('SEM-12g', 'un arbitro con regresiones propias no sirve de arbitro',
+    iMal.verdeReal() === false, iMal.items.filter((x) => x.estado === 'FAIL').map((x) => x.id).join(', '));
+
+  /* (h) una mejora o una igualdad no fallan */
+  const iBien = new Informe('interna', 'weekly');
+  const gBien = gateBaseline(iBien, {
+    medidas: con({ lcp: 900, bytesLocales: 800000, performance: 95 }),
+    huellaCandidato: HUELLA, base: baseRef, arbitro: null,
+  });
+  const iIgual = new Informe('interna', 'weekly');
+  gateBaseline(iIgual, { medidas: con({}), huellaCandidato: HUELLA, base: baseRef, arbitro: null });
+  informe.comprueba('SEM-12h', 'una mejora y una medida identica no producen regresion',
+    iBien.verdeReal() === true && gBien.regresiones.length === 0 && iIgual.verdeReal() === true,
+    JSON.stringify(gBien.regresiones));
+
+  /* (j) los recursos: con el mismo producto tienen que coincidir; con producto distinto, no */
+  const manA = { p: [{ url: '/a.svg', bytes: 10 }, { url: '/b.css', bytes: 20 }] };
+  const manB = { p: [{ url: '/c.svg', bytes: 5 }, { url: '/b.css', bytes: 20 }] };
+  const dRec = diferenciaManifiestos(manA, manB);
+  informe.comprueba('SEM-12j', 'la diferencia de recursos se calcula con su delta de bytes',
+    dRec.p.soloEnA.some((x) => /a\.svg/.test(x)) && dRec.p.soloEnB.some((x) => /c\.svg/.test(x))
+      && dRec.p.bytesA === 30 && dRec.p.bytesB === 25,
+    `A=${dRec.p.bytesA} B=${dRec.p.bytesB} soloA=${dRec.p.soloEnA.join(',')} soloB=${dRec.p.soloEnB.join(',')}`);
+
+  /* (k, l, m) la guarda real de `comparativa`, ejercitada sin montar dos servidores.
+   *
+   * Correccion 17.4.1: `LHC-FIX-03` contaba los ficheros del docroot entero, asi que anadir o
+   * retirar un fichero del producto rompia la comparacion con la fixtura intacta. Estas tres
+   * pruebas fijan la frontera: el producto puede crecer y encoger, la fixtura no puede moverse. */
+  const hashMapa = (o) => createHash('sha256')
+    .update(Object.keys(o).sort().map((k) => `${k}:${o[k]}`).join(String.fromCharCode(10))).digest('hex');
+  const arbolDe = (fixtura, producto) => {
+    const doc = {
+      ficheros: Object.keys(fixtura).length + Object.keys(producto).length,
+      fixtura: { porFichero: fixtura, hash: hashMapa(fixtura), ficheros: Object.keys(fixtura).length },
+      producto: { porFichero: producto, hash: hashMapa(producto), ficheros: Object.keys(producto).length },
+    };
+    return {
+      docHuella: doc,
+      pesos: 'assets/hero:portada.jpg=1200 assets/publicidad:banner.png=900 assets/banderas:es.webp=300',
+      huella: {
+        hashFixtura: doc.fixtura.hash, hashEstado: 'e0e0e0e0e0e0', podio: ['QA Uno/es', 'QA Dos/de'],
+        ficherosDocroot: doc.ficheros, ficherosFixtura: doc.fixtura.ficheros,
+      },
+    };
+  };
+  const FIX0 = { 'estado.json': 'e', 'assets/hero/portada.jpg': 'h', 'assets/publicidad/banner.png': 'b' };
+  const PROD0 = { 'index.html': 'i', 'admin/index.php': 'a', 'assets/app.css': 'c' };
+  const sin = (o, k) => Object.fromEntries(Object.entries(o).filter(([x]) => x !== k));
+  const pasa = (informeHijo, id) => informeHijo.items.find((x) => x.id === id);
+  const control0 = arbolDe(FIX0, PROD0);
+
+  /* (k) anadir un fichero de producto: se puede medir, y queda dicho cual */
+  const iAdd = new Informe('interna', 'weekly');
+  const candAdd = arbolDe(FIX0, { ...PROD0, 'assets/nuevo.css': 'n' });
+  const gAdd = guardaDeFixtura(iAdd, control0, candAdd);
+  const f03Add = pasa(iAdd, 'LHC-FIX-03');
+  const prodAdd = pasa(iAdd, 'LHC-PROD-01');
+  informe.comprueba('SEM-12k', 'anadir un fichero de producto deja medir y queda registrado',
+    gAdd.medible === true && iAdd.verdeReal() === true && f03Add?.estado === 'PASS'
+      && /solo en el candidato: assets\/nuevo\.css/.test(prodAdd?.detalle || '')
+      && candAdd.huella.ficherosDocroot === control0.huella.ficherosDocroot + 1
+      && candAdd.huella.ficherosFixtura === control0.huella.ficherosFixtura,
+    `docroot ${control0.huella.ficherosDocroot} vs ${candAdd.huella.ficherosDocroot}`
+      + ` · fixtura ${control0.huella.ficherosFixtura} vs ${candAdd.huella.ficherosFixtura}`
+      + ` · FIX-03 ${f03Add?.estado} · ${(prodAdd?.detalle || '').slice(0, 70)}`);
+
+  /* (l) retirar un fichero de producto: igual, con el docroot ya descuadrado a proposito */
+  const iDel = new Informe('interna', 'weekly');
+  const candDel = arbolDe(FIX0, sin(PROD0, 'assets/app.css'));
+  const gDel = guardaDeFixtura(iDel, control0, candDel);
+  const f03Del = pasa(iDel, 'LHC-FIX-03');
+  const prodDel = pasa(iDel, 'LHC-PROD-01');
+  informe.comprueba('SEM-12l', 'retirar un fichero de producto deja medir y queda registrado',
+    gDel.medible === true && iDel.verdeReal() === true && f03Del?.estado === 'PASS'
+      && /solo en el control: assets\/app\.css/.test(prodDel?.detalle || '')
+      && control0.huella.ficherosDocroot === candDel.huella.ficherosDocroot + 1,
+    `docroot ${control0.huella.ficherosDocroot} vs ${candDel.huella.ficherosDocroot}`
+      + ` · fixtura ${control0.huella.ficherosFixtura} vs ${candDel.huella.ficherosFixtura}`
+      + ` · FIX-03 ${f03Del?.estado}`);
+
+  /* (m) tocar la fixtura —anadir, quitar o cambiar— para la comparacion en seco */
+  const casosFixtura = [
+    ['anadida', arbolDe({ ...FIX0, 'assets/hero/otra.jpg': 'x' }, PROD0)],
+    ['retirada', arbolDe(sin(FIX0, 'assets/publicidad/banner.png'), PROD0)],
+    ['modificada', arbolDe({ ...FIX0, 'estado.json': 'OTRO' }, PROD0)],
+  ];
+  const bloqueados = casosFixtura.map(([etiqueta, candidato]) => {
+    const hijo = new Informe('interna', 'weekly');
+    const g = guardaDeFixtura(hijo, control0, candidato);
+    return {
+      etiqueta,
+      corta: g.medible === false,
+      f01: pasa(hijo, 'LHC-FIX-01')?.estado,
+      f05: pasa(hijo, 'LHC-FIX-05')?.estado,
+      rojo: hijo.verdeReal() === false,
+    };
+  });
+  informe.comprueba('SEM-12m', 'anadir, retirar o modificar un fichero de la fixtura bloquea la comparacion',
+    bloqueados.every((b) => b.corta && b.rojo && b.f01 === 'FAIL' && b.f05 === 'FAIL'),
+    bloqueados.map((b) => `${b.etiqueta}: corta=${b.corta} FIX-01=${b.f01} FIX-05=${b.f05}`).join(' · '));
+
+  /* (i) la linea base no se toca en ninguno de los casos anteriores */
+  informe.comprueba('SEM-12i', 'la linea base no se ha modificado durante la autoprueba',
+    createHash('sha256').update(readFileSync(RUTA_BASELINE)).digest('hex') === hashBaselineAlEmpezar,
+    `sha ${hashBaselineAlEmpezar.slice(0, 16)}`);
+
+
   informe.seccion('el repositorio original no se ha tocado');
   const dc = correr('git', ['diff', '--check'], { cwd: CLIENTE });
-  const st = correr('git', ['status', '--short'], { cwd: CLIENTE });
-  const sucios = st.salida.trim().split('\n').filter(Boolean)
-    .filter((l) => !/qa\/|\.gitignore|quality\.yml|auditorias\//.test(l));
-  informe.comprueba('SEM-90', 'ningun fichero del producto quedo tocado por los fallos sembrados',
-    dc.ok && sucios.length === 0, sucios.join(' | '));
+  /* Lo que hay que demostrar es que los fallos sembrados NO ANADIERON nada, no que el arbol
+     estuviera limpio antes de empezar: una fase autorizada puede tener el producto tocado a
+     proposito, y entonces esta comprobacion culpaba a los fallos sembrados de un cambio que no
+     era suyo. Se compara contra la foto tomada al arrancar. */
+  const anadidos = estadoDelArbol().filter((l) => !sucioAlEmpezar.has(l));
+  informe.comprueba('SEM-90', 'los fallos sembrados no tocaron ningun fichero del producto',
+    dc.ok && anadidos.length === 0,
+    anadidos.length
+      ? `anadidos por la pasada: ${anadidos.join(' | ')}`
+      : `sin cambios nuevos (ya sucios antes de empezar: ${[...sucioAlEmpezar].join(' | ') || 'ninguno'})`);
   return informe;
 }
 

@@ -18,6 +18,10 @@ import {
 import { clonarTinge, compilar, verificarBuild, lock, hashesDe, comparaHashes } from '../lib/clientes.mjs';
 import * as inventario from './inventario.mjs';
 
+/* El mismo motivo en FAST-13, FAST-19 y FULL-93: una sola frase, y no tres que se
+   desincronicen. */
+export const MOTIVO_SIN_SALIDA = 'la carpeta de subida vive fuera del repositorio y en este arbol no existe: comparar hashes de una carpeta ausente seria un PASS vacio';
+
 /* Lista relativa y ordenada de todos los ficheros de un arbol: la forma de comparar dos salidas
    sin que el orden del sistema de ficheros meta ruido. */
 function listaRelativa(raiz) {
@@ -228,11 +232,18 @@ export async function fast(informe = new Informe('QA rapida')) {
   informe.comprueba('FAST-12', 'la bateria no aparece en 2-subir',
     enSalida.length === 0 && !carpetaQaEnSalida, enSalida.join(', '));
 
-  /* Y el repositorio sigue exactamente igual que al empezar. */
-  const despuesRepo = hashesDe(SALIDA);
-  const repo = comparaHashes(antesRepo, despuesRepo);
-  informe.comprueba('FAST-13', 'el 2-subir del repositorio no se ha tocado', repo.iguales,
-    `cambiados: ${repo.cambiados.join(', ')}`);
+  /* Y el repositorio sigue exactamente igual que al empezar. Si no hay carpeta publicada —un
+     checkout limpio no la tiene, porque vive fuera del repositorio— esto no es un PASS: no hay
+     nada que comparar, y decirlo es mas honesto que dar por buena una comparacion de dos
+     conjuntos vacios. */
+  if (!existsSync(SALIDA)) {
+    informe.noAplica('FAST-13', 'el 2-subir del repositorio no se ha tocado', MOTIVO_SIN_SALIDA);
+  } else {
+    const despuesRepo = hashesDe(SALIDA);
+    const repo = comparaHashes(antesRepo, despuesRepo);
+    informe.comprueba('FAST-13', 'el 2-subir del repositorio no se ha tocado', repo.iguales,
+      `${Object.keys(despuesRepo).length} ficheros | cambiados: ${repo.cambiados.join(', ') || '(ninguno)'}`);
+  }
 
   informe.seccion('inventario y trazabilidad');
   inventario.comprueba(informe);
