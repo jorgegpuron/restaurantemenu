@@ -107,6 +107,14 @@ export async function fast(informe = new Informe('QA rapida')) {
    * rompe ninguna pagina hasta que alguien la abre. Un fichero de mas tambien se dice, porque un
    * derivado que el build ya no produce y nadie borra se queda en el hosting para siempre. */
   const manifiesto = JSON.parse(readFileSync(path.join(QA, 'manifiesto-build.json'), 'utf8'));
+  if (!existsSync(clon.salida)) {
+    /* Si la compilacion abortó, aqui no hay nada que listar. Antes esto reventaba con un ENOENT y
+       se llevaba por delante el proceso entero, asi que el log terminaba en una excepcion en vez de
+       en un informe: el fallo de verdad —el de FAST-05— quedaba enterrado. */
+    informe.fail('FAST-18', 'el build canonico entrega los ficheros del manifiesto aprobado',
+      `no hay salida que comparar en ${clon.salida}: la compilacion no llego a producirla (ver FAST-05)`);
+    return informe;
+  }
   const generados = listaRelativa(clon.salida);
   const setGenerados = new Set(generados);
   const perdidosDelManifiesto = manifiesto.ficheros_obligatorios.filter((f) => !setGenerados.has(f));
@@ -136,7 +144,11 @@ export async function fast(informe = new Informe('QA rapida')) {
         + ` | sobrantes declarados: ${extrasEnPublicado.filter((f) => tolerados.has(f)).join(', ') || '(ninguno)'}`
         + ` | sobrantes SIN declarar: ${extrasSinDeclarar.join(', ') || '(ninguno)'}`);
   } else {
-    informe.blocked('FAST-19', 'la carpeta publicada contra el manifiesto', 'no existe 2-subir en esta copia');
+    /* `2-subir` es la carpeta de subida y vive FUERA del repositorio, al lado de `1-proyecto`. En
+       un checkout limpio —CI, o un clon recien hecho— sencillamente no existe, y eso no es un
+       bloqueo de infraestructura: es que aqui no hay carpeta publicada que comparar. */
+    informe.noAplica('FAST-19', 'la carpeta publicada contra el manifiesto',
+      'no hay 2-subir en este arbol: la carpeta de subida vive fuera del repositorio');
   }
 
   const icono = path.join(clon.salida, ICONO_PESTANA);

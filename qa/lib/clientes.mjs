@@ -24,11 +24,46 @@ export function hashActivacion(token = TOKEN_QA) {
 
 const NO_COPIAR = new Set(['.git', 'node_modules', 'generado', '2-subir', 'qa']);
 
+/* La línea `base: 'https://...'` de `cliente.mjs`. Se lee con una expresión, y no importando el
+   módulo, porque el módulo que hay que mirar es el del clon o el del árbol de control, no el de
+   esta máquina. */
+const RE_BASE = /\bbase:\s*['"]([^'"]+)['"]/;
+
+/* Cómo se tiene que llamar la carpeta que contiene al cliente.
+ *
+ * `gen.mjs` aborta si `CLIENTE.base` no contiene el nombre de la carpeta contenedora: es su forma
+ * de detectar que alguien copió el proyecto de otro restaurante y se dejó la dirección pública del
+ * anterior. La batería tiene que reproducir ese nombre al clonar, y **no puede sacarlo del disco**:
+ * en el ordenador del propietario la carpeta padre se llama `tinge_of_turmeric`, pero en un
+ * checkout de CI se llama como el repositorio (`/home/runner/work/restaurantemenu/restaurantemenu`)
+ * y el build abortaba. Era un supuesto de la batería sobre el disco, no un defecto del producto.
+ *
+ * Se saca del contrato, que es lo único que viaja con el cliente: los segmentos de la ruta de
+ * `CLIENTE.base`. Si el nombre de la carpeta local es uno de ellos, se respeta —así en local no
+ * cambia nada—; si no, se usa el primer segmento, que es lo que el motor va a exigir. */
+export function carpetaDelCliente(proyecto = CLIENTE) {
+  const local = path.basename(path.dirname(proyecto));
+  let base = '';
+  try {
+    const texto = readFileSync(path.join(proyecto, 'cliente.mjs'), 'utf8');
+    base = (RE_BASE.exec(texto) || [])[1] || '';
+  } catch { /* sin cliente.mjs no hay contrato que respetar */ }
+  if (!base) return local;
+  let segmentos = [];
+  try {
+    segmentos = new URL(base).pathname.split('/').filter(Boolean);
+  } catch {
+    segmentos = base.split('/').filter(Boolean);
+  }
+  if (!segmentos.length) return local;
+  return segmentos.includes(local) ? local : segmentos[0];
+}
+
 /* Copia de Tinge fuera del repositorio, con la carpeta contenedora bien nombrada: `gen.mjs`
    aborta si el nombre de la carpeta del cliente no aparece en `CLIENTE.base`. */
 export function clonarTinge() {
   const raiz = carpetaTemporal('totm-clon-');
-  const destino = path.join(raiz, path.basename(CARPETA_CLIENTE), '1-proyecto');
+  const destino = path.join(raiz, carpetaDelCliente(CLIENTE), '1-proyecto');
   mkdirSync(destino, { recursive: true });
   for (const e of readdirSync(CLIENTE, { withFileTypes: true })) {
     if (NO_COPIAR.has(e.name)) continue;
@@ -48,7 +83,7 @@ export function clonarTinge() {
  * lanza, y quien llama lo convierte en fallo. Nunca en verde. */
 export function checkoutCommit(commit) {
   const raiz = carpetaTemporal('totm-ctrl-');
-  const destino = path.join(raiz, path.basename(CARPETA_CLIENTE), '1-proyecto');
+  const destino = path.join(raiz, carpetaDelCliente(CLIENTE), '1-proyecto');
   mkdirSync(destino, { recursive: true });
   /* El tar se escribe DENTRO del destino y se extrae con nombre relativo: el `tar` de GNU
      interpreta un `C:\...` como «maquina remota C» y falla con «resolve failed». Con cwd en el
