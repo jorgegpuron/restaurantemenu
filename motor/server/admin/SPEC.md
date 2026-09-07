@@ -604,3 +604,8 @@ se aplica solo donde el layout lo permite sin arriesgar solapamiento; ninguno de
 controles se tocó en R2. No se añadió ningún token nuevo. Los `accent-color` nativos
 (`.recorte .zoom`, `.cats input`, `.orow .tick input`, `.adm-check input`) siguen
 dependientes de marca, sin cambio.
+
+## Corrección: días seleccionados en Ofertas (7 Sep 2026)
+
+En los días seleccionados de Ofertas, el estado activo utiliza el color de marca y su tinta
+calculada; el estado apagado conserva el tratamiento neutro del panel.

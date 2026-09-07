@@ -4968,8 +4968,8 @@ $CUENTAS = [
   }
   .adm-dia input{position:absolute;opacity:0;width:1px;height:1px}
   .adm-dia:hover{border-color:#3a3d44}
-  .adm-dia:has(input:checked){background:var(--marca-fondo);border-color:var(--marca-fondo);color:var(--marca-ink)}
-  .adm-dia:has(input:focus-visible){outline:2.5px solid var(--accent);outline-offset:2px}
+  .adm-dia:has(input:checked){background:var(--p-accent-fill);border-color:var(--p-accent-fill);color:var(--p-accent-ink)}
+  .adm-dia:has(input:focus-visible){outline:2.5px solid var(--p-accent-stroke);outline-offset:2px}
   .adm-dia-semanal{
     flex:none;margin-left:5px;min-height:46px;padding:0 17px;
     border:1px solid #3a3d44;border-radius:999px;background:transparent;color:var(--ink);
