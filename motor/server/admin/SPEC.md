@@ -587,3 +587,20 @@ viajar a un cliente con otro color. Regla aplicada en todo lo tocado esta ronda:
 **Queda para MISE-A R2**, expresamente fuera de esta ronda: alturas de control (hoy 19
 valores de `min-height` distintos, sin escala), densidad compact/comfortable/touch, y la
 formalización sistemática de objetivo táctil.
+
+## MISE-A R2: cierra la deuda visual de `.fld`/`.combo-q` (7 Sep 2026)
+
+`.fld` (contraseñas) y `.combo-q` (buscador de Destacados) traían fondo blanco, borde falso
+por `box-shadow` y tipografía de la carta — restos de antes del panel oscuro. Pasan al mismo
+lenguaje que `.adm-campo`: fondo `--chip`, borde real `1px solid var(--border)`, radio 12px,
+tipografía heredada de `.card-main` (Inter), foco con `:focus-visible` +
+`--p-accent-stroke`/`--p-accent-glow`. Suelo tipográfico a 13px en `.fld`, `.combo-num` y
+`.combo-txt small`. Cero cambio de `name`/`id`/`autocomplete`/validación/JS.
+
+Sobre targets táctiles: se evaluaron `.adm-foto-b`, `.vp-per`, `.adm-sw`, `.adm-check`,
+`.adm-orow-tick` y `.adm-btn-fino` — todos superan el mínimo funcional de 24px en su área
+real. 44px queda documentado como objetivo ergonómico táctil, no como mínimo obligatorio, y
+se aplica solo donde el layout lo permite sin arriesgar solapamiento; ninguno de estos
+controles se tocó en R2. No se añadió ningún token nuevo. Los `accent-color` nativos
+(`.recorte .zoom`, `.cats input`, `.orow .tick input`, `.adm-check input`) siguen
+dependientes de marca, sin cambio.

@@ -3633,18 +3633,17 @@ $CUENTAS = [
   .fld{
     display:block;margin-bottom:var(--s3);
     font-family:var(--title-font);
-    font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:var(--ink);
   }
   .fld input,.fld select,.fld textarea{
     display:block;width:100%;margin-top:7px;
     min-height:56px;padding:0 var(--s3);
-    border:1px solid transparent;
-    border-radius:var(--r-sheet);
-    background:#fff;
-    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--chip);
     color:var(--ink);
-    font-family:var(--body-font);font-size:16px;font-weight:400;letter-spacing:0;text-transform:none;
+    font-family:inherit;font-size:16px;font-weight:400;letter-spacing:0;text-transform:none;
     transition:box-shadow var(--t-fast) ease;
   }
   .fld select{
@@ -3664,9 +3663,10 @@ $CUENTAS = [
     line-height:1.5;
     resize:vertical;
   }
-  .fld input:focus,.fld select:focus,.fld textarea:focus{
+  .fld input:focus-visible,.fld select:focus-visible,.fld textarea:focus-visible{
     outline:none;
-    box-shadow:inset 0 0 0 2px var(--accent);
+    border-color:var(--p-accent-stroke);
+    box-shadow:0 0 0 3px var(--p-accent-glow);
   }
   .fld input::placeholder,.fld textarea::placeholder{color:var(--muted)}
   .opt{color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:none}
@@ -3675,13 +3675,13 @@ $CUENTAS = [
   .combo{position:relative;margin-bottom:var(--s3)}
   .combo-q{
     display:block;width:100%;min-height:56px;padding:0 var(--s3);
-    border:1px solid transparent;border-radius:var(--r-sheet);
-    background:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink);
-    font-family:var(--body-font);font-size:16px;
+    border:1px solid var(--border);border-radius:12px;
+    background:var(--chip);color:var(--ink);
+    font-family:inherit;font-size:16px;
     transition:box-shadow var(--t-fast) ease;
   }
-  .combo-q:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accent)}
-  .combo-q.is-ok{box-shadow:inset 0 0 0 2px var(--accent);font-family:var(--title-font);font-weight:600}
+  .combo-q:focus-visible{outline:none;border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow)}
+  .combo-q.is-ok{box-shadow:inset 0 0 0 2px var(--p-accent-stroke);font-family:var(--title-font);font-weight:600}
   .combo-lista{
     position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;
     max-height:340px;overflow-y:auto;margin:0;padding:5px;list-style:none;
@@ -3696,9 +3696,9 @@ $CUENTAS = [
   .combo-op.is-activo{background:var(--chip)}
   @media (hover:hover) and (pointer:fine){ .combo-op:hover{background:var(--chip)} }
   .combo-op.ya{opacity:.45;cursor:default}
-  .combo-num{flex:0 0 auto;min-width:30px;font-family:var(--title-font);font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+  .combo-num{flex:0 0 auto;min-width:30px;font-family:var(--title-font);font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
   .combo-txt{flex:1 1 auto;min-width:0;font-family:var(--title-font);font-size:15px;font-weight:600;line-height:1.25}
-  .combo-txt small{display:block;font-family:var(--body-font);font-size:12.5px;font-weight:400;color:var(--muted)}
+  .combo-txt small{display:block;font-family:var(--body-font);font-size:13px;font-weight:400;color:var(--muted)}
   .combo-vacio{padding:12px 10px;color:var(--muted);font-size:14px}
 
   /* Dos o tres campos cortos por fila cuando hay sitio, uno debajo de otro cuando no. */
