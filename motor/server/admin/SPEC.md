@@ -550,3 +550,40 @@ navegador.
 
 Lo que sigue dependiendo del hosting es **GD**, y ahí la política no se toca: sin GD la portada
 se rechaza con su mensaje y el estado no se modifica.
+
+## MISE-A R1: siete tokens locales, radio y pestañas accesibles (6 Sep 2026)
+
+Primera ronda del sistema de diseño Mise sobre este panel. Capa `--p-*`, sin tocar ni un token
+de `gen.mjs` ni de `temas.mjs`: seis tokens en `:root` — `--p-radius-card` (16px, propio del
+admin) y cinco alias/derivados de `--accent`/`--accent-ink`/`--metal` ya garantizados por
+`verificarPaleta()` (`--p-accent-fill`, `--p-accent-ink`, `--p-accent-stroke`, `--p-accent-glow`,
+`--p-accent-select`). `--p-fg` NO vive en `:root`: depende de `--ink`, que el panel redefine
+localmente en `.card-main` y en `.adm-acciones-fuera` (fuera de la tarjeta), así que `--p-fg`
+se declara en esos dos mismos sitios, no arriba.
+
+**Radio.** Los 6 usos de `var(--r-card)` en este fichero pasan a `var(--p-radius-card)`.
+`--r-card` sigue en 34px en `gen.mjs`, sin cambios: es el radio de la carta pública y del
+juego, y este panel ya no depende de él.
+
+**Base tipográfica.** Se ratifican los 15px de `--t2` como base del panel. La provisión de
+Fase 6 (14px) queda superada por el rediseño de `d903dfe` y por esta revisión sobre el panel
+real.
+
+**Color de marca: nunca como texto.** El naranja crudo (`rgba(255,117,23,...)`) no puede
+viajar a un cliente con otro color. Regla aplicada en todo lo tocado esta ronda:
+- relleno sólido → `--p-accent-fill` + `--p-accent-ink` (ya lo hacía bien `.adm-btn-guardar`,
+  no se tocó);
+- trazo, foco, icono, caret → `--p-accent-stroke`;
+- texto normal → `--p-fg`, nunca el acento;
+- halo de foco → `--p-accent-glow`; selección de texto → `--p-accent-select`.
+- Los tres fondos tintados de intensidad distinta (9%/15%/18%) se quedan como `color-mix()`
+  explícito en su selector: no hay semántica común entre ellos, un token único sería postizo.
+
+**Pestañas accesibles.** Patrón completo: `id` estable y `aria-controls` en cada tab,
+`role="tabpanel"`/`id`/`aria-labelledby` en cada panel, relación 1:1 por slug, `tabindex`
+0/-1 según la pestaña activa, flechas izquierda/derecha y Home/End mueven el foco y activan
+—mismo modelo que el click—. `abrir(slug)` no cambió de firma ni de lógica.
+
+**Queda para MISE-A R2**, expresamente fuera de esta ronda: alturas de control (hoy 19
+valores de `min-height` distintos, sin escala), densidad compact/comfortable/touch, y la
+formalización sistemática de objetivo táctil.

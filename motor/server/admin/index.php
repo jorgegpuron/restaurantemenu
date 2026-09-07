@@ -3095,6 +3095,21 @@ $CUENTAS = [
 
      Lo único que cambia es la densidad: aquí se trabaja de pie y con prisa, no se lee. */
 
+  /* -------------------------------------------------------------- Mise, capa local
+   * Siete tokens propios del admin, en :root para que cubran también login y diálogos
+   * sin depender de si cuelgan de .card-main. No tocan --r-card/--r-chip/--r-pill/
+   * --r-sheet ni ningún token de gen.mjs: --p-radius-card es un valor propio, el resto
+   * son alias o derivados de --accent/--accent-ink/--metal ya garantizados por
+   * verificarPaleta() en temas.mjs. MISE-A R1. */
+  :root{
+    --p-radius-card:16px;
+    --p-accent-fill:var(--accent);
+    --p-accent-ink:var(--accent-ink);
+    --p-accent-stroke:var(--metal);
+    --p-accent-glow:color-mix(in srgb, var(--metal) 22%, transparent);
+    --p-accent-select:color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+
   *,*::before,*::after{box-sizing:border-box}
 
   body{
@@ -3128,6 +3143,7 @@ $CUENTAS = [
      * sobre fondo oscuro, que es la razon por la que este paso no se hizo antes.
      */
     --ink:#EDEBEB;
+    --p-fg:var(--ink);         /* Mise: aqui, no en :root, porque --ink solo es #EDEBEB aqui dentro */
     --muted:#9A9595;
     --base:#7F7C7C;
     --surface:#101114;
@@ -3154,7 +3170,7 @@ $CUENTAS = [
 
     background:var(--surface);
     color:var(--ink);
-    border-radius:var(--r-card);
+    border-radius:var(--p-radius-card);
     border:1px solid var(--hairline);
     box-shadow:none;
     /* El mismo aire arriba que a los lados: el hueco de más sobre el contenido era espacio
@@ -3195,8 +3211,8 @@ $CUENTAS = [
    * valores de fabrica —azul de sistema y gris claro— sobre un panel negro. Son
    * parte del diseño aunque no se dibujen aqui. */
   .card-main ::selection,
-  .adm-acciones-fuera ::selection{background:rgba(255,117,23,.32);color:#fff}
-  .card-main input,.card-main textarea{caret-color:var(--accent)}
+  .adm-acciones-fuera ::selection{background:var(--p-accent-select);color:var(--p-fg)}
+  .card-main input,.card-main textarea{caret-color:var(--p-accent-stroke)}
   .card-main{scrollbar-color:#3A3D44 transparent;scrollbar-width:thin}
   .card-main ::-webkit-scrollbar{width:10px;height:10px}
   .card-main ::-webkit-scrollbar-track{background:transparent}
@@ -3563,7 +3579,7 @@ $CUENTAS = [
   }
   .camara svg{width:21px;height:21px}
   .camara:hover{opacity:1;background:var(--chip)}
-  .camara.tiene{color:var(--accent);opacity:1}
+  .camara.tiene{color:var(--p-accent-stroke);opacity:1}
   .camara.tiene::after{
     content:"";position:absolute;margin:22px 0 0 22px;
     width:7px;height:7px;border-radius:50%;background:var(--accent);
@@ -3580,7 +3596,7 @@ $CUENTAS = [
   .recorte[open]{display:flex}
   .recorte .caja{
     width:min(420px,100%);max-height:100%;overflow:auto;
-    padding:var(--s3);border-radius:var(--r-card);
+    padding:var(--s3);border-radius:var(--p-radius-card);
     background:var(--surface);box-shadow:var(--lift-card);
   }
   .recorte h3{margin:0 0 var(--s1);font-family:var(--title-font);font-size:18px}
@@ -3598,7 +3614,7 @@ $CUENTAS = [
   .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent)}
   .recorte .err{margin:var(--s2) 0 0;color:var(--offer);font-size:14px}
   .recorte .err:empty{display:none}
-  .camara.cargando{opacity:1;color:var(--accent)}
+  .camara.cargando{opacity:1;color:var(--p-accent-stroke)}
   .camara.cargando svg{animation:latir 900ms ease-in-out infinite}
   @keyframes latir{0%,100%{opacity:.35}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){ .camara.cargando svg{animation:none} }
@@ -3859,7 +3875,7 @@ $CUENTAS = [
     max-width:1570px;margin:0 auto;
     padding:var(--s2) var(--s3) calc(var(--s2) + env(safe-area-inset-bottom));
     background:var(--surface);
-    border-radius:var(--r-card) var(--r-card) 0 0;
+    border-radius:var(--p-radius-card) var(--p-radius-card) 0 0;
     box-shadow:var(--lift-sheet);
   }
   /* Guardar y «Ver menú», juntos a la derecha de la barra. El enlace abre en OTRA pestaña a
@@ -3960,7 +3976,7 @@ $CUENTAS = [
     .dt-baldosa.ancha{grid-column:1 / -1}}
   .dt-baldosa{
     position:relative;padding:var(--s3) var(--s3) var(--s2);
-    border-radius:var(--r-card);
+    border-radius:var(--p-radius-card);
     background:color-mix(in srgb,var(--ink) 3%,var(--surface));
     box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 9%,transparent);
   }
@@ -4066,7 +4082,7 @@ $CUENTAS = [
      pregunta distinta —que cuenta y que no guarda— y juntas en un parrafo no se distinguian. */
   .dt-nota{
     margin-top:var(--s3);padding:var(--s3);
-    border-radius:var(--r-card);
+    border-radius:var(--p-radius-card);
     box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 12%,transparent);
   }
   .dt-nota-cab{display:flex;align-items:center;gap:7px;margin-bottom:var(--s3);color:var(--muted)}
@@ -4147,7 +4163,7 @@ $CUENTAS = [
     position:relative;
     /* La misma caja 3:2 del hero: la foto puede venir como venga, recorta el navegador. */
     aspect-ratio:3 / 2;
-    border-radius:calc(var(--r-card) - var(--s1)) calc(var(--r-card) - var(--s1)) var(--r-sheet) var(--r-sheet);
+    border-radius:calc(var(--p-radius-card) - var(--s1)) calc(var(--p-radius-card) - var(--s1)) var(--r-sheet) var(--r-sheet);
     overflow:hidden;
     /* El fondo de la página mientras carga, no un gris: así no hay un color que aparece y se
        va justo antes de que entre la imagen. */
@@ -4441,7 +4457,7 @@ $CUENTAS = [
     --marca-velo-mas:rgba(237,235,235,.12);
     --marca-borde:rgba(237,235,235,.30);
 
-    --ok:var(--accent); --ok-fondo:rgba(255,117,23,.15);
+    --ok:var(--accent); --ok-fondo:color-mix(in srgb, var(--accent) 15%, var(--surface));
     --aviso:#8FB4F2; --aviso-fondo:rgba(143,180,242,.14);
     --offer:#ff6b6b;
 
@@ -4534,7 +4550,7 @@ $CUENTAS = [
   .adm-f-cab h2{flex:1 1 auto;min-width:0;white-space:normal}
   .adm-f-ico{
     width:38px;height:38px;flex:none;border-radius:11px;background:var(--chip);
-    color:var(--ok);display:grid;place-items:center;
+    color:var(--p-accent-stroke);display:grid;place-items:center;
   }
   .adm-f-ico svg{width:20px;height:20px}
   .adm-f-cab h2{
@@ -4550,7 +4566,7 @@ $CUENTAS = [
     display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;
     font-size:var(--t3);font-weight:700;letter-spacing:.05em;
   }
-  .adm-e-activo{background:var(--ok-fondo);color:var(--ok)}
+  .adm-e-activo{background:var(--ok-fondo);color:var(--p-fg)}
   .adm-e-programado{background:var(--aviso-fondo);color:var(--aviso)}
   .adm-e-caducado{background:var(--chip);color:var(--muted)}
   .adm-e-incompleto{background:rgba(255,107,107,.14);color:var(--offer)}
@@ -4656,9 +4672,9 @@ $CUENTAS = [
     position:absolute;top:14px;right:15px;width:15px;height:15px;border-radius:999px;
     border:1.5px solid var(--border);transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out);
   }
-  .adm-atajo[aria-pressed="true"]{border-color:var(--ok);background:rgba(255,117,23,.09)}
-  .adm-atajo[aria-pressed="true"] .ico{color:var(--ok)}
-  .adm-atajo[aria-pressed="true"] .punto{background:var(--ok);border-color:var(--ok)}
+  .adm-atajo[aria-pressed="true"]{border-color:var(--p-accent-stroke);background:color-mix(in srgb, var(--accent) 9%, var(--surface))}
+  .adm-atajo[aria-pressed="true"] .ico{color:var(--p-accent-stroke)}
+  .adm-atajo[aria-pressed="true"] .punto{background:var(--p-accent-stroke);border-color:var(--p-accent-stroke)}
 
   /* ---- horas ---- */
   .adm-horas{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2)}
@@ -4678,8 +4694,8 @@ $CUENTAS = [
     transition:border-color var(--t-press) var(--ease-out),box-shadow var(--t-press) var(--ease-out);
   }
   .adm-campo{padding-right:14px}
-  .adm-campo:focus,.adm-horas input[type=time]:focus{
-    border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,117,23,.22);outline:none;
+  .adm-campo:focus-visible,.adm-horas input[type=time]:focus-visible{
+    border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow);outline:none;
   }
   .adm-horas input[type=time]::-webkit-calendar-picker-indicator{opacity:0;width:26px}
 
@@ -4693,7 +4709,7 @@ $CUENTAS = [
    * contenido sin necesidad de una linea ni de otra caja. */
   .adm-acciones-fuera{
     /* Vive FUERA de .card-main, asi que no hereda sus tokens: hay que darselos. */
-    --ink:#EDEBEB; --muted:#9A9595; --surface:#101114;
+    --ink:#EDEBEB; --p-fg:var(--ink); --muted:#9A9595; --surface:#101114;
     --border:#2C2E33; --chip:#202226; --hairline:#23252A;
     /* --ok vivia solo en .adm-board, que esta DENTRO de la tarjeta. Aqui var(--ok) no
        resolvia, el fondo del boton de guardar se quedaba en transparente y el boton
@@ -4780,7 +4796,7 @@ $CUENTAS = [
     font-size:var(--t3);font-weight:600;color:var(--ink);
     text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;
   }
-  .adm-quitar-fechas button:hover{color:var(--accent)}
+  .adm-quitar-fechas button:hover{color:var(--p-accent-stroke)}
   .adm-cal-rejilla{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
   .adm-cal-dow{height:28px;display:grid;place-items:center;font-size:var(--t3);font-weight:650;color:var(--muted)}
   .adm-cal-d{
@@ -4792,7 +4808,7 @@ $CUENTAS = [
   .adm-cal-d:hover{background:var(--chip)}
   .adm-cal-d.fuera{visibility:hidden}
   .adm-cal-d.hoy::after{content:"";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);width:5px;height:5px;border-radius:999px;background:var(--accent)}
-  .adm-cal-d.dentro{background:rgba(255,117,23,.18);border-radius:0}
+  .adm-cal-d.dentro{background:color-mix(in srgb, var(--accent) 18%, var(--surface));border-radius:0}
   .adm-cal-d.extremo{background:var(--ok);color:var(--accent-ink);font-weight:700}
   .adm-cal-d.ini{border-radius:10px 0 0 10px}
   .adm-cal-d.fin{border-radius:0 10px 10px 0}
@@ -4855,7 +4871,7 @@ $CUENTAS = [
     border:1px solid var(--border);border-radius:12px;background:var(--chip);
     transition:border-color var(--t-press) var(--ease-out),box-shadow var(--t-press) var(--ease-out);
   }
-  .adm-pct-otro:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,117,23,.22)}
+  .adm-pct-otro:focus-within{border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow)}
   .adm-pct-mas,.adm-pct-pc{color:var(--muted);font-size:var(--t2);font-weight:700;flex:none}
   .adm-pct-pc{margin-right:6px}
   .adm-pct-num{
@@ -4883,8 +4899,8 @@ $CUENTAS = [
     background:transparent;border-color:#3a3d44;color:var(--ink);
     font-size:var(--t3);font-weight:600;
   }
-  .adm-pct-mano svg{width:17px;height:17px;flex:none;color:var(--ok)}
-  .adm-pct-mano:hover{background:var(--chip);border-color:var(--ok)}
+  .adm-pct-mano svg{width:17px;height:17px;flex:none;color:var(--p-accent-stroke)}
+  .adm-pct-mano:hover{background:var(--chip);border-color:var(--p-accent-stroke)}
   /* Al envolver se queda sola en su linea: pegada a la derecha se leeria como un descuido. */
   @media (max-width:699px){
     /* Al envolver, el campo del porcentaje libre y "a mano" ocupan su linea entera: en
@@ -5125,8 +5141,8 @@ $CUENTAS = [
     border:1px solid var(--border);background:var(--chip);color:var(--ink);
     box-shadow:none;font-family:inherit;font-size:var(--t2);
   }
-  .adm-f .combo-q:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,117,23,.22);outline:none}
-  .adm-f .combo-q.is-ok{font-family:inherit;font-weight:700;border-color:var(--ok)}
+  .adm-f .combo-q:focus-visible{border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow);outline:none}
+  .adm-f .combo-q.is-ok{font-family:inherit;font-weight:700;border-color:var(--p-accent-stroke)}
   .adm-f .combo-lista{background:var(--ficha);border-color:var(--border);box-shadow:0 16px 44px -16px rgba(0,0,0,.8)}
   .adm-f .combo-op.is-activo,.adm-f .combo-op:hover{background:var(--surface)}
   .adm-f .combo-num,.adm-f .combo-txt,.adm-f .combo-txt small,.adm-f .combo-vacio{font-family:inherit}
@@ -5480,7 +5496,7 @@ $CUENTAS = [
   .adm-juego-sw .adm-sw-txt{
     min-width:36px;font-size:var(--t3);font-weight:700;letter-spacing:.10em;color:var(--muted);
   }
-  .adm-juego-sw .adm-sw:has(input:checked) .adm-sw-txt{color:var(--ok)}
+  .adm-juego-sw .adm-sw:has(input:checked) .adm-sw-txt{color:var(--p-fg)}
 
   /* ---- el podio del juego ----
      Es una .adm-fila con dos cosas más: el puesto delante y la puntuación al final. El
@@ -5777,7 +5793,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <nav class="tabs" id="tabs" role="tablist">
       <?php foreach ($PESTANAS as $slug => $nombre): ?>
         <button type="button" role="tab" data-tab="<?= h($slug) ?>"
+                id="tab-<?= h($slug) ?>" aria-controls="panel-<?= h($slug) ?>"
                 aria-selected="<?= $pestana === $slug ? 'true' : 'false' ?>"
+                tabindex="<?= $pestana === $slug ? '0' : '-1' ?>"
                 class="<?= $pestana === $slug ? 'on' : '' ?>"><?= h($nombre) ?><?php
           if ($CUENTAS[$slug]) echo '<span class="n">' . (int) $CUENTAS[$slug] . '</span>'; ?></button>
       <?php endforeach; ?>
@@ -5797,7 +5815,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * La foto del plato es otra cosa y va por su cuenta: se sube sola, sin pasar por el
    * Guardar de la pestaña. Mezclarlas obligaría a guardar los agotados para cambiar una foto.
    */ ?>
-  <section class="pane" data-pane="agotados"<?= $pestana === 'agotados' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="agotados" role="tabpanel" id="panel-agotados" aria-labelledby="tab-agotados"<?= $pestana === 'agotados' ? '' : ' hidden' ?>>
     <div class="adm-board">
       <div class="adm-bento">
 
@@ -6321,7 +6339,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * El vocabulario de etiquetas es cerrado a propósito —cada una está traducida a los tres
    * idiomas—, así que se elige de una lista y no se escribe.
    */ ?>
-  <section class="pane" data-pane="destacados"<?= $pestana === 'destacados' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="destacados" role="tabpanel" id="panel-destacados" aria-labelledby="tab-destacados"<?= $pestana === 'destacados' ? '' : ' hidden' ?>>
     <div class="adm-board">
       <div class="adm-bento">
 
@@ -6640,7 +6658,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     $ofEstado = !$oferta['on'] ? 'APAGADA' : ($oferta_corriendo ? 'CORRIENDO' : 'PROGRAMADA');
     $ofClase  = !$oferta['on'] ? 'adm-e-desactivado' : ($oferta_corriendo ? 'adm-e-activo' : 'adm-e-programado');
   ?>
-  <section class="pane" data-pane="ofertas"<?= $pestana === 'ofertas' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="ofertas" role="tabpanel" id="panel-ofertas" aria-labelledby="tab-ofertas"<?= $pestana === 'ofertas' ? '' : ' hidden' ?>>
     <div class="adm-board">
       <div class="adm-bento">
 
@@ -6979,7 +6997,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * La lista editable ya existía; lo que no había era forma de abrirla sin subir antes un
    * porcentaje. Ése es el botón de «a mano»: la misma pantalla, con los precios de ahora.
    */ ?>
-  <section class="pane" data-pane="precios"<?= $pestana === 'precios' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="precios" role="tabpanel" id="panel-precios" aria-labelledby="tab-precios"<?= $pestana === 'precios' ? '' : ' hidden' ?>>
     <div class="adm-board">
 
     <?php if ($previsua): ?>
@@ -7171,7 +7189,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * interruptor.
    */ ?>
   <?php $juegoOn = !empty($juego["on"]); ?>
-  <section class="pane" data-pane="juego"<?= $pestana === "juego" ? "" : " hidden" ?>>
+  <section class="pane" data-pane="juego" role="tabpanel" id="panel-juego" aria-labelledby="tab-juego"<?= $pestana === "juego" ? "" : " hidden" ?>>
     <div class="adm-board">
       <div class="adm-bento">
 
@@ -7280,7 +7298,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            debian ser independientes, el codigo no lo era todavia. Ahora cada uno cierra su
            propio if justo donde termina su propia section. */ ?>
   <?php if (CLIENTE_PUBLICIDAD): ?>
-  <section class="pane" data-pane="publicidad"<?= $pestana === 'publicidad' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="publicidad" role="tabpanel" id="panel-publicidad" aria-labelledby="tab-publicidad"<?= $pestana === 'publicidad' ? '' : ' hidden' ?>>
     <?php /* El parrafo de siempre. Con JavaScript se recoge en el icono de ayuda de la ficha
              de estado; sin el se queda visible, que es como esta hoy. */ ?>
     <p class="hint" data-adm-ayuda="Donde sale el banner" data-adm-ancla=".adm-f-estado .adm-f-cab .der">
@@ -7484,7 +7502,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * guardar. Es la única pestaña que sólo se lee.
    */ ?>
   <?php if (DATOS_ACTIVO): ?>
-  <section class="pane" data-pane="datos"<?= $pestana === 'datos' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="datos" role="tabpanel" id="panel-datos" aria-labelledby="tab-datos"<?= $pestana === 'datos' ? '' : ' hidden' ?>>
     <div class="adm-board">
 
     <?php /* Los avisos de estado van ARRIBA y fuera de la rejilla: si no se está contando
@@ -7692,7 +7710,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * csrf. Portadas y copias tienen los suyos: cada accion se manda sola y no espera a
    * "Guardar cambios".
    */ ?>
-  <section class="pane" data-pane="marca"<?= $pestana === 'marca' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="marca" role="tabpanel" id="panel-marca" aria-labelledby="tab-marca"<?= $pestana === 'marca' ? '' : ' hidden' ?>>
     <div class="adm-board">
       <div class="adm-bento">
 
@@ -8123,6 +8141,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var on = b.dataset.tab === slug;
           b.classList.toggle('on', on);
           b.setAttribute('aria-selected', String(on));
+          b.tabIndex = on ? 0 : -1;
           if (on && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'center' });
         });
         try { history.replaceState(null, '', '?t=' + encodeURIComponent(slug)); } catch (e) {}
@@ -8133,6 +8152,25 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       botones.forEach(function (b) {
         b.addEventListener('click', function () { abrir(b.dataset.tab); });
       });
+
+      // Patrón de teclado de pestañas (WAI-ARIA APG): flechas mueven el foco y activan a la
+      // vez, como ya hace el click — Home/End van al extremo. Tab/Enter/Espacio no se tocan,
+      // los da gratis el <button> nativo. MISE-A R1.
+      if (fila) {
+        fila.addEventListener('keydown', function (e) {
+          var i = botones.indexOf(document.activeElement);
+          if (i === -1) return;
+          var next = null;
+          if (e.key === 'ArrowRight') next = (i + 1) % botones.length;
+          else if (e.key === 'ArrowLeft') next = (i - 1 + botones.length) % botones.length;
+          else if (e.key === 'Home') next = 0;
+          else if (e.key === 'End') next = botones.length - 1;
+          else return;
+          e.preventDefault();
+          botones[next].focus();
+          abrir(botones[next].dataset.tab);
+        });
+      }
     })();
 
     /* ---------------- reordenar fotos sin recargar ----------------
