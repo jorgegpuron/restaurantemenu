@@ -131,10 +131,17 @@ jobs:
           echo "Compilado correcto: $(find . -type f | wc -l) ficheros, $(du -sh . | cut -f1)"
           echo "Build: $(cat version.json)"
 
-      # Las tres actions van fijadas al SHA del commit, no a la etiqueta: una etiqueta se puede
-      # reescribir para que apunte a otro codigo, y esta recibe las credenciales FTP.
-      # Para actualizar: mira la release nueva, coge su SHA y cambia SHA y comentario a la vez.
+      # El unico camino a produccion: hace falta pedirlo a mano (workflow_dispatch) Y tener
+      # DESPLIEGUE_REAL en "true" a la vez. Un push nunca cumple la primera condicion, así que
+      # un push jamas abre conexion FTP -- ni siquiera de ensayo. Antes, dry-run:true seguia
+      # conectando al servidor para listar diferencias, y un FTP caido bastaba para tumbar
+      # un push que no pretendia desplegar nada (ver el fallo del run 34113057332).
       - name: Subir por FTP
+        id: ftp_deploy
+        if: github.event_name == 'workflow_dispatch' && vars.DESPLIEGUE_REAL == 'true'
+        # Las tres actions van fijadas al SHA del commit, no a la etiqueta: una etiqueta se puede
+        # reescribir para que apunte a otro codigo, y esta recibe las credenciales FTP.
+        # Para actualizar: mira la release nueva, coge su SHA y cambia SHA y comentario a la vez.
         uses: SamKirkland/FTP-Deploy-Action@3a9c65ae0fc12ac924ccef8afc26941cc43aad0b # v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -157,8 +164,11 @@ jobs:
           # antes de tocar ficheros, asi que no deja la carta a medias.
           protocol: ftps
           security: strict
-          # El unico interruptor. Sin la variable puesta a "true", esto es siempre un ensayo.
-          dry-run: ${{ vars.DESPLIEGUE_REAL != 'true' }}
+          # El guardian ya es el "if:" del step, de ahi arriba: este paso solo se ejecuta en el
+          # unico caso real (workflow_dispatch + DESPLIEGUE_REAL=true), asi que aqui no hace
+          # falta ensayo -- se deja "false" explicito, a proposito, por si algun dia se retira
+          # el "if:" sin darse cuenta y hace falta una segunda red de seguridad.
+          dry-run: false
           log-level: standard
           # Lo excluido no se sube y tampoco se borra: son datos del servidor, no del proyecto.
           exclude: |
@@ -182,13 +192,34 @@ jobs:
             admin/acceso*.jpg
             LEEME-SERVIDOR.txt
 
+      # El paso de arriba no corre fuera del unico caso real -- este es el que deja constancia
+      # en todos los demas, sin abrir ninguna conexion.
+      - name: Ensayo — sin conexion FTP
+        if: ${{ !(github.event_name == 'workflow_dispatch' && vars.DESPLIEGUE_REAL == 'true') }}
+        run: echo "::notice::ENSAYO / VALIDACIÓN LOCAL — sin conexión FTP. No se ha tocado producción."
+
+      # El resumen no puede fiarse de la condicion de arriba para decir "subido por FTP": esa
+      # condicion solo dice que se PIDIO un despliegue real, no que el paso haya terminado bien
+      # -- puede fallar por timeout, por autenticacion o por cualquier otra cosa, o ni siquiera
+      # haber llegado a correr si algo anterior fallo. Lo unico que demuestra que de verdad se
+      # subio algo es el resultado real del propio step: steps.ftp_deploy.outcome. Este paso no
+      # usa continue-on-error, asi que outcome y conclusion coinciden aqui; se usa outcome por
+      # ser el mas directo. Valores posibles: success, failure, cancelled, skipped -- este
+      # ultimo tambien cuando el "if:" de arriba dio false, o cuando un paso anterior fallo (el
+      # "if:" sin success()/always()/... explicito lleva un success() implicito por delante).
       - name: Resumen
         if: always()
         run: |
           {
             echo "### Despliegue de la carta"
             echo ""
-            echo "- Modo: ${{ vars.DESPLIEGUE_REAL == 'true' && 'DESPLIEGUE REAL' || 'ENSAYO — no se ha subido nada' }}"
+            if [ "${{ github.event_name == 'workflow_dispatch' && vars.DESPLIEGUE_REAL == 'true' }}" != "true" ]; then
+              echo "- Modo: ENSAYO / VALIDACIÓN — sin conexión FTP, no se ha subido nada"
+            elif [ "${{ steps.ftp_deploy.outcome }}" = "success" ]; then
+              echo "- Modo: DESPLIEGUE REAL COMPLETADO — FTP finalizado correctamente"
+            else
+              echo "- Modo: DESPLIEGUE REAL NO COMPLETADO — FTP: ${{ steps.ftp_deploy.outcome }}"
+            fi
             echo "- Borrado en espejo: desactivado"
             echo "- Datos del panel en produccion: excluidos"
           } >> "$GITHUB_STEP_SUMMARY"
