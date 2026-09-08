@@ -184,7 +184,7 @@ export async function pruebasMulticliente(informe, { proyectoSemilla, navegador,
       await pagina.waitForLoadState('networkidle').catch(() => {});
       await pagina.waitForTimeout(400);
     }
-    const pestanas = await pagina.evaluate(() => [...document.querySelectorAll('#tabs button')].map((b) => b.dataset.tab));
+    const pestanas = await pagina.evaluate(() => [...document.querySelectorAll('#adm-sidebar [data-tab]')].map((b) => b.dataset.tab));
     informe.comprueba('MC-21', 'el panel del cliente nuevo abre con sus pestanas',
       pestanas.length >= 7, pestanas.join(','));
 

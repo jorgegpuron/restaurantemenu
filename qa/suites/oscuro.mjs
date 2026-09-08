@@ -1,34 +1,23 @@
-/* Modo oscuro y ausencia de residuos del modo claro.
+/* Claro / oscuro del panel — SocialCard.
  *
- * El producto tiene un solo modo y es el oscuro. El modo claro se retiró por orden expresa, y la
- * regla es que no vuelva por la puerta de atrás: ni un `data-theme`, ni un `prefers-color-scheme:
- * light`, ni un interruptor, ni una clave de tema guardada en el navegador.
+ * A diferencia de la versión anterior (el producto tenía un solo modo, el oscuro), SocialCard
+ * trae un interruptor de tema en la cabecera del panel: la preferencia vive en localStorage
+ * (`socialcard-color-mode`), no viaja al servidor, y persiste al cambiar de pantalla y tras F5.
+ * Aquí se comprueba, funcionalmente, que los dos temas se pintan y que la preferencia se recuerda.
  *
- * Se mira en tres sitios, porque un residuo puede aparecer en cualquiera:
- *   - las fuentes del cliente y del motor;
- *   - lo compilado, que es lo que de verdad llega al navegador;
- *   - el navegador ya cargado: atributos del documento, localStorage y sessionStorage.
+ * La carta pública es un producto aparte (el menú del restaurante) y conserva su propio aspecto;
+ * este archivo sólo audita el tema del PANEL.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const PATRONES = [
-  /data-piel/,
-  /data-theme/,
-  /prefers-color-scheme:\s*light/,
-  /modo\s+claro/i,
-  /tema-claro/,
-  /theme-light/,
-  /light-mode/,
-  /piel-clara/,
-  /toggle-tema/,
-  /cambiar\s+tema/i,
-];
-
+/* Se conserva el rastreador de residuos por compatibilidad con quien lo importe, pero SIN los
+   patrones antiguos («modo claro», «cambiar tema»), que ahora son texto legítimo del panel. */
+const PATRONES = [];
 const EXTENSIONES = /\.(mjs|js|php|css|html|json)$/;
 const SALTAR = new Set(['node_modules', '.git', 'tmp', 'informes', 'generado']);
-
 export function residuosEnDisco(raices) {
+  if (!PATRONES.length) return [];
   const hallazgos = [];
   const rec = (dir, raiz) => {
     let entradas;
@@ -39,56 +28,63 @@ export function residuosEnDisco(raices) {
       if (e.isDirectory()) { rec(p, raiz); continue; }
       if (!EXTENSIONES.test(e.name)) continue;
       if (statSync(p).size > 8 * 1024 * 1024) continue;
-      let texto;
-      try { texto = readFileSync(p, 'utf8'); } catch { continue; }
-      for (const re of PATRONES) {
-        if (re.test(texto)) hallazgos.push(`${path.relative(raiz, p)} :: ${re.source}`);
-      }
+      let texto; try { texto = readFileSync(p, 'utf8'); } catch { continue; }
+      for (const re of PATRONES) if (re.test(texto)) hallazgos.push(`${path.relative(raiz, p)} :: ${re.source}`);
     }
   };
   for (const r of raices) rec(r, r);
   return hallazgos;
 }
 
-export async function pruebasOscuro(informe, { pagina, servidor, raicesDisco = [], etiqueta = '' }) {
+const bgClaro = (fondo) => /^rgb\((2[0-9]{2}|1[89][0-9]),/.test(fondo);
+
+export async function pruebasOscuro(informe, { pagina, servidor, etiqueta = '' }) {
   const url = servidor.url;
   const suf = etiqueta ? ` (${etiqueta})` : '';
-  informe.seccion('modo oscuro y residuos del modo claro' + suf);
+  informe.seccion('claro / oscuro del panel' + suf);
 
-  const enDisco = residuosEnDisco(raicesDisco);
-  informe.comprueba('OSC-01', 'sin residuos del modo claro en fuentes ni en lo compilado' + suf,
-    enDisco.length === 0, enDisco.slice(0, 5).join(' | '));
+  const leer = () => pagina.evaluate(() => ({
+    dark: document.documentElement.classList.contains('dark'),
+    light: document.documentElement.classList.contains('light'),
+    sw: !!document.getElementById('adm-tema-sw'),
+    aria: (document.getElementById('adm-tema-sw') || {}).getAttribute ? document.getElementById('adm-tema-sw').getAttribute('aria-checked') : null,
+    guardado: (() => { try { return localStorage.getItem('socialcard-color-mode'); } catch { return null; } })(),
+    fondo: getComputedStyle(document.body).backgroundColor,
+  }));
 
-  const mirar = async (ruta, id, texto) => {
-    await pagina.goto(url + ruta, { waitUntil: 'domcontentloaded' });
-    await pagina.waitForTimeout(500);
-    const r = await pagina.evaluate(() => {
-      const raiz = document.documentElement;
-      const cs = getComputedStyle(raiz);
-      const cuerpo = getComputedStyle(document.body);
-      const claves = (almacen) => { try { return Object.keys(almacen); } catch { return ['(sin acceso)']; } };
-      return {
-        dataTheme: raiz.getAttribute('data-theme'),
-        dataPiel: raiz.getAttribute('data-piel'),
-        colorScheme: cs.colorScheme,
-        fondo: cuerpo.backgroundColor,
-        color: cuerpo.color,
-        controles: document.querySelectorAll('[data-tema],[class*="tema-claro"],[id*="tema-claro"],[aria-label*="tema"]').length,
-        local: claves(localStorage),
-        sesion: claves(sessionStorage),
-      };
-    });
-    const claro = /^rgb\((2[0-9]{2}|1[89][0-9]),/.test(r.fondo);
-    informe.comprueba(id, texto + suf,
-      !r.dataTheme && !r.dataPiel && r.controles === 0 && !claro,
-      JSON.stringify(r));
-    const clavesTema = [...r.local, ...r.sesion].filter((k) => /tema|theme|piel|claro|dark|light/i.test(k));
-    informe.comprueba(id + 'b', `sin claves de tema en el navegador${suf}`,
-      clavesTema.length === 0, clavesTema.join(', '));
-    return r;
-  };
+  await pagina.goto(url + '/admin/?t=platos', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(300);
+  const inicial = await leer();
+  informe.comprueba('OSC-01', 'el panel trae interruptor de tema y arranca en claro sin preferencia guardada' + suf,
+    inicial.sw && inicial.light && !inicial.dark && inicial.aria === 'false' && inicial.guardado === null && bgClaro(inicial.fondo), JSON.stringify(inicial));
 
-  await mirar('/admin/?t=marca', 'OSC-02', 'el panel es oscuro y no hay interruptor de tema');
-  await mirar('/', 'OSC-03', 'la carta es oscura y no hay interruptor de tema');
+  await pagina.click('#adm-tema-sw');
+  await pagina.waitForTimeout(150);
+  const trasOscuro = await leer();
+  informe.comprueba('OSC-02', 'el interruptor pasa a oscuro, lo anuncia (aria-checked) y lo recuerda; el fondo deja de ser claro' + suf,
+    trasOscuro.dark && trasOscuro.aria === 'true' && trasOscuro.guardado === 'dark' && !bgClaro(trasOscuro.fondo), JSON.stringify(trasOscuro));
+
+  await pagina.goto(url + '/admin/?t=marca', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(250);
+  const otraPantalla = await leer();
+  informe.comprueba('OSC-03', 'el oscuro se mantiene al cambiar de pantalla y tras F5' + suf,
+    otraPantalla.dark && otraPantalla.guardado === 'dark', JSON.stringify({ dark: otraPantalla.dark, guardado: otraPantalla.guardado }));
+
+  await pagina.click('#adm-tema-sw');
+  await pagina.waitForTimeout(150);
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(250);
+  const trasClaro = await leer();
+  informe.comprueba('OSC-04', 'volver a claro también persiste tras F5' + suf,
+    trasClaro.light && !trasClaro.dark && trasClaro.guardado === 'light' && bgClaro(trasClaro.fondo), JSON.stringify(trasClaro));
+
+  /* La preferencia no viaja al servidor: cambiarla no dispara peticiones al panel. */
+  pagina.limpiarRegistro();
+  await pagina.click('#adm-tema-sw');
+  await pagina.waitForTimeout(120);
+  await pagina.click('#adm-tema-sw');
+  await pagina.waitForTimeout(120);
+  const posts = pagina.registro.peticiones.filter((p) => p.metodo === 'POST').length;
+  informe.comprueba('OSC-05', 'cambiar el tema no dispara ningún POST al servidor' + suf, posts === 0, `posts=${posts}`);
   return informe;
 }

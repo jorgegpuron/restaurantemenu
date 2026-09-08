@@ -8243,7 +8243,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         document.getElementById('clear-all').addEventListener('click', function () {
           var marcados = pane.querySelectorAll('input[name="agotado[]"]:checked');
           if (!marcados.length) return;
-          if (!window.confirm('¿Quitar los ' + marcados.length + ' agotados?')) return;
+          /* Cuenta PLATOS distintos, no casillas: un plato con dos filas (su categoría y Sin
+             gluten/Vegano) tiene dos casillas marcadas pero es UN plato. Misma cuenta que el
+             contador (agotadosDistintos), para no preguntar «¿Quitar los 6?» cuando son 5. */
+          var nQuitar = agotadosDistintos();
+          if (!window.confirm('¿Quitar los ' + nQuitar + ' agotados?')) return;
           marcados.forEach(function (cb) {
             cb.checked = false;
             cb.closest('.adm-orow').classList.remove('es-agotado');
@@ -8300,6 +8304,13 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               function () { lote.forEach(function (el) { el.value = el.dataset.confirmado || ''; }); });
           }, 200);
         });
+
+        /* Al cargar la página el contador cuenta PLATOS distintos, igual que al marcar. El
+           servidor pinta count($agotados) —una fila por cada aparición del plato en la carta,
+           así que un plato en Aperitivos y en Vegano cuenta dos—; sin este recálculo, tras un
+           F5 el contador volvía a decir «2» para un solo plato marcado. Sólo lee el DOM ya
+           pintado y reescribe el número; no guarda nada. (ADMIN-E2E-001: F5 y persistencia.) */
+        refrescar();
 
         window.addEventListener('beforeunload', function (e) {
           if (!sucio) return;

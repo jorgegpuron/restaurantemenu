@@ -73,47 +73,41 @@ export async function lote1(informe, { pagina, servidor, docroot, fixtures }) {
    estado entero y se perdían agotados, destacados, fotos y marca sin avisar. */
 export async function lote2(informe, { pagina, servidor, docroot }) {
   const url = servidor.url;
-  informe.seccion('lote 2: restaurar copia');
+  const { guardar, postCrudo, irA } = await import('./admin.mjs');
+  informe.seccion('lote 2: restaurar copia (Ajustes)');
 
-  /* Primero hay que tener una copia: se genera cambiando precios. */
-  await pagina.goto(url + '/admin/?t=precios', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
-  await pagina.click('button[name="subir"][value="5"]');
-  await pagina.waitForLoadState('networkidle').catch(() => {});
-  await pagina.waitForTimeout(400);
-  await pagina.click('button[form="precios-form"]');
-  await pagina.waitForLoadState('networkidle').catch(() => {});
-  await pagina.waitForTimeout(500);
+  /* Una copia se crea con un cambio de precios (Platos). */
+  const platos = JSON.parse(readFileSync(path.join(docroot, 'admin', 'platos.json'), 'utf8')).filter((p) => p.price !== '');
+  const k0 = platos[0].key;
+  await irA(pagina, url, 'platos', 300);
+  await postCrudo(pagina, '/admin/index.php', [['precios_publicar', '1'], [`precio[${k0}]`, '33.33']]);
+  await pagina.waitForTimeout(1100);
+  await postCrudo(pagina, '/admin/index.php', [['precios_publicar', '1'], [`precio[${k0}]`, '44.44']]);
 
   const copias = readdirSync(path.join(docroot, 'admin', 'copias')).filter((f) => f.endsWith('.json'));
   if (!copias.length) { informe.blocked('L2-01', 'restaurar copia', 'no se creo ninguna copia'); return informe; }
 
-  /* Se cambia OTRA cosa después de la copia: si la restauración la pisara, se vería. */
-  await pagina.goto(url + '/admin/?t=marca', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(300);
-  const marcaTestigo = 'Rotulo posterior a la copia';
+  /* Se cambia OTRA cosa después de la copia (rótulo de Marca): si la restauración la pisara, se vería. */
+  await irA(pagina, url, 'marca', 300);
+  const marcaTestigo = 'Rotulo posterior';
   await pagina.fill('#marca-rotulo', marcaTestigo);
-  await pagina.click('button[form="marca-form"]');
-  await pagina.waitForLoadState('networkidle').catch(() => {});
-  await pagina.waitForTimeout(400);
+  await guardar(pagina, 'marca-form');
 
   const antes = leerEstado(docroot);
-  await pagina.goto(url + '/admin/?t=marca', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(400);
+  await irA(pagina, url, 'ajustes', 300);
   await clicVisible(pagina, 'button[name="restaurar_copia"]', 0);
   await pagina.waitForLoadState('networkidle').catch(() => {});
-  await pagina.waitForTimeout(800);
+  await pagina.waitForTimeout(700);
   const aviso = await textoAviso(pagina);
   const despues = leerEstado(docroot);
 
   const cambiadas = Object.keys({ ...antes, ...despues })
     .filter((k) => JSON.stringify(antes?.[k]) !== JSON.stringify(despues?.[k]));
-  const soloPrecios = cambiadas.every((k) => k === 'prices' || k === 'actualizado');
-  informe.comprueba('L2-01', 'restaurar una copia solo cambia los precios', soloPrecios,
-    `cambiaron: ${cambiadas.join(', ')} | ${aviso}`);
+  informe.comprueba('L2-01', 'restaurar una copia solo cambia los precios',
+    cambiadas.every((k) => k === 'prices' || k === 'actualizado'), `cambiaron: ${cambiadas.join(', ')} | ${aviso.slice(0, 60)}`);
   informe.comprueba('L2-02', 'la marca cambiada despues de la copia sobrevive a la restauracion',
-    (despues?.marca?.rotuloVisible || '').startsWith(marcaTestigo.slice(0, 20)),
-    despues?.marca?.rotuloVisible);
+    (despues?.marca?.rotuloVisible || '').startsWith(marcaTestigo), despues?.marca?.rotuloVisible);
+  await postCrudo(pagina, '/admin/index.php', [['precios_reset', '1']]);
   return informe;
 }
 
@@ -121,29 +115,31 @@ export async function lote2(informe, { pagina, servidor, docroot }) {
    escribir en el buscador ensuciaba el formulario y el navegador pedía confirmación al salir. */
 export async function lote3(informe, { pagina, servidor }) {
   const url = servidor.url;
-  informe.seccion('lote 3: aviso de cambios sin guardar');
+  const { irA } = await import('./admin.mjs');
+  informe.seccion('lote 3: buscador limpio y autoguardado de agotados');
 
-  await pagina.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(300);
+  await irA(pagina, url, 'platos', 300);
   await pagina.fill('#q', 'zzz');
   await pagina.waitForTimeout(250);
   pagina.registro.dialogos.length = 0;
   await pagina.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
   await pagina.waitForTimeout(400);
-  informe.comprueba('L3-01', 'escribir en el buscador no dispara el aviso',
+  informe.comprueba('L3-01', 'escribir en el buscador no dispara el aviso de cambios sin guardar',
     pagina.registro.dialogos.length === 0, pagina.registro.dialogos.join(' | '));
 
-  await pagina.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
-  await abrirAcordeones(pagina, 'section.pane[data-pane="agotados"]');
-  await pagina.waitForTimeout(200);
-  await clicVisible(pagina, 'label.adm-agrow-marca', 0);
-  await pagina.waitForTimeout(250);
-  pagina.registro.dialogos.length = 0;
-  await pagina.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-  await pagina.waitForTimeout(600);
-  informe.comprueba('L3-02', 'marcar un agotado de verdad si dispara el aviso',
-    pagina.registro.dialogos.some((d) => d.startsWith('beforeunload')),
-    pagina.registro.dialogos.join(' | ') || '(ningun dialogo)');
+  /* Con MISE-B los agotados autoguardan: marcar uno NO deja «cambios sin guardar», se guarda solo
+     y persiste tras F5 sin pulsar ningún botón. */
+  await irA(pagina, url, 'platos', 300);
+  await pagina.evaluate(() => document.querySelectorAll('[data-cat-bento]').forEach((f) => f.setAttribute('data-abierto', '')));
+  const val = await pagina.evaluate(() => { const cb = document.querySelector('.pane[data-pane="platos"] input[name="agotado[]"]'); if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); } return cb ? cb.value : null; });
+  await pagina.waitForLoadState('networkidle').catch(() => {});
+  await pagina.waitForTimeout(700);
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(300);
+  await pagina.evaluate(() => document.querySelectorAll('[data-cat-bento]').forEach((f) => f.setAttribute('data-abierto', '')));
+  const persiste = await pagina.evaluate((v) => { const cb = document.querySelector(`.pane[data-pane="platos"] input[name="agotado[]"][value="${v}"]`); return cb ? cb.checked : false; }, val);
+  informe.comprueba('L3-02', 'marcar un agotado se autoguarda sin pulsar Guardar y persiste tras F5',
+    !!val && persiste, `val=${val} persiste=${persiste}`);
   return informe;
 }
 
@@ -177,8 +173,8 @@ export async function lote6(informe, { pagina, servidor, docroot }) {
     fd.set('csrf', csrf); fd.set('guardar_oferta', '1'); fd.set('pct', '20');
     fd.set('desde', '00:00'); fd.set('hasta', '23:59');
     ['5', '2', '5', '2', '9', '0', '7', '2'].forEach((d) => fd.append('dia[]', d));
-    const cat = document.querySelector('input[name="cat[]"]');
-    if (cat) fd.append('cat[]', cat.value);
+    const cb = document.querySelector('input[name="oferta_plato[]"]:not([disabled])');
+    if (cb) fd.append('oferta_plato[]', cb.value);
     fd.set('oferta_on', '1');
     const x = await fetch('/admin/index.php?t=ofertas', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
     return x.status;
@@ -240,8 +236,8 @@ export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
   const { entrarAlPanel } = await import('./admin.mjs');
   await entrarAlPanel(pagina, url);
 
-  await pagina.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
-  await abrirAcordeones(pagina, 'section.pane[data-pane="agotados"]');
+  await pagina.goto(url + '/admin/?t=platos', { waitUntil: 'domcontentloaded' });
+  await pagina.evaluate(() => document.querySelectorAll('[data-cat-bento]').forEach((f) => f.setAttribute('data-abierto', '')));
   await pagina.waitForTimeout(250);
   /* Hace falta una camara de un plato que TODAVIA no tenga foto: el cambio que se comprueba es
      «Poner foto a X» -> «Cambiar la foto de X», y si el plato ya tiene foto el rotulo empieza ya
@@ -258,7 +254,7 @@ export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
     await pagina.waitForTimeout(400);
     await pagina.setInputFiles('#rec-file', fixtures['plato-600x600.png']);
     await pagina.waitForTimeout(1400);
-    const abierto = await pagina.evaluate(() => !document.querySelector('#recorte').hidden);
+    const abierto = await pagina.evaluate(() => document.getElementById('recorte').hasAttribute('open'));
     if (abierto) {
       await clicVisible(pagina, '#rec-guardar', 0);
       await pagina.waitForTimeout(2200);

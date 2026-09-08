@@ -30,6 +30,7 @@ import { pruebasOscuro } from './oscuro.mjs';
 import { pruebasCarta } from './carta.mjs';
 import { pruebasMulticliente } from './multicliente.mjs';
 import { pruebasConocidos } from './conocidos.mjs';
+import { bateriaE2E } from './admin-e2e.mjs';
 import * as lotes from './lotes.mjs';
 
 export async function full(informe = new Informe('QA completa (full)'), opciones = {}) {
@@ -100,10 +101,10 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
       const pagSinMb = await nuevaPagina(navegador);
       const pest = await entrarAlPanel(pagSinMb, srvSinMb.url);
       informe.seccion('sin mbstring');
-      informe.comprueba('E2-01', 'sin mbstring siguen estando las ocho pestanas',
-        pest.length === 8, pest.join(','));
-      informe.comprueba('E2-02', 'sin mbstring siguen renderizandose los ocho paneles',
-        await pagSinMb.evaluate(() => document.querySelectorAll('section.pane').length) === 8);
+      informe.comprueba('E2-01', 'sin mbstring siguen estando las siete pantallas',
+        pest.length === 7, pest.join(','));
+      informe.comprueba('E2-02', 'sin mbstring siguen renderizandose los siete paneles',
+        await pagSinMb.evaluate(() => document.querySelectorAll('section.pane').length) === 7);
       const dias = await pagSinMb.evaluate(async () => {
         await fetch('/admin/?t=ofertas');
         return null;
@@ -168,7 +169,7 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
     await pagDemo.goto(srvDemo.url + '/admin/', { waitUntil: 'domcontentloaded' });
     await pagDemo.waitForTimeout(400);
     const enDemo = await pagDemo.evaluate(() => !document.querySelector('#clave')
-      && document.querySelectorAll('#tabs button').length > 0);
+      && document.querySelectorAll('#adm-sidebar [data-tab]').length > 0);
     informe.comprueba('DEMO-01', 'el modo demo entra sin contrasena', enDemo);
     if (enDemo) {
       const corta = await pagDemo.evaluate(async () => {
@@ -195,6 +196,10 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
 
     /* ---------- clientes nuevos, aislamiento y actualizacion ---------- */
     const mc = await pruebasMulticliente(informe, { proyectoSemilla: clon.proyecto, navegador, nuevaPagina });
+
+    /* ---------- auditoria E2E exhaustiva del administrador (Fase A) ---------- */
+    informe.seccion('E2E exhaustiva del administrador');
+    await bateriaE2E(informe, { clon, fixtures, navegador });
 
     /* ---------- defectos abiertos ---------- */
     /* Se mira el cliente VACIO y no el completo: el completo pasa por la prueba del actualizador y

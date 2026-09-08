@@ -66,7 +66,7 @@ export async function servidorPhp(docroot, opciones = {}) {
 }
 
 async function arrancaUnaVez(docroot, opciones = {}) {
-  const { gd = true, mbstring = true, subidaMax = '8M', postMax = '10M', logDir } = opciones;
+  const { gd = true, mbstring = true, subidaMax = '8M', postMax = '10M', logDir, sesionesDir } = opciones;
   const caps = capacidadesPhp();
   if (!caps.hayPhp) throw new Error('no hay binario de PHP en el PATH');
 
@@ -79,6 +79,13 @@ async function arrancaUnaVez(docroot, opciones = {}) {
   if (caps.dir) args.push('-d', `extension_dir=${caps.dir}`);
   if (gd && caps.gd) args.push('-d', 'extension=gd');
   if (mbstring && caps.mbstring) args.push('-d', 'extension=mbstring');
+  /* FASE A: una carpeta de sesiones propia. Sirve para dos cosas: que una pasada no lea las
+     sesiones de otra, y que la prueba de caducidad pueda envejecer el `visto` de una sesion a
+     mano en vez de esperar treinta minutos. Sin opcion, PHP usa su temporal de siempre. */
+  if (sesionesDir) {
+    mkdirSync(sesionesDir, { recursive: true });
+    args.push('-d', `session.save_path=${sesionesDir}`);
+  }
   args.push(
     '-d', `error_log=${log}`,
     '-d', 'log_errors=1',
@@ -103,6 +110,7 @@ async function arrancaUnaVez(docroot, opciones = {}) {
     conGd: gd && caps.gd,
     conMbstring: mbstring && caps.mbstring,
     rutaLog: log,
+    sesionesDir: sesionesDir || null,
     /* Los avisos de PHP de este servidor. Se filtra el ruido de arranque de una extensión que la
        máquina no tiene: eso ya lo dice `capacidadesPhp()` y no es un fallo del producto. */
     avisos() {
