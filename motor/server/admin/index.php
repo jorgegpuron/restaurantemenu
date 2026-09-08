@@ -265,7 +265,7 @@ function color_mezcla(string $a, string $b, float $t): string {
  * $metalInk se calcula sobre el $metal YA aclarado, no reutiliza $accentInk: con un
  * colorPrincipal oscuro, metal puede acabar bastante más claro que el hex original (ver
  * el mismo razonamiento en motor/temas.mjs). $badgeInk es la tinta de los badges/
- * etiquetas de producto (item-tag, dsheet-flag, aviso-badge, .badge, .insignia.is-user,
+ * etiquetas de producto (item-tag, dsheet-flag, aviso-badge, .badge,
  * el boton Buscar): $neutro fijo SOLO con el naranja de fabrica exacto -- '#FF7517',
  * literal a proposito, es el hex del motor, no el de fabrica de un cliente concreto --
  * excepcion visual consciente y pedida (2.45:1, aceptado); con cualquier otro
@@ -1234,6 +1234,23 @@ function mayuscula(string $s): string {
   return strtr(str_replace(CAJA_MIN, CAJA_MAY, $s), CAJA_AZ_MIN, CAJA_AZ_MAY);
 }
 
+/* Cabecera de ficha de categoría (Platos y Ofertas): una sola línea, nunca dos con la
+   misma palabra repetida. La categoría («Sopas») y su pestaña de la carta («Aperitivos y
+   sopas») son datos distintos y las dos hacen falta — el mismo nombre de categoría se
+   repite en varias pestañas (Sopas vive en su pestaña normal, y otra vez suelta dentro de
+   Sin gluten y de Vegano: 40 fichas reales, cero colisión con esta regla, comprobado). Si
+   la pestaña ya empieza por el nombre de la categoría, se enseña sólo la pestaña (es el
+   caso de "Aperitivos" dentro de "Aperitivos y sopas": mostrar las dos por separado sólo
+   repetía la misma palabra dos veces). Si son idénticas, una sola vez. En cualquier otro
+   caso, las dos, separadas por un punto medio. */
+function etiqueta_categoria(string $nombre, string $tab): string {
+  $n = minuscula($nombre);
+  $t = minuscula($tab);
+  if ($n === $t) return $nombre;
+  if (strpos($t, $n) === 0) return $tab;
+  return $nombre . ' · ' . $tab;
+}
+
 /* Recorte por CARACTERES, no por bytes: cortar un UTF-8 a la brava parte una tilde en dos y
    deja basura en pantalla y en el JSON. Sin mbstring se cuentan puntos de codigo con una
    expresion regular /u, la misma tecnica que caracteres() de aqui abajo; si el texto no es
@@ -1951,7 +1968,7 @@ function dt_chip(?int $pct, bool $habia = false): string {
   $ico = '';
   if ($pct !== 0) {
     $trazo = $pct > 0 ? 'M6 10V2M2.5 5.5 6 2l3.5 3.5' : 'M6 2v8M2.5 6.5 6 10l3.5-3.5';
-    $ico = "<svg viewBox='0 0 12 12' fill='none' stroke='currentColor' stroke-width='2.2'"
+    $ico = "<svg viewBox='0 0 12 12' fill='none' stroke='currentColor' stroke-width='2'"
          . " stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>"
          . "<path d='" . $trazo . "'/></svg>";
   }
@@ -1985,7 +2002,7 @@ function datos_pct(int $ahora, int $antes): ?int {
   return (int) round((($ahora - $antes) / $antes) * 100);
 }
 
-$pestana  = (string) ($_GET['t'] ?? 'agotados');
+$pestana  = (string) ($_GET['t'] ?? 'platos');
 $previsua = null;   // paso 2 de los precios: propuesta calculada y sin publicar
 
 $esPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST';
@@ -2001,6 +2018,16 @@ if ($post_tirado) {
   $error = 'El servidor ha rechazado el envío por tamaño: no acepta más de ' . h((string) $limite)
          . ' por envío. Sube una foto más ligera.';
 } elseif ($dentro && $esPost && !$csrfOk && !isset($_POST['clave']) && !isset($_POST['nueva'])) {
+  /* Cierre funcional MISE-B, punto 2: esta es la puerta compartida por TODOS los
+     autoguardados (Ofertas, Agotados, precio en línea, destacado, foto...) — todos ellos
+     viven dentro del `if ($csrfOk)` de más abajo, así que un CSRF inválido aquí es el
+     único sitio que hace falta tocar para que ninguno de ellos pueda parecer "guardado"
+     sin estarlo. Antes esto devolvía HTTP 200 con la página entera — un fetch lee
+     `r.ok === true` y no tiene forma de distinguirlo de un guardado real. La navegación
+     tradicional (recarga de página completa) no cambia: sigue viendo exactamente el
+     mismo aviso, sólo que ahora con el código correcto por debajo, invisible para quien
+     lee la pantalla. Login, sesión, cookies y generación del propio CSRF no se tocan. */
+  http_response_code(403);
   $error = 'La sesión ha caducado. Vuelve a entrar.';
 }
 
@@ -2115,7 +2142,7 @@ if ($csrfOk) {
     foreach (copias_listar() as $c) {
       if ($c['nombre'] === $pedido) $encontrada = $c['nombre'];
     }
-    $pestana = 'marca';
+    $pestana = 'ajustes';
 
     if ($encontrada === null) {
       $error = 'Esa copia ya no esta. Actualiza la pagina para ver la lista de ahora.';
@@ -2391,7 +2418,7 @@ if ($csrfOk) {
   }
 
   if (isset($_POST['guardar_agotados'])) {
-    $pestana = 'agotados';
+    $pestana = 'platos';
     $nuevo = [];
     $marcados = 0;
     foreach (array_unique((array) ($_POST['agotado'] ?? [])) as $k) {
@@ -2414,13 +2441,18 @@ if ($csrfOk) {
           . ($filasExtra > 0 ? ', y ' . $filasExtra . ' fila(s) más de esos mismos platos en Sin gluten o Vegano' : '')
           . '. Se limpia solo mañana a las ' . CORTE_HORA . ':00.';
     } else {
+      /* Cierre funcional MISE-B, punto 3: faltaba el código de estado — un fetch veía
+         HTTP 200 con la página entera y no tenía forma de saber que el guardado había
+         fallado. El contrato de guardar_agotados no cambia (sigue reemplazando el
+         conjunto completo); esto sólo hace que el fallo se note. */
+      http_response_code(500);
       $error = 'No se ha podido escribir estado.json. Revisa los permisos de la carpeta.';
     }
   }
 
   /* --- destacados --- */
   if (isset($_POST['destacado_add'])) {
-    $pestana = 'destacados';
+    $pestana = 'platos';
     $k = (string) ($_POST['hl_key'] ?? '');
     $e = (string) ($_POST['hl_label'] ?? '');
     if (!in_array($k, $validas, true)) {
@@ -2434,7 +2466,7 @@ if ($csrfOk) {
     }
   }
   if (isset($_POST['destacado_del'])) {
-    $pestana = 'destacados';
+    $pestana = 'platos';
     unset($estado['tags'][(string) $_POST['destacado_del']]);
     if (guardar_estado($estado)) $aviso = 'Destacado quitado.';
     else $error = 'No se ha podido escribir estado.json.';
@@ -2494,11 +2526,203 @@ if ($csrfOk) {
     }
   }
 
+  /* --- oferta, autoguardado de UNA categoría o UN plato suelto ---
+     Marcar una categoría o un plato en Ofertas obligaba a bajar hasta «Guardar cambios» —
+     y ESE botón manda pct/horas/días/on a la vez, así que un guardado a medio escribir el
+     porcentaje (por ejemplo) se publicaba entero sólo por tocar una casilla. Estos dos
+     manejadores autoguardan SIN pasar por guardar_oferta: leen la oferta actual, tocan
+     sólo el campo que les toca (cats o keys, nunca los dos, nunca pct/from/to/days/on) y
+     escriben. Ninguno de los dos exige que la oferta esté encendida — igual que
+     guardar_oferta, se puede dejar todo preparado con el interruptor apagado.
+     Sólo existen aquí, en Ofertas: Platos sigue sin poder tocar estado['offer']. */
+  if (isset($_POST['oferta_cat_toggle'])) {
+    $pestana = 'ofertas';
+    $cid = (string) $_POST['oferta_cat_toggle'];
+    $idsCat = array_flip($catIdDe);
+    if (!isset($idsCat[$cid])) {
+      http_response_code(422);
+      $error = 'Esa categoría no existe.';
+    } else {
+      $ofertaAhora = is_array($estado['offer']) ? array_replace(estado_vacio()['offer'], $estado['offer']) : estado_vacio()['offer'];
+      $marcar = !empty($_POST['oferta_cat_on']);
+      $cats = (array) $ofertaAhora['cats'];
+      if ($marcar) {
+        if (!in_array($cid, $cats, true)) $cats[] = $cid;
+      } else {
+        $cats = array_values(array_diff($cats, [$cid]));
+      }
+      $ofertaAhora['cats'] = $cats;
+      $estado['offer'] = $ofertaAhora;
+      if (guardar_estado($estado)) {
+        $aviso = $marcar ? 'Categoría añadida a la oferta.' : 'Categoría quitada de la oferta.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+  if (isset($_POST['oferta_plato_toggle'])) {
+    $pestana = 'ofertas';
+    $k = (string) $_POST['oferta_plato_toggle'];
+    if (!isset($porKey[$k])) {
+      http_response_code(422);
+      $error = 'Ese plato no está en la carta.';
+    } else {
+      $ofertaAhora = is_array($estado['offer']) ? array_replace(estado_vacio()['offer'], $estado['offer']) : estado_vacio()['offer'];
+      $enCategoria = in_array((string) ($porKey[$k]['catId'] ?? ''), (array) $ofertaAhora['cats'], true);
+      $sinPrecio = $porKey[$k]['price'] === '';
+      if ($enCategoria || $sinPrecio) {
+        http_response_code(422);
+        $error = 'Ese plato no se puede tocar suelto.';
+      } else {
+        $marcar = !empty($_POST['oferta_plato_on']);
+        $keys = (array) $ofertaAhora['keys'];
+        if ($marcar) {
+          if (!in_array($k, $keys, true)) $keys[] = $k;
+        } else {
+          $keys = array_values(array_diff($keys, [$k]));
+        }
+        $ofertaAhora['keys'] = $keys;
+        $estado['offer'] = $ofertaAhora;
+        if (guardar_estado($estado)) {
+          $aviso = $marcar ? 'Plato metido en la oferta.' : 'Plato quitado de la oferta.';
+        } else {
+          http_response_code(500);
+          $error = 'No se ha podido escribir estado.json.';
+        }
+      }
+    }
+  }
+
+  /* --- oferta, fase 2: porcentaje/horario/días/estado autoguardan cada uno por su cuenta ---
+     Mismo principio que categoría/plato: cada acción toca UN campo de estado['offer'] y
+     deja los demás tal como estén en disco — nunca reconstruye la oferta entera desde lo
+     que traiga el POST. guardar_oferta (arriba) sigue siendo el camino tradicional/de
+     respaldo sin JavaScript; estos cuatro son el atajo con autoguardado.
+
+     Los tres que pueden rechazarse por una razón de negocio (no sólo un fallo de disco)
+     devuelven 422 explícito además de $error: un fetch que sólo mirase el 200 no podría
+     distinguir "guardado" de "rechazado", y aquí SÍ hay rechazos reales (porcentaje fuera
+     de rango, horario invertido, encender sin categoría/plato/día/porcentaje/horario
+     válidos). Un fallo de escritura en disco es distinto —el POST era correcto, escribir
+     falló— y se marca 500, no 422. */
+  if (isset($_POST['oferta_pct_guardar'])) {
+    $pestana = 'ofertas';
+    $pct = filter_var($_POST['pct'] ?? '', FILTER_VALIDATE_INT);
+    if ($pct === false || $pct < 1 || $pct > 90) {
+      http_response_code(422);
+      $error = 'El descuento tiene que estar entre 1 y 90.';
+    } else {
+      $ofertaAhora = is_array($estado['offer']) ? array_replace(estado_vacio()['offer'], $estado['offer']) : estado_vacio()['offer'];
+      $ofertaAhora['percent'] = $pct;
+      $estado['offer'] = $ofertaAhora;
+      if (guardar_estado($estado)) {
+        $aviso = 'Descuento actualizado: ' . $pct . '%.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+  if (isset($_POST['oferta_horario_guardar'])) {
+    $pestana = 'ofertas';
+    $desdeStr = (string) ($_POST['desde'] ?? '');
+    $hastaStr = (string) ($_POST['hasta'] ?? '');
+    $formatoOk = preg_match('/^([0-9]{1,2}):([0-9]{2})$/', $desdeStr) && preg_match('/^([0-9]{1,2}):([0-9]{2})$/', $hastaStr);
+    $desde = $formatoOk ? minutos($desdeStr, -1) : -1;
+    $hasta = $formatoOk ? minutos($hastaStr, -1) : -1;
+    if ($desde < 0 || $hasta < 0) {
+      http_response_code(422);
+      $error = 'El horario no es válido.';
+    } elseif ($hasta <= $desde) {
+      http_response_code(422);
+      $error = 'La hora de fin tiene que ser posterior a la de inicio.';
+    } else {
+      $ofertaAhora = is_array($estado['offer']) ? array_replace(estado_vacio()['offer'], $estado['offer']) : estado_vacio()['offer'];
+      $ofertaAhora['from'] = $desde;
+      $ofertaAhora['to'] = $hasta;
+      $estado['offer'] = $ofertaAhora;
+      if (guardar_estado($estado)) {
+        $aviso = 'Horario actualizado: ' . hhmm($desde) . ' a ' . hhmm($hasta - 1) . '.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+  if (isset($_POST['oferta_dias_guardar'])) {
+    $pestana = 'ofertas';
+    /* Mismo criterio que guardar_oferta: nunca se persiste una colección vacía — "una
+       oferta necesita al menos un día" se cumple aquí igual que en el navegador (que ya
+       no deja llegar a cero: ni "Semanal" ni quitar el último día mandan dia[] vacío
+       a propósito, cierre funcional MISE-B). Se conserva como red de seguridad del lado
+       servidor — un envío sin JavaScript, o cualquier otro que llegue vacío por lo que
+       sea, cae a los siete en vez de dejar "oferta sin días". */
+    $dias = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['dia'] ?? [])), function ($d) {
+      return $d >= 1 && $d <= 7;
+    })));
+    sort($dias);
+    $ofertaAhora = is_array($estado['offer']) ? array_replace(estado_vacio()['offer'], $estado['offer']) : estado_vacio()['offer'];
+    $ofertaAhora['days'] = $dias ?: [1, 2, 3, 4, 5, 6, 7];
+    $estado['offer'] = $ofertaAhora;
+    if (guardar_estado($estado)) {
+      $aviso = 'Días actualizados.';
+    } else {
+      http_response_code(500);
+      $error = 'No se ha podido escribir estado.json.';
+    }
+  }
+  if (isset($_POST['oferta_estado_toggle'])) {
+    $pestana = 'ofertas';
+    $marcar = !empty($_POST['oferta_estado_on']);
+    $ofertaAhora = is_array($estado['offer']) ? array_replace(estado_vacio()['offer'], $estado['offer']) : estado_vacio()['offer'];
+    if (!$marcar) {
+      // Apagar nunca borra nada: categorías, platos, porcentaje, horario y días se quedan
+      // tal cual, listos para volver a encenderse con la misma programación.
+      $ofertaAhora['on'] = false;
+      $estado['offer'] = $ofertaAhora;
+      if (guardar_estado($estado)) {
+        $aviso = 'Oferta apagada.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    } else {
+      $tieneAlcance = !empty($ofertaAhora['cats']) || !empty($ofertaAhora['keys']);
+      $tieneDias = !empty($ofertaAhora['days']);
+      $pct = (int) $ofertaAhora['percent'];
+      $pctValido = $pct >= 1 && $pct <= 90;
+      $horarioValido = (int) $ofertaAhora['to'] > (int) $ofertaAhora['from'];
+      if (!$tieneAlcance) {
+        http_response_code(422);
+        $error = 'Elige al menos una categoría o un plato antes de encenderla.';
+      } elseif (!$tieneDias) {
+        http_response_code(422);
+        $error = 'Elige al menos un día antes de encenderla.';
+      } elseif (!$pctValido) {
+        http_response_code(422);
+        $error = 'El descuento tiene que estar entre 1 y 90 antes de encenderla.';
+      } elseif (!$horarioValido) {
+        http_response_code(422);
+        $error = 'El horario no es válido: revisa desde y hasta antes de encenderla.';
+      } else {
+        $ofertaAhora['on'] = true;
+        $estado['offer'] = $ofertaAhora;
+        if (guardar_estado($estado)) {
+          $aviso = 'Oferta encendida.';
+        } else {
+          http_response_code(500);
+          $error = 'No se ha podido escribir estado.json.';
+        }
+      }
+    }
+  }
+
   /* --- precios, paso 1: calcular la propuesta y NO escribir nada ---
      Subir toda la carta de un clic y descubrir los céntimos raros cuando ya está publicada es
      justo lo que hay que evitar. Aquí sólo se calcula; publicar es otro botón. */
   if (isset($_POST['precios_calcular'])) {
-    $pestana = 'precios';
+    $pestana = 'platos';
     $pct = (float) str_replace(',', '.', (string) ($_POST['subir'] ?? '0'));
     if ($pct <= 0 || $pct > 50) {
       $error = 'La subida tiene que estar entre 0 y 50%.';
@@ -2524,7 +2748,7 @@ if ($csrfOk) {
      pct = null es la senal de "aqui no se ha calculado nada": la plantilla no habla de
      redondeo, porque no ha redondeado nada. */
   if (isset($_POST['precios_manual'])) {
-    $pestana = 'precios';
+    $pestana = 'platos';
     $previsua = ['pct' => null, 'filas' => []];
     foreach ($lista as $p) {
       if ($p['price'] === '') continue;                     // "Incluido" no tiene precio que cambiar
@@ -2539,7 +2763,7 @@ if ($csrfOk) {
 
   /* --- precios, paso 2: publicar lo que se vea en pantalla --- */
   if (isset($_POST['precios_publicar'])) {
-    $pestana = 'precios';
+    $pestana = 'platos';
     $nuevos = [];
     /* Lo que no era un numero se descartaba en silencio y el mensaje seguia diciendo
        «Publicado». Quien escribe 9,5O con una letra O en vez de un cero veia el aviso verde,
@@ -2586,6 +2810,7 @@ if ($csrfOk) {
                 . ' ha quedado con dos precios distintos en pestañas distintas. Si no es a propósito, corrígelo.';
       }
     } else {
+      http_response_code(500);
       $error = 'No se ha podido escribir estado.json.';
     }
   }
@@ -2763,7 +2988,7 @@ if ($csrfOk) {
      se recupera. Hizo falta al cambiar la regla: las copias de antes son fotos de cualquier
      guardado y no sirven para lo unico que ahora se quiere revertir, un cambio de precios. */
   if (isset($_POST['vaciar_copias'])) {
-    $pestana = 'marca';
+    $pestana = 'ajustes';
     $n = copias_vaciar();
     $aviso = $n === 0
       ? 'No había ninguna copia que borrar.'
@@ -2780,7 +3005,7 @@ if ($csrfOk) {
   }
 
   if (isset($_POST['precios_reset'])) {
-    $pestana = 'precios';
+    $pestana = 'platos';
     $estado['prices'] = [];
     if (guardar_estado($estado)) $aviso = 'Precios devueltos a los de la carta.';
     else $error = 'No se ha podido escribir estado.json.';
@@ -2853,8 +3078,6 @@ $precios  = is_array($estado['prices']) ? $estado['prices'] : [];
 /* $fotosPlato y no $fotos: diecinueve lineas mas abajo, $fotos son las de la PORTADA. Con el
    mismo nombre, la lista de platos se pintaba entera sin fotos y sin dar un solo error. */
 $fotosPlato = is_array($estado['fotos'] ?? null) ? $estado['fotos'] : [];
-$catsVisibles = [];
-foreach ($lista as $p) { $catsVisibles[$p['cat']] = ($catsVisibles[$p['cat']] ?? 0) + 1; }
 $listaKeys = array_flip(array_column($lista, 'key'));
 $agotados = array_intersect_key($agotados, $listaKeys);
 /* «Corriendo ahora mismo» sólo si la oferta rebaja algo que se vea. */
@@ -3028,22 +3251,24 @@ if (DATOS_ACTIVO && $dentro) {
   $dt["total"] = array_sum($serie);
 }
 
-$PESTANAS = ['agotados' => 'Agotados hoy', 'destacados' => 'Destacados',
-             'ofertas' => 'Ofertas', 'precios' => 'Precios', 'juego' => 'Juego', 'publicidad' => 'Publicidad',
-             'datos' => 'Analítica', 'marca' => 'Marca'];
+/* MISE-B Fase 1: Agotados/Destacados/Precios dejan de ser destinos de navegación propios
+   y se consolidan en «platos» (ver SPEC.md). Ofertas sigue siendo su propia pantalla —es
+   una regla, no un dato por plato—. «ajustes» es nuevo: agrupa copias de seguridad y el
+   bloque de superadministrador, que antes vivían sueltos dentro de Marca. */
+$PESTANAS = ['platos' => 'Platos', 'ofertas' => 'Ofertas', 'juego' => 'Juego', 'publicidad' => 'Publicidad',
+             'datos' => 'Analítica', 'marca' => 'Marca', 'ajustes' => 'Ajustes'];
 if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // la fuente es el contrato: ver config.php
 if (!CLIENTE_JUEGO)  unset($PESTANAS['juego']);     // sin la capacidad no hay nada que apagar
 if (!CLIENTE_PUBLICIDAD) unset($PESTANAS['publicidad']); // idem, Fase 7
-if (!isset($PESTANAS[$pestana])) $pestana = 'agotados';
+if (!isset($PESTANAS[$pestana])) $pestana = 'platos';
 $CUENTAS = [
-  'agotados'   => count($agotados),
-  'destacados' => count($tags),
+  'platos'     => count($agotados),   // lo mismo que antes contaba «agotados»: lo accionable hoy
   'ofertas'    => $oferta['on'] ? 1 : 0,
-  'precios'    => count($precios),
   'juego'      => $juego['on'] ? 1 : 0,
   'publicidad' => pub_estado_banner($bannerPub) === 'ACTIVO' ? 1 : 0,
   'datos'      => 0,      // el contador no es una cuenta de cosas pendientes
   'marca'      => 0,      // no es una cuenta de nada: no lleva contador
+  'ajustes'    => 0,
 ];
 ?>
 <!doctype html>
@@ -3062,15 +3287,33 @@ $CUENTAS = [
 <?php @include __DIR__ . '/fuentes.html'; ?>
 <?php /* La tipografia del PANEL, que no es la de la carta. Bricolage y Source Serif tienen
          voz —son las de la carta del restaurante— y aqui estorban: esto es una herramienta que
-         se usa de pie y con prisa. Inter esta dibujada para interfaz densa: cifras tabulares,
-         alturas de x grandes y legible a 13 px, que es donde vive media pantalla.
+         se usa de pie y con prisa.
+
+         SocialCard V1: Arimo sustituye a Inter. El prototipo aprobado esta dibujado sobre
+         Nimbus Sans, que es una Helvetica; Arimo comparte esas mismas metricas (es la
+         Liberation Sans de Google, compatible metrica con Helvetica/Arial), asi que el
+         dibujo del prototipo se conserva sin licencia que gestionar ni fichero que alojar.
+         Cuatro pesos reales servidos por Google —400, 500, 600, 700— que es justo lo que
+         pide la escala tipografica: nada se sintetiza.
 
          Va aparte y no dentro de fuentes.html porque ese fichero lo escribe gen.mjs y es de
          la carta: el panel es lo unico que necesita esto. */ ?>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" media="print" onload="this.media='all'"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"></noscript>
+      href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;500;600;700&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;500;600;700&display=swap"></noscript>
 <link rel="stylesheet" href="tokens.css">
+<?php /* SocialCard V1: el tema, ANTES de que se pinte nada. Si esto viajara al final del
+         documento el navegador dibujaria primero el tema por defecto y luego el guardado,
+         y se veria el parpadeo. Sin dependencias: lee localStorage y pone la clase. */ ?>
+<script>
+  (function () {
+    var m = 'light';
+    try { var g = localStorage.getItem('socialcard-color-mode'); if (g === 'dark' || g === 'light') m = g; } catch (e) {}
+    document.documentElement.classList.add(m);
+  })();
+</script>
 <?php if ($colorPrincipalOverride !== null): ?>
 <style>
   /* El color que el propio restaurante guardo desde esta pestana, por encima del de
@@ -3103,11 +3346,138 @@ $CUENTAS = [
    * verificarPaleta() en temas.mjs. MISE-A R1. */
   :root{
     --p-radius-card:16px;
-    --p-accent-fill:var(--accent);
-    --p-accent-ink:var(--accent-ink);
-    --p-accent-stroke:var(--metal);
-    --p-accent-glow:color-mix(in srgb, var(--metal) 22%, transparent);
-    --p-accent-select:color-mix(in srgb, var(--accent) 32%, transparent);
+    /* Mise DS-1: alias independiente, incluso con el mismo valor -- no es
+       --p-radius-card con otro nombre. Ese sigue siendo solo de .card-main. */
+    --ui-radius-modal:16px;
+    /* Mise DS-2: radio real de botones/campos/pct (ya era 12px en los cuatro,
+       aqui solo se nombra). Los cuadrados de icono a 9px (adm-pct-ir,
+       adm-foto-b) se quedan fuera a proposito: alias-arlos aqui cambiaria su
+       valor, no solo su nombre. */
+    --ui-radius-control:var(--radius-xl);
+    /* Mise DS-2: opacidad de disabled para controles con texto/fondo propio.
+       Los iconos sueltos (.foto-btn, .adm-foto-b) ya tenian su propio .3 --
+       no se toca ese, es mas fuerte a proposito porque ahi no hay etiqueta
+       que siga necesitando leerse. */
+    --ui-control-disabled-opacity:.45;
+    /* SocialCard V1: el acento de la HERRAMIENTA deja de ser el color del restaurante.
+       Son dos cosas distintas que hasta ahora compartian token por comodidad: --accent es
+       la marca del cliente (vive en la carta publica y en la pestaña Marca, y sigue
+       exactamente donde estaba), y esto de aqui es el color de producto de SocialCard, que
+       es el mismo panel para todos los restaurantes. Con la marca de Tinge (#FF7517) el
+       naranja del panel salia casi igual por casualidad; con un cliente de marca verde el
+       panel entero se volvia verde, que nunca fue la intencion. Invariante multicliente:
+       el comportamiento es del motor, el dato es del cliente. */
+    --p-accent-fill:var(--sc-primary);
+    --p-accent-ink:var(--sc-primary-ink);
+    --p-accent-stroke:var(--sc-primary);
+    --p-accent-glow:color-mix(in srgb, var(--sc-primary) 22%, transparent);
+    --p-accent-select:color-mix(in srgb, var(--sc-primary) 26%, transparent);
+  }
+
+  /* ============================================================ SocialCard V1: cimientos ==
+   * El sistema visual del prototipo SocialCard, en dos temas completos.
+   *
+   * La pieza que hace que esto sea abordable: el panel ya tenia una capa de indireccion
+   * —ocho tokens de color declarados en .card-main (--ink, --surface, --muted, --base,
+   * --border, --chip, --hairline, --offer)— de la que cuelgan sus 10.000 lineas de CSS.
+   * Aqui NO se reescriben esas lineas: se redirigen esos ocho tokens a los de abajo. Cada
+   * regla del panel sigue diciendo var(--ink) o var(--chip) como siempre, y cambia de tema
+   * sola. Lo que se toca es el origen, no los mil sitios que lo consumen.
+   *
+   * Valores: los del encargo. Donde el prototipo difiere se ha seguido el encargo y la
+   * diferencia queda anotada en SPEC.md, no resuelta en silencio.
+   */
+  :root,
+  :root.light{
+    color-scheme:light;
+    --sc-canvas:#F2F4F7;
+    --sc-surface:#FFFFFF;
+    /* Tercera superficie, la de la navegacion. En claro coincide con la tarjeta; en
+       oscuro NO, y por eso es un token propio y no un alias de --sc-surface. */
+    --sc-nav:#FFFFFF;
+    --sc-text:#202631;
+    --sc-text-2:#596576;
+    --sc-border:#DCE1E8;
+    --sc-primary:#C2410C;
+    --sc-primary-ink:#FFFFFF;
+    --sc-selected-bg:#FFF0E5;
+    --sc-selected-text:#9A3412;
+    --sc-muted-bg:#EDF0F4;
+    --sc-hover-bg:#EDF0F4;
+    /* Tinta intermedia entre el texto principal y el secundario. La usa el prototipo
+       para lo que esta seleccionado pero no es la accion principal: chip activo,
+       boton secundario. Es --secondary-foreground alli. */
+    --sc-text-medio:#3D4959;
+    /* El campo NO tiene fondo propio en el prototipo: usa el canvas, que sobre una
+       tarjeta blanca es justo un escalon mas oscuro y por eso se ve sin necesidad de
+       inventar un tono. Medido: background #F2F4F7, borde #DCE1E8. */
+    --sc-input-bg:var(--sc-canvas);
+    /* Este NO es el borde del campo (ese es --sc-border): es el gris fuerte que el
+       prototipo llama --input y reserva para la PISTA de los interruptores apagados
+       y para lo que tiene que verse sobre blanco. */
+    --sc-input-border:#BDC6D2;
+    --sc-scrim:rgba(32,38,49,.45);
+    --sc-sombra-hoja:0 -12px 32px -12px rgba(32,38,49,.22);
+    --sc-sombra-card:0 2px 5px #18273a06;
+
+    --sc-ok-bg:#E4F4EC;   --sc-ok-ink:#166448;
+    --sc-warn-bg:#FFF3CC; --sc-warn-ink:#815000;
+    --sc-bad-bg:#FDECEC;  --sc-bad-ink:#BD2031;
+  }
+  :root.dark{
+    color-scheme:dark;
+    --sc-canvas:#15191F;
+    --sc-surface:#1E242D;
+    --sc-nav:#1A1F27;
+    --sc-text:#F3F5F8;
+    --sc-text-2:#ADB9C9;
+    --sc-border:#38424F;
+    --sc-primary:#FB923C;
+    --sc-primary-ink:#291405;
+    --sc-selected-bg:#392B22;
+    --sc-selected-text:#FDBA74;
+    --sc-muted-bg:#28313D;
+    --sc-hover-bg:#28313D;
+    --sc-text-medio:#D4DCE6;
+    --sc-input-bg:var(--sc-canvas);
+    --sc-input-border:#526174;
+    --sc-scrim:rgba(8,10,13,.62);
+    --sc-sombra-hoja:0 -12px 32px -12px rgba(0,0,0,.6);
+    --sc-sombra-card:0 2px 5px #00000014;
+
+    --sc-ok-bg:#1D3A30;   --sc-ok-ink:#86DFB3;
+    --sc-warn-bg:#3B321F; --sc-warn-ink:#F8D37B;
+    --sc-bad-bg:#3B2022;  --sc-bad-ink:#FF8891;
+  }
+
+  /* Escala de spacing y de radios. Se estrenan en el shell (V2) y en cada componente
+     segun le toque migrar; NO se hace un reemplazo masivo de los margenes que ya
+     existen — la escala Fibonacci de gen.mjs (--s1..--s6) sigue viva debajo y las dos
+     conviven hasta que cada pantalla pase por su version. */
+  :root{
+    --space-1:4px;
+    --space-2:8px;
+    --space-3:12px;
+    --space-4:16px;
+    --space-6:24px;
+    --space-8:32px;
+
+    /* Los radios del prototipo, medidos con getComputedStyle y no estimados. Su base
+       es --radius:.65rem = 10.4px, y los escalones se derivan de ella igual que alli:
+       sm = r-4, md = r-2, lg = r, xl = r+4. La tarjeta usa un 16 fijo aparte. */
+    --radius:10.4px;
+    --radius-sm:6.4px;
+    --radius-md:8.4px;
+    --radius-lg:10.4px;
+    --radius-xl:14.4px;
+    --radius-card:16px;
+    --radius-pill:999px;
+
+    /* Medidas del shell, tomadas del prototipo con el navegador, no a ojo. */
+    --sc-sidebar-w:232px;
+    --sc-rail-w:68px;
+    --sc-header-h:68px;
+    --sc-contenido-max:1580px;
   }
 
   *,*::before,*::after{box-sizing:border-box}
@@ -3127,6 +3497,11 @@ $CUENTAS = [
      panel dejaba media pantalla vacía en un portátil mientras las filas de plato se apretaban
      en 800px. Aquí hay 326 filas y cuarenta y una categorías: el ancho se usa. */
   .page{width:100%;max-width:1570px;margin:0 auto;padding:var(--s2) var(--s2) calc(96px + var(--s4))}
+  /* Con sidebar (>=768px, con sesión) el tope de 1570 ya no tiene sentido: ese ancho se
+     pensó para antes de que existiera la columna del sidebar, y en un monitor ancho deja una
+     franja vacía a la derecha del todo. Con sesión, el contenido usa lo que quede del
+     viewport tras la columna reservada en el body. */
+  @media (min-width:768px){ body:not(.sin-entrar) .page{max-width:none} }
   .card-main{
     position:relative;               /* ancla de las insignias de sesión */
 
@@ -3142,31 +3517,56 @@ $CUENTAS = [
      * mas abajo, en .pane:not([data-pane="publicidad"]). Sin eso quedarian con texto oscuro
      * sobre fondo oscuro, que es la razon por la que este paso no se hizo antes.
      */
-    --ink:#EDEBEB;
-    --p-fg:var(--ink);         /* Mise: aqui, no en :root, porque --ink solo es #EDEBEB aqui dentro */
-    --muted:#9A9595;
-    --base:#7F7C7C;
-    --surface:#101114;
-    --border:#2C2E33;
-    --chip:#202226;
-    --hairline:#23252A;
+    /* SocialCard V1: los mismos ocho nombres de siempre, apuntando al sistema nuevo.
+       Ni una de las reglas que los consumen ha cambiado — siguen diciendo var(--ink),
+       var(--chip), var(--hairline)— y ahora las dos paletas les llegan solas.
+       --base era un tercer nivel de texto (mas apagado que --muted); el sistema nuevo
+       tiene dos y no tres, asi que los dos caen en el secundario: anotado en SPEC.md. */
+    --ink:var(--sc-text);
+    --p-fg:var(--ink);
+    --muted:var(--sc-text-2);
+    --base:var(--sc-text-2);
+    --surface:var(--sc-surface);
+    --border:var(--sc-border);
+    --chip:var(--sc-muted-bg);
+    --hairline:var(--sc-border);
+    /* Rojo de estado, tambien por tema. De aqui cuelgan los siete grupos semanticos
+       de DS-1, que siguen separados exactamente igual: solo cambia el origen. */
+    --offer:var(--sc-bad-ink);
+    --scrim:var(--sc-scrim);
 
-    /* ------------------------------------------------------------ la escala, y son tres
-     * Tres tamaños y ni uno mas. Cada vez que hace falta un cuarto, lo que falla es la
-     * jerarquia, no la escala:
-     *   --t1  20px  el titulo de la pantalla y las cifras que se miran de lejos
-     *   --t2  15px  titulos de ficha, valores, botones y campos: lo que se lee de cerca
-     *   --t3  13px  el rotulo y el apunte: lo que acompaña, nunca lo que se lee solo
-     * Nada por debajo de 13: quien usa esto tiene mas de 45 años. */
+    /* Mise DS-1: alias semanticos de --offer. Solo estos dos hacen falta aqui
+       porque son los unicos con consumidores fuera de .adm-board (insignia
+       de modo demo y avisos/toast antes de entrar en una pestana); el resto
+       de grupos semanticos de --offer se declaran dentro de .adm-board, que
+       es donde vive el resto de sus consumidores. Se redeclaran alli tambien
+       porque --offer cambia de valor entre este ambito y ese. */
+    --ui-state-error:var(--offer);
+    --ui-badge-demo:var(--offer);
+
+    /* -------------------------------------------------- la escala, SocialCard V1
+     * Eran tres tamaños; el sistema nuevo pide seis, y dos de los tres viejos ya
+     * coincidian con el —20 y 13— asi que solo se mueve uno y se añaden tres:
+     *   --t0  24px / 600   titulo de pantalla        (nuevo, lo estrena la cabecera)
+     *   --t1  20px / 600   cifra que se mira de lejos     (igual que antes)
+     *   --tb  16px         contenido y nombre de plato    (nuevo)
+     *   --t2  14px / 500   navegacion, botones, campos, etiquetas   (era 15)
+     *   --t3  13px / 400   descripcion y apunte           (igual que antes)
+     *   --t4  12px / 500   metadatos y contadores         (nuevo, y es el suelo)
+     * Nada por debajo de 12: quien usa esto tiene mas de 45 años. */
+    --t0:24px;
     --t1:20px;
-    --t2:15px;
+    --tb:16px;
+    --t2:14px;
     --t3:13px;
+    --t4:12px;
 
-    /* Inter para todo el panel. La de la carta se queda en la carta. */
-    font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    /* Arimo para todo el panel. La de la carta se queda en la carta. */
+    font-family:"Arimo",Arial,system-ui,sans-serif;
     font-size:var(--t2);
-    font-optical-sizing:auto;
-    font-feature-settings:"cv05" 1,"cv08" 1;   /* l con cola y 1 sin serifa: se confunden menos */
+    /* Sin font-feature-settings de Inter: "cv05"/"cv08" eran alternativas de aquella
+       familia y en Arimo no existen — dejarlas escritas seria pedirle a la fuente algo
+       que no tiene. Las cifras tabulares, que si importan, se piden donde se usan. */
 
     background:var(--surface);
     color:var(--ink);
@@ -3193,7 +3593,7 @@ $CUENTAS = [
   }
 
   /* La pagina, mas oscura que la tarjeta: la tarjeta tiene que levantarse del fondo. */
-  body:has(.card-main){background:#08090A}
+  body:has(.card-main){background:var(--sc-canvas)}
 
   /* --------------------------------------------------- la capa de transicion, retirada
    * Aqui vivio una regla que devolvia la paleta clara a las pestañas que aun no se
@@ -3213,11 +3613,11 @@ $CUENTAS = [
   .card-main ::selection,
   .adm-acciones-fuera ::selection{background:var(--p-accent-select);color:var(--p-fg)}
   .card-main input,.card-main textarea{caret-color:var(--p-accent-stroke)}
-  .card-main{scrollbar-color:#3A3D44 transparent;scrollbar-width:thin}
+  .card-main{scrollbar-color:var(--sc-input-border) transparent;scrollbar-width:thin}
   .card-main ::-webkit-scrollbar{width:10px;height:10px}
   .card-main ::-webkit-scrollbar-track{background:transparent}
-  .card-main ::-webkit-scrollbar-thumb{background:#3A3D44;border-radius:999px;border:2px solid transparent;background-clip:content-box}
-  .card-main ::-webkit-scrollbar-thumb:hover{background:#4C5058;background-clip:content-box}
+  .card-main ::-webkit-scrollbar-thumb{background:var(--sc-input-border);border-radius:999px;border:2px solid transparent;background-clip:content-box}
+  .card-main ::-webkit-scrollbar-thumb:hover{background:var(--sc-text-2);background-clip:content-box}
   /* Cifras de ancho fijo donde hay numeros que se comparan: fechas, horas,
      contadores y dias del calendario. Sin esto, el 1 baila. */
   .adm-periodo,.adm-horas input,.adm-cal-d,.adm-acciones-estado,.adm-nativo input{
@@ -3231,7 +3631,7 @@ $CUENTAS = [
   .card-main h1,.card-main h2,.card-main h3,.card-main h4,
   .card-main button,.card-main input,.card-main select,.card-main textarea,
   .card-main label,.card-main summary,.card-main a{
-    font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-family:"Arimo",Arial,system-ui,sans-serif;
   }
   /* El apunte iba a 14: el unico tamaño que se salia de los tres. */
   .card-main .hint{font-size:var(--t3)}
@@ -3254,16 +3654,38 @@ $CUENTAS = [
   .card-main .head .sub-servicio{font-family:inherit;font-size:var(--t3);color:var(--muted)}
   .card-main .head .sub a{color:var(--ink)}
   .card-main .insignia{font-family:inherit;font-size:var(--t3);letter-spacing:.04em}
-  body:has(.card-main) .chapa{font-family:"Inter",system-ui,sans-serif;font-size:var(--t3,13px)}
+  /* MISE-B: con sidebar, cuatro líneas centradas (marca, fecha, aviso de madrugada,
+     sesión) leían como una portada antes de la superficie de trabajo. Se aplana a una
+     sola franja, alineada a la izquierda, para que Platos empiece antes. El aviso de
+     madrugada (poco frecuente) se queda en su propia línea cuando aparece: es
+     información real que no cabe bien inline sin perder claridad. */
+  body:not(.sin-entrar) .head{
+    text-align:left;margin-bottom:var(--s2);
+    display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:2px;
+  }
+  body:not(.sin-entrar) .head-eyebrow{margin:0}
+  body:not(.sin-entrar) .head h1{font-size:var(--t2);font-weight:600}
+  body:not(.sin-entrar) .head .sub{margin:0}
+  body:not(.sin-entrar) .head .sub-servicio{flex:1 1 100%;max-width:none;margin:2px 0 0}
+  /* A partir de 1024px, marca, fecha y el aviso de sesión viven en el pie de la barra
+     lateral (.adm-sidebar-marca/-fecha/-sesion, junto a Salir) — aquí se apagan para no
+     decirlo dos veces. Por debajo de 1024 la barra no tiene sitio para ese texto (icono
+     solo, o barra oculta del todo), así que se quedan aquí tal cual estaban. El aviso de
+     madrugada (.sub-servicio, poco frecuente) no se muda: es información del servicio en
+     curso, no identidad del restaurante, y se sigue leyendo mejor junto al contenido. */
+  @media (min-width:1024px){
+    body:not(.sin-entrar) .head-eyebrow,
+    body:not(.sin-entrar) .head h1,
+    body:not(.sin-entrar) .head .sub-sesion{display:none}
+  }
+  body:has(.card-main) .chapa{font-family:"Arimo",Arial,sans-serif;font-size:var(--t3,13px)}
 
-  /* Las insignias de sesion: "En linea" salia con texto #121212 sobre #101114.
-     Y va en VERDE, no en el naranja de la marca: no dice nada del restaurante, dice
-     que la sesion esta conectada. Ese es el unico verde que queda en el panel. */
+  /* MISE-B, décima ronda: "En línea" se retiró (no comprobaba nada real) y "Usuario"
+     también (el caso normal no necesita insignia) — sólo queda la insignia cuando hay
+     algo que merece decirse: demo, o superadministrador. */
   .card-main .insignia{border-color:transparent}
-  .card-main .insignia.is-online{background:rgba(62,207,142,.16);color:#4BDD9B}
-  .card-main .insignia.is-user,
   .card-main .insignia.is-super{background:var(--accent);color:var(--accent-ink)}
-  .card-main .insignia.is-demo{background:rgba(143,180,242,.16);color:#8FB4F2}
+  .card-main .insignia.is-demo{background:var(--sc-warn-bg);color:var(--sc-warn-ink)}
 
   /* ---------------------------------------------------------- la botonera
    * Sangraba 21 px a cada lado para recortarse contra el borde de la tarjeta
@@ -3362,8 +3784,16 @@ $CUENTAS = [
        Va en la regla base y no colgado de .sin-entrar. Antes solo se aclaraba en la pantalla
        de acceso, pero la chapa esta sobre la tinta del body SIEMPRE -- es hermana de la
        tarjeta, no descendiente-- asi que dentro del panel se quedaba en el gris oscuro y no
-       se veia. Y dentro del panel es cuando se mira: despues de subir. */
-    color:var(--metal);
+       se veia. Y dentro del panel es cuando se mira: despues de subir.
+
+       El color YA NO es --metal: es la marca del cliente, y una chapa tecnica (fecha de
+       build, IDs de compilación) no es sitio para el acento de marca — se leía como un
+       aviso o una acción, no como una nota al pie. Blanco y gris, como cualquier pie de
+       version: gris para el cuerpo, y --surface (blanco) para el dato que de verdad se
+       compara, en .chapa strong, más abajo. El gris no es --muted -- ese ya se midio
+       ilegible sobre esta tinta (parrafo de arriba) -- es una mezcla con --surface que se
+       queda en 7,6:1 de contraste, comoda de sobra. */
+    color:color-mix(in srgb, var(--surface) 65%, var(--ink));
     font-family:var(--body-font);
     font-size:14px;
     line-height:24px;
@@ -3449,6 +3879,704 @@ $CUENTAS = [
     .tabs button:not(.on):hover{color:var(--ink)}
   }
 
+  /* ==================================================================== MISE-B: el shell ==
+   * Sidebar persistente en escritorio (>=1024px), riel de iconos en tablet (768-1023px),
+   * barra inferior + hoja «Más» en móvil (<768px). Reemplaza la barra de pestañas de
+   * arriba, que se queda sin usar (las reglas .tabs/.tabs-wrap/.tabs-arrow no se borran:
+   * las sigue usando la carta pública con el mismo nombre de clase en su propia hoja).
+   *
+   * Sin wrapper nuevo alrededor del contenido: la barra ocupa una columna real reservando
+   * el hueco con padding-left en el body, y ella misma va en position:fixed. Así ningún
+   * `<div>` de apertura queda sin su cierre en un archivo de 9000 líneas.
+   */
+  /* SocialCard V2: medidas del prototipo, medidas en el navegador y no a ojo —
+     232 de barra, 68 de riel, item de 40 con radio 12 y hueco de 8. */
+  .adm-sidebar{
+    display:none;position:fixed;top:0;left:0;bottom:0;z-index:20;
+    flex-direction:column;gap:2px;padding:var(--space-2);overflow-y:auto;
+    width:var(--sc-rail-w);background:var(--sc-nav);border-right:1px solid var(--sc-border);
+  }
+  /* El hueco del sidebar sólo se reserva con sesión: .sin-entrar (login/recepción) no lo
+     lleva y no debe empujarse igualmente — se coló ese bug en la primera versión. */
+  @media (min-width:768px){
+    body:not(.sin-entrar){padding-left:var(--sc-rail-w)}
+    .adm-sidebar{display:flex}
+  }
+  @media (min-width:1024px){
+    body:not(.sin-entrar){padding-left:var(--sc-sidebar-w)}
+    .adm-sidebar{width:var(--sc-sidebar-w);padding:var(--space-2) var(--space-3)}
+  }
+  /* La cabecera de la barra: marca del producto. Sólo cuando hay ancho para rotular;
+     en riel el icono se queda solo y centrado. */
+  .adm-sidebar-cab{
+    display:flex;align-items:center;gap:var(--space-3);
+    padding:var(--space-2) var(--space-2) var(--space-4);
+    margin-bottom:var(--space-2);border-bottom:1px solid var(--sc-border);
+  }
+  @media (max-width:1023px){ .adm-sidebar-cab{justify-content:center;padding-left:0;padding-right:0} }
+  .adm-sidebar-logo{
+    flex:none;display:grid;place-items:center;width:36px;height:36px;
+    border-radius:var(--radius-lg);background:var(--sc-primary);color:var(--sc-primary-ink);
+  }
+  .adm-sidebar-logo svg{width:16px;height:16px}
+  .adm-sidebar-marcas{min-width:0;display:none}
+  @media (min-width:1024px){ .adm-sidebar-marcas{display:block} }
+  .adm-sidebar-producto{
+    margin:0;font-size:var(--t2);font-weight:600;color:var(--sc-text);
+    letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .adm-sidebar-cliente{
+    margin:0;font-size:var(--t3);color:var(--sc-text-2);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .adm-sidebar-grupo{display:flex;flex-direction:column;gap:2px;margin-bottom:var(--space-2)}
+  .adm-sidebar-rotulo{
+    display:none;align-items:center;height:32px;margin:var(--space-2) 0 0;padding:0 var(--space-2);
+    font-size:var(--t4);font-weight:500;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--sc-text-2);
+  }
+  @media (min-width:1024px){ .adm-sidebar-rotulo{display:flex} }
+  .adm-nav-item{
+    position:relative;display:flex;align-items:center;gap:var(--space-2);
+    min-height:40px;padding:0 var(--space-3);border-radius:var(--radius-xl);border:0;background:transparent;
+    color:var(--sc-text-2);text-decoration:none;font-family:inherit;font-size:var(--t2);font-weight:400;
+    cursor:pointer;transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  @media (max-width:1023px){ .adm-nav-item{justify-content:center;padding:0} }
+  /* 16px: es lo que MIDE el icono en el prototipo. Sus clases dicen size-[17px]
+     pero una regla mas especifica de la propia biblioteca lo deja en 16 -- lo que
+     cuenta es el pixel dibujado, no la clase escrita. */
+  .adm-nav-ico{flex:none;width:16px;height:16px}
+  .adm-nav-item .txt{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media (min-width:1024px){ .adm-nav-item .txt{display:block} }
+  .adm-nav-item .n{
+    margin-left:auto;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
+    border-radius:var(--radius-pill);background:var(--sc-muted-bg);color:var(--sc-text-2);
+    font-size:var(--t4);font-weight:600;font-variant-numeric:tabular-nums;
+  }
+  @media (max-width:1023px){
+    .adm-nav-item .n{position:absolute;top:2px;right:2px;margin-left:0;min-width:18px;height:18px;padding:0 4px}
+  }
+  .adm-nav-item:hover{background:var(--sc-hover-bg);color:var(--sc-text)}
+  .adm-nav-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  /* Seleccionado NO es relleno naranja solido: es la pastilla suave del prototipo.
+     Veinte destinos en naranja no destacan ninguno (regla del naranja, punto 15). */
+  .adm-nav-item.on{background:var(--sc-selected-bg);color:var(--sc-selected-text);font-weight:600}
+  .adm-nav-item.on .n{background:color-mix(in srgb, var(--sc-selected-text) 14%, transparent);color:inherit}
+  /* Vuelta atrás: un border-top sólo arriba de Salir repetía el mismo fallo que se acaba
+     de corregir en las filas y en el separador de categoría — .adm-nav-item también lleva
+     border-radius:11px, así que ese filete se curvaba igual en sus esquinas. La línea recta
+     vuelve al contenedor (.adm-sidebar-pie, sin radio propio), encima de todo el bloque —
+     empezando por el nombre del restaurante. Salir se distingue con un borde COMPLETO
+     (las cuatro esquinas curvan igual, nunca una sola arista suelta) en vez de compartir
+     esa línea: se lee como un botón propio, no como una acción más de la lista. */
+  .adm-sidebar-pie{margin-top:auto;padding-top:var(--space-3);border-top:1px solid var(--sc-border)}
+  .adm-sidebar-pie .adm-nav-item{
+    margin-top:var(--space-2);border:1px solid var(--sc-border);
+  }
+  /* El aviso de sesión —y, desde la novena ronda, nombre y fecha— sólo caben cuando la
+     barra rotula con texto: icono solo en tablet (768-1023), barra oculta del todo en
+     móvil (<768). Se esconden por debajo de 1024 y los mismos datos se ven en el
+     <header> (.head-eyebrow/h1/.sub-sesion, más abajo) en su lugar: nunca desaparecen,
+     sólo cambian de sitio según haya donde ponerlos. */
+  /* SocialCard V2: nombre y fecha se mudan a la cabecera nueva, que ahora existe
+     y esta SIEMPRE visible (tambien en movil, que es donde antes no cabian). Aqui
+     quedarian dicho dos veces, asi que se apagan. El aviso de sesion se queda: habla
+     del tiempo que le queda a esta sesion, no de identidad, y su sitio es junto a Salir. */
+  .adm-sidebar-marca,
+  .adm-sidebar-fecha{display:none}
+  .adm-sidebar-sesion{
+    display:none;margin:0 0 var(--space-2);padding:0 var(--space-3);
+    font-size:var(--t3);color:var(--sc-text-2);line-height:1.4;
+  }
+  @media (min-width:1024px){
+    .adm-sidebar-sesion{display:block}
+  }
+
+  /* El tooltip sólo hace falta cuando el icono va solo (tablet): a partir de 1024px ya hay
+     rótulo visible y duplicarlo sería ruido. El nombre accesible del botón es aria-label,
+     puesto siempre — nunca depende de este tooltip ni de .txt, que a estas anchuras está
+     en display:none y no cuenta para el nombre accesible. */
+  .adm-nav-tooltip{
+    position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%) translateX(-4px);
+    padding:6px 8px;border-radius:var(--radius-sm);
+    background:var(--sc-text);color:var(--sc-surface);
+    font-size:var(--t4);font-weight:500;white-space:nowrap;pointer-events:none;
+    opacity:0;visibility:hidden;transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
+    box-shadow:0 8px 24px -8px rgba(0,0,0,.6);z-index:21;
+  }
+  @media (min-width:1024px){ .adm-nav-tooltip{display:none} }
+  .adm-nav-item:hover .adm-nav-tooltip,
+  .adm-nav-item:focus-visible .adm-nav-tooltip{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0)}
+
+  /* =============================================== SocialCard V2: la cabecera ==
+   * El panel no tenia cabecera: el titulo y la fecha vivian dentro de la tarjeta y se
+   * iban con el scroll. El prototipo la tiene, mide 68 y se queda pegada arriba.
+   *
+   * Va en position:fixed y el hueco se reserva con padding-top en el body — el mismo
+   * patron que ya usaba el sidebar, y por la misma razon: no hace falta abrir ningun
+   * <div> nuevo alrededor del contenido en un fichero de 10.000 lineas.
+   */
+  .adm-topbar{
+    display:none;position:fixed;top:0;left:0;right:0;z-index:19;
+    height:var(--sc-header-h);align-items:center;gap:var(--space-4);
+    padding:0 var(--space-4);
+    background:color-mix(in srgb, var(--sc-canvas) 92%, transparent);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--sc-border);
+  }
+  body:not(.sin-entrar) .adm-topbar{display:flex}
+  body:not(.sin-entrar){padding-top:var(--sc-header-h)}
+  @media (min-width:768px){
+    body:not(.sin-entrar) .adm-topbar{left:var(--sc-rail-w)}
+  }
+  @media (min-width:1024px){
+    body:not(.sin-entrar) .adm-topbar{left:var(--sc-sidebar-w);padding:0 var(--space-6)}
+  }
+  .adm-topbar-txt{min-width:0;flex:1 1 auto}
+  .adm-topbar-titulo{
+    margin:0;font-size:var(--t0);font-weight:600;line-height:32px;letter-spacing:-.03em;
+    color:var(--sc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .adm-topbar-sub{
+    margin:0;font-size:var(--t3);font-weight:400;line-height:1.4;color:var(--sc-text-2);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  /* Por debajo de 560 el titulo de 24 y su linea de apoyo no caben juntos en 68px de
+     alto sin apretarse: se queda el titulo, que es el que orienta. */
+  @media (max-width:559px){
+    .adm-topbar-titulo{font-size:var(--t1)}
+    .adm-topbar-sub{display:none}
+  }
+  .adm-topbar-acciones{display:flex;align-items:center;gap:var(--space-2);flex:none}
+
+  /* ---- selector de tema ---- */
+  .adm-tema{
+    display:flex;align-items:center;gap:var(--space-2);
+    height:40px;padding:0 10px;
+    border:1px solid var(--sc-border);border-radius:var(--radius-xl);background:var(--sc-surface);
+  }
+  .adm-tema-ico{flex:none;width:16px;height:16px;color:var(--sc-text-2);transition:color var(--t-fast) var(--ease-out)}
+  :root.light .adm-tema-sol{color:var(--sc-selected-text)}
+  :root.dark .adm-tema-luna{color:var(--sc-selected-text)}
+  /* V5: el selector de tema deja sus 32x18 y adopta el interruptor unico (40x22). Es
+     una desviacion CONSCIENTE del prototipo, que lo dibuja a 32x18: la orden de esta
+     ronda pide una sola geometria para todos los toggles del panel, y tener el del tema
+     a un tamaño y los otros seis a otro era justo la incoherencia que habia que cerrar.
+     min-height:0 sigue siendo obligatorio: el reset general pone min-height:48px a TODO
+     <button> y sin esto saldria de 40x48. */
+  .adm-tema-sw{
+    position:relative;flex:none;width:40px;height:22px;padding:0;border:0;
+    min-height:0;box-sizing:border-box;
+    border-radius:var(--radius-pill);background:var(--sc-input-border);cursor:pointer;
+    transition:background 160ms var(--ease-out);
+  }
+  .adm-tema-sw::before{
+    content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;
+    transform:translate(-50%,-50%);
+  }
+  .adm-tema-sw[aria-checked="true"]{background:var(--sc-primary)}
+  .adm-tema-sw:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-tema-bola{
+    position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:var(--radius-pill);
+    background:var(--sc-surface);pointer-events:none;
+    transition:transform 160ms var(--ease-out);
+  }
+  .adm-tema-sw[aria-checked="true"] .adm-tema-bola{transform:translateX(18px)}
+  /* Sin JavaScript el interruptor no puede hacer nada: se retira en vez de quedarse
+     como un boton muerto. El tema por defecto (claro) se sigue viendo entero. */
+  html:not(.adm-con-js) .adm-tema{display:none}
+
+  /* La cabecera vieja, dentro de la tarjeta, decia lo mismo que la nueva. Se apaga
+     entera menos el aviso de madrugada, que NO es identidad: es informacion del
+     servicio en curso y se sigue leyendo mejor pegada al contenido. */
+  body:not(.sin-entrar) .head-eyebrow,
+  body:not(.sin-entrar) .head h1,
+  body:not(.sin-entrar) .head .sub-sesion{display:none}
+  body:not(.sin-entrar) .head:not(:has(.sub-servicio)){display:none}
+
+  /* ---- barra inferior (móvil) ---- */
+  .adm-navmovil{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;
+    background:var(--sc-nav);border-top:1px solid var(--sc-border);
+    padding:6px var(--space-1) calc(6px + env(safe-area-inset-bottom));
+  }
+  @media (min-width:768px){ .adm-navmovil{display:none} }
+  body:not(.sin-entrar){padding-bottom:64px}
+  /* El reset de 768 decia `body` a secas y perdia por especificidad contra
+     `body:not(.sin-entrar)`: en escritorio quedaban 64px muertos al final de cada
+     pantalla, con la barra inferior ya oculta. Venia de MISE-B y no se habia visto;
+     con la cabecera nueva sumando 68 arriba, ese hueco ya se nota. */
+  @media (min-width:768px){ body:not(.sin-entrar),body{padding-bottom:0} }
+  .adm-navmovil-item{
+    flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:3px;
+    min-height:52px;padding:6px 2px;border:0;background:transparent;color:var(--sc-text-2);
+    font-family:inherit;font-size:var(--t4);font-weight:500;cursor:pointer;border-radius:var(--radius-lg);
+  }
+  /* 20px y no 17: aqui el icono va SOLO sobre su rotulo diminuto y a un brazo de
+     distancia, no al lado de un texto de 14. Es la excepcion razonada al tamaño de
+     navegacion, no un descuido. */
+  .adm-navmovil-item svg{width:20px;height:20px}
+  .adm-navmovil-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-navmovil-item.on{color:var(--sc-selected-text);font-weight:600}
+  .adm-navmovil-item.on svg{color:var(--sc-primary)}
+
+  /* ---- hoja «Más» ---- */
+  #velo-sheet{
+    position:fixed;inset:0;z-index:30;background:var(--scrim);
+    opacity:0;visibility:hidden;transition:opacity var(--t-fast) var(--ease-out);
+  }
+  #velo-sheet.activo{opacity:1;visibility:visible}
+  .adm-sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:31;max-height:75vh;overflow-y:auto;
+    background:var(--sc-surface);border:1px solid var(--sc-border);border-bottom:0;
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+    padding:10px var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+    box-shadow:var(--sc-sombra-hoja);
+    transform:translateY(100%);transition:transform var(--t-fast) var(--ease-out);
+  }
+  .adm-sheet.activo{transform:translateY(0)}
+  .adm-sheet-agarre{width:36px;height:4px;margin:2px auto 12px;border-radius:var(--radius-pill);background:var(--sc-border)}
+  .adm-sheet-cab{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)}
+  .adm-sheet-cab h2{margin:0;font-size:var(--t1);font-weight:600;letter-spacing:-.02em;color:var(--sc-text)}
+  .adm-sheet-cab button{
+    border:0;background:var(--sc-muted-bg);color:var(--sc-text-2);
+    width:32px;height:32px;border-radius:var(--radius-md);display:grid;place-items:center;cursor:pointer;
+  }
+  .adm-sheet-cab button:hover{background:var(--sc-hover-bg);color:var(--sc-text)}
+  .adm-sheet-lista{display:flex;flex-direction:column;gap:2px;padding-bottom:6px}
+  .adm-sheet-item{
+    display:flex;align-items:center;gap:var(--space-3);min-height:48px;padding:0 var(--space-3);
+    border-radius:var(--radius-lg);
+    border:0;background:transparent;color:var(--sc-text);text-decoration:none;
+    font-family:inherit;font-size:var(--t2);font-weight:500;cursor:pointer;
+  }
+  .adm-sheet-item svg{width:17px;height:17px;flex:none;color:var(--sc-text-2)}
+  .adm-sheet-item:hover{background:var(--sc-hover-bg)}
+  .adm-sheet-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  @media (min-width:768px){ .adm-sheet, #velo-sheet{display:none} }
+
+  /* ---- Platos: filtro por estado y controles nuevos de la fila fusionada ---- */
+  .adm-chips-estado{display:flex;flex-wrap:wrap;gap:6px;margin:var(--s2) 0}
+
+  /* ---- los cuatro filtros, como la rejilla de tarjetas del prototipo ----
+     Medida en el prototipo ejecutado, no estimada: tarjeta de min-height 82 con relleno
+     16 y hueco 12, la pastilla del icono a la IZQUIERDA (36x36, radio 14.4 — ni cuadrado
+     con borde ni circulo), fondo melocoton y el icono a 16 en la tinta naranja oscura.
+     Al lado, la cifra a 20/600 con tracking -.03em y el rotulo a 13 apagado. */
+  .adm-chips-estado.adm-kpis{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+    margin:0 0 var(--space-4);flex-wrap:nowrap;overflow:visible;
+  }
+  @media (min-width:1024px){
+    .adm-chips-estado.adm-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  .adm-kpis .adm-kpi{
+    display:flex;flex-direction:row;align-items:center;gap:var(--space-3);
+    min-height:82px;padding:var(--space-3) var(--space-4);
+    min-width:0;white-space:normal;overflow:hidden;text-align:left;
+    border:1px solid var(--sc-border);border-radius:var(--radius-card);
+    background:var(--sc-surface);box-shadow:var(--sc-sombra-card);cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),border-color var(--t-fast) var(--ease-out);
+  }
+  .adm-kpis .adm-kpi .adm-kpi-ico{
+    flex:none;display:grid;place-items:center;width:36px;height:36px;
+    border-radius:var(--radius-xl);
+    background:var(--sc-selected-bg);color:var(--sc-selected-text);
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  .adm-kpis .adm-kpi .adm-kpi-ico svg{width:16px;height:16px}
+  .adm-kpis .adm-kpi .adm-kpi-txt{display:flex;flex-direction:column;min-width:0;gap:1px}
+  .adm-kpis .adm-kpi .adm-kpi-n{
+    min-width:0;padding:0;border-radius:0;background:transparent;
+    font-size:var(--t1);font-weight:600;line-height:1.15;letter-spacing:-.03em;
+    color:var(--sc-text);font-variant-numeric:tabular-nums;
+  }
+  .adm-kpis .adm-kpi .adm-kpi-t{font-size:var(--t3);font-weight:400;line-height:1.3;color:var(--sc-text-2)}
+  /* La explicacion de cada tarjeta. `white-space:normal` y `max-width` NO son de adorno:
+     .adm-chip —del que hereda— trae `white-space:nowrap`, y sin apagarlo la frase no
+     envuelve y saca scroll horizontal en movil. */
+  .adm-kpis .adm-kpi .adm-kpi-s{
+    max-width:100%;min-width:0;white-space:normal;margin-top:2px;
+    font-size:var(--t4);font-weight:400;line-height:1.35;color:var(--sc-text-2);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .adm-kpis .adm-kpi:hover{background:var(--sc-muted-bg)}
+  .adm-kpis .adm-kpi[aria-pressed="true"]{
+    background:var(--sc-selected-bg);border-color:var(--sc-selected-text);
+  }
+  /* Con la tarjeta ya en melocoton, la pastilla del icono se invierte para no fundirse
+     con ella: relleno solido y el icono en claro. */
+  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-ico{
+    background:var(--sc-selected-text);color:var(--sc-selected-bg);
+  }
+  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-n,
+  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-t,
+  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-s{color:var(--sc-selected-text)}
+  .adm-kpis .adm-kpi[aria-pressed="true"]:hover{background:var(--sc-selected-bg)}
+  .adm-kpis .adm-kpi:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  /* SocialCard V3: el chip del prototipo, medido — 36 de alto (no los 40 que decidio
+     DS-2, ni los 44 de H4), radio 10.4, relleno 12, 13/500, SIN borde. La pastilla es
+     lo unico que dice "activo": en reposo no hay fondo. */
+  .adm-chip{
+    display:inline-flex;align-items:center;gap:var(--space-2);min-height:36px;padding:0 var(--space-3);
+    border:0;border-radius:var(--radius-lg);background:transparent;color:var(--sc-text-2);
+    font-family:inherit;font-size:var(--t3);font-weight:500;cursor:pointer;white-space:nowrap;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  .adm-chip:hover{background:var(--sc-muted-bg);color:var(--sc-text-medio)}
+  .adm-chip-n{
+    min-width:20px;padding:1px 6px;border-radius:var(--radius-md);
+    background:var(--sc-muted-bg);color:var(--sc-text-2);
+    font-size:var(--t4);font-weight:600;text-align:center;font-variant-numeric:tabular-nums;
+  }
+  .adm-chip[aria-pressed="true"]{background:var(--sc-muted-bg);color:var(--sc-text-medio);font-weight:600}
+  /* Sobre la pastilla gris del chip activo, un contador del mismo gris desaparece:
+     sube a la superficie de la tarjeta para seguir leyendose. */
+  .adm-chip[aria-pressed="true"] .adm-chip-n{background:var(--sc-surface);color:var(--sc-text-medio)}
+  /* DS-2: sin :focus-visible propio -- es un <button> normal y corriente, la
+     regla general de mas abajo (button:focus-visible) ya le da el mismo
+     contorno. Repetirlo aqui era duplicar, no reforzar. */
+
+  /* MISE-B, tercera ronda: en escritorio/tablet, una sola fila, siempre visible — el
+     <details> que la envuelve (auditoría UX/UI, hallazgo H1) se fuerza abierto ahí y se
+     comporta como si no existiera. Sólo en móvil estrecho (≤699px, ver el <details>
+     mismo, más abajo) pliega de verdad. */
+  /* V7, tras revisión: fuera el filete de abajo. Separaba dos cosas que ya están separadas
+     —debajo viene el aviso de agotados, que es su propia caja gris, y después las
+     categorías, que son tarjetas—: era una raya de más en una pantalla que ya tiene
+     bastantes bordes. El aire hace el mismo trabajo. */
+  .adm-ajustar-precios-caja{
+    margin-bottom:var(--s3);
+  }
+  .adm-ajustar-precios-resumen{
+    display:flex;align-items:center;gap:8px;
+    cursor:default;list-style:none;
+  }
+  .adm-ajustar-precios-resumen::-webkit-details-marker{display:none}
+  .adm-ajustar-precios-resumen:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  .adm-ajustar-precios-chev{display:none;flex:none;width:18px;height:18px;color:var(--muted)}
+  .adm-ajustar-precios{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  }
+  .adm-ajustar-precios-etq{font-size:var(--t3,13px);font-weight:600;color:var(--muted);margin-right:2px}
+  /* V7: el rótulo deja de vivir en su propio renglón. Colgaba solo encima de los botones,
+     sin nada a la derecha, y se leía como un título de sección que no es: en escritorio la
+     cabecera del <details> no se puede ni pulsar. Ahora va DELANTE de los botones, en la
+     misma línea, que es lo que de verdad es — un rótulo que dice de qué son esos botones.
+     El <details> pasa a flex sólo aquí, donde está forzado abierto siempre; en móvil sigue
+     en bloque y plegando de verdad. */
+  @media (min-width:700px){
+    .adm-ajustar-precios-caja{display:flex;align-items:flex-start;gap:var(--space-3)}
+    /* Los navegadores nuevos meten el contenido de un <details> en una caja propia
+       (`::details-content`), así que el item del flex no era la fila de botones sino ese
+       envoltorio: la fila se quedaba en 695 de los 1035 disponibles y «Cambiar precio
+       manual» caía a una segunda línea con 364 px libres al lado. Aplanándolo, el item
+       vuelve a ser la fila. Donde el pseudo-elemento no existe, esta regla se ignora y el
+       resultado ya era el correcto. */
+    .adm-ajustar-precios-caja::details-content{display:contents}
+    /* El rótulo se alinea con la PRIMERA línea de botones, no con el centro del bloque:
+       si los controles envuelven, centrarlo lo dejaba flotando en mitad de la nada. Los
+       11 px lo bajan a la línea de base de un botón de 40. */
+    .adm-ajustar-precios-resumen{flex:none;padding-top:11px}
+    /* `flex:1 1 0` y no `auto`: con `auto` la base es el ancho del contenido y la fila se
+       quedaba en 695 de los 1035 disponibles, envolviendo sin necesidad. */
+    .adm-ajustar-precios{flex:1 1 0;min-width:0}
+  }
+  .adm-ajustar-precios-volver{
+    display:flex;align-items:center;gap:8px;margin-left:auto;
+  }
+  .adm-ajustar-precios-volver .adm-f-nota{white-space:nowrap}
+  @media (max-width:560px){
+    .adm-ajustar-precios-volver{margin-left:0;flex:1 1 100%}
+  }
+  /* Mismo corte que ya usa el resto del panel para "estrecho" (.adm-orow, más abajo). Sólo
+     aquí abajo se ve y se comporta como un desplegable de verdad: cabecera tocable y
+     chevron que gira. En cualquier otro ancho, `.adm-ajustar-precios-resumen` de arriba
+     ya la deja con `cursor:default` y el chevron oculto — un rótulo fijo, no un control. */
+  @media (max-width:699px){
+    /* 44px de alto real: aquí SÍ es un control que se toca, no un rótulo — el mismo
+       criterio de área táctil que ya usa el resto del panel. */
+    .adm-ajustar-precios-resumen{cursor:pointer;min-height:44px}
+    .adm-ajustar-precios-chev{display:block}
+    .adm-ajustar-precios-caja[open] .adm-ajustar-precios-chev{transform:rotate(180deg)}
+    .adm-ajustar-precios{padding-top:6px}
+  }
+
+  /* La fila fusionada: casilla, cámara, número y nombre igual que siempre; precio, oferta y
+     destacado se agrupan en un bloque final que envuelve entero en estrecho, en vez de que
+     cada control busque su propio hueco — así se lee como un grupo y no como tres sobras. */
+  /* .adm-orow-nm hereda flex:1 1 auto de la regla general (Ofertas/Agotados de siempre), que
+     se come todo el hueco sobrante compitiendo con .adm-plato-acciones. Aquí, dentro de la
+     fila fusionada, el nombre no necesita crecer: el margin-left:auto de abajo ya empuja las
+     acciones al borde derecho por sí solo, y sin la competencia el precio deja de encogerse
+     a un tamaño ilegible. */
+  .adm-platorow .adm-orow-nm{flex:0 1 auto}
+  .adm-plato-acciones{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
+  /* .adm-orow input{position:absolute;opacity:0;width:1px;height:1px} (más arriba) da por
+     hecho que el único <input> dentro de una fila es el checkbox de agotado, oculto a
+     propósito detrás de su tick — cierto en Ofertas/como era Agotados, falso aquí: esta fila
+     también lleva el precio en un <input> real y visible. Se le devuelve su caja. */
+  /* 32 de alto, el mismo que el boton "Destacar" que tiene al lado: con 40 contra 32 las
+     dos cajas de la fila no casaban y chocaban a la vista. */
+  .adm-plato-acciones input.adm-prow-nuevo{
+    position:static;opacity:1;flex:0 0 84px;width:84px;height:auto;min-height:32px;
+  }
+  .adm-plato-acciones .adm-tag-oferta,
+  .adm-plato-acciones .adm-plato-sinoferta,
+  .adm-plato-acciones .adm-tag,
+  .adm-plato-acciones .adm-plato-destbtn,
+  .adm-plato-acciones .adm-plato-incluido{flex:none}
+  /* .adm-prow-nuevo/.adm-prow-fijo traen order:3;margin-left:auto desde la fila de Precios
+     en estrecho (@699px, más abajo) — pensado para SU layout, no para el grupo de acciones
+     de Platos, donde reordenaba el precio a su propia línea, roto. Se neutraliza aquí, con
+     más especificidad, para las dos clases que se reutilizan dentro de este grupo. */
+  .adm-plato-acciones .adm-prow-nuevo,
+  .adm-plato-acciones .adm-prow-fijo{order:0;margin-left:0}
+  .adm-plato-incluido{color:var(--muted);font-size:var(--t3);white-space:nowrap}
+  .adm-plato-sinoferta{color:var(--base);opacity:.6;width:20px;text-align:center}
+  .adm-tag-oferta{
+    color:var(--ui-badge-promo);text-decoration:none;cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--ui-badge-promo) 45%,transparent);background:transparent;
+  }
+  .adm-tag-oferta:hover{background:color-mix(in srgb,var(--ui-badge-promo) 14%,transparent)}
+  .adm-plato-destbtn{
+    flex:none;min-height:32px;padding:0 13px;border-radius:999px;
+    border:1px solid var(--border);background:transparent;color:var(--muted);
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:inherit;font-size:var(--t3);font-weight:600;cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),border-color var(--t-fast) var(--ease-out);
+  }
+  /* El icono va siempre en el botón, pero de sobra: la palabra "Destacar" ya lo dice todo
+     con sitio de sobra. Sólo en la ficha bento estrecha (más abajo) se apaga la palabra y
+     se queda el icono solo. */
+  .adm-plato-destbtn .ico{flex:none;width:15px;height:15px}
+  .adm-plato-destbtn:hover{border-color:var(--marca-borde);color:var(--ink)}
+  /* DS-2: mismo caso que .adm-chip -- es <button>, la regla general de
+     button:focus-visible ya cubre este contorno sin repetirlo aqui. */
+  .adm-plato-destbtn.es-elegido{background:var(--marca-fondo);border-color:var(--marca-fondo);color:var(--marca-ink)}
+  .adm-tag-destacado-cambiar.es-elegido{background:var(--marca-fondo);color:var(--marca-ink)}
+  /* La fila de Platos vive siempre dentro de una COLUMNA de la ficha bento (una sola en
+     móvil/ficha estrecha, dos en escritorio) — el corte depende del ancho de esa columna
+     (container query sobre `.adm-cat-bento-col`, no de la ficha entera ni del viewport):
+     una columna estrecha es el mismo aprieto tenga el monitor el tamaño que tenga.
+     El propietario lo dejó claro: una sola línea de verdad, cámara+plato+insignia+selector
+     nunca apilados en pisos. Cámara, número, precio, oferta, destacar y agotado no caben
+     ni de lejos en ~340px si cada uno pide el hueco de siempre, así que aquí se RECORTA en
+     vez de apilar: el nombre se trunca con "…", el subtítulo (ingredientes/inglés) se
+     esconde entero — se conserva en el `title` del nombre, el ratón encima lo sigue dando
+     — "Destacar" pierde la palabra y se queda en el icono, la Oferta pasa de palabra a
+     icono de "%", y el precio se estrecha a lo que pide un importe con coma. La etiqueta ya
+     puesta (Bestseller, Veggie favourite…) es información real, no decoración — se queda en
+     texto, sólo con un tope y "…" si no le cupiera entera. */
+  @container adm-cat-bento-col (max-width:620px){
+    .adm-cat-bento-lista .adm-platorow{flex-wrap:nowrap;gap:8px}
+    .adm-cat-bento-lista .adm-platorow .adm-orow-nm{
+      flex:1 1 auto;min-width:30px;display:block;
+      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+    }
+    /* El número del plato pide 2.6em (~34px) en la fila de siempre, con sitio de sobra —
+       aquí se le recorta a lo justo para dos-tres cifras. */
+    .adm-cat-bento-lista .adm-platorow .adm-prow-n{min-width:1.8em}
+    /* Ya no hace falta encoger la cámara aquí: desde V3 mide 32 en todo el panel, que
+       es la medida del botón de icono del prototipo, y su área táctil de 44 la garantiza
+       el ::before de su propia regla. Esta excepción se retira por vacía. */
+    .adm-cat-bento-lista .adm-plato-acciones{flex:none;gap:4px}
+    .adm-cat-bento-lista .adm-plato-acciones input.adm-prow-nuevo{flex:0 0 46px;width:46px;padding:0 6px;font-size:var(--t3,13px)}
+    .adm-cat-bento-lista .adm-plato-sinoferta{display:none}
+    .adm-cat-bento-lista .adm-tag-oferta{
+      width:24px;height:24px;padding:0;
+      display:inline-flex;align-items:center;justify-content:center;
+    }
+    .adm-cat-bento-lista .adm-tag-oferta svg{width:14px;height:14px}
+    .adm-cat-bento-lista .adm-plato-destbtn{width:28px;height:28px;padding:0;justify-content:center}
+    .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
+    .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
+    .adm-cat-bento-lista .adm-tag-destacado-cambiar{
+      /* 84 y no 60: el tope viejo se calculo para una etiqueta de 13/700 con tracking.
+         A 12/600 y sin tracking cabe mas texto en menos sitio. */
+      max-width:84px;
+    }
+  }
+  /* V6, tras revisión: en columna ancha —en un portátil la columna de una categoría pasa
+     de 500 px— el tope de 84 recortaba la etiqueta con puntos suspensivos habiendo sitio
+     de sobra. El tope es para las columnas estrechas; donde cabe, no se recorta.
+     Medido a 1512: la columna mide 560, y la etiqueta más larga («Hay que probarlo») 118. */
+  @container adm-cat-bento-col (min-width:420px){
+    .adm-cat-bento-lista .adm-tag-destacado-cambiar{max-width:none}
+  }
+  /* Columna MUY estrecha (movil de 320): el grupo de acciones de la fila —precio,
+     etiqueta e interruptor— no encoge, asi que con el tope de 84 sumaba 198px dentro de
+     una fila de 220 y sacaba scroll horizontal. Aqui la etiqueta cede: es lo unico
+     recortable del grupo sin perder un control. */
+  /* SocialCard V7, agujero encontrado midiendo Platos a 390 pantalla a pantalla: el tope de
+     260 lo cerraba en móvil pequeño pero dejaba un hueco entre 260 y ~340 de columna. A 390
+     de pantalla la columna mide 290 —por encima de 260, así que esta regla no entraba— y el
+     grupo de acciones sumaba 224 dentro de una fila de 290: el interruptor salía 9 px FUERA
+     de su tarjeta y la tarjeta lo recortaba (`overflow:hidden`). El documento no sacaba
+     scroll, por eso ninguna ronda anterior lo vio: sólo aparece comprobando caja por caja.
+
+     El umbral sube a 300 — medido, no estimado: a 290 de columna el grupo se salía 9 px y a
+     322 (portátil de 1024) cabe sin desbordar. Lo que pide una línea entera es:
+     46 del precio + 22 del indicador + 104 de la etiqueta + 40 del interruptor + la cámara y
+     el número + un mínimo legible de nombre. Por debajo, la etiqueta cede a 48 y la fila
+     envuelve, exactamente igual que ya hacía a 320. */
+  @container adm-cat-bento-col (max-width:300px){
+    .adm-cat-bento-lista .adm-tag-destacado-cambiar{max-width:48px}
+    /* Y la fila vuelve a envolver. La regla de 480 la fuerza a UNA linea, que es lo
+       correcto mientras quepa; a 320 el grupo de acciones —precio, etiqueta, destacar e
+       interruptor— mide 162 dentro de una fila de 220 y se salia de la tarjeta, que
+       recorta (overflow:hidden). Envolviendo, las acciones bajan a su propia linea en vez
+       de quedarse cortadas. */
+    .adm-cat-bento-lista .adm-platorow{flex-wrap:wrap;row-gap:6px}
+    .adm-cat-bento-lista .adm-platorow .adm-orow-nm{flex:1 1 100%;order:-1}
+    .adm-cat-bento-lista .adm-plato-acciones{margin-left:auto}
+  }
+  /* El parche táctil condicionado a dedo+ficha estrecha también se retira: el ::before
+     de 44x44 de .camara es incondicional desde V3 y cubre este caso y todos los demás. */
+
+  /* ==================================================================== MISE-B: Platos ==
+   * Corrección de paridad con el prototipo v2.1: sin ficha exterior, sin acordeón. Cabecera
+   * compacta y filtros arriba; la lista de abajo pasó de ser un separador+fuelle por
+   * categoría (rechazado tras revisión visual) al bento probado primero en Ofertas: mismo
+   * mecanismo, .adm-cat-bento/.adm-cat-bento-cab/.adm-cat-bento-lista de esa hoja de
+   * estilos, sin ficha propia aquí. Nada de esto toca contratos: es sólo el envoltorio
+   * visual de las mismas filas/handlers de siempre.
+   */
+  /* Las reglas de .adm-platos-cab y .adm-platos-titulo se retiran: su marcado ya no
+     existe. El titulo lo dice la cabecera fija, el total la tarjeta "Todos" y la ayuda,
+     cada tarjeta por su cuenta. */
+  .adm-platos-titulo{
+    margin:0;font-size:var(--t2);font-weight:600;color:var(--sc-text-2);
+    display:flex;align-items:center;gap:var(--space-2);
+  }
+  /* La cifra, que es lo que se mira: 20/600 tabular, el escalon "cifra importante"
+     del sistema. El rotulo que la acompaña baja a metadato. */
+  .adm-platos-titulo .adm-f-nota{
+    font-size:var(--t1);font-weight:600;color:var(--sc-text);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* La barra de trabajo, como TARJETA y pegada bajo la cabecera fija — el patron del
+     prototipo (rounded-2xl, borde, superficie, relleno 12, buscador a la izquierda y
+     filtros a la derecha). `top` es la altura de la cabecera y no 0: con la cabecera
+     fija de V2, un sticky en 0 se quedaria por detras de ella. */
+  /* Sin `position:sticky`. Lo probe pegada bajo la cabecera y la medicion lo desmonto:
+     a 560px la barra envuelve a 158px de alto y, pegada, se comia una quinta parte de la
+     pantalla de forma permanente. El prototipo tampoco la fija, y la version anterior de
+     este panel tampoco — era idea mia y estaba mal. */
+  .adm-platos-filtros{
+    display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);
+    margin:0 0 var(--space-4);padding:var(--space-3);
+    background:var(--sc-surface);
+    border:1px solid var(--sc-border);border-radius:var(--radius-card);
+    box-shadow:var(--sc-sombra-card);
+  }
+  .adm-platos-filtros .adm-buscar{flex:1 1 260px;min-width:0;max-width:28rem}
+  .adm-platos-filtros .adm-chips-estado{
+    flex:1 1 auto;justify-content:flex-end;margin:0;gap:var(--space-2);min-width:0;
+  }
+  /* Estrecho: los filtros NO envuelven, ruedan en horizontal — igual que en el
+     prototipo (overflow-x-auto + scrollbar-none). Envolviendo, los cuatro chips
+     apilaban la barra hasta 202px de alto en 320, y eso es una pantalla de platos
+     menos antes de empezar a trabajar. */
+  @media (max-width:1023px){
+    /* `flex-wrap:nowrap` NO es decorativo: en columna, un contenedor flex que envuelve
+       reparte los hijos en varias COLUMNAS y `align-items:stretch` los estira al ancho de
+       su linea, no al del contenedor. Medido: buscador y chips salian a 470px dentro de
+       una caja de 320 a viewport 390. Con nowrap vuelven a los 296 que les tocan. */
+    .adm-platos-filtros{flex-direction:column;flex-wrap:nowrap;align-items:stretch}
+    /* En columna, el eje principal es el VERTICAL: ese `flex:1 1 260px` de arriba
+       dejaba de medir ancho y pasaba a medir ALTO — la etiqueta del buscador salia de
+       260px de alto y la barra entera de 334. Es la misma trampa que .adm-dto ya tiene
+       documentada unas lineas mas abajo, en la ficha de Ofertas. */
+    .adm-platos-filtros .adm-buscar{flex:0 0 auto;max-width:none}
+    .adm-platos-filtros .adm-chips-estado{
+      flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;
+      scrollbar-width:none;-webkit-overflow-scrolling:touch;
+    }
+    .adm-platos-filtros .adm-chips-estado::-webkit-scrollbar{display:none}
+    .adm-platos-filtros .adm-chip{flex:none}
+  }
+
+  /* Una sola línea de verdad (ver el @container de la ficha estrecha, más abajo): la fila
+     de Platos vuelve a medir prácticamente lo mismo que la de Ofertas (59 contra 57px), así
+     que ya no hace falta un tope de altura propio — hereda el de 8 filas de la regla
+     compartida (.adm-cat-bento-lista, más abajo) sin necesidad de repetirlo aquí. */
+
+  /* ---- Destacado, ya elegido: un solo pill con dos zonas — cambiar / quitar ----
+     Las dos zonas son <button>, y el `button{min-height:48px}` genérico de más abajo
+     (pensado para botones normales, no para una pastilla de fila) se colaba aquí sin que
+     nada lo pisara: la etiqueta salía tan alta como un botón de formulario entero, con el
+     texto descentrado dentro de esa caja de más. Se fija una altura propia en las dos
+     mitades — ya no dependen de lo que mida el texto ni de lo que diga la regla genérica. */
+  /* La etiqueta de destacado es AHORA lo unico que resalta en la fila: al quitar el
+     fondo de hover, es ella quien dice "este plato esta destacado", y por eso pasa del
+     gris neutro a la pastilla de seleccion del sistema.
+     Y encoge: 22 de alto en vez de 26, 12px en vez de 13 y sin el `letter-spacing` que
+     la ensanchaba. Las etiquetas las escribe el restaurante y pueden ser largas
+     ("HAY QUE PROBARLO"), asi que ademas se le pone tope de ancho con puntos suspensivos:
+     la fila no se rompe por muy larga que sea la palabra. */
+  .adm-tag-destacado{display:inline-flex;align-items:stretch;flex:0 1 auto;min-width:0}
+  .adm-tag-destacado-cambiar{
+    height:22px;min-height:0;box-sizing:border-box;display:inline-flex;align-items:center;
+    border:0;border-radius:var(--radius-md) 0 0 var(--radius-md);padding:0 6px 0 8px;
+    background:var(--sc-selected-bg);color:var(--sc-selected-text);
+    font-family:inherit;font-size:var(--t4);font-weight:600;letter-spacing:0;text-transform:uppercase;
+    /* `flex:0 1 auto` + `min-width:0`: el tope de ancho es un TECHO, no una medida fija.
+       Con `flex:none` la etiqueta empujaba la fila y a 320px sacaba 18px de scroll
+       horizontal; asi cede sitio y se recorta con puntos suspensivos cuando hace falta. */
+    flex:0 1 auto;min-width:0;
+    /* V6, tras revisión: 14ch cortaba «HAY QUE PROBARLO» (16 caracteres) en cuanto se
+       usaba esa etiqueta. El tope existe para que una palabra larga no empuje la fila,
+       no para recortar las etiquetas que el propio panel ofrece: sube a 20ch, que las
+       cubre todas. El recorte de verdad —el que salva el ancho— lo hace el tope en px
+       de la columna estrecha, más abajo. */
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:20ch;
+    cursor:pointer;
+  }
+  .adm-tag-destacado-cambiar:hover{background:var(--sc-selected-text);color:var(--sc-surface)}
+  .adm-tag-destacado-cambiar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-tag-destacado-quitar{
+    height:22px;min-height:0;box-sizing:border-box;
+    /* padding:0 explicito: el reset general de <button> pone `padding:0 21px` y con
+       box-sizing:border-box se comia el ancho — la mitad de "quitar" salia de 42px en
+       vez de 20. Misma familia de trampa que el min-height:48. */
+    display:grid;place-items:center;width:20px;padding:0;flex:none;border:0;
+    border-radius:0 var(--radius-md) var(--radius-md) 0;
+    background:var(--sc-selected-bg);color:var(--sc-selected-text);opacity:.75;cursor:pointer;
+  }
+  .adm-tag-destacado-quitar svg{width:11px;height:11px}
+  .adm-tag-destacado-quitar:hover{opacity:1;background:color-mix(in srgb, var(--ui-state-danger) 20%, transparent);color:var(--ui-state-danger)}
+  .adm-tag-destacado-quitar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+
+  /* ---- Agotado, en el grupo de acciones: mismo checkbox, aspecto de interruptor mini.
+     Rojo al marcar y no verde: agotado es una baja, no un "encendido". */
+  /* V5: sin medidas propias — usa el interruptor unico (40x22). Lo unico que conserva
+     es su COLOR al marcar: un agotado no es un "encendido", es una baja, y por eso va en
+     el rojo de --ui-state-depleted y no en el primario. Es la unica excepcion de color
+     del componente, y es semantica, no decorativa. */
+  .adm-sw.adm-sw-agotado{padding:0;gap:0;flex:none}
+  .adm-sw.adm-sw-agotado:has(input:checked) .adm-sw-pista{background:var(--ui-state-depleted)}
+
+  /* Auditoría correctiva: el tamaño VISUAL de Agotado/Destacado se queda igual (36x21 el
+     interruptor, 26px la pastilla) — lo que crece es sólo el área táctil, y sólo en
+     puntero basto/sin hover (dedo, no ratón). Un ::before invisible, más grande que la
+     caja real y descentrado según el vecino que tenga al lado (para no comerle el hueco a
+     Oferta/Precio en el mismo grupo), simula el "hit slop" de ~44px sin tocar el alto de
+     la fila ni el layout de escritorio, que ni carga esta regla. */
+  @media (pointer:coarse), (hover:none) {
+    /* El parche de .adm-sw-agotado se retira: desde V5 el propio componente lleva su
+       area tactil de 44x44 en .adm-sw-pista::before, incondicional y no solo con dedo. */
+    .adm-tag-destacado-cambiar,.adm-tag-destacado-quitar{position:relative}
+    .adm-tag-destacado-cambiar::before{
+      content:'';position:absolute;top:-9px;bottom:-9px;left:-4px;right:0;
+    }
+    .adm-tag-destacado-quitar::before{
+      content:'';position:absolute;top:-9px;bottom:-9px;left:0;right:-4px;
+    }
+  }
+
   /* ---------- bloques ---------- */
   h2{
     font-family:var(--title-font);
@@ -3464,14 +4592,18 @@ $CUENTAS = [
   }
   .hint{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 var(--s3)}
   .hint strong{color:var(--ink);font-weight:600;font-family:var(--title-font)}
+  /* V5: el aviso compartido, al sistema. Radio 12 (usaba --r-sheet, 21px, de la carta
+     publica) y cuerpo 14. Ok y error usan la pareja fondo+tinta de su estado, no una
+     mezcla del color del restaurante — y por eso el "ok" pasa a verde de exito y deja de
+     depender de la marca del cliente. Lo heredan las siete pantallas. */
   .msg{
-    border-radius:var(--r-sheet);
-    padding:var(--s2) var(--s3);
-    margin-bottom:var(--s3);
-    font-size:15px;line-height:1.45;
+    border-radius:var(--radius-lg);
+    padding:var(--space-3) var(--space-4);
+    margin-bottom:var(--space-4);
+    font-size:var(--t2);line-height:1.45;
   }
-  .msg.ok{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-ink)}
-  .msg.bad{background:color-mix(in srgb,var(--offer) 10%,transparent);color:var(--offer)}
+  .msg.ok{background:var(--sc-ok-bg);color:var(--sc-ok-ink)}
+  .msg.bad{background:var(--sc-bad-bg);color:var(--ui-state-error)}
   .msg code{font-family:ui-monospace,monospace;font-size:.92em}
   .demo-salir{margin-top:var(--s2)}
   .demo-salir > summary{
@@ -3505,55 +4637,17 @@ $CUENTAS = [
   }
   .res-line .ghost{grid-column:2;grid-row:1 / span 2}
 
-  /* ---------- buscador y filtros ---------- */
-  .tools{
-    position:sticky;top:0;z-index:10;
-    background:var(--surface);
-    margin:0 calc(var(--s3) * -1);
-    padding:var(--s3) var(--s3) var(--s2);
-  }
-  @media (min-width:768px){
-    .tools{margin:0 calc(var(--s5) * -1);padding:var(--s3) var(--s5) var(--s2)}
-  }
-  @media (min-width:1200px){
-    .tools{margin:0 calc(var(--s6) * -1);padding:var(--s3) var(--s6) var(--s2)}
-  }
-  .search{
-    width:100%;
-    min-height:48px;padding:0 var(--s3);   /* 48: como las pestañas y los filtros */
-    border:1px solid var(--border);
-    border-radius:var(--r-pill);
-    background:#fff;color:var(--ink);
-    font-family:var(--body-font);font-size:16px;
-  }
-  .search::placeholder{color:var(--muted)}
-  .search:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
-  .chips{display:flex;gap:var(--s1);margin-top:var(--s2)}
-  /* De tablet para arriba, buscador y filtros en la misma línea: el cajón estira y los dos
-     botones se quedan a su ancho a la derecha. En móvil siguen uno debajo de otro. */
-  @media (min-width:768px){
-    .tools{display:flex;align-items:center;gap:var(--s2)}
-    .search{flex:1 1 auto;min-width:0}
-    .chips{flex:0 0 auto;margin-top:0}
-  }
-  .chip{
-    background:var(--chip);color:var(--muted);
-    font-family:var(--title-font);font-size:14px;font-weight:600;
-    padding:0 var(--s3);min-height:48px;
-  }
-  .chip.is-on{background:var(--ink);color:var(--surface)}
+  /* ---------- CSS RETIRADO EN SocialCard V7 ----------
+     Aqui vivian `.tools`, `.search`, `.chips` y `.chip`: la barra de trabajo y los filtros
+     del panel ANTERIOR a la migracion. Platos los sustituyo en V3 por `.adm-buscar` y la
+     rejilla de tarjetas `.adm-kpi`, y desde entonces no los pedia nadie. Comprobado antes de
+     borrar: CERO `class=` en el marcado, CERO construccion dinamica desde JavaScript o PHP
+     (ni `classList`, ni `className =`, ni concatenacion de cadenas). Se van con ellos los dos
+     data URI de la lupa, que solo pintaba `.search`. */
 
-  /* ---------- filas ---------- */
-  /* Idénticas a las de la carta: nombre en Bricolage, grupo en serif apagado, filete de 1px. */
-  .row{
-    display:flex;align-items:center;gap:var(--s2);
-    min-height:60px;padding:var(--s1) 0;
-    border-bottom:1px solid var(--hairline);
-    transition:background-color var(--t-fast) ease;
-  }
-  .row:last-child{border-bottom:0}
-  .tick{display:flex;align-items:center;justify-content:center;
-        width:44px;height:44px;flex:0 0 auto;margin-left:-6px;cursor:pointer}
+  /* ---------- FILAS RETIRADAS EN V7 ----------
+     `.row` era la fila del panel anterior. La sustituyo `.adm-orow` en V3 y desde entonces
+     no la pedia nadie: cero `class=` en el marcado y cero construccion dinamica. */
   .tick input{width:24px;height:24px;accent-color:var(--offer);cursor:pointer}
   .tick:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--r-sheet)}
   .num{
@@ -3570,21 +4664,30 @@ $CUENTAS = [
      El botón de cámara vive al final de la fila, con los mismos 44 px de área táctil que la
      casilla de agotado. Apagado dice «aquí se puede poner foto»; encendido, en el acento de la
      marca, dice «este plato ya la tiene» — y es también el botón para cambiarla. */
+  /* SocialCard V3: boton de icono del prototipo — 32x32, radio 10.4, icono de 16,
+     sin pastilla en reposo y con el gris apagado al pasar el raton. El area tactil
+     real sigue siendo de 44 gracias al ::before invisible de mas abajo: se encoge lo
+     que se DIBUJA, no lo que se puede pulsar. */
   .camara{
-    flex:0 0 auto;width:44px;height:44px;min-height:0;padding:0;
+    position:relative;
+    flex:0 0 auto;width:32px;height:32px;min-height:0;padding:0;
     display:flex;align-items:center;justify-content:center;
-    border:0;border-radius:var(--r-pill);background:transparent;
-    color:var(--muted);opacity:.55;cursor:pointer;
+    border:0;border-radius:var(--radius-lg);background:transparent;
+    color:var(--sc-text-2);opacity:.75;cursor:pointer;
     transition:opacity var(--t-fast) ease,color var(--t-fast) ease,background-color var(--t-fast) ease;
   }
-  .camara svg{width:21px;height:21px}
-  .camara:hover{opacity:1;background:var(--chip)}
-  .camara.tiene{color:var(--p-accent-stroke);opacity:1}
-  .camara.tiene::after{
-    content:"";position:absolute;margin:22px 0 0 22px;
-    width:7px;height:7px;border-radius:50%;background:var(--accent);
+  .camara::before{
+    content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;
+    transform:translate(-50%,-50%);
   }
-  .camara:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .camara svg{width:16px;height:16px}
+  .camara:hover{opacity:1;background:var(--sc-muted-bg);color:var(--sc-text)}
+  .camara.tiene{color:var(--sc-primary);opacity:1}
+  .camara.tiene::after{
+    content:"";position:absolute;right:3px;top:3px;
+    width:6px;height:6px;border-radius:50%;background:var(--sc-primary);
+  }
+  .camara:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
 
   /* El recorte. Una capa sobre todo, con el cuadrado en el centro: lo que se ve dentro del
      cuadrado es exactamente lo que se guarda, ni más ni menos. */
@@ -3612,19 +4715,13 @@ $CUENTAS = [
   .recorte .fila-b{display:flex;gap:var(--s2);margin-top:var(--s2)}
   .recorte .fila-b button{flex:1}
   .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent)}
-  .recorte .err{margin:var(--s2) 0 0;color:var(--offer);font-size:14px}
+  .recorte .err{margin:var(--s2) 0 0;color:var(--ui-state-error);font-size:14px}
   .recorte .err:empty{display:none}
   .camara.cargando{opacity:1;color:var(--p-accent-stroke)}
   .camara.cargando svg{animation:latir 900ms ease-in-out infinite}
   @keyframes latir{0%,100%{opacity:.35}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){ .camara.cargando svg{animation:none} }
 
-  .row.is-out .nm{color:var(--offer);text-decoration:line-through;text-decoration-thickness:1px}
-  .row.is-out .nm small{color:var(--offer);opacity:.75}
-  .row.is-out .num{color:var(--offer)}
-  @media (hover:hover) and (pointer:fine){
-    .row:hover{background:color-mix(in srgb,var(--ink) 3%,transparent)}
-  }
 
   /* ---------- formularios ----------
      Un campo es un rótulo pequeño en versales y una caja alta. Nada de bordes por todas
@@ -3640,7 +4737,7 @@ $CUENTAS = [
     display:block;width:100%;margin-top:7px;
     min-height:56px;padding:0 var(--s3);
     border:1px solid var(--border);
-    border-radius:12px;
+    border-radius:var(--ui-radius-control);
     background:var(--chip);
     color:var(--ink);
     font-family:inherit;font-size:16px;font-weight:400;letter-spacing:0;text-transform:none;
@@ -3649,7 +4746,7 @@ $CUENTAS = [
   .fld select{
     /* la flecha del sistema en Bricolage y no la del navegador, que rompe la coherencia */
     appearance:none;-webkit-appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475864' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6l6 -6'/%3E%3C/svg%3E");
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475864' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6l6 -6'/%3E%3C/svg%3E");
     background-repeat:no-repeat;
     background-position:right var(--s3) center;
     background-size:20px 20px;
@@ -3852,7 +4949,7 @@ $CUENTAS = [
   .pnuevo{
     width:96px;min-height:48px;padding:0 var(--s2);
     border:1px solid var(--border);border-radius:var(--r-sheet);
-    background:#fff;color:var(--ink);
+    background:var(--sc-input-bg);color:var(--ink);
     font-family:var(--title-font);font-size:16px;font-weight:600;
     text-align:right;font-variant-numeric:tabular-nums;
   }
@@ -3867,50 +4964,90 @@ $CUENTAS = [
     letter-spacing:.1em;text-transform:uppercase;
   }
 
-  /* ---------- barra fija ---------- */
-  /* Flota sobre el navy como el botón de categorías flota sobre el teal en la carta. */
-  .bar{
-    position:fixed;left:0;right:0;bottom:0;z-index:20;
-    display:flex;gap:var(--s2);align-items:center;justify-content:space-between;
-    max-width:1570px;margin:0 auto;
-    padding:var(--s2) var(--s3) calc(var(--s2) + env(safe-area-inset-bottom));
-    background:var(--surface);
-    border-radius:var(--p-radius-card) var(--p-radius-card) 0 0;
-    box-shadow:var(--lift-sheet);
-  }
-  /* Guardar y «Ver menú», juntos a la derecha de la barra. El enlace abre en OTRA pestaña a
-     propósito: abriéndose aquí, lo que estuviera sin guardar se perdería al volver. Y lleva la
-     hora en la dirección para que el navegador no enseñe la carta de antes del guardado, que es
-     justo lo que se va a comprobar. */
-  .bar .acciones{display:flex;align-items:center;gap:var(--s2);min-width:0}
-  .bar .ver{
-    display:inline-flex;align-items:center;justify-content:center;
-    min-height:48px;padding:0 var(--s3);
-    border:1px solid var(--border);border-radius:var(--r-pill);
-    background:transparent;color:var(--muted);text-decoration:none;
-    font-family:var(--title-font);font-size:15px;font-weight:600;white-space:nowrap;
-    transition:color var(--t-fast) ease,border-color var(--t-fast) ease;
-  }
-  .bar .ver:hover{color:var(--ink);border-color:var(--muted)}
+  /* ---------- BARRA FIJA RETIRADA EN V7 ----------
+     `.bar` era la barra de accion fija del panel anterior. La sustituyo
+     `.adm-acciones-fuera` en V2 y desde entonces no la pedia nadie: cero `class=` en el
+     marcado y cero construccion dinamica. Con ella se va `.bar .ver`, su enlace a la carta,
+     que era el ultimo consumidor real del `min-height:48` generico fuera de la recepcion. */
+  /* SocialCard V7: LA REGLA GENÉRICA PIERDE LA GEOMETRÍA.
+     `min-height:48px` y `padding:0 var(--s3)` venían de la primera versión del panel, cuando
+     todos sus botones eran pastillas de 48. Hoy no queda ni uno: cada componente declara su
+     altura —40 en `.adm-btn`, 36 en `.adm-chip`, 32 en `.adm-destpick` y `.adm-pct-ir`, 30
+     en `.vp-per`, 26 en `.adm-ayuda-b`, 22 en la etiqueta—. La regla ya no vestía a nadie;
+     sólo esperaba a que alguien se olvidara de anularla, y ha mordido SIETE veces:
+     `.adm-tema-sw` y `.adm-pct-ir` (32x48), `.adm-foto-b` (40x48), la mitad «quitar» de la
+     etiqueta (42 de ancho), «Quitar las fechas» (48 de alto siendo un enlace) y el aspa de
+     la hoja «Más» (32x48).
+
+     Se le quitan las dos declaraciones aquí, en el selector de MENOR peso posible (0,0,1),
+     que es lo único que no puede ganarle a ningún componente. Medido antes de tocarla: en
+     todo el panel sólo CUATRO botones dependían de su `min-height` y UNO de su `padding` —
+     los dos del recorte de foto, el enlace de «Quitar las fechas» (que quiere 0) y el de
+     entrar. Los dos primeros pasan a la geometría del sistema; el de entrar declara la
+     suya, más abajo, porque la recepción sigue en el lenguaje antiguo. */
   button{
     font-family:var(--title-font);font-size:15px;font-weight:600;
     border:0;border-radius:var(--r-pill);
-    padding:0 var(--s3);min-height:48px;
     cursor:pointer;touch-action:manipulation;
     transition:transform var(--t-press) var(--ease-out),background-color var(--t-fast) ease;
   }
   button:active{transform:scale(.97)}
   button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .save{background:var(--ink);color:var(--surface);padding:0 var(--s4)}
-  .ghost{
-    background:transparent;color:var(--muted);
-    border:1px solid var(--border);
-    padding:0 var(--s3);min-height:44px;font-size:14px;
+
+  /* ==================================================================== SocialCard V7
+     LA TRAMPA DEL RESET, CERRADA EN EL COMPONENTE Y NO CASO A CASO.
+
+     `button{min-height:48px;padding:0 var(--s3)}` es de la primera versión del panel, cuando
+     TODOS sus botones eran pastillas de 48. Desde V1 no queda ni uno: cada componente del
+     sistema declara su propia altura —40 en `.adm-btn`, 36 en `.adm-chip`, 32 en
+     `.adm-destpick` y en `.adm-pct-ir`, 26 en `.adm-ayuda-b`, 22 en la etiqueta—. La regla
+     ya no viste a nadie: sólo espera a que alguien se olvide de anularla.
+
+     Y ha mordido SEIS veces, todas iguales y todas encontradas midiendo: `.adm-tema-sw` y
+     `.adm-pct-ir` salían 32x48; `.adm-foto-b`, 40x48; la mitad «quitar» de la etiqueta, 42
+     de ancho por el padding; y en V7, «Quitar las fechas» —que es un enlace subrayado, no
+     una caja— medía 48 px de alto.
+
+     Se apaga dentro del panel, que es donde el sistema manda. Fuera —recepción, login,
+     activación, la hoja del recorte— sigue en pie: esas pantallas todavía usan el lenguaje
+     antiguo y ahí la regla SÍ viste.
+
+     Comprobado por DOM antes y después, botón a botón en las siete pantallas: la única
+     altura que cambia es la de «Quitar las fechas», de 48 a su alto real de texto. */
+  /* PRIMER INTENTO, DESCARTADO Y ANOTADO PARA QUE NADIE LO REPITA:
+     apagarla con `.card-main button{min-height:0;padding:0}` parece lo natural y es
+     exactamente el mismo error que se quiere arreglar. `.card-main button` pesa (0,1,1) y
+     `.adm-btn` pesa (0,1,0): la regla «de limpieza» GANA a los componentes. Medido en vivo:
+     `.adm-btn` cayó de 40 a 18, `.adm-vermas` a 17, `.adm-pct` a 18, `.adm-atajo` de 96 a
+     70 y `.adm-destpick` de 32 a 28. Se retiró.
+
+     Lo que sí se hace, más abajo y en cada sitio: la regla genérica pierde la geometría
+     —`button` baja a (0,0,1) y ya no puede ganarle a ninguna clase— y los pocos consumidores
+     reales que la necesitaban la declaran ellos. */
+  /* SocialCard V7: los dos botones que quedaban del lenguaje antiguo pasan al sistema.
+     Los usa la hoja de recortar la foto —que se abre desde CUALQUIER fila de Platos y desde
+     Marca—, así que se veían 312 veces al día: pastilla negra de 48 con radio 999 al lado de
+     controles de 40 con radio 14,4. Mismo papel, misma geometría que `.adm-btn`/`.adm-btn-
+     guardar`: 40 de alto, radio de control, tipografía del sistema.
+
+     Siguen llamándose `.save` y `.ghost` a propósito: los usan también el banner de migración
+     de estado, el envío sin JavaScript de Publicidad y la salida del modo demo. Renombrarlos
+     sería refactor, y V7 no hace refactor. */
+  .save{
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    min-height:40px;padding:0 var(--space-4);border-radius:var(--ui-radius-control);
+    background:var(--sc-primary);color:var(--sc-primary-ink);
+    font-family:inherit;font-size:var(--t2);font-weight:600;
   }
-  .ghost:hover{color:var(--ink);border-color:var(--muted)}
-  .count{color:var(--muted);font-family:var(--title-font);font-size:14px;font-variant-numeric:tabular-nums}
-  .count.dirty{color:var(--offer);font-weight:600}
-  .count.dirty::after{content:" · sin guardar"}
+  .save:hover{background:color-mix(in srgb, var(--sc-primary) 88%, #FFF)}
+  .ghost{
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    background:transparent;color:var(--sc-text);
+    border:1px solid var(--sc-border);
+    padding:0 var(--space-3);min-height:40px;border-radius:var(--ui-radius-control);
+    font-family:inherit;font-size:var(--t2);font-weight:500;
+  }
+  .ghost:hover{background:var(--sc-hover-bg);border-color:var(--sc-input-border)}
 
   /* Copias de seguridad. Una fila por copia: qué es y de cuándo a la izquierda, los dos
      botones a la derecha. Por debajo de 560 el texto se lleva la fila entera y los botones
@@ -4065,7 +5202,7 @@ $CUENTAS = [
     font-variant-numeric:tabular-nums;letter-spacing:0;text-transform:none;
   }
   .dt-chip.sube{color:var(--ink);background:color-mix(in srgb,var(--ink) 12%,transparent)}
-  .dt-chip.baja{color:var(--offer);background:color-mix(in srgb,var(--offer) 10%,transparent)}
+  .dt-chip.baja{color:var(--ui-trend-negative);background:color-mix(in srgb,var(--ui-trend-negative) 10%,transparent)}
   .dt-chip.nuevo{font-size:11px;letter-spacing:.06em;padding:2px 8px}
   .dt-chip svg{width:10px;height:10px;flex:0 0 auto}
 
@@ -4141,17 +5278,37 @@ $CUENTAS = [
      auto sobra scroll por los dos lados. */
   .page-login{display:flex;min-height:100dvh;padding:var(--s3)}
   .page-login > .login{margin:auto}
+  /* ---------- la recepción, SocialCard V7 ----------
+     Era la última pantalla en el lenguaje anterior: tipografía de títulos distinta, campos
+     de 52 y 56 con radio de pastilla, y un botón negro de 48. Ahora es del sistema, como el
+     resto: Arimo —la hereda de `.card-main`, por eso se le quita el `font-family` propio—,
+     campo de 40 con el radio de control, y el botón en el primario del panel.
+
+     Lo que la sigue distinguiendo NO es la geometría: es la foto de la puerta, el
+     antetítulo, el nombre grande y el filete. Un campo más alto no la hacía más «puerta»,
+     sólo la sacaba del sistema. */
   .login{max-width:380px}
   .login .card-main{padding:var(--s4) var(--s3)}
-  .login h1{margin:0 0 4px;font-family:var(--title-font);font-size:26px;font-weight:800;letter-spacing:-0.02em}
+  .login h1{margin:0 0 4px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--sc-text)}
   .login input{
-    width:100%;min-height:52px;padding:0 var(--s3);margin-bottom:var(--s2);
-    border:1px solid var(--border);border-radius:var(--r-pill);
-    background:#fff;color:var(--ink);
-    font-family:var(--body-font);font-size:16px;
+    width:100%;min-height:40px;padding:0 14px;margin-bottom:var(--s2);
+    border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);
+    background:var(--sc-input-bg);color:var(--sc-text);
+    font-family:inherit;font-size:var(--t2);
+    transition:border-color var(--t-press) var(--ease-out),box-shadow var(--t-press) var(--ease-out);
   }
-  .login input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
-  .login button{width:100%;background:var(--ink);color:var(--surface)}
+  .login input::placeholder{color:var(--sc-text-2)}
+  .login input:focus,.login input:focus-visible{
+    border-color:var(--sc-primary);box-shadow:0 0 0 3px var(--p-accent-glow);outline:none;
+  }
+  .login button{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:100%;min-height:40px;padding:0 var(--space-3);
+    border:1px solid var(--sc-primary);border-radius:var(--ui-radius-control);
+    background:var(--sc-primary);color:var(--sc-primary-ink);
+    font-family:inherit;font-size:var(--t2);font-weight:600;
+  }
+  .login button:hover{background:color-mix(in srgb, var(--sc-primary) 88%, #FFF);border-color:color-mix(in srgb, var(--sc-primary) 88%, #FFF)}
 
   .login.is-recepcion{max-width:440px}
   .login.is-recepcion .card-main{padding:var(--s1) var(--s1) var(--s5)}
@@ -4165,9 +5322,10 @@ $CUENTAS = [
     aspect-ratio:3 / 2;
     border-radius:calc(var(--p-radius-card) - var(--s1)) calc(var(--p-radius-card) - var(--s1)) var(--r-sheet) var(--r-sheet);
     overflow:hidden;
-    /* El fondo de la página mientras carga, no un gris: así no hay un color que aparece y se
-       va justo antes de que entre la imagen. */
-    background:var(--ink);
+    /* El fondo mientras carga, no un gris que aparece y se va justo antes de la imagen.
+       V7: el neutro del sistema en vez de la tinta — en claro, un rectángulo negro de 3:2
+       durante la carga era lo más oscuro de la pantalla. */
+    background:var(--sc-muted-bg);
   }
   .login-foto img{
     width:100%;height:100%;object-fit:cover;display:block;
@@ -4179,13 +5337,14 @@ $CUENTAS = [
   .login-cuerpo{padding:var(--s4) var(--s3) 0;text-align:center}
   .login-eyebrow{
     margin:0 0 var(--s2);
-    font-family:var(--title-font);
     font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
-    color:var(--muted);
+    color:var(--sc-text-2);
   }
   .login.is-recepcion h1{margin:0 0 var(--s3);font-size:30px;line-height:1.1}
-  .login-filete{width:var(--s4);height:1px;margin:0 auto var(--s4);background:var(--hairline)}
-  .login.is-recepcion input{min-height:56px;font-size:17px;text-align:center}
+  .login-filete{width:var(--s4);height:1px;margin:0 auto var(--s4);background:var(--sc-border)}
+  /* V7: la recepción ya no tiene un campo más alto que el resto del panel. Se le queda lo
+     que de verdad la distingue: el texto centrado. */
+  .login.is-recepcion input{text-align:center}
 
   /* ---------- la contraseña, con asteriscos ----------
      El navegador pinta puntos y no hay forma de cambiarle el carácter desde CSS
@@ -4225,9 +5384,6 @@ $CUENTAS = [
      portátil para arriba van en dos, como los platos de la carta. break-inside evita que una
      fila se parta por la mitad entre columnas. */
   @media (min-width:1200px){
-    .sec-body{columns:2;column-gap:var(--s5)}
-    .sec-body .row{break-inside:avoid}
-    .sec-body .row:last-child{border-bottom:1px solid var(--hairline)}
     .prow{break-inside:avoid}
     /* Las listas de precios, en dos columnas: 326 filas en una sola dejaban medio
        panel vacio. Cuelga de .adm-precios desde que el pane es bento. */
@@ -4337,7 +5493,7 @@ $CUENTAS = [
   .colores-fila input[type=text]{
     flex:none;width:92px;min-height:36px;padding:0 8px;
     border:1px solid transparent;border-radius:var(--r-sheet);
-    background:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
+    background:var(--sc-input-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
     color:var(--ink);font-family:var(--body-font);font-size:13px;
     text-transform:uppercase;font-variant-numeric:tabular-nums;
   }
@@ -4362,9 +5518,12 @@ $CUENTAS = [
   }
 
   /* ---------- insignias de sesión ----------
-     Fijas arriba a la derecha, como las etiquetas de oferta y destacados de la carta:
-     dicen con qué llave se ha entrado (USUARIO o SUPERADMIN) y si el panel está en línea
-     con contraseña o abierto en demo. Siempre a la vista, también con el scroll abajo. */
+     Fijas arriba a la derecha, como las etiquetas de oferta y destacados de la carta.
+     MISE-B, décima ronda: sólo avisan de lo que de verdad hace falta saber — que se ha
+     entrado como SUPERADMIN (más alcance que el caso normal) o que el panel está abierto
+     en demo. "En línea" no comprobaba nada (ni un latido, nada en JS la tocaba) y
+     "Usuario" era el caso de siempre: las dos se retiraron. Siempre a la vista, también
+     con el scroll abajo — cuando hay algo que mostrar. */
   .insignias{
     /* Dentro de la tarjeta, en su esquina, y quietas: flotando sobre el navy tapaban y
        distraían; aquí se leen una vez al entrar, que es lo que tienen que hacer. */
@@ -4381,10 +5540,8 @@ $CUENTAS = [
     font-family:var(--title-font);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
     box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 25%,transparent);
   }
-  .insignia.is-online{background:var(--surface);color:var(--accent-ink)}
-  .insignia.is-user{background:var(--accent);color:var(--badge-ink)}
   .insignia.is-super{background:var(--ink);color:var(--surface);outline:2px solid var(--surface)}
-  .insignia.is-demo{background:var(--offer);color:var(--surface)}
+  .insignia.is-demo{background:var(--ui-badge-demo);color:var(--surface)}
 
   /* ---------- avisos flotantes (toast) ----------
      Antes cada guardado dejaba una franja fija bajo la cabecera que había que leer y que
@@ -4400,20 +5557,23 @@ $CUENTAS = [
     pointer-events:none;
   }
   .toast{
-    display:flex;align-items:flex-start;gap:12px;
-    width:min(520px,100%);padding:14px 12px 14px 16px;
-    border-radius:var(--r-sheet);
-    /* Invertido respecto a la tarjeta: tinta sobre crema no destacaba encima del panel crema;
-       crema sobre navy sí, y el error va en el rojo de aviso. */
+    display:flex;align-items:flex-start;gap:var(--space-3);
+    width:min(520px,100%);padding:var(--space-3) var(--space-4);
+    /* SocialCard V1: radio 12 y cuerpo 14, las medidas del sistema. Antes usaba
+       --r-sheet (21px), que es un radio de la CARTA publica, no del panel. */
+    border-radius:var(--radius-lg);
+    /* Invertido respecto a la tarjeta, que es como se separa del contenido: la tinta
+       del tema hace de fondo y la superficie hace de texto. Funciona igual en los dos
+       temas sin una regla por tema. El error va en el rojo de estado. */
     background:var(--ink);color:var(--surface);
-    box-shadow:0 12px 32px color-mix(in srgb,var(--ink) 35%,transparent);
-    font-size:15px;line-height:1.4;
+    box-shadow:0 12px 32px color-mix(in srgb,var(--sc-canvas) 45%,transparent);
+    font-size:var(--t2);line-height:1.4;
     pointer-events:auto;
     opacity:0;transform:scale(.96);
     transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
   }
   .toast.is-in{opacity:1;transform:none}
-  .toast.bad{background:var(--offer)}
+  .toast.bad{background:var(--ui-state-error)}
   .toast-icon{flex:0 0 auto;width:26px;height:26px;margin-top:1px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--surface) 18%,transparent);color:var(--surface)}
   .toast-icon svg{width:16px;height:16px}
   .toast-txt{flex:1 1 auto;min-width:0;padding-top:3px}
@@ -4444,22 +5604,36 @@ $CUENTAS = [
      ========================================================================== */
   .adm-board{
     /* Los de color ya los pone .card-main; aqui solo queda la superficie de las
-       fichas, que va un escalon por encima de la tarjeta para que se separen. */
-    --ficha:#191B1F;
+       fichas, que va un escalon por encima de la tarjeta para que se separen.
+       SocialCard V1: en claro ese escalon va HACIA ABAJO (un gris muy tenue sobre
+       blanco) y en oscuro HACIA ARRIBA (mas claro que la tarjeta). El token
+       --sc-muted-bg ya trae esa inversion resuelta en cada tema. */
+    --ficha:var(--sc-muted-bg);
     /* Lo MARCADO va en gris, del mismo tono que las barras de Analitica y que los textos
        secundarios. El naranja se guarda para los detalles —los iconos de las fichas— y para
        el boton que cierra la faena. Con veinte platos elegidos, veinte pastillas naranjas no
        destacan nada: destacan todas, que es no destacar ninguna. En gris, lo que resalta es
        el unico boton naranja de la pantalla, que es donde hay que ir. */
     --marca-fondo:var(--base);            /* relleno de lo elegido */
-    --marca-ink:#101114;                  /* texto encima de ese relleno */
-    --marca-velo:rgba(237,235,235,.07);   /* la fila entera, apenas teñida */
-    --marca-velo-mas:rgba(237,235,235,.12);
-    --marca-borde:rgba(237,235,235,.30);
+    --marca-ink:var(--sc-surface);        /* texto encima de ese relleno */
+    --marca-velo:color-mix(in srgb, var(--sc-text) 6%, transparent);   /* la fila entera, apenas teñida */
+    --marca-velo-mas:color-mix(in srgb, var(--sc-text) 11%, transparent);
+    --marca-borde:color-mix(in srgb, var(--sc-text) 28%, transparent);
 
-    --ok:var(--accent); --ok-fondo:color-mix(in srgb, var(--accent) 15%, var(--surface));
-    --aviso:#8FB4F2; --aviso-fondo:rgba(143,180,242,.14);
-    --offer:#ff6b6b;
+    /* SocialCard V1: los tres estados, con la pareja fondo+tinta del sistema nuevo. */
+    --ok:var(--sc-ok-ink); --ok-fondo:var(--sc-ok-bg);
+    --aviso:var(--sc-warn-ink); --aviso-fondo:var(--sc-warn-bg);
+    --offer:var(--sc-bad-ink);
+
+    /* Mise DS-1: el resto de alias semanticos de --offer, redeclarados aqui
+       porque --offer vale otra cosa fuera de .adm-board (ver arriba). Cada
+       uno tiene un solo significado real -- ver SPEC.md, entrada DS-1. */
+    --ui-state-error:var(--offer);
+    --ui-state-danger:var(--offer);
+    --ui-state-depleted:var(--offer);
+    --ui-badge-promo:var(--offer);
+    --ui-trend-negative:var(--offer);
+    --ui-state-inactive:var(--offer);
 
     /* Ya no dibuja nada: la .card-main es el tablero desde que el panel es oscuro.
        Esto se queda solo por los tokens de arriba, que son los que usan las fichas. */
@@ -4468,6 +5642,14 @@ $CUENTAS = [
   }
 
   .adm-bento{display:grid;gap:var(--s3);grid-template-columns:minmax(0,1fr)}
+  /* Ajustes solo lleva UNA ficha (copias) cuando entra el restaurante — con la rejilla de
+     6 columnas se colocaba en 1/6 de ancho, estirada a la altura de un pane vacío: la
+     ficha real de 270px flotando sobre un hueco de cientos de px. Vuelve a ser una
+     columna a ancho completo.
+     SocialCard V6: en sesión de superadministrador la pantalla YA tiene cuatro fichas y
+     la rejilla vuelve a tener sentido, así que la excepción se condiciona a que no haya
+     ninguna ficha de superadministrador. `:has()` ya lo usa el interruptor único. */
+  .pane[data-pane="ajustes"] .adm-bento:not(:has(.adm-f-super)){display:block}
   @media (min-width:1000px){
     /* La columna estrecha lleva Estado arriba y Horario debajo; la vista previa
        ocupa las dos filas, asi que las tres cajas acaban a la misma altura sin
@@ -4482,20 +5664,35 @@ $CUENTAS = [
     .adm-f-crea  {grid-column:3 / span 4;grid-row:1 / span 3}
     .adm-f-dur   {grid-column:1 / span 6;grid-row:4}
 
-    /* Marca, en tres filas de dos. El emparejado no es por tema sino por ALTO:
-       la rejilla iguala las dos fichas de una fila, asi que juntar una alta con
-       una baja deja un hueco muerto en la baja. Medido con el pane lleno:
-       portadas 347, redes 455, color 311, Google 296, nombre 271, copias 270.
-       Se emparejan por ese orden y el hueco total baja de 211 px a 124.
+    /* Marca, SocialCard V6: en tres filas, y el orden ya NO es el que minimiza el hueco
+       sino el de la tarea. Antes se emparejaba por alto —portadas+redes, color+Google,
+       nombre sola al final—: cuadraba la rejilla y dejaba lo que define la identidad del
+       restaurante en el ÚLTIMO sitio donde se mira.
 
-       Antes iban portadas+color y Google+redes: Google se quedaba con 160 px
-       vacios debajo, que es lo que se ve como un fallo y no como aire. */
-    .adm-f-fotos {grid-column:1 / span 3;grid-row:1}
-    .adm-f-redes {grid-column:4 / span 3;grid-row:1}
-    .adm-f-color {grid-column:1 / span 2;grid-row:2}
-    .adm-f-google{grid-column:3 / span 4;grid-row:2}
-    .adm-f-nombre{grid-column:1 / span 2;grid-row:3}
-    .adm-f-copias{grid-column:3 / span 4;grid-row:3}
+       Ahora: primero quién es (nombre y color, las dos cosas que el comensal lee como
+       marca), luego cómo se ve (las portadas, que son lo primero que abre la carta), y
+       al final lo que sale en el pie (la nota y las redes). Las dos filas de dos se
+       emparejan además por alto real medido a 1512: nombre 229 con color 294, y Google
+       294 con redes 294 —redes baja de 383 a 294 al pasar sus cuatro campos a .adm-2col.
+       El hueco muerto de la fila 1 es 65 px; con el orden viejo era de 160.
+
+       Portadas cruza el ancho entero porque es una rejilla de miniaturas: a 566 px
+       entraban dos por fila, a 1153 entran cinco. */
+    .adm-f-nombre{grid-column:1 / span 3;grid-row:1}
+    .adm-f-color {grid-column:4 / span 3;grid-row:1}
+    .adm-f-fotos {grid-column:1 / span 6;grid-row:2}
+    .adm-f-google{grid-column:1 / span 3;grid-row:3}
+    .adm-f-redes {grid-column:4 / span 3;grid-row:3}
+
+    /* Ajustes (sólo con sesión de superadministrador; sin ella la pantalla sigue siendo
+       una columna, ver el :not(:has()) de arriba). Las copias cruzan el ancho porque son
+       una lista; las dos fichas de contraseña se emparejan —son la misma tarea vista
+       desde los dos roles— y el registro vuelve a cruzar, que es otra lista. */
+    .adm-f-copias   {grid-column:1 / span 6;grid-row:1}
+    .adm-f-super-tit{grid-column:1 / span 6;grid-row:2}
+    .adm-f-clicli   {grid-column:1 / span 3;grid-row:3}
+    .adm-f-clisuper {grid-column:4 / span 3;grid-row:3}
+    .adm-f-log      {grid-column:1 / span 6;grid-row:4}
 
     /* Juego. Una sola ficha a todo el ancho: el interruptor vive dentro del
        marcador y no en una caja aparte. */
@@ -4520,9 +5717,12 @@ $CUENTAS = [
 
     /* Destacados cabe en una sola ficha: lo puesto arriba y la fila de añadir debajo. */
     .adm-f-dest   {grid-column:1 / span 6;grid-row:1}
-    .adm-f-ocats   {grid-column:1 / span 6;grid-row:2}
-    .adm-f-osueltos{grid-column:1 / span 6;grid-row:3}
-    .adm-f-otab    {grid-column:1 / span 6}
+    .adm-f-osueltos{grid-column:1 / span 6;grid-row:2}
+    /* Sin acordeón — cada categoría es su propia ficha del bento. Empezó a 2 de 6
+       columnas (tres fichas por fila); el propietario pidió el mismo ancho completo
+       que ya usa Precios a mano (.adm-f-ptab, arriba) — una categoría, una fila, con
+       sus platos repartidos en dos columnas internas (ver .adm-cat-bento-lista). */
+    .adm-cat-bento {grid-column:1 / span 6}
 
     .adm-f-pcambiar{grid-column:1 / span 6;grid-row:1}
     .adm-f-pfuera  {grid-column:1 / span 6;grid-row:2}
@@ -4537,85 +5737,170 @@ $CUENTAS = [
   /* El formulario ya no dibuja: solo guarda los campos que viajan. */
   .adm-form-suelto{display:contents}
 
+  /* SocialCard V4: la ficha generica pasa a ser la tarjeta del prototipo — superficie
+     (no el gris de --ficha), radio 16, borde de tarjeta y su sombra minima, relleno 16.
+     Es la MISMA caja que ya usa el bento de Platos desde V3, asi que las dos pantallas
+     dejan de tener dos tarjetas distintas. La usan tambien Publicidad, Juego, Marca y
+     Ajustes: heredan la caja correcta desde ya, aunque su composicion interna siga
+     pendiente de V5/V6. --r-sheet (21px) era un radio de la CARTA publica, no del panel. */
   .adm-f{
-    background:var(--ficha);border:1px solid var(--hairline);border-radius:var(--r-sheet);
-    padding:var(--s3);min-width:0;margin:0;
+    background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:var(--radius-card);
+    box-shadow:var(--sc-sombra-card);
+    padding:var(--space-4);min-width:0;margin:0;
     /* Al estirarse para igualar alturas, el contenido se queda arriba en vez de
        repartirse por la caja. */
     display:flex;flex-direction:column;align-items:stretch;
   }
   /* En 375 el titulo se recortaba a 33 px porque la insignia y el interruptor le
      comian la fila. Que envuelva: en estrecho la insignia baja a su linea. */
-  .adm-f-cab{display:flex;align-items:center;gap:11px;margin-bottom:var(--s2);flex-wrap:wrap}
+  .adm-f-cab{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap}
   .adm-f-cab h2{flex:1 1 auto;min-width:0;white-space:normal}
+  /* 36x36 con radio 10.4 e icono de 16: el cuadro de icono del prototipo. En gris
+     neutro y NO en naranja — el naranja se guarda para accion y seleccion; el icono de
+     una seccion es identificacion, no una llamada a pulsar (punto 7 del encargo). */
   .adm-f-ico{
-    width:38px;height:38px;flex:none;border-radius:11px;background:var(--chip);
-    color:var(--p-accent-stroke);display:grid;place-items:center;
+    width:36px;height:36px;flex:none;border-radius:var(--radius-lg);background:var(--sc-muted-bg);
+    color:var(--sc-text-2);display:grid;place-items:center;
   }
-  .adm-f-ico svg{width:20px;height:20px}
+  /* El trazo se normaliza aqui y no rehaciendo 22 rutas: `stroke-width` en CSS gana a
+     la presentacion del atributo, asi que los iconos de las fichas que todavia no han
+     migrado (Publicidad, Juego, Marca, Ajustes) dejan de mezclar 1.6/1.75/2 desde ya.
+     Sus RUTAS se cambiaran por las de Lucide cuando migre su pantalla. */
+  .adm-f-ico svg{width:16px;height:16px;stroke-width:2}
   .adm-f-cab h2{
-    margin:0;font-size:var(--t2);font-weight:700;
-    letter-spacing:-.01em;color:var(--ink);min-width:0;
+    margin:0;font-size:var(--t2);font-weight:600;
+    letter-spacing:-.01em;color:var(--sc-text);min-width:0;
   }
-  .adm-f-cab .der{margin-left:auto;display:flex;align-items:center;gap:9px;flex:none}
+  .adm-f-cab .der{margin-left:auto;display:flex;align-items:center;gap:var(--space-2);flex:none}
   .adm-f-nota{font-size:var(--t3);color:var(--muted);white-space:nowrap}
   .adm-f-txt{margin:0 0 var(--s2);font-size:var(--t3);line-height:1.5;color:var(--muted)}
 
   /* ---- estado ---- */
+  /* SocialCard V4: la insignia del prototipo, medida — radio 8.4 (rounded-md),
+     relleno 2/8, 12px peso 600, sin tracking y sin pastilla de 30px de alto. Los tres
+     estados usan la pareja fondo+tinta de su color semantico, no un rojo decorativo. */
   .adm-estado{
-    display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;
-    font-size:var(--t3);font-weight:700;letter-spacing:.05em;
+    display:inline-flex;align-items:center;padding:2px var(--space-2);
+    border-radius:var(--radius-md);
+    font-size:var(--t4);font-weight:600;letter-spacing:0;
+    font-variant-numeric:tabular-nums;
   }
-  .adm-e-activo{background:var(--ok-fondo);color:var(--p-fg)}
+  .adm-e-activo{background:var(--ok-fondo);color:var(--ok)}
   .adm-e-programado{background:var(--aviso-fondo);color:var(--aviso)}
   .adm-e-caducado{background:var(--chip);color:var(--muted)}
-  .adm-e-incompleto{background:rgba(255,107,107,.14);color:var(--offer)}
-  .adm-e-desactivado{background:rgba(255,107,107,.14);color:var(--offer)}
+  .adm-e-incompleto{background:color-mix(in srgb, var(--ui-state-inactive) 10%, var(--sc-surface));color:var(--ui-state-inactive)}
+  /* SocialCard V1: el fondo se deriva del propio estado en vez de repetir el rojo
+     a mano — asi sigue al tema sin tener dos fuentes de verdad para el mismo color.
+     V3: la mezcla va contra la SUPERFICIE y no contra transparente, y baja del 14 al
+     10%. Con transparente, el tinte se sumaba a lo que hubiera debajo (la cabecera gris
+     de la ficha) y el resultado medido era 4,30:1 con texto de 13 — por debajo del 4,5
+     de WCAG AA. Contra la superficie el fondo es siempre el mismo y mide 5,25:1.
+     No se ha tocado --ui-state-inactive: el token del prototipo se respeta, lo que
+     estaba mal calculado era MI fondo derivado. */
+  .adm-e-desactivado{background:color-mix(in srgb, var(--ui-state-inactive) 10%, var(--sc-surface));color:var(--ui-state-inactive)}
 
   /* ---- interruptor ---- */
   .adm-sw{display:flex;align-items:center;gap:11px;cursor:pointer;padding:var(--s1) 0 0}
-  .adm-sw input{position:absolute;opacity:0;width:1px;height:1px}
+  .adm-sw input{position:absolute;opacity:0;width:1px;height:1px;appearance:none}
+  /* ======================================================= SocialCard V5: EL interruptor ==
+   * UN componente, UNA geometria, para todo el panel. Antes convivian tres tamaños
+   * distintos —54x30 en los maestros, 36x21 en las filas, 32x18 en el selector de tema—
+   * heredados de rondas distintas. La jerarquia de una accion importante se consigue con
+   * su sitio, su rotulo, su aire y su superficie; no agrandando el control.
+   *
+   *   pista  40 x 22      bola  18 x 18      holgura  2      recorrido  18
+   *
+   * El borde va como `inset box-shadow` y NO como `border`: un borde de verdad come de
+   * los 22px de alto (box-sizing) y descuadra la holgura de 2; la sombra interior dibuja
+   * el mismo filete sin tocar la geometria. Hace falta porque el gris apagado del
+   * prototipo (--sc-input-border) mide 1,7:1 contra la tarjeta blanca: sin filete, el
+   * control apagado no se ve. Con el, su contorno mide 5,7:1.
+   */
   .adm-sw-pista{
-    position:relative;width:54px;height:30px;flex:none;border-radius:999px;background:var(--border);
-    transition:background var(--t-press) var(--ease-out);
+    position:relative;width:40px;height:22px;flex:none;box-sizing:border-box;
+    border:0;border-radius:var(--radius-pill);
+    /* Sin filete: pedido expreso tras verlo en pantalla. El apagado se distingue por
+       su propio gris y por la bola, no por un contorno. */
+    background:var(--sc-input-border);
+    transition:background 160ms var(--ease-out);
+  }
+  /* Area tactil de 44x44 centrada en la pista, sin ocupar sitio ni agrandar el dibujo.
+     SocialCard V7: sólo con puntero grueso. El 44 es la medida del dedo y en un raton no
+     compra nada —el interruptor va dentro de un <label> que ya se puede pulsar entero,
+     rotulo incluido—, mientras que una zona invisible mas alta que la fila es justo lo que
+     hace que se pulse el interruptor del plato de al lado.
+
+     Medido antes de tocarlo, por si acaso: las filas de Platos van a 56-57 px de paso y la
+     zona de 44 se queda en 22 arriba y 22 abajo, asi que NO habia solape ni con puntero
+     fino. `elementFromPoint` en los cuatro bordes de la zona de tres interruptores
+     contiguos devuelve siempre el MISMO interruptor. La regla se escribe para que no
+     aparezca el dia que una fila baje de 44 px de alto, no para arreglar algo roto. */
+  @media (pointer:coarse){
+    .adm-sw-pista::before{
+      content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;
+      transform:translate(-50%,-50%);
+    }
+  }
+  /* Con puntero fino la zona no pasa del dibujo: cero solape posible entre filas, sea cual
+     sea su alto. Lo que hace grande el objetivo del raton es el <label>, no esto. */
+  @media (pointer:fine){
+    .adm-sw-pista::before{
+      content:"";position:absolute;left:-2px;right:-2px;top:-2px;bottom:-2px;
+    }
   }
   .adm-sw-bola{
-    position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:999px;background:#fff;
-    box-shadow:0 1px 3px rgba(0,0,0,.5);transition:transform var(--t-press) var(--ease-out);
+    position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:var(--radius-pill);
+    background:var(--sc-surface);
+    transition:transform 160ms var(--ease-out);
   }
-  .adm-sw:has(input:checked) .adm-sw-pista{background:var(--ok)}
-  .adm-sw:has(input:checked) .adm-sw-bola{transform:translateX(24px)}
-  .adm-sw:has(input:focus-visible) .adm-sw-pista{outline:2.5px solid var(--accent);outline-offset:3px}
-  .adm-sw-txt{font-size:var(--t2);font-weight:600}
+  .adm-sw:has(input:checked) .adm-sw-pista{background:var(--sc-primary)}
+  .adm-sw:has(input:checked) .adm-sw-bola{transform:translateX(18px)}
+  .adm-sw:has(input:focus-visible) .adm-sw-pista{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-sw:has(input:disabled){cursor:default}
+  .adm-sw:has(input:disabled) .adm-sw-pista{opacity:var(--ui-control-disabled-opacity)}
+  .adm-sw-txt{font-size:var(--t2);font-weight:500;color:var(--sc-text)}
 
   /* ---- creatividad ---- */
+  /* V5 — Publicidad. La vista previa es el RESULTADO y va separada de la configuracion:
+     radio de tarjeta, sobre el gris apagado, y el estado vacio con filete discontinuo del
+     borde del sistema en vez de un 1.5px propio. --r-chip era un radio de la carta. */
   .adm-previo,.adm-previo-vacio{
-    width:100%;aspect-ratio:1120/480;border-radius:var(--r-chip);display:block;object-fit:cover;
-    background:var(--chip);
+    width:100%;aspect-ratio:1120/480;border-radius:var(--radius-lg);display:block;object-fit:cover;
+    background:var(--sc-muted-bg);
   }
   .adm-previo-vacio{
-    border:1.5px dashed var(--border);display:grid;place-items:center;gap:8px;
-    color:var(--muted);font-size:var(--t3);text-align:center;
+    border:1px dashed var(--sc-input-border);display:grid;place-items:center;gap:var(--space-2);
+    color:var(--sc-text-2);font-size:var(--t3);text-align:center;
   }
-  .adm-previo-vacio svg{width:30px;height:30px}
+  .adm-previo-vacio svg{width:24px;height:24px;stroke-width:2}
 
-  .adm-img-acciones{display:flex;gap:10px;margin-top:var(--s2);align-items:center}
+  .adm-img-acciones{display:flex;gap:var(--space-2);margin-top:var(--space-3);align-items:center}
   .adm-img-acciones > form{flex:1 1 0;min-width:0;margin:0;display:flex}
   .adm-btn{
     display:inline-flex;align-items:center;justify-content:center;gap:9px;
-    flex:1 1 auto;min-width:0;min-height:46px;padding:0 14px;border-radius:12px;
-    border:1px solid var(--border);background:var(--chip);color:var(--ink);
-    font-size:var(--t3);font-weight:600;white-space:nowrap;
+    /* V5: 40, la altura estandar del sistema. Convivian cuatro —40, 46, 52 y 54—
+       repartidas entre pantallas por herencia de rondas distintas. La jerarquia de un
+       boton la dan su color, su sitio y su aire, no su altura: el mismo argumento que
+       unifico los interruptores en esta misma ronda. */
+    flex:1 1 auto;min-width:0;min-height:40px;padding:0 var(--space-3);border-radius:var(--ui-radius-control);
+    border:1px solid var(--sc-border);background:var(--sc-surface);color:var(--sc-text);
+    font-size:var(--t2);font-weight:500;white-space:nowrap;
     cursor:pointer;text-decoration:none;
     transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
-  .adm-btn svg{width:19px;height:19px;flex:none}
-  .adm-btn:hover{background:#2a2c31;border-color:#3a3d44}
+  .adm-btn svg{width:16px;height:16px;flex:none;stroke-width:2}
+  .adm-btn:hover{background:var(--sc-hover-bg);border-color:var(--sc-input-border)}
   .adm-btn:active{transform:scale(.98)}
-  /* La variante pequeña: acciones que acompañan a una fila y no la encabezan. */
+  /* DS-2: STANDARD (46px) es .adm-btn tal cual; COMPACT (40px) es esta
+     variante -- las dos unicas densidades del sistema, ya median esto antes
+     de nombrarlas. Disabled: opacidad unica en vez de tocar color/fondo/borde
+     uno a uno, para que los tres se apaguen juntos sin desentonar. */
+  .adm-btn:disabled,.adm-pct:disabled,.adm-chip:disabled,.adm-campo:disabled{
+    opacity:var(--ui-control-disabled-opacity);cursor:default;
+  }
   .adm-btn-fino{flex:0 0 auto;min-height:40px;padding:0 14px;font-size:var(--t3)}
-  .adm-btn-quitar{border-color:rgba(255,107,107,.45);color:var(--offer);background:transparent}
-  .adm-btn-quitar:hover{background:rgba(255,107,107,.10);border-color:var(--offer)}
+  .adm-btn-quitar{border-color:color-mix(in srgb, var(--ui-state-danger) 45%, transparent);color:var(--ui-state-danger);background:transparent}
+  .adm-btn-quitar:hover{background:color-mix(in srgb, var(--ui-state-danger) 10%, transparent);border-color:var(--ui-state-danger)}
   .adm-btn-archivo:focus-within{outline:2.5px solid var(--accent);outline-offset:2px}
   /* Subiendo: el boton deja de invitar a pulsarlo y late despacio. */
   .adm-btn-archivo.esta-subiendo{
@@ -4646,35 +5931,40 @@ $CUENTAS = [
     opacity:0;pointer-events:none;overflow:hidden;
   }
 
-  .adm-periodo{margin:var(--s2) 0 0;font-size:var(--t3);color:var(--muted);line-height:1.45}
+  .adm-periodo{margin:var(--space-2) 0 0;font-size:var(--t3);color:var(--sc-text-2);line-height:1.45}
   .adm-periodo .cuando{display:block;font-size:var(--t2);font-weight:650;color:var(--ink)}
   .adm-periodo .dura{display:block}
 
   /* ---- duracion: fichas con icono, como la referencia ---- */
-  .adm-cuando-pie{margin:0 0 var(--s2);color:var(--muted)}
-  .adm-atajos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+  .adm-cuando-pie{margin:0 0 var(--space-2);color:var(--sc-text-2);font-size:var(--t3)}
+  .adm-atajos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
   @media (max-width:900px){ .adm-atajos{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:520px){ .adm-atajos{grid-template-columns:minmax(0,1fr)} }
+  /* Los atajos de duracion son una seleccion: usan el lenguaje de seleccion del sistema
+     —pastilla suave— en vez del naranja de la marca del restaurante. Bordes de 1px y
+     radio de tarjeta; el icono a 16, como el resto del panel. */
   .adm-atajo{
     position:relative;display:grid;gap:3px;align-content:start;text-align:left;
-    min-height:104px;padding:14px 15px;border-radius:var(--r-chip);
-    border:1.5px solid var(--hairline);background:transparent;color:var(--ink);
+    min-height:96px;padding:var(--space-3) var(--space-4);border-radius:var(--radius-lg);
+    border:1px solid var(--sc-border);background:var(--sc-surface);color:var(--sc-text);
     transition:border-color var(--t-press) var(--ease-out),background var(--t-press) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
-  .adm-atajo:hover{border-color:var(--border);background:rgba(255,255,255,.03)}
+  .adm-atajo:hover{border-color:var(--sc-input-border);background:var(--sc-muted-bg)}
   .adm-atajo:active{transform:scale(.99)}
-  .adm-atajo .ico{display:block;color:var(--muted);margin-bottom:9px}
-  .adm-atajo .ico svg{width:22px;height:22px}
-  .adm-atajo .t{font-size:var(--t2);font-weight:650;line-height:1.25}
-  .adm-atajo .s{font-size:var(--t3);color:var(--muted);line-height:1.35}
-  /* El punto de la derecha: elegido o no, como en la referencia. */
+  .adm-atajo .ico{display:block;color:var(--sc-text-2);margin-bottom:var(--space-2)}
+  .adm-atajo .ico svg{width:16px;height:16px;stroke-width:2}
+  .adm-atajo .t{font-size:var(--t2);font-weight:600;line-height:1.25}
+  .adm-atajo .s{font-size:var(--t3);color:var(--sc-text-2);line-height:1.35}
   .adm-atajo .punto{
-    position:absolute;top:14px;right:15px;width:15px;height:15px;border-radius:999px;
-    border:1.5px solid var(--border);transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out);
+    position:absolute;top:var(--space-3);right:var(--space-4);width:14px;height:14px;
+    border-radius:var(--radius-pill);
+    border:1px solid var(--sc-input-border);transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out);
   }
-  .adm-atajo[aria-pressed="true"]{border-color:var(--p-accent-stroke);background:color-mix(in srgb, var(--accent) 9%, var(--surface))}
-  .adm-atajo[aria-pressed="true"] .ico{color:var(--p-accent-stroke)}
-  .adm-atajo[aria-pressed="true"] .punto{background:var(--p-accent-stroke);border-color:var(--p-accent-stroke)}
+  .adm-atajo[aria-pressed="true"]{border-color:var(--sc-selected-text);background:var(--sc-selected-bg)}
+  .adm-atajo[aria-pressed="true"] .t{color:var(--sc-selected-text)}
+  .adm-atajo[aria-pressed="true"] .s{color:var(--sc-selected-text)}
+  .adm-atajo[aria-pressed="true"] .ico{color:var(--sc-selected-text)}
+  .adm-atajo[aria-pressed="true"] .punto{background:var(--sc-selected-text);border-color:var(--sc-selected-text)}
 
   /* ---- horas ---- */
   .adm-horas{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2)}
@@ -4687,36 +5977,47 @@ $CUENTAS = [
     position:absolute;right:13px;top:50%;transform:translateY(-50%);
     width:19px;height:19px;color:var(--muted);pointer-events:none;
   }
+  /* El campo va sobre el CANVAS, que es lo que mide el prototipo (#F2F4F7 sobre tarjeta
+     blanca), no sobre el gris apagado ni sobre un blanco propio.
+     V5: y mide 40 en TODO el panel. Convivian tres alturas de campo —40 en los buscadores
+     migrados, 42 en los 293 precios de fila y 50 en el resto— que es exactamente la
+     incoherencia que esta ronda cierra. 40 es la altura de campo medida en el prototipo. */
   .adm-campo,.adm-horas input[type=time]{
-    width:100%;min-height:50px;padding:0 42px 0 14px;
+    width:100%;min-height:40px;padding:0 42px 0 14px;
     font-size:var(--t2);
-    border:1px solid var(--border);border-radius:12px;background:var(--chip);color:var(--ink);
+    border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);
+    background:var(--sc-input-bg);color:var(--ink);
     transition:border-color var(--t-press) var(--ease-out),box-shadow var(--t-press) var(--ease-out);
   }
+  /* V5: los overrides de altura de .adm-campo en Platos y Ofertas se retiran — la regla
+     base ya mide 40 en todo el panel y repetirlo aqui era decir dos veces lo mismo. */
   .adm-campo{padding-right:14px}
   .adm-campo:focus-visible,.adm-horas input[type=time]:focus-visible{
-    border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow);outline:none;
+    border-color:var(--sc-primary);box-shadow:0 0 0 3px var(--p-accent-glow);outline:none;
   }
+  .adm-campo::placeholder{color:var(--sc-text-2)}
   .adm-horas input[type=time]::-webkit-calendar-picker-indicator{opacity:0;width:26px}
 
   /* ---- enlace ---- */
-  .adm-check{display:flex;align-items:center;gap:11px;margin-top:var(--s2);font-size:var(--t2)}
-  .adm-check input{width:20px;height:20px;flex:none;accent-color:var(--ok)}
+  .adm-check{display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-2);font-size:var(--t2)}
+  /* El acento de una casilla es el del PANEL, no el del restaurante. */
+  .adm-check input{width:18px;height:18px;flex:none;accent-color:var(--sc-primary)}
 
   /* ---- acciones ---- */
   /* ------------------------------------------------- las acciones, fuera de la caja
    * Centradas y debajo de la tarjeta. El fondo de la pagina las separa del
    * contenido sin necesidad de una linea ni de otra caja. */
   .adm-acciones-fuera{
-    /* Vive FUERA de .card-main, asi que no hereda sus tokens: hay que darselos. */
-    --ink:#EDEBEB; --p-fg:var(--ink); --muted:#9A9595; --surface:#101114;
-    --border:#2C2E33; --chip:#202226; --hairline:#23252A;
+    /* Vive FUERA de .card-main, asi que no hereda sus tokens: hay que darselos.
+       SocialCard V1: mismos nombres, mismo sistema de temas que la tarjeta. */
+    --ink:var(--sc-text); --p-fg:var(--ink); --muted:var(--sc-text-2); --surface:var(--sc-surface);
+    --border:var(--sc-border); --chip:var(--sc-muted-bg); --hairline:var(--sc-border);
     /* --ok vivia solo en .adm-board, que esta DENTRO de la tarjeta. Aqui var(--ok) no
        resolvia, el fondo del boton de guardar se quedaba en transparente y el boton
        desaparecia contra el fondo de la pagina. Los tokens de la tira son suyos. */
-    --ok:var(--accent); --offer:#ff6b6b;
-    --t2:15px; --t3:13px;
-    font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --ok:var(--sc-primary); --offer:var(--sc-bad-ink);
+    --t2:14px; --t3:13px; --t4:12px;
+    font-family:"Arimo",Arial,system-ui,sans-serif;
     color:var(--ink);
 
     display:none;                       /* la enseña el JavaScript segun la pestaña */
@@ -4725,7 +6026,7 @@ $CUENTAS = [
   }
   .adm-acciones-fuera[data-visible]{display:flex}
   .adm-acciones-estado{
-    font-size:var(--t3);font-weight:600;letter-spacing:.05em;color:#7F7C7C;
+    font-size:var(--t3);font-weight:600;letter-spacing:.05em;color:var(--sc-text-2);
     order:-1;flex-basis:100%;text-align:center;
   }
   /* .adm-btn-ver y .adm-btn-guardar nacieron dentro de una ficha, donde ocupar el
@@ -4743,22 +6044,31 @@ $CUENTAS = [
   }
   .adm-btn-ver{width:100%}
   .adm-btn-guardar{
-    width:100%;min-height:52px;background:var(--ok);border-color:var(--ok);color:var(--accent-ink);
+    /* SocialCard V4 — contraste. La tinta era --accent-ink (#121212), que se calcula
+       para el naranja del RESTAURANTE; desde V1 el fondo de este boton es el primario de
+       SocialCard, y esa pareja mal casada medía 3,62:1 con texto de 14 — por debajo del
+       4,5 de WCAG AA, en las siete pantallas. La pareja correcta del sistema es
+       primary + primary-ink, que es la que usa el prototipo: 5,9:1.
+       No se ha tocado ningun token del prototipo; estaban mal emparejados. */
+    width:100%;min-height:40px;background:var(--ok);border-color:var(--ok);color:var(--sc-primary-ink);
     font-weight:700;font-size:var(--t2);
   }
-  .adm-btn-guardar:hover{background:#ff8534;border-color:#ff8534}
+  .adm-btn-guardar:hover{background:color-mix(in srgb, var(--sc-primary) 88%, #FFF);border-color:color-mix(in srgb, var(--sc-primary) 88%, #FFF)}
 
   /* Con JavaScript los controles nativos se esconden; sin el, mandan ellos. */
   .adm-js .adm-nativo{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .adm-nativo{margin:0 0 var(--s2);font-size:var(--t3);color:var(--muted)}
+  /* V7: 40 y el radio del sistema, como cualquier campo. Sólo lo ve quien navega sin
+     JavaScript, pero es una pantalla del panel y no otra cosa. Antes: 48 y radio 12. */
   .adm-nativo input{
-    width:100%;min-height:48px;padding:0 12px;margin-top:6px;
-    border:1px solid var(--border);border-radius:12px;background:var(--chip);color:var(--ink);
+    width:100%;min-height:40px;padding:0 12px;margin-top:6px;
+    border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);
+    background:var(--sc-input-bg);color:var(--sc-text);
   }
 
   /* ---- calendario ---- */
   .adm-cal-caja{margin-top:var(--s3)}
-  .adm-cal{border:1px solid var(--hairline);border-radius:var(--r-chip);padding:var(--s2);background:rgba(255,255,255,.02)}
+  .adm-cal{border:1px solid var(--hairline);border-radius:var(--r-chip);padding:var(--s2);background:color-mix(in srgb, var(--sc-text) 3%, transparent)}
   /* minmax(0,1fr) y no 1fr: por defecto un item de rejilla no encoge por debajo de su
      contenido, y los dos meses sacaban scroll horizontal a toda la pagina. */
   .adm-cal-meses{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s2)}
@@ -4809,7 +6119,7 @@ $CUENTAS = [
   .adm-cal-d.fuera{visibility:hidden}
   .adm-cal-d.hoy::after{content:"";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);width:5px;height:5px;border-radius:999px;background:var(--accent)}
   .adm-cal-d.dentro{background:color-mix(in srgb, var(--accent) 18%, var(--surface));border-radius:0}
-  .adm-cal-d.extremo{background:var(--ok);color:var(--accent-ink);font-weight:700}
+  .adm-cal-d.extremo{background:var(--ok);color:var(--sc-primary-ink);font-weight:700}
   .adm-cal-d.ini{border-radius:10px 0 0 10px}
   .adm-cal-d.fin{border-radius:0 10px 10px 0}
   .adm-cal-d.ini.fin{border-radius:10px}
@@ -4827,12 +6137,12 @@ $CUENTAS = [
   }
   .adm-ayuda-b svg{width:15px;height:15px}
   .adm-ayuda-b::before{content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
-  .adm-ayuda-b:hover,.adm-ayuda-b[aria-expanded="true"]{background:var(--ink);border-color:var(--ink);color:#0B0B0C}
+  .adm-ayuda-b:hover,.adm-ayuda-b[aria-expanded="true"]{background:var(--ink);border-color:var(--ink);color:var(--sc-surface)}
   #adm-ayudas{position:fixed;inset:0;pointer-events:none;z-index:1200}
   .adm-globo{
-    position:absolute;max-width:330px;pointer-events:auto;background:#141518;color:#EDEBEB;
-    border:1px solid #2C2E33;
-    border-radius:13px;padding:14px 17px;
+    position:absolute;max-width:330px;pointer-events:auto;background:var(--sc-surface);color:var(--sc-text);
+    border:1px solid var(--sc-border);
+    border-radius:var(--radius-lg);padding:14px 17px;
     font-size:var(--t3);line-height:1.5;
     box-shadow:0 16px 44px -16px rgba(0,0,0,.8);
     animation:adm-globo-in 150ms var(--ease-out) forwards;
@@ -4852,61 +6162,84 @@ $CUENTAS = [
   .adm-pcambiar-guia{margin:0 0 var(--s3)}
   .adm-banda{display:flex;flex-wrap:wrap;gap:9px;align-items:stretch}
   .adm-pct{
-    flex:1 1 92px;min-height:54px;padding:0 14px;
-    border:1px solid var(--border);border-radius:12px;background:var(--chip);color:var(--ink);
-    font-family:inherit;font-size:var(--t2);font-weight:700;font-variant-numeric:tabular-nums;
+    /* No crece: con 4 botones + porcentaje libre + "Cambiar precio manual" repartiéndose la fila con
+       flex:1, cada uno se estiraba a ~180-300px según el viewport — mucho más ancho de
+       lo que pide "+15%". Se quedan en su ancho de contenido y el hueco que sueltan se
+       lo lleva "Cambiar precio manual" (ver .adm-ajustar-precios-mano), que así se lee como un botón de
+       verdad y no como una miniatura al lado de cuatro losetas. */
+    /* SocialCard V4: 40 de alto, como el campo del porcentaje libre que tiene al lado
+       — al bajar ese a los 40 medidos del prototipo, dejar estos en 54 partia la fila en
+       dos alturas. Peso 600, no 700: el 700 era del sistema anterior. */
+    flex:0 0 auto;min-width:72px;min-height:40px;padding:0 var(--space-3);
+    border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);
+    background:var(--sc-surface);color:var(--sc-text);
+    font-family:inherit;font-size:var(--t2);font-weight:600;font-variant-numeric:tabular-nums;
     cursor:pointer;
     transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
-  .adm-pct:hover{background:#2a2c31;border-color:#3a3d44}
+  .adm-pct:hover{background:var(--sc-hover-bg);border-color:var(--sc-input-border)}
   .adm-pct:active{transform:scale(.98)}
 
   /* El porcentaje libre es una opcion mas: mismo alto, mismo borde y mismo radio que los
      cuatro de al lado, con el campo dentro y sin borde propio. El foco lo pinta la caja
      entera, no el campo, o se verian dos marcos uno dentro de otro. */
+  /* SocialCard V4: la caja del porcentaje es un CAMPO, y como tal usa la geometria de
+     campo medida en el prototipo — 40 de alto, radio 14.4, fondo canvas y borde de
+     tarjeta. Antes eran 54 y fondo gris, que la hacia parecer un boton. */
   .adm-pct-otro{
     flex:0 1 210px;display:flex;align-items:center;gap:1px;
     min-width:0;                       /* o no baja de su contenido minimo */
-    min-height:54px;margin:0;padding:0 6px 0 13px;
-    border:1px solid var(--border);border-radius:12px;background:var(--chip);
+    min-height:40px;margin:0;padding:0 6px 0 12px;
+    border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);background:var(--sc-input-bg);
     transition:border-color var(--t-press) var(--ease-out),box-shadow var(--t-press) var(--ease-out);
   }
-  .adm-pct-otro:focus-within{border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow)}
-  .adm-pct-mas,.adm-pct-pc{color:var(--muted);font-size:var(--t2);font-weight:700;flex:none}
+  .adm-pct-otro:focus-within{border-color:var(--sc-primary);box-shadow:0 0 0 3px var(--p-accent-glow)}
+  .adm-pct-mas,.adm-pct-pc{color:var(--sc-text-2);font-size:var(--t2);font-weight:600;flex:none}
   .adm-pct-pc{margin-right:6px}
   .adm-pct-num{
     flex:1 1 0;min-width:0;padding:0 1px;
-    border:0;background:transparent;color:var(--ink);
-    font-family:inherit;font-size:var(--t2);font-weight:700;font-variant-numeric:tabular-nums;
+    border:0;background:transparent;color:var(--sc-text);
+    font-family:inherit;font-size:var(--t2);font-weight:600;font-variant-numeric:tabular-nums;
   }
   .adm-pct-num:focus{outline:none}
-  .adm-pct-num::placeholder{color:var(--base);font-weight:600}
+  .adm-pct-num::placeholder{color:var(--sc-text-2);font-weight:400}
+  /* 32x32 con radio 8.4 e icono de 16: el boton de icono compacto del prototipo.
+     min-height:0 es OBLIGATORIO — el reset general pone min-height:48px a todo <button>
+     y sin esto sale de 32x48. Es la tercera vez que aparece esta trampa en el panel
+     (.adm-foto-b en DS-2, .adm-tema-sw en V2): cualquier boton por debajo de 48 la
+     necesita. */
   .adm-pct-ir{
-    flex:none;width:40px;height:40px;padding:0;border:0;border-radius:9px;
-    background:var(--surface);color:var(--muted);
+    flex:none;width:32px;height:32px;min-height:0;padding:0;border:0;border-radius:var(--radius-md);
+    background:var(--sc-surface);color:var(--sc-text-2);
     display:grid;place-items:center;cursor:pointer;
     transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
   }
-  .adm-pct-ir svg{width:18px;height:18px}
-  .adm-pct-ir:hover{background:var(--ok);color:var(--accent-ink)}
+  .adm-pct-ir svg{width:16px;height:16px}
+  .adm-pct-ir:hover{background:var(--sc-primary);color:var(--sc-primary-ink)}
 
-  /* "A mano" no sube nada: es la unica que no es un porcentaje, asi que no se pinta como
-     uno. Sin relleno y al final de la fila. La diferencia la marca lo que es, no una raya
-     divisoria en medio de la ficha. */
-  .adm-pct-mano{
-    flex:0 0 auto;margin-left:auto;
-    display:inline-flex;align-items:center;justify-content:center;gap:9px;
-    background:transparent;border-color:#3a3d44;color:var(--ink);
-    font-size:var(--t3);font-weight:600;
+  /* "Cambiar precio manual" no sube nada: es la unica que no es un porcentaje, asi que no se pinta como
+     uno. Antes era un botón .adm-pct mas (54px, chip lleno) — un quinto botón del mismo
+     peso que +3/+5/+10/+15%, cuando la pregunta de "cuánto subir" ya la contestan esos
+     cuatro y el campo libre. "Cambiar precio manual" es una puerta a OTRA pantalla (la revisión plato a
+     plato), no una opción más de la misma pregunta: por eso pasa a .adm-btn/.adm-btn-fino,
+     el botón estándar del panel (40px), y se separa del grupo de porcentajes empujado al
+     final de la fila. Menos botones leyéndose como iguales. */
+  .adm-ajustar-precios-mano{
+    /* Mismo alto que el bloque de porcentajes (54px, no los 40px de .adm-btn-fino) y el
+       doble de ancho de antes: al quitarle a los .adm-pct el crecimiento que no
+       necesitaban, este es quien se queda el hueco — más presencia de botón, no una
+       tira delgada perdida al final de cuatro losetas grandes. */
+    /* V5: 40, como todos. Los 54 se pusieron para igualar el alto de los .adm-pct de al
+       lado; esos bajaron a 40 en V4, asi que este ya era el unico boton del panel con
+       altura propia. Sigue teniendo mas presencia que sus vecinos por ancho, no por alto. */
+    flex:0 0 auto;min-width:212px;min-height:40px;margin-left:auto;font-size:var(--t2);
   }
-  .adm-pct-mano svg{width:17px;height:17px;flex:none;color:var(--p-accent-stroke)}
-  .adm-pct-mano:hover{background:var(--chip);border-color:var(--p-accent-stroke)}
-  /* Al envolver se queda sola en su linea: pegada a la derecha se leeria como un descuido. */
+  .adm-ajustar-precios-mano svg{color:var(--sc-primary)}
   @media (max-width:699px){
     /* Al envolver, el campo del porcentaje libre y "a mano" ocupan su linea entera: en
        media fila se leerian como sobras de la de arriba. */
     .adm-pct-otro{flex:1 1 100%}
-    .adm-pct-mano{flex:1 1 100%;margin-left:0}
+    .adm-ajustar-precios-mano{flex:1 1 100%;margin-left:0}
   }
 
   /* ---- la fila de precio ----
@@ -4914,25 +6247,25 @@ $CUENTAS = [
      el nuevo destacado: se lee «de esto, a esto», que es la pregunta. */
   .adm-precios{display:block;margin:0 0 var(--s2)}
   .adm-prow{
-    display:flex;align-items:center;gap:11px;
-    padding:7px 4px;border-bottom:1px solid var(--hairline);
+    display:flex;align-items:center;gap:var(--space-3);
+    padding:var(--space-2) var(--space-1);border-top:1px solid var(--sc-border);
   }
-  .adm-prow:last-child{border-bottom:0}
+  .adm-prow:first-child{border-top:0}
   .adm-prow-n{
     flex:0 0 auto;min-width:2.6em;
-    color:var(--base);font-size:var(--t3);font-weight:600;font-variant-numeric:tabular-nums;
+    color:var(--sc-text-2);font-size:var(--t3);font-weight:500;font-variant-numeric:tabular-nums;
   }
-  .adm-prow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);line-height:1.35}
+  .adm-prow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);font-weight:600;line-height:1.5}
   .adm-prow-viejo{
     flex:0 0 auto;color:var(--muted);font-size:var(--t3);
     font-variant-numeric:tabular-nums;white-space:nowrap;
   }
   .adm-prow-fijo{
-    flex:0 0 auto;font-size:var(--t2);font-weight:700;color:var(--ink);
-    font-variant-numeric:tabular-nums;white-space:nowrap;
+    flex:0 0 auto;font-size:var(--t2);font-weight:600;color:var(--sc-text);
+    font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;
   }
   .adm-prow-nuevo{
-    flex:0 0 92px;min-height:42px;padding:0 10px;text-align:right;
+    flex:0 0 92px;min-height:40px;padding:0 10px;text-align:right;
     font-variant-numeric:tabular-nums;
   }
   .adm-prow[hidden]{display:none}
@@ -4940,9 +6273,10 @@ $CUENTAS = [
   /* ---- el buscador de la lista ----
      312 platos. Sin esto, cambiar uno a mano es una busqueda a ojo por trece bloques. */
   .adm-buscar{position:relative;display:block}
+  /* La lupa a 16, el tamaño de icono del prototipo. */
   .adm-buscar svg{
-    position:absolute;left:13px;top:50%;transform:translateY(-50%);
-    width:18px;height:18px;color:var(--muted);pointer-events:none;
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    width:16px;height:16px;color:var(--sc-text-2);pointer-events:none;
   }
   .adm-buscar .adm-campo{padding-left:40px}
   .adm-buscar input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
@@ -4956,86 +6290,116 @@ $CUENTAS = [
   /* ---- los dias ----
      Siete circulos con la inicial: una semana entera cabe de un vistazo y cada uno es un
      blanco de 46 px, que es lo que mide un dedo. Al final, "Semanal", que los enciende los
-     siete de una vez y los apaga igual: la oferta de todos los dias es la mitad de los casos
-     y no tiene por que costar siete toques. */
-  .adm-dias{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+     siete de una vez: la oferta de todos los dias es la mitad de los casos y no tiene por
+     que costar siete toques. Sólo enciende — nunca apaga (cierre funcional MISE-B: una
+     oferta necesita al menos un día, así que "Semanal" no puede ser un interruptor que
+     los quite todos). */
+  /* SocialCard V4 — los siete dias.
+     El prototipo NO tiene selector de dias, asi que no hay medida que copiar: se
+     construyen con el sistema de seleccion ya aprobado y medido, el del chip y el del
+     item de navegacion. 36x36 con radio 10.4 (no circulos de 46), y los tres estados
+     del sistema: reposo apagado, hover gris, elegido en la pastilla suave.
+     Elegido NO es naranja solido: con los siete dias puestos —el caso normal— serian
+     siete bloques naranjas seguidos, que es exactamente el "si todo es naranja nada
+     destaca" del punto 7. La pastilla suave es la misma que marca el destino activo
+     del sidebar. */
+  .adm-dias{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
   .adm-dia{
-    flex:none;position:relative;width:46px;height:46px;
+    flex:none;position:relative;width:36px;height:36px;
     display:grid;place-items:center;
-    border:1px solid var(--border);border-radius:50%;background:var(--chip);
-    color:var(--muted);font-size:var(--t2);font-weight:700;cursor:pointer;
-    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out);
+    border:0;border-radius:var(--radius-lg);background:var(--sc-muted-bg);
+    color:var(--sc-text-2);font-size:var(--t3);font-weight:600;cursor:pointer;
+    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
+  }
+  /* Se dibuja a 36 pero se toca a 44: la casilla de un dia se pulsa con el pulgar. */
+  .adm-dia::before{
+    content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;
+    transform:translate(-50%,-50%);
   }
   .adm-dia input{position:absolute;opacity:0;width:1px;height:1px}
-  .adm-dia:hover{border-color:#3a3d44}
-  .adm-dia:has(input:checked){background:var(--p-accent-fill);border-color:var(--p-accent-fill);color:var(--p-accent-ink)}
-  .adm-dia:has(input:focus-visible){outline:2.5px solid var(--p-accent-stroke);outline-offset:2px}
+  .adm-dia:hover{background:var(--sc-hover-bg);color:var(--sc-text-medio)}
+  .adm-dia:has(input:checked){background:var(--sc-selected-bg);color:var(--sc-selected-text);font-weight:600}
+  .adm-dia:has(input:focus-visible){outline:2.5px solid var(--sc-primary);outline-offset:2px}
+  /* "Semanal" es un boton compacto del sistema, no una pastilla aparte. */
   .adm-dia-semanal{
-    flex:none;margin-left:5px;min-height:46px;padding:0 17px;
-    border:1px solid #3a3d44;border-radius:999px;background:transparent;color:var(--ink);
-    font-family:inherit;font-size:var(--t3);font-weight:600;cursor:pointer;
-    transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
+    flex:none;margin-left:var(--space-1);min-height:36px;padding:0 var(--space-3);
+    border:0;border-radius:var(--radius-lg);background:transparent;color:var(--sc-text-2);
+    font-family:inherit;font-size:var(--t3);font-weight:500;cursor:pointer;white-space:nowrap;
+    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
   }
-  .adm-dia-semanal:hover{background:var(--chip);border-color:var(--marca-borde)}
-  .adm-dia-semanal[aria-pressed="true"]{background:var(--marca-velo-mas);border-color:var(--marca-borde);color:var(--ink)}
+  .adm-dia-semanal:hover{background:var(--sc-muted-bg);color:var(--sc-text-medio)}
+  .adm-dia-semanal[aria-pressed="true"]{background:var(--sc-muted-bg);color:var(--sc-text-medio);font-weight:600}
 
-  /* ---- las categorias ---- */
-  .adm-cats{display:flex;flex-wrap:wrap;gap:8px}
-  .adm-cat{
-    position:relative;display:inline-flex;align-items:center;gap:9px;
-    min-height:44px;padding:0 8px 0 14px;
-    border:1px solid var(--border);border-radius:999px;background:var(--chip);
-    color:var(--ink);font-size:var(--t3);cursor:pointer;
-    transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out);
-  }
-  .adm-cat input{position:absolute;opacity:0;width:1px;height:1px}
-  .adm-cat:hover{border-color:#3a3d44}
-  .adm-cat-n{
-    min-width:24px;height:24px;padding:0 7px;border-radius:999px;
-    background:var(--surface);color:var(--muted);
-    display:inline-grid;place-items:center;font-size:var(--t3);font-weight:700;
-    font-variant-numeric:tabular-nums;
-  }
-  .adm-cat:has(input:checked){background:var(--marca-fondo);border-color:var(--marca-fondo);color:var(--marca-ink)}
-  .adm-cat:has(input:checked) .adm-cat-nm{font-weight:700}
-  .adm-cat:has(input:checked) .adm-cat-n{background:rgba(0,0,0,.22);color:var(--marca-ink)}
-  .adm-cat:has(input:focus-visible){outline:2.5px solid var(--accent);outline-offset:2px}
+  /* El interruptor "Todos" (categoría entera en la oferta) se quitó de la cabecera de la
+     ficha por orden expresa del propietario — "esto nunca va a pasar" en su negocio. Se
+     retira toda su CSS (`.adm-sw-cat*`, confirmado sin más usos por grep). El handler
+     `oferta_cat_toggle` y el campo `cats` de `estado.json` se dejan tal cual: no rompen
+     nada estando inertes, y tocar el contrato del backend no era parte del encargo — sólo
+     el control de la interfaz. */
+  /* V5: sin medidas propias — el interruptor unico. */
+  .adm-sw.adm-sw-oferta{padding:0;gap:0;flex:none;margin-left:auto}
+  /* Sin opacity propia: la fila entera ya se atenúa con .por-categoria (0.5) — repetirlo
+     aquí encima sólo apagaba el interruptor más de la cuenta (0.5 x 0.6, casi invisible).
+     Con "Todos" retirado, .por-categoria ya no lo dispara nadie desde la interfaz, pero se
+     deja tal cual por lo mismo de arriba: no estorba estando inerte. */
+  .adm-sw.adm-sw-oferta:has(input:disabled){cursor:default}
 
-  /* ---- la fila de plato, con casilla ----
-     La fila ENTERA es la etiqueta: en un movil, acertar en una casilla de 20 px con el dedo
-     es el motivo por el que nadie marca nada. */
+  /* ---- la fila de plato, con interruptor ----
+     La fila NO es la etiqueta (a diferencia de la versión con casilla/tick de antes): el
+     interruptor de más abajo es su propio control, al final de la fila, como en Platos. */
+  /* Sin border-radius: con esquinas redondeadas, el border-bottom se curva justo en ellas
+     y una línea recta se ve como el filo de un óvalo — el mismo fallo que ya se corrigió
+     en el separador de categoría (MISE-B, octava ronda), aquí sobre cada fila de plato. El
+     resalte al pasar el ratón se queda cuadrado, como una fila de tabla. Este fix se
+     conserva en la auditoría correctiva: no es parte del interruptor de oferta revertido. */
   .adm-ofertas{display:block}
+  /* SocialCard V3: separador ARRIBA y no abajo, y la primera fila sin el — es el
+     patron del prototipo (border-t + first:border-t-0), y evita el filete suelto que
+     dejaba la ultima fila contra el borde de la ficha. Relleno horizontal 16, como el
+     de su cabecera, para que nombre y titulo de categoria queden a plomo. */
   .adm-orow{
-    display:flex;align-items:center;gap:11px;
-    padding:8px 10px;border-radius:11px;border-bottom:1px solid var(--hairline);
+    display:flex;align-items:center;gap:var(--space-3);
+    /* Un solo ritmo de fila en todo el producto. El relleno y el filete ya eran los
+       mismos en Platos y en Ofertas; lo que las separaba era el CONTENIDO — la fila de
+       Platos la estira su campo de precio de 40 (56 en total) y la de Ofertas se quedaba
+       en 38 con solo un interruptor de 22. Con el minimo, las dos respiran igual. */
+    min-height:56px;
+    padding:var(--space-2) var(--space-4);border-top:1px solid var(--sc-border);
     cursor:pointer;
   }
-  .adm-orow:last-child{border-bottom:0}
-  .adm-orow:hover{background:var(--chip)}
+  .adm-orow:first-child{border-top:0}
   .adm-orow[hidden]{display:none}
-  .adm-orow input{position:absolute;opacity:0;width:1px;height:1px}
-  .adm-orow-tick{
-    flex:none;width:22px;height:22px;border-radius:7px;
-    border:1.5px solid var(--border);background:transparent;color:transparent;
-    display:grid;place-items:center;
-    transition:background var(--t-press) var(--ease-out),border-color var(--t-press) var(--ease-out);
-  }
-  .adm-orow-tick svg{width:14px;height:14px}
-  .adm-orow:has(input:checked) .adm-orow-tick{background:var(--marca-fondo);border-color:var(--marca-fondo);color:var(--marca-ink)}
-  .adm-orow:has(input:focus-visible) .adm-orow-tick{outline:2.5px solid var(--accent);outline-offset:2px}
+  /* appearance:none, además de opacity:0: a 1x1px la casilla nativa no debía verse, pero
+     el control seguía "vivo" para el navegador (appearance:auto) — reportado un marcado
+     rojo junto a la fila, con ratón encima, que ninguno de los elementos propios de la
+     fila explica (auditado el HTML de una fila marcada: ni rastro). Apagar el widget
+     nativo del todo es lo correcto de todas formas para una casilla que ya se sustituye
+     entera por su propio control visual (el interruptor de Ofertas, la cámara/precio de
+     Platos) — no depende de acertar la causa exacta para ser la regla correcta aquí. */
+  .adm-orow input{position:absolute;opacity:0;width:1px;height:1px;appearance:none}
   /* Bloque y no flex en columna: como flex, el <small> era un item que no bajaba de su
      contenido minimo y se recortaba en estrecho —«Especialidades · Mango C…»—. En bloque
      envuelve solo, que es lo que hace el texto desde siempre. */
-  .adm-orow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);line-height:1.3;display:block}
+  /* Nombre 14/600 y apunte 13/400 apagado: la pareja del prototipo. */
+  .adm-orow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);font-weight:600;line-height:1.5;display:block}
   .adm-orow-nm small{
     display:block;margin-top:2px;
-    font-size:var(--t3);color:var(--muted);font-weight:400;line-height:1.4;
+    font-size:var(--t3);color:var(--sc-text-2);font-weight:400;line-height:1.5;
   }
   /* Ya dentro por su categoria, o sin precio que rebajar: se ven, pero no se tocan. */
-  .adm-orow.por-categoria,.adm-orow.sin-precio{opacity:.5;cursor:default}
-  .adm-orow.por-categoria:hover,.adm-orow.sin-precio:hover{background:transparent}
-  .adm-orow.es-oferta{background:var(--marca-velo)}
-  .adm-orow.es-oferta:hover{background:var(--marca-velo-mas)}
+  .adm-orow.por-categoria{opacity:.5;cursor:default}
+  /* Una vez marcado no hace falta reaccionar al ratón: la casilla naranja ya lo dice
+     todo. Antes el hover aclaraba el fondo (--marca-velo-mas); ahora se queda exactamente
+     igual en reposo y con el ratón encima — nada que "parpadee" sobre una fila ya
+     marcada. */
+  /* SocialCard V6, tras revisión del propietario: se retira TAMBIÉN el velo de la fila en
+     oferta. En la ronda anterior cayeron el de agotada y el de destacada y este se quedó;
+     como la clase es la misma en las dos pantallas, el tinte de Ofertas se arrastraba a
+     Platos y volvía a pintar allí el fondo que se había quitado. Lo que dice que una fila
+     está en oferta es su indicador —el círculo con el filete de oferta— en Platos, y la
+     casilla marcada en Ofertas. El fondo no añadía nada y competía con los otros dos
+     estados. Se deja la regla vacía a propósito: es donde vivía y donde se buscará. */
+  .adm-orow.es-oferta{background:transparent}
 
   /* El descuento usa la misma casilla del porcentaje libre de Precios, sin la flecha.
      OJO: la ficha es un flex en COLUMNA, asi que un flex-basis aqui mide el alto y no el
@@ -5046,16 +6410,10 @@ $CUENTAS = [
      Misma fila que la de ofertas, con la camara al final en vez del precio. Marcado NO se
      pinta con el acento: un agotado no es un logro, es una baja. Se tacha, como en la carta,
      y se apaga. */
-  .adm-agrow{cursor:default}
-  .adm-agrow:hover{background:transparent}
-  .adm-agrow-marca{display:flex;align-items:center;flex:none;cursor:pointer;padding:4px;margin:-4px}
-  .adm-agrow-marca input{position:absolute;opacity:0;width:1px;height:1px}
-  .adm-agrow:has(input:checked) .adm-orow-tick{background:var(--offer);border-color:var(--offer);color:#14090a}
-  .adm-agrow:has(input:focus-visible) .adm-orow-tick{outline:2.5px solid var(--accent);outline-offset:2px}
-  .adm-orow.es-agotado{background:rgba(255,107,107,.08)}
-  .adm-orow.es-agotado .adm-orow-nm{color:var(--offer);text-decoration:line-through;text-decoration-thickness:1px}
-  .adm-orow.es-agotado .adm-orow-nm small{color:var(--offer);opacity:.75}
-  .adm-orow.es-agotado .adm-prow-n{color:var(--offer);opacity:.75}
+  /* Sin fondo: el nombre tachado en rojo y el interruptor encendido ya lo dicen, y
+     teñir la fila entera competia con la etiqueta de destacado. */
+  .adm-orow.es-agotado .adm-orow-nm{color:var(--ui-state-depleted);text-decoration:line-through;text-decoration-thickness:1px}
+  .adm-orow.es-agotado .adm-prow-n{color:var(--ui-state-depleted);opacity:.75}
   .adm-ag-resumen{margin-top:var(--s2)}
 
   /* ---- destacados ----
@@ -5069,11 +6427,38 @@ $CUENTAS = [
   .adm-dest-et{flex:0 1 210px;min-width:0}
   .adm-dest-btn{min-height:50px;flex:0 0 auto}
   .adm-tag{
-    flex:none;padding:4px 10px;border-radius:999px;
+    flex:none;padding:4px 10px;border-radius:var(--radius-pill);
     background:var(--marca-velo-mas);color:var(--ink);
     font-size:var(--t3);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
     white-space:nowrap;
   }
+
+  /* ---- el indicador de oferta de la fila de Platos ----
+     SocialCard V6, tras revisión. `.adm-tag` está declarada AQUÍ, después de
+     `.adm-tag-oferta` (mucho más arriba) y con la misma especificidad: su relleno gris
+     ganaba al `transparent` de aquella, y el indicador salía como una mancha gris en vez
+     del círculo con el filete de oferta. Es la sexta vez que aparece la misma trampa en
+     esta migración —regla genérica declarada después que la específica— y se paga igual:
+     subiendo el selector, no reordenando el fichero.
+
+     Medido: el badge de destacado mide 22 de alto. El indicador se le iguala —22x22— para
+     que las dos piezas de la fila se lean a la misma altura. */
+  .adm-plato-acciones .adm-tag.adm-tag-oferta,
+  .adm-cat-bento-lista .adm-tag.adm-tag-oferta{
+    width:22px;height:22px;padding:0;flex:none;
+    display:inline-flex;align-items:center;justify-content:center;
+    border-radius:var(--radius-pill);
+    background:transparent;color:var(--ui-badge-promo);
+    /* 70% y no el 45% de antes: medido, el filete al 45% daba 2,23:1 contra la tarjeta y
+       WCAG 1.4.11 pide 3 para el contorno de un control. El icono de dentro ya iba a
+       6,15:1, así que el círculo se veía "flojo" sin estarlo del todo — ahora las dos
+       partes pasan. */
+    border:1px solid color-mix(in srgb,var(--ui-badge-promo) 70%,transparent);
+  }
+  .adm-plato-acciones .adm-tag.adm-tag-oferta svg,
+  .adm-cat-bento-lista .adm-tag.adm-tag-oferta svg{width:13px;height:13px}
+  .adm-plato-acciones .adm-tag.adm-tag-oferta:hover,
+  .adm-cat-bento-lista .adm-tag.adm-tag-oferta:hover{background:color-mix(in srgb,var(--ui-badge-promo) 14%,transparent)}
 
   /* ---- la fila de la lista de destacar ----
      Es un boton de verdad, no una fila con un boton dentro: se toca en cualquier sitio y
@@ -5091,7 +6476,9 @@ $CUENTAS = [
   /* Elegido: se queda marcado hasta que se añade, para no perder de vista cual se toco. */
   .adm-destpick.es-elegido{background:var(--marca-velo-mas)}
   .adm-destpick.es-elegido .adm-destpick-ir{background:var(--marca-fondo);border-color:var(--marca-fondo);color:var(--marca-ink)}
-  .adm-orow.es-destacado{background:var(--marca-velo)}
+  /* El destacado ya NO tiñe la fila entera. Lo dice su etiqueta, que para eso pasa a la
+     pastilla de seleccion: un velo gris sobre toda la fila competia con el agotado y con
+     la oferta —que si necesitan marcar la fila— y ademas se confundia con el hover. */
 
   /* ---- las etiquetas, debajo del plato tocado ----
      Sangradas hasta donde empieza el nombre, para que se lea como algo que cuelga de esa
@@ -5123,17 +6510,6 @@ $CUENTAS = [
   /* La fila abierta se queda pegada a sus etiquetas: sin esquina redonda abajo. */
   .adm-destpick.es-elegido{border-radius:11px 11px 0 0}
 
-  /* El <select> del navegador con su flecha de fabrica desentonaba: se le quita y se le
-     pone una igual que la de los acordeones. El color va escrito porque un data URI no
-     hereda currentColor. */
-  .adm-select{
-    appearance:none;-webkit-appearance:none;
-    padding-right:38px;cursor:pointer;
-    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9595' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6l6 -6'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 12px center;background-size:16px;
-  }
-  .adm-select option{background:var(--ficha);color:var(--ink)}
-
   /* El buscador de plato traia fondo blanco escrito a mano y la tipografia de la carta. */
   .adm-f .combo{margin:0;position:relative}
   .adm-f .combo-q{
@@ -5148,9 +6524,6 @@ $CUENTAS = [
   .adm-f .combo-num,.adm-f .combo-txt,.adm-f .combo-txt small,.adm-f .combo-vacio{font-family:inherit}
   .adm-f .combo-txt{font-size:var(--t2)}
   .adm-f .combo-num,.adm-f .combo-txt small,.adm-f .combo-vacio{font-size:var(--t3)}
-  /* La camara vive dentro de la fila: sin fondo hasta que se pasa por encima. */
-  .adm-agrow .camara{flex:none;margin-left:auto}
-
   /* En estrecho el nombre del plato se quedaba en 84 px y "Especialidades" mide 92: una
      palabra que no cabe no se parte sola, se sale. La fila envuelve y el precio baja a su
      linea, con lo que el nombre se lleva el ancho entero. Y por si aun asi aparece una
@@ -5168,18 +6541,30 @@ $CUENTAS = [
      Los cuatro datos en una fila y en el orden en que se dicen: cuanto, cuando (horas),
      cuando (dias) y, al final, encendida o no. Encender es lo ultimo que se hace.
      Los dias se llevan el hueco que sobre; el interruptor se va al borde derecho. */
-  .adm-regla{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:flex-start;margin-bottom:var(--s2)}
+  .adm-regla{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:flex-start;margin-bottom:var(--space-2)}
   .adm-regla-g{display:flex;flex-direction:column;min-width:0}
   .adm-regla-g .adm-lbl{margin-top:0}
   .adm-regla-dias{flex:1 1 auto}
-  .adm-regla-sw{margin-left:auto}
-  .adm-sw-alto{min-height:46px;padding:0}
+  .adm-sw-alto{min-height:40px;padding:0}
+  /* SocialCard V4: el interruptor maestro, ya fuera del plegado. Una fila propia
+     inmediatamente debajo del titulo: rotulo a la izquierda, interruptor y su palabra a
+     la derecha — el mismo patron "etiqueta + switch" que usa la fila de plato del
+     prototipo. Sobre el gris apagado para que se lea como el control principal de la
+     ficha y no como un ajuste mas. */
+  .adm-oferta-maestro{
+    display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+    min-height:56px;margin:0 0 var(--space-3);padding:0 var(--space-3);
+    background:var(--sc-muted-bg);border-radius:var(--radius-lg);
+  }
+  .adm-oferta-maestro .adm-lbl{margin:0;flex:none}
+  .adm-oferta-maestro .adm-sw{flex:none;padding:0}
   /* Las dos horas son UN dato. Con la flecha en medio se leen como un rango; separadas por
      el mismo hueco que lo demas parecian dos campos sin relacion. */
-  .adm-rango{display:flex;align-items:center;gap:9px}
-  .adm-rango .adm-campo{width:120px;flex:none}
-  .adm-rango-f{flex:none;color:var(--base);display:grid;place-items:center}
-  .adm-rango-f svg{width:17px;height:17px}
+  .adm-rango{display:flex;align-items:center;gap:var(--space-2)}
+  /* Las horas son campos: 40 de alto, como el resto de campos migrados. */
+  .adm-rango .adm-campo{width:120px;flex:none;min-height:40px}
+  .adm-rango-f{flex:none;color:var(--sc-text-2);display:grid;place-items:center}
+  .adm-rango-f svg{width:16px;height:16px}
   /* ---- 320 px: los dos sitios que no cabian. Solo por debajo de 360 para no mover nada
      en los anchos que ya estaban bien (375, 768, 1280, 1920, medidos). Las dos horas de la
      oferta dejan de medir 120 fijos y se reparten el ancho; la cabecera de «Platos mas
@@ -5190,64 +6575,173 @@ $CUENTAS = [
   }
   /* La frase del reloj cierra la ficha: es un dato de lo que pasa, no el pie de un control. */
   .adm-regla-pie{
-    margin:var(--s3) 0 0;padding-top:var(--s2);border-top:1px solid var(--hairline);
-    font-size:var(--t3);line-height:1.5;color:var(--muted);
+    margin:var(--space-4) 0 0;padding-top:var(--space-3);border-top:1px solid var(--sc-border);
+    font-size:var(--t3);line-height:1.5;color:var(--sc-text-2);
   }
   @media (max-width:900px){
-    .adm-regla-sw{margin-left:0}
     .adm-regla-dias{flex:1 1 100%}
+  }
+
+  /* Hallazgo H3, Fase 2: en cualquier ancho que no sea el móvil de abajo, "Configurar
+     oferta" no existe visualmente — el <details> lo fuerza abierto por JS y esta cabecera
+     se apaga del todo, así que la ficha se ve exactamente igual que antes de este cambio:
+     ni una palabra nueva, ni un aviso de que algo se pueda plegar. */
+  .adm-oferta-config-resumen{
+    display:none;list-style:none;cursor:default;
+  }
+  .adm-oferta-config-resumen::-webkit-details-marker{display:none}
+  .adm-oferta-config-chev{display:none;flex:none;width:18px;height:18px;color:var(--muted)}
+  .adm-oferta-config-resumen:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+  /* Medido en vivo, ancho a ancho (1512/1200/1024/900/768/699/600/560/390/320): la ficha
+     se queda en meseta a 427px desde 1024 hasta 699 —el mismo alto que ya toleraba
+     tablet/escritorio sin queja— y es exactamente en 560px, un corte que el propio
+     fichero ya usa en otro sitio, donde empieza a subir de verdad (501, luego 597 a 390,
+     712 a 320, con la primera categoría de Platos sueltos recién en y=1115). No es 699
+     "porque ya estaba": a 699px la ficha mide lo mismo que a 1024, así que ese corte no
+     hacía nada aquí — 560 es el que de verdad separa "como tablet/escritorio" de "empieza
+     a doler". Por debajo de esa medida, la cabecera se ve y se puede tocar; el orden
+     visual pone el estado (frase canónica) ANTES que el acceso a configurar, como pide
+     la jerarquía de esta fase — sin mover nada en el HTML, sólo el orden de pintado. */
+  @media (max-width:560px){
+    .adm-f-ooferta > .adm-f-cab{order:0}
+    .adm-f-ooferta > .hint{order:1}
+    .adm-f-ooferta > .adm-regla-pie{order:2;margin-top:var(--s2)}
+    .adm-f-ooferta > .adm-oferta-config{order:3}
+    .adm-oferta-config-resumen{
+      display:flex;align-items:center;gap:8px;cursor:pointer;min-height:44px;
+      margin-top:var(--s2);padding-top:var(--s2);border-top:1px solid var(--hairline);
+      font-size:var(--t2);font-weight:600;color:var(--ink);
+    }
+    .adm-oferta-config-chev{display:block}
+    .adm-oferta-config[open] .adm-oferta-config-chev{transform:rotate(180deg)}
   }
   @media (max-width:900px){.adm-4col{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media (max-width:480px){.adm-4col{grid-template-columns:minmax(0,1fr)}}
 
-  /* ---- los acordeones de categorias ----
-     Cuarenta pastillas seguidas ocupaban media pantalla, asi que van por pestaña de la carta
-     y CERRADAS. Lo unico que no puede esconder un acordeon cerrado es que dentro haya algo
-     marcado: por eso el resumen lo dice y el borde se tiñe. */
-  .adm-acordeones{display:grid;gap:8px}
-  .adm-acordeon{border:1px solid var(--hairline);border-radius:13px;background:var(--chip);overflow:hidden}
-  .adm-acordeon[data-con-marcas]{border-color:var(--marca-borde)}
-  .adm-acordeon-cab{
-    display:flex;align-items:center;gap:11px;
-    min-height:48px;padding:0 14px;cursor:pointer;list-style:none;
-    font-size:var(--t2);font-weight:600;color:var(--ink);
+  /* ---- prueba: fichas de categoría en bento, sin acordeón ----
+     Las cuarenta categorías se pintan TODAS a la vez. Empezó tres por fila (2 de 6
+     columnas); ahora una categoría es una fila entera, ancho completo — igual que ya
+     hacía Precios a mano con sus fichas por pestaña — y reparte sus propios platos en
+     dos columnas internas (`.adm-cat-bento-lista`, más abajo) en vez de una lista angosta
+     de una sola. Nada que abrir ni cerrar: la ficha tiene una cabecera fija y, al no
+     competir ya por alto con vecinas de la misma fila, ya no necesita un tope de altura
+     ni scroll propio — crece lo que necesite, como cualquier ficha apilada del panel. */
+  /* SocialCard V3: la ficha de categoria es la tarjeta del prototipo — radio 16,
+     superficie (no el gris de --chip), borde de tarjeta y su sombra minima. */
+  .adm-cat-bento{
+    border:1px solid var(--sc-border);border-radius:var(--radius-card);background:var(--sc-surface);
+    box-shadow:var(--sc-sombra-card);
+    display:flex;flex-direction:column;overflow:hidden;
+    /* Contenedor de tamaño para decidir UNA columna de platos o DOS (más abajo,
+       `.adm-cat-bento-lista`): el ancho que importa aquí es el de la FICHA entera. */
+    container-type:inline-size;container-name:adm-cat-bento;
+    /* .adm-f trae padding:21px de fábrica (el margen de cualquier ficha del panel) — de
+       más aquí: la cabecera y la lista ya llevan el suyo propio (0 14px cada una), así que
+       ese padding heredado sólo sumaba un cerco extra sin usarlo para nada, alejando la
+       cámara del borde del que se quejó el propietario. Se apaga sólo en este componente. */
+    padding:0;
   }
-  .adm-acordeon-cab::-webkit-details-marker{display:none}
-  .adm-acordeon-cab:hover{background:var(--surface)}
-  .adm-acordeon-cab:focus-visible{outline:2.5px solid var(--accent);outline-offset:-2px}
-  .adm-acordeon-v{
-    width:17px;height:17px;flex:none;color:var(--muted);
-    transition:transform var(--t-press) var(--ease-out);
+  .adm-cat-bento[data-con-marcas]{border-color:var(--marca-borde)}
+  /* Cabecera de 56 sobre el gris apagado, con filete abajo y relleno 16: exactamente
+     la del prototipo (min-h-14, bg-muted, border-b, px-4). El nombre, 14/600. */
+  .adm-cat-bento-cab{
+    display:flex;align-items:center;gap:var(--space-3);flex:none;
+    min-height:56px;padding:0 var(--space-4);
+    background:var(--sc-muted-bg);
+    font-size:var(--t2);font-weight:600;color:var(--sc-text);
+    border-bottom:1px solid var(--sc-border);
   }
-  .adm-acordeon[open] .adm-acordeon-v{transform:rotate(90deg)}
-  .adm-acordeon-nm{flex:1 1 auto;min-width:0}
-  .adm-acordeon-marca{
-    flex:none;padding:3px 9px;border-radius:999px;
-    background:var(--marca-velo-mas);color:var(--ink);
-    font-size:var(--t3);font-weight:700;white-space:nowrap;
+  /* flex:1 estiraba esta caja a todo el hueco sobrante aunque el texto («Sopas») fuera
+     corto — la insignia naranja de al lado quedaba pegada al BORDE de la caja, no al
+     texto, así que se leía lejos del título en vez de "seguida" de él. Ahora encoge a su
+     contenido (0 1 auto) y es el CONTADOR quien se empuja al extremo derecho
+     (margin-left:auto, más abajo): nombre + insignia quedan juntos a la izquierda,
+     contador + interruptor juntos a la derecha. */
+  /* Una sola línea, un solo tamaño: categoría y pestaña de la carta llegan ya fundidas en
+     una sola cadena desde PHP (etiqueta_categoria()) — no hay un <small> que peinar aparte. */
+  .adm-cat-bento-nm{
+    flex:0 1 auto;min-width:0;max-width:100%;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
   }
-  .adm-acordeon-n{
-    flex:none;min-width:24px;height:24px;padding:0 7px;border-radius:999px;
-    background:var(--surface);color:var(--muted);
+  /* En naranja de marca (--accent/--accent-ink), no en el gris neutro de antes: es la
+     única cifra de la cabecera que dice "aquí hay algo encendido" y se pedía que se
+     notara de un vistazo, justo pegada al nombre — de ahí que vaya inmediatamente
+     después en el marcado, sin nada elástico entre los dos. */
+  /* La insignia de "hay algo marcado aqui" sigue siendo la unica cifra en color de la
+     cabecera. Pasa al naranja del PRODUCTO (--sc-primary), no al de la marca del
+     restaurante: V1 separo las dos cosas y esto es cromo del panel. */
+  .adm-cat-bento-marca{
+    flex:none;padding:2px var(--space-2);border-radius:var(--radius-md);
+    background:var(--sc-selected-bg);color:var(--sc-selected-text);
+    font-size:var(--t4);font-weight:600;white-space:nowrap;
+  }
+  /* Contador: 12 tabular en pastilla de radio 8.4, como el del prototipo. Sube a la
+     superficie de la tarjeta porque la cabecera ya es gris y un gris sobre gris no se
+     lee -- el prototipo usa el mismo tono para los dos y ahi el contador desaparece. */
+  .adm-cat-bento-n{
+    flex:none;min-width:22px;height:22px;padding:2px var(--space-2);border-radius:var(--radius-md);
+    background:var(--sc-surface);color:var(--sc-text-2);
     display:inline-grid;place-items:center;
-    font-size:var(--t3);font-weight:700;font-variant-numeric:tabular-nums;
+    font-size:var(--t4);font-weight:500;font-variant-numeric:tabular-nums;
+    margin-left:auto;
   }
-  .adm-acordeon .adm-cats{padding:2px 14px 14px}
-  /* En la lista de platos el acordeon ES la ficha: no lleva caja propia dentro de otra. */
-  .adm-f-otab{padding:0;overflow:hidden}
-  .adm-f-otab .adm-acordeon{border:0;background:transparent;border-radius:inherit}
-  .adm-f-otab .adm-acordeon-cab{min-height:56px;padding:0 var(--s3)}
-  .adm-f-otab .adm-ofertas{padding:0 var(--s3) var(--s3)}
-  .adm-acordeon-nm small{
-    display:block;margin-top:1px;
-    font-size:var(--t3);font-weight:400;color:var(--muted);
+  /* El precio (.adm-prow-fijo) ya es flex:0 0 auto + white-space:nowrap desde siempre —
+     nunca fue él quien se rompía de línea. Lo que rompía la fila era dejar que la fila
+     ENTERA hiciera flex-wrap: con eso, a tres columnas (~365px), el conjunto casilla+
+     número+nombre+precio no cabía y el precio caía a una segunda línea. La regla es la
+     contraria: la fila NUNCA envuelve (flex-wrap normal, precio siempre en su sitio) y es
+     el NOMBRE —el único elemento elástico de la fila— el que se recorta con "…" cuando no
+     cabe.
+
+     Dos columnas, no una lista angosta: con la ficha a todo el ancho (arriba), una sola
+     lista vertical desperdiciaba media pantalla en blanco a los lados. Los propios platos
+     vienen ya repartidos en dos mitades desde PHP (columnasPlatos, por cantidad, no por
+     alto calculado) — aquí sólo se colocan una al lado de la otra. Por debajo de cierto
+     ancho de FICHA (container query, no viewport: es el ancho de la ficha lo que decide,
+     no el de la pantalla) dos columnas quedarían más estrechas que la fila de tres de
+     antes — se colapsa a una sola, y entonces es esa única columna la que usa el ancho
+     completo. Sin tope de alto ni scroll propio: una ficha a todo lo ancho no le quita
+     sitio a ninguna vecina por crecer, así que crece lo que le haga falta. */
+  .adm-cat-bento-lista{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;padding:0 14px}
+
+  /* ---- tres por columna, y el resto detras del desplegable ----
+     Se recorta por CSS y no quitando filas del HTML: los 312 platos siguen estando en el
+     documento, asi que el buscador y los filtros los siguen encontrando aunque la ficha
+     este plegada — el JavaScript de arriba (aplicarFiltro) no se entera de nada. */
+  .adm-cat-bento:not([data-abierto]) .adm-cat-bento-col > .adm-orow:nth-child(n+4){display:none}
+  /* Buscando o filtrando, el recorte se levanta: si no, un plato que coincide podria
+     quedarse escondido detras del "Ver mas" y pareceria que no existe. */
+  .esta-filtrando .adm-cat-bento .adm-cat-bento-col > .adm-orow:nth-child(n+4){display:flex}
+  .esta-filtrando .adm-vermas{display:none}
+
+  .adm-vermas{
+    display:flex;align-items:center;justify-content:center;gap:var(--space-2);
+    width:100%;min-height:40px;margin:0;padding:0 var(--space-4);
+    border:0;border-top:1px solid var(--sc-border);border-radius:0;
+    background:transparent;color:var(--sc-text-2);
+    font-family:inherit;font-size:var(--t3);font-weight:500;cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
   }
-  /* En estrecho, el nombre de la pestaña se quedaba en 60 px con la insignia y el contador
-     al lado. La cabecera envuelve: el nombre arriba y las dos cifras debajo a la derecha. */
+  .adm-vermas:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-vermas:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-vermas-chev{width:16px;height:16px;flex:none;transition:transform var(--t-fast) var(--ease-out)}
+  .adm-vermas[aria-expanded="true"] .adm-vermas-chev{transform:rotate(180deg)}
+  @container adm-cat-bento (max-width:820px){
+    .adm-cat-bento-lista{grid-template-columns:1fr}
+  }
+  /* Contenedor de tamaño para lo de aquí abajo: cuánto le cabe a CADA columna de platos,
+     no a la ficha entera (con dos columnas, la ficha puede ser ancha y cada columna ir
+     igual de justa que antes a tres por fila). */
+  .adm-cat-bento-col{container-type:inline-size;container-name:adm-cat-bento-col;min-width:0}
+  @container adm-cat-bento-col (max-width: 480px) {
+    .adm-cat-bento-lista .adm-orow-nm{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .adm-cat-bento-lista .adm-orow-nm small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  }
   @media (max-width:699px){
-    .adm-acordeon-cab{flex-wrap:wrap;row-gap:7px;padding:11px 14px}
-    .adm-acordeon-nm{flex:1 1 calc(100% - 2.4em)}
-    .adm-acordeon-marca{margin-left:auto}
+    .adm-cat-bento-cab{flex-wrap:wrap;row-gap:7px;padding:11px 14px}
+    .adm-cat-bento-nm{flex:1 1 calc(100% - 2.4em)}
+    .adm-cat-bento-marca{margin-left:auto}
   }
   /* En estrecho no caben las cuatro cosas en una linea: el nombre del plato se quedaba en
      42 px y «Salsa o encurtido a elegir» salia como «Sal…». La fila se parte en dos, con el
@@ -5278,7 +6772,7 @@ $CUENTAS = [
   /* Los tres tamaños, también aquí. La cifra de cada ventana va a --t1: es lo mayor de su
      ficha, y una ficha con un título, un chip y un número no necesita un cuarto tamaño para
      que se sepa cuál de los tres es el dato. */
-  .adm-f .dt-cifra-n{font-size:var(--t1);line-height:1.1;margin:0 0 var(--s2);letter-spacing:-.01em}
+  .adm-f .dt-cifra-n{font-size:var(--t1);font-weight:600;line-height:1.1;margin:0 0 var(--space-2);letter-spacing:-.01em;color:var(--sc-text);font-variant-numeric:tabular-nums}
   .adm-f .dt-lectura{font-size:var(--t1)}
   .adm-f .dt-lectura em{font-size:var(--t3)}
   .adm-f .vp-nom,.adm-f .vp-n{font-size:var(--t2)}
@@ -5286,7 +6780,7 @@ $CUENTAS = [
   .adm-f .vp-per button,.adm-f .vp-mas summary,.adm-dt-pie{font-size:var(--t3)}
 
   /* La ficha de los treinta días reacciona al dedo como reaccionaba su baldosa. */
-  .adm-f.tocando{background:#1E2025}
+  .adm-f.tocando{background:var(--sc-hover-bg)}
   .adm-f.tocando .dt-lectura{color:var(--ink);opacity:1}
 
   /* El selector de periodo. En claro, el elegido se levantaba con --surface y una sombra;
@@ -5294,7 +6788,7 @@ $CUENTAS = [
      invierte, igual que las pestañas de arriba. */
   .adm-f .vp-per{background:var(--chip);border:1px solid var(--hairline);padding:3px}
   .adm-f .vp-per button{min-height:30px;padding:0 12px}
-  .adm-f .vp-per button[aria-pressed="true"]{background:var(--ink);color:#0B0B0C;box-shadow:none}
+  .adm-f .vp-per button[aria-pressed="true"]{background:var(--ink);color:var(--sc-surface);box-shadow:none}
 
   /* Las filas de platos: el mismo radio y el mismo aire que .adm-fila, para que una lista
      dentro de una ficha se lea igual en todo el panel. */
@@ -5318,23 +6812,23 @@ $CUENTAS = [
      naranja para una pantalla que sólo se lee. El acento se guarda para donde dice algo
      —el punto que late, el chip de variación, la barra que se está leyendo— y el resto del
      gráfico se pinta con el gris de los textos, que es lo que es: información, no aviso. */
-  .adm-f .dt-b i{background:var(--base)}
-  .adm-f .dt-barras.tocando .dt-b i{background:rgba(237,235,235,.14)}
-  .adm-f .dt-barras.tocando .dt-b.vecina i{background:rgba(237,235,235,.34)}
+  .adm-f .dt-b i{background:var(--sc-text-2)}
+  .adm-f .dt-barras.tocando .dt-b i{background:color-mix(in srgb, var(--sc-text) 14%, transparent)}
+  .adm-f .dt-barras.tocando .dt-b.vecina i{background:color-mix(in srgb, var(--sc-text) 34%, transparent)}
   /* La única naranja del gráfico es la que se está leyendo. Iba en blanco (--ink), que sobre
      crema era el máximo contraste posible; sobre un gris apagado, el color es lo que la
      separa de las otras veintinueve. */
-  .adm-f .dt-barras.tocando .dt-b.viva i{background:var(--accent)}
-  .adm-f .dt-b.futuro i{background:rgba(237,235,235,.07)}
+  .adm-f .dt-barras.tocando .dt-b.viva i{background:var(--sc-primary)}
+  .adm-f .dt-b.futuro i{background:color-mix(in srgb, var(--sc-text) 7%, transparent)}
   /* La barra de la fila de un plato lleva el nombre encima: gris muy bajo, para que sea un
      fondo que mide y no un bloque de color que compita con el texto. */
-  .adm-f .vp-barra{background:rgba(237,235,235,.10)}
+  .adm-f .vp-barra{background:color-mix(in srgb, var(--sc-text) 10%, transparent)}
 
   .adm-dt-pie{
-    display:flex;flex-wrap:wrap;gap:4px var(--s3);
-    margin:var(--s2) 0 0;padding-top:var(--s2);
-    border-top:1px solid var(--hairline);
-    color:var(--muted);font-variant-numeric:tabular-nums;
+    display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-4);
+    margin:var(--space-3) 0 0;padding-top:var(--space-3);
+    border-top:1px solid var(--sc-border);
+    color:var(--sc-text-2);font-variant-numeric:tabular-nums;
   }
 
   /* ---- analítica en estrecho ----
@@ -5369,10 +6863,16 @@ $CUENTAS = [
      Publicidad se apañaba con aria-label porque cada ficha tenía un campo y el título de
      la ficha ya decía cuál era. Aquí hay fichas con cuatro campos seguidos: hace falta
      rótulo visible, y con el mismo peso que el resto del sistema. */
-  .adm-lbl{display:block;margin:var(--s2) 0 6px;font-size:var(--t3);font-weight:600;color:var(--muted)}
-  .adm-lbl .opt{font-weight:400;color:var(--base)}
+  /* 13/500 apagado: la etiqueta acompaña al control, no compite con el. */
+  .adm-lbl{display:block;margin:var(--space-2) 0 6px;font-size:var(--t3);font-weight:500;color:var(--sc-text-2)}
+  .adm-lbl .opt{font-weight:400;color:var(--sc-text-2)}
   .adm-2col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s2)}
   .adm-2col .adm-lbl{margin-top:0}
+  /* Excepción de Redes: «Nota» y «Reseñas» son dos cifras cortas y caben partidas a
+     cualquier ancho; dos direcciones completas, no. Se parten sólo cuando la ficha es de
+     verdad ancha —a 1200 mide 445 y cada columna 215—; por debajo vuelven a apilarse. */
+  .adm-2col-redes{grid-template-columns:minmax(0,1fr)}
+  @media (min-width:1200px){.adm-2col-redes{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
   /* El interruptor no lleva margen abajo —en Publicidad cierra la ficha y sobraria—,
      asi que lo pone lo que venga detras. Sin esto, "La nota SE ENSEÑA en la carta" y
      el rotulo "Nota" se tocaban. */
@@ -5382,12 +6882,12 @@ $CUENTAS = [
   /* ---- vacíos ----
      Un hueco en blanco no dice si falta algo o si algo se ha roto. */
   .adm-vacio{
-    display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;
-    margin:0 0 var(--s2);padding:var(--s3);
-    border:1.5px dashed var(--border);border-radius:14px;
-    color:var(--muted);font-size:var(--t3);line-height:1.5;
+    display:flex;flex-direction:column;align-items:center;gap:var(--space-2);text-align:center;
+    margin:0 0 var(--space-2);padding:var(--space-6) var(--space-4);
+    border:1px dashed var(--sc-input-border);border-radius:var(--radius-lg);
+    color:var(--sc-text-2);font-size:var(--t3);line-height:1.5;
   }
-  .adm-vacio svg{width:28px;height:28px;flex:none}
+  .adm-vacio svg{width:24px;height:24px;flex:none;stroke-width:2}
 
   /* ---- portadas ----
      Las flechas y la papelera van en el pie de la miniatura, no encima de la foto: sobre
@@ -5398,9 +6898,10 @@ $CUENTAS = [
   }
   .adm-foto{
     display:flex;flex-direction:column;min-width:0;
-    border:1px solid var(--hairline);border-radius:14px;overflow:hidden;background:var(--chip);
+    /* V6: era un 14 literal. --radius-xl (14.4) es el mismo valor del sistema. */
+    border:1px solid var(--hairline);border-radius:var(--radius-xl);overflow:hidden;background:var(--chip);
   }
-  .adm-foto img{width:100%;aspect-ratio:16 / 9;object-fit:cover;display:block;background:#0B0B0C}
+  .adm-foto img{width:100%;aspect-ratio:16 / 9;object-fit:cover;display:block;background:var(--sc-muted-bg)}
   .adm-foto-pie{display:flex;align-items:center;gap:3px;padding:6px 7px}
   .adm-foto-pos{
     margin-right:auto;min-width:23px;height:23px;padding:0 6px;border-radius:7px;
@@ -5409,7 +6910,13 @@ $CUENTAS = [
     font-variant-numeric:tabular-nums;
   }
   .adm-foto-b{
-    width:32px;height:32px;flex:none;padding:0;border:0;border-radius:9px;
+    /* DS-2: COMPACT (40px) -- antes 32px. Fila con hueco de sobra a 390/320
+       (medido), el radio de 9px se queda literal: es el de icon-button
+       cuadrado, no el de .adm-btn/.adm-campo, y aliasarlo aqui le cambiaria
+       el valor a .adm-pct-ir tambien sin querer. min-height:0 anula el
+       button{min-height:48px} de mas abajo -- sin esto medía 40x48, no
+       40x40 (mismo motivo por el que .camara ya lo lleva). */
+    width:40px;height:40px;min-height:0;flex:none;padding:0;border:0;border-radius:9px;
     background:transparent;color:var(--muted);
     display:grid;place-items:center;cursor:pointer;
     transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
@@ -5417,9 +6924,9 @@ $CUENTAS = [
   .adm-foto-b svg{width:18px;height:18px}
   .adm-foto-b:hover:not(:disabled){background:var(--surface);color:var(--ink)}
   .adm-foto-b:disabled{opacity:.3;cursor:default}
-  .adm-foto-b-quitar:hover:not(:disabled){background:rgba(255,107,107,.14);color:var(--offer)}
+  .adm-foto-b-quitar:hover:not(:disabled){background:color-mix(in srgb, var(--ui-state-danger) 14%, transparent);color:var(--ui-state-danger)}
   .adm-foto-aviso{margin:0 0 var(--s2);font-size:var(--t3);color:var(--muted)}
-  .adm-foto-aviso-mal{color:var(--offer)}
+  .adm-foto-aviso-mal{color:var(--ui-state-error)}
   .adm-subida{
     display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     margin:auto 0 0;padding-top:var(--s2);border-top:1px solid var(--hairline);
@@ -5435,26 +6942,32 @@ $CUENTAS = [
     font-family:inherit;font-size:var(--t3);font-weight:600;cursor:pointer;
   }
   .adm-subida input[type=file]::file-selector-button:hover,
-  .adm-subir input[type=file]::file-selector-button:hover{background:#2a2c31;border-color:#3a3d44}
+  .adm-subir input[type=file]::file-selector-button:hover{background:var(--sc-hover-bg);border-color:var(--sc-input-border)}
 
   /* ---- color ----
      El cuadrado es el selector del navegador, no una muestra decorativa: se pulsa y abre
      la paleta del sistema. El hexadecimal de al lado es el que de verdad viaja. */
-  .adm-color{display:flex;align-items:center;gap:10px}
+  .adm-color{display:flex;align-items:center;gap:var(--space-2)}
+  /* SocialCard V6: la muestra medía 54x50 —ni el 40 del campo que tiene al lado ni un
+     cuadrado— y su radio era un 12 literal. Pasa a 40x40 con el radio del campo: los dos
+     controles de la fila comparten alto y esquina, que es lo que hace que se lean como
+     UN control con dos mitades y no como dos cajas sueltas. */
   .adm-color-muestra{
-    width:54px;height:50px;flex:none;padding:0;cursor:pointer;
-    border:1px solid var(--border);border-radius:12px;background:var(--chip);
+    width:40px;height:40px;min-height:0;flex:none;padding:0;cursor:pointer;
+    border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);background:var(--sc-input-bg);
   }
-  .adm-color-muestra::-webkit-color-swatch-wrapper{padding:4px}
-  .adm-color-muestra::-webkit-color-swatch{border:0;border-radius:8px}
-  .adm-color-muestra::-moz-color-swatch{border:0;border-radius:8px}
+  .adm-color-muestra::-webkit-color-swatch-wrapper{padding:3px}
+  .adm-color-muestra::-webkit-color-swatch{border:0;border-radius:7px}
+  .adm-color-muestra::-moz-color-swatch{border:0;border-radius:7px}
   .adm-color-hex{flex:1 1 0;min-width:0;text-transform:uppercase;font-variant-numeric:tabular-nums}
-  .adm-color-volver{width:100%;margin-top:10px}
+  /* Deshacer no es la acción principal de la ficha: a ancho completo pesaba lo mismo que
+     Guardar. Vuelve a su ancho natural, alineado a la izquierda con los campos. */
+  .adm-color-volver{align-self:flex-start;margin-top:var(--space-2)}
   .adm-color-rot{margin:var(--s3) 0 8px}
   .adm-color-fijos{display:flex;flex-wrap:wrap;gap:7px}
   .adm-color-fijo{
     display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px 0 7px;
-    border-radius:999px;background:var(--chip);border:1px solid var(--hairline);
+    border-radius:var(--radius-pill);background:var(--chip);border:1px solid var(--hairline);
   }
   /* El aro de dentro salva al Oscuro del motor: sin él, un color casi negro no tiene
      silueta contra la ficha y el chip parece que le falte el punto. */
@@ -5464,6 +6977,121 @@ $CUENTAS = [
   }
   .adm-color-fijo b{font-size:var(--t3);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 
+  /* ==================================================================== SocialCard V6
+     Lo que faltaba para cerrar Marca y Ajustes. Cuatro piezas, todas construidas con
+     tokens del sistema: no hay un quinto lenguaje visual aquí dentro. */
+
+  /* ---- campo de fichero ----
+     El `input[type=file]` desnudo medía 38 px de alto contra los 40 del resto de campos,
+     y el botón que pinta el navegador dentro no se puede alinear con nada. Se envuelve en
+     una caja que SÍ es del sistema —misma superficie, mismo borde, mismo radio, mismo
+     foco— y el input real se estira invisible por encima: sigue siendo el control nativo,
+     con su multiple, su accept y su required intactos. */
+  .adm-archivo{
+    position:relative;display:flex;align-items:center;gap:var(--space-3);
+    min-height:40px;padding:0 var(--space-3);
+    background:var(--sc-input-bg);border:1px solid var(--sc-border);
+    border-radius:var(--ui-radius-control);color:var(--sc-text-2);font-size:var(--t3);
+    flex:1 1 220px;max-width:420px;min-width:0;
+  }
+  .adm-archivo:focus-within{border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow)}
+  .adm-archivo input[type=file]{
+    position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
+  }
+  .adm-archivo svg{width:16px;height:16px;flex:none;stroke-width:2}
+  .adm-archivo-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---- ficha plegable ----
+     Las tres fichas de superadministrador se abren pocas veces al año. Dejarlas abiertas
+     llena la pantalla de campos de contraseña que nadie va a tocar; esconderlas en un
+     `<details>` sin estilo las sacaba del sistema. Es la MISMA .adm-f: sólo cambia que su
+     cabecera es el resumen y que se pliega. Sin card dentro de card. */
+  /* display:block y no el flex de .adm-f: sobre un <details> el flex reparte summary y
+     cuerpo como items y el plegado nativo se comporta de forma distinta según navegador. */
+  .adm-f-plega{display:block;padding:0;align-self:start}
+  .adm-f-plega > summary{
+    display:flex;align-items:center;gap:var(--space-3);
+    padding:var(--space-4);margin:0;cursor:pointer;list-style:none;
+    border-radius:var(--radius-card);
+  }
+  .adm-f-plega > summary::-webkit-details-marker{display:none}
+  .adm-f-plega > summary:hover{background:var(--sc-hover-bg)}
+  .adm-f-plega > summary:focus-visible{outline:2.5px solid var(--p-accent-stroke);outline-offset:-2px}
+  /* El resumen ES el botón: dentro sólo va contenido de frase, así que el rótulo no puede
+     ser un <h2>. Se le da el mismo aspecto que a la cabecera de una ficha normal — quien
+     lo lee ve el mismo título; quien lo escucha oye un botón que despliega, que es
+     exactamente lo que hace. El <h2> de la sección de arriba mantiene la estructura. */
+  .adm-f-tit{
+    flex:1 1 auto;min-width:0;
+    font-size:var(--t2);font-weight:600;letter-spacing:-.01em;color:var(--sc-text);
+  }
+  /* `display:grid` no es adorno: `transform` NO se aplica a un elemento en línea no
+     reemplazado, así que con el <span> por defecto el galón no giraba al abrir. Medido:
+     matrix(1,0,0,1,0,0) con [open] puesto. Misma familia que las cinco trampas ya
+     anotadas — la regla genérica que gana en silencio. */
+  .adm-f-plega-v{
+    flex:none;width:20px;height:20px;display:grid;place-items:center;color:var(--sc-text-2);
+    transition:transform var(--t-press) var(--ease-out);
+  }
+  /* `.der` sólo está definido como hijo de `.adm-f-cab`, y en el resumen no hay cabecera. */
+  .adm-f-plega > summary .der{flex:none;display:flex;align-items:center;gap:var(--space-2)}
+  .adm-f-plega-v svg{width:20px;height:20px;stroke-width:2;display:block}
+  .adm-f-plega[open] > summary .adm-f-plega-v{transform:rotate(180deg)}
+  .adm-f-plega-cuerpo{padding:0 var(--space-4) var(--space-4)}
+  /* El plegado abierto separa la cabecera del cuerpo con el mismo filete de la ficha. */
+  .adm-f-plega[open] > summary{border-bottom:1px solid var(--sc-border);border-radius:var(--radius-card) var(--radius-card) 0 0;margin-bottom:var(--space-4)}
+  /* La rejilla estira las fichas de una fila a la misma altura; con dos plegables cerrados
+     eso está bien, pero con uno abierto y otro cerrado el cerrado quedaría con 300 px de
+     caja vacía. align-self:start (arriba) las deja cada una a su alto real. */
+
+  /* ---- rótulo de sección ----
+     Separa las fichas del restaurante de las que sólo ve el superadministrador. No es un
+     título de pantalla —eso lo dice la cabecera fija—: es una línea que marca dónde
+     empieza otra cosa. */
+  .adm-seccion{
+    display:flex;align-items:center;gap:var(--space-3);
+    margin:var(--space-6) 0 var(--space-3);
+  }
+  .adm-seccion h2{
+    margin:0;flex:none;font-size:var(--t3);font-weight:600;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--sc-text-2);
+  }
+  .adm-seccion::after{content:"";flex:1 1 auto;height:1px;background:var(--sc-border)}
+
+  /* Los campos de una acción sensible no se estiran a todo el ancho de la ficha: una
+     contraseña es corta y un campo de 500 px invita a escribir una frase. 340 es el ancho
+     que ya tenían, ahora sin `style` en el atributo. El botón, a su ancho natural. */
+  .adm-form-seg{display:flex;flex-direction:column;align-items:stretch;max-width:340px}
+  .adm-form-seg .adm-campo{width:100%}
+
+  /* ---- registro de accesos ----
+     Un `<pre>` con la fuente del sistema y sin caja: en claro salía como texto suelto
+     encima del fondo. Caja del sistema, monoespaciado tabular y desplazamiento propio —
+     una línea larga no puede empujar la pantalla entera. */
+  .adm-log{
+    margin:0;padding:var(--space-3);max-height:280px;overflow:auto;
+    background:var(--sc-muted-bg);border:1px solid var(--sc-border);border-radius:var(--radius-lg);
+    font:var(--t3)/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:var(--sc-text-2);white-space:pre;
+  }
+
+  /* ---- aviso de acción sensible ----
+     Lo que cambia una contraseña o expulsa sesiones no puede parecerse a guardar un
+     nombre. No se esconde en un tooltip: se lee antes de pulsar. */
+  .adm-aviso-seg{
+    display:flex;align-items:flex-start;gap:var(--space-2);
+    margin:0 0 var(--space-3);padding:10px 12px;
+    /* La pareja fondo+tinta de aviso del sistema, la misma que usa la insignia de demo.
+       No se inventa un amarillo: --sc-warn-bg y --sc-warn-ink ya vienen calculadas para
+       los dos temas y su contraste está medido. */
+    background:var(--sc-warn-bg);
+    border:1px solid color-mix(in srgb, var(--sc-warn-ink) 30%, transparent);
+    border-radius:var(--radius-lg);
+    font-size:var(--t3);line-height:1.5;color:var(--sc-warn-ink);
+  }
+  .adm-aviso-seg svg{width:16px;height:16px;flex:none;stroke-width:2;margin-top:2px}
+  .adm-f-super .adm-btn{align-self:flex-start;margin-top:var(--space-3)}
+
   /* ---- la fila con acción ----
      Una línea que dice algo y trae uno o dos botones al final. Nació para las copias de
      seguridad y la usan ya el marcador del juego y todo lo que venga: por eso se llama
@@ -5471,7 +7099,8 @@ $CUENTAS = [
   .adm-filas{display:grid;gap:8px;margin-bottom:var(--s2)}
   .adm-fila{
     display:flex;align-items:center;gap:9px;flex-wrap:wrap;
-    padding:10px 12px;border-radius:13px;margin:0 0 var(--s2);
+    /* V6: era un 13 literal; --radius-xl (14.4) es el radio de este tamaño de caja. */
+    padding:10px 12px;border-radius:var(--radius-xl);margin:0 0 var(--s2);
     background:var(--chip);border:1px solid var(--hairline);
   }
   .adm-filas .adm-fila{margin:0}
@@ -5483,7 +7112,7 @@ $CUENTAS = [
   .adm-fila-dato{font-size:var(--t3);color:var(--muted);font-variant-numeric:tabular-nums}
   /* Lo que borra sin vuelta atrás se separa de la lista y se pinta en rojo. */
   .adm-fila-peligro{
-    margin:var(--s2) 0 0;background:transparent;border-color:rgba(255,107,107,.30);
+    margin:var(--s2) 0 0;background:transparent;border-color:color-mix(in srgb, var(--ui-state-danger) 30%, transparent);
   }
 
   /* ---- el interruptor del juego, arriba del marcador ----
@@ -5494,32 +7123,34 @@ $CUENTAS = [
   .adm-juego-sw{gap:var(--s2);background:transparent;margin-bottom:var(--s3)}
   .adm-juego-sw .adm-sw{padding:0;flex:none}
   .adm-juego-sw .adm-sw-txt{
-    min-width:36px;font-size:var(--t3);font-weight:700;letter-spacing:.10em;color:var(--muted);
+    min-width:36px;font-size:var(--t3);font-weight:600;letter-spacing:.10em;color:var(--sc-text-2);
   }
-  .adm-juego-sw .adm-sw:has(input:checked) .adm-sw-txt{color:var(--p-fg)}
+  .adm-juego-sw .adm-sw:has(input:checked) .adm-sw-txt{color:var(--sc-text)}
 
   /* ---- el podio del juego ----
      Es una .adm-fila con dos cosas más: el puesto delante y la puntuación al final. El
      primero lleva el acento; los otros dos, el chip de siempre. */
-  .adm-podio{list-style:none;margin:0 0 var(--s2);padding:0;display:grid;gap:8px}
+  /* V5 — el podio. El puesto es una insignia del sistema (radio 8.4, 12 tabular) y el
+     primero lleva la pastilla suave de seleccion, no un relleno de color macizo. */
+  .adm-podio{list-style:none;margin:0 0 var(--space-2);padding:0;display:grid;gap:var(--space-2)}
   .adm-podio .adm-fila{margin:0}
   .adm-pod-n{
-    width:28px;height:28px;flex:none;border-radius:9px;display:grid;place-items:center;
-    background:var(--surface);color:var(--muted);
-    font-size:var(--t3);font-weight:700;font-variant-numeric:tabular-nums;
+    width:24px;height:24px;flex:none;border-radius:var(--radius-md);display:grid;place-items:center;
+    background:var(--sc-muted-bg);color:var(--sc-text-2);
+    font-size:var(--t4);font-weight:600;font-variant-numeric:tabular-nums;
   }
-  .adm-podio > li:first-child .adm-pod-n{background:var(--ok);color:var(--accent-ink)}
+  .adm-podio > li:first-child .adm-pod-n{background:var(--sc-selected-bg);color:var(--sc-selected-text)}
   .adm-pod-quien{
-    display:flex;align-items:center;gap:7px;min-width:0;
-    font-size:var(--t3);font-weight:600;color:var(--ink);
+    display:flex;align-items:center;gap:var(--space-2);min-width:0;
+    font-size:var(--t2);font-weight:600;color:var(--sc-text);
   }
-  .adm-pod-quien.es-anon{color:var(--base);font-weight:400;font-style:italic}
+  .adm-pod-quien.es-anon{color:var(--sc-text-2);font-weight:400;font-style:italic}
   .adm-pod-bandera{border-radius:3px;flex:none;display:block}
   /* Las puntuaciones se comparan entre ellas: mismo ancho, a la derecha y con
      cifras de ancho fijo, o el 9.040 y el 14.820 no empiezan en el mismo sitio. */
   .adm-pod-pts{
     margin-left:auto;min-width:80px;text-align:right;
-    font-size:var(--t2);font-weight:700;color:var(--ink);
+    font-size:var(--t2);font-weight:600;color:var(--sc-text);
     font-variant-numeric:tabular-nums;
   }
   /* El boton de quitar el nombre solo sale si hay nombre que quitar. Sin reservarle
@@ -5661,14 +7292,22 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
 <?php else: ?>
   <div class="card-main">
-  <div class="insignias" role="status" aria-label="Sesión">
-    <?php if ($demo): ?>
-      <span class="insignia is-demo">Modo demo</span>
-    <?php else: ?>
-      <span class="insignia is-online">En línea</span>
-      <span class="insignia <?= $super ? 'is-super' : 'is-user' ?>"><?= $super ? 'Superadmin' : 'Usuario' ?></span>
-    <?php endif; ?>
-  </div>
+  <?php /* MISE-B, décima ronda: "En línea" no comprobaba nada — ni un latido, ni una
+           reconexión, nada en JS la tocaba nunca. Era el texto fijo que salía siempre
+           que la página cargaba con sesión, lo cual es cierto por definición (si no
+           hubiera "línea", no habría página) y no dice nada que el usuario no supiera ya.
+           Se retira. "Usuario" tampoco avisaba de nada que no fuera el caso normal —
+           sólo queda la insignia cuando SÍ hay algo que merece decirse: demo, o sesión de
+           superadministrador (más alcance, sí vale la pena que se note). */ ?>
+  <?php if ($demo || $super): ?>
+    <div class="insignias" role="status" aria-label="Sesión">
+      <?php if ($demo): ?>
+        <span class="insignia is-demo">Modo demo</span>
+      <?php else: ?>
+        <span class="insignia is-super">Superadmin</span>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
   <header class="head">
     <p class="head-eyebrow"><?= h(CLIENTE_NOMBRE) ?></p>
     <h1><span class="dia"><?= h(dia_semana($hoyReal)) ?>,</span> <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></h1>
@@ -5686,7 +7325,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         las <?= (int) CORTE_HORA ?>:00.
       </p>
     <?php endif; ?>
-    <p class="sub">
+    <?php /* MISE-B, octava ronda: este aviso se repite también en el pie de la barra
+             lateral (id="adm-sidebar"), integrado con Salir bajo la misma línea divisoria
+             que ya llevaba esa barra. Aquí se queda para cuando la barra no enseña texto
+             (icono solo en tablet, oculta del todo en móvil) — .sub-sesion se esconde sólo
+             a partir de 1024px, que es donde la barra empieza a rotular. */ ?>
+    <p class="sub sub-sesion">
       Servicio en curso<?php if (!$demo): ?> · la sesión se cierra sola tras
       <?= (int) SESION_MINUTOS ?> min sin actividad · <a href="?salir=1">Salir</a><?php endif; ?>
     </p>
@@ -5729,10 +7373,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       t.className = 'toast ' + (mal ? 'bad' : 'ok');
       t.setAttribute('role', mal ? 'alert' : 'status');
       t.innerHTML = '<span class="toast-icon" aria-hidden="true">' + (mal
-        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>'
-        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9 -9"/></svg>')
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>')
         + '</span><span class="toast-txt"></span>'
-        + '<button type="button" class="toast-x" aria-label="Cerrar aviso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg></button>';
+        + '<button type="button" class="toast-x" aria-label="Cerrar aviso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>';
       t.querySelector('.toast-txt').textContent = texto;
       caja.appendChild(t);
       void t.offsetHeight;
@@ -5782,135 +7426,573 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     </div>
   <?php endif; ?>
 
-  <!-- Botones, no enlaces: las cinco pestañas viven en el mismo documento y se cambian sin
-       recargar, igual que las categorías de la carta. Con <a href="?t=..."> cada toque era una
-       página nueva — parpadeo en blanco, scroll al principio y medio segundo de espera. -->
-  <?php /* La misma barra que las categorías de la carta: una fila que se desplaza, con
-           flechas de 768px en adelante (el ratón no desliza), fundidos en los bordes que se
-           apagan al llegar a cada extremo, y la pestaña activa siempre a la vista. */ ?>
-  <div class="tabs-wrap" id="tabs-wrap"<?= $previsua ? ' hidden' : '' ?>>
-    <button type="button" class="tabs-arrow tabs-arrow-prev" aria-label="Pestañas anteriores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6"/></svg></button>
-    <nav class="tabs" id="tabs" role="tablist">
-      <?php foreach ($PESTANAS as $slug => $nombre): ?>
-        <button type="button" role="tab" data-tab="<?= h($slug) ?>"
-                id="tab-<?= h($slug) ?>" aria-controls="panel-<?= h($slug) ?>"
-                aria-selected="<?= $pestana === $slug ? 'true' : 'false' ?>"
-                tabindex="<?= $pestana === $slug ? '0' : '-1' ?>"
-                class="<?= $pestana === $slug ? 'on' : '' ?>"><?= h($nombre) ?><?php
-          if ($CUENTAS[$slug]) echo '<span class="n">' . (int) $CUENTAS[$slug] . '</span>'; ?></button>
-      <?php endforeach; ?>
-    </nav>
-    <button type="button" class="tabs-arrow tabs-arrow-next" aria-label="Pestañas siguientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg></button>
+  <?php /* ============================================================ MISE-B: navegación ==
+   * Sidebar persistente en escritorio, riel de iconos en tablet, barra inferior + hoja
+   * «Más» en móvil. Sustituye a la barra de pestañas horizontal. Sigue siendo botones que
+   * cambian de panel sin recargar (mismo `.pane`/data-pane de siempre); sólo cambia dónde
+   * viven. Las mismas tres constantes de capacidad de siempre (CLIENTE_JUEGO,
+   * CLIENTE_PUBLICIDAD, DATOS_ACTIVO) deciden qué existe, aquí y en la barra inferior y la
+   * hoja «Más» — un cliente sin esa capacidad no deja huecos ni destinos muertos.
+   * Los iconos y el rótulo de cada botón coinciden con $PESTANAS de arriba a propósito: es
+   * el mismo catálogo de destinos, sólo agrupado. */ ?>
+  <?php
+    /* SocialCard V2: iconografia Lucide, la misma biblioteca del prototipo. Cinco de
+       los siete son EL MISMO icono que usa el prototipo para ese destino, copiado de
+       su DOM y no dibujado de nuevo: utensils (Platos), megaphone (Publicidad),
+       sparkles (Juego), chart-column (Estadisticas), paintbrush (Apariencia) y
+       settings (Ajustes). Ofertas no existe en el prototipo: lleva badge-percent,
+       Lucide tambien, que es literalmente el descuento del que va la pantalla.
+       Todos a viewBox 24, fill none, stroke currentColor, stroke-width 2, cabos y
+       uniones redondos — el estandar de la biblioteca, no una mezcla. */
+    $NAV_ICONOS = [
+      'platos'     => '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+      'ofertas'    => '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/>',
+      'publicidad' => '<path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/>',
+      'juego'      => '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>',
+      'datos'      => '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+      'marca'      => '<path d="m14.622 17.897-10.68-2.913"/><path d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z"/><path d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15"/>',
+      'ajustes'    => '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
+    ];
+    $navBoton = function (string $slug) use ($PESTANAS, $pestana, $CUENTAS, $NAV_ICONOS): string {
+      $nombre = $PESTANAS[$slug];
+      $on = $pestana === $slug;
+      $n = $CUENTAS[$slug] ?? 0;
+      return '<button type="button" class="adm-nav-item' . ($on ? ' on' : '') . '" data-tab="' . h($slug) . '"'
+        . ' id="navtab-' . h($slug) . '" aria-controls="panel-' . h($slug) . '" aria-selected="' . ($on ? 'true' : 'false') . '"'
+        . ' aria-label="' . h($nombre) . '">'
+        . '<svg class="adm-nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $NAV_ICONOS[$slug] . '</svg>'
+        . '<span class="txt">' . h($nombre) . '</span>'
+        . ($n ? '<span class="n">' . (int) $n . '</span>' : '')
+        . '<span class="adm-nav-tooltip" role="tooltip">' . h($nombre) . '</span>'
+        . '</button>';
+    };
+  ?>
+  <?php /* ====================================================== SocialCard V2: cabecera ==
+     68px pegada arriba, con el titulo de la pantalla y el selector de tema. El titulo
+     sale de $PESTANAS, el mismo catalogo de destinos que rotula la navegacion — no hay
+     una segunda lista de nombres que mantener. Lo actualiza el mismo JS que cambia de
+     panel. */ ?>
+  <header class="adm-topbar">
+    <div class="adm-topbar-txt">
+      <h2 class="adm-topbar-titulo" id="adm-topbar-titulo"><?= h($PESTANAS[$pestana] ?? 'Panel') ?></h2>
+      <p class="adm-topbar-sub"><?= h(CLIENTE_NOMBRE) ?> · <?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
+    </div>
+    <div class="adm-topbar-acciones">
+      <?php /* Sol, interruptor, luna: la misma pieza del prototipo, con sus medidas
+               (40 de alto, radio 12, iconos de 16, interruptor de 32x18). */ ?>
+      <div class="adm-tema">
+        <svg class="adm-tema-ico adm-tema-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <button type="button" class="adm-tema-sw" id="adm-tema-sw" role="switch" aria-checked="false" aria-label="Modo oscuro" title="Cambiar a modo oscuro"><span class="adm-tema-bola"></span></button>
+        <svg class="adm-tema-ico adm-tema-luna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <nav class="adm-sidebar" id="adm-sidebar" aria-label="Secciones del panel">
+    <?php /* SocialCard V2: la marca del producto encabeza la barra, como en el prototipo.
+             En riel (768-1023) se queda solo el cuadrado del icono, centrado. */ ?>
+    <div class="adm-sidebar-cab">
+      <span class="adm-sidebar-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+      </span>
+      <div class="adm-sidebar-marcas">
+        <p class="adm-sidebar-producto">SocialCard</p>
+        <p class="adm-sidebar-cliente"><?= h(CLIENTE_NOMBRE) ?></p>
+      </div>
+    </div>
+    <div class="adm-sidebar-grupo"><?= $navBoton('platos') ?></div>
+    <div class="adm-sidebar-grupo">
+      <p class="adm-sidebar-rotulo">Operación</p>
+      <?= $navBoton('ofertas') ?>
+    </div>
+    <?php if (CLIENTE_PUBLICIDAD || CLIENTE_JUEGO): ?>
+      <div class="adm-sidebar-grupo" data-grupo-marketing>
+        <p class="adm-sidebar-rotulo">Marketing</p>
+        <?php if (CLIENTE_PUBLICIDAD): ?><?= $navBoton('publicidad') ?><?php endif; ?>
+        <?php if (CLIENTE_JUEGO): ?><?= $navBoton('juego') ?><?php endif; ?>
+      </div>
+    <?php endif; ?>
+    <?php if (DATOS_ACTIVO): ?>
+      <div class="adm-sidebar-grupo" data-grupo-negocio>
+        <p class="adm-sidebar-rotulo">Negocio</p>
+        <?= $navBoton('datos') ?>
+      </div>
+    <?php endif; ?>
+    <div class="adm-sidebar-grupo">
+      <p class="adm-sidebar-rotulo">Configuración</p>
+      <?= $navBoton('marca') ?>
+      <?= $navBoton('ajustes') ?>
+    </div>
+    <div class="adm-sidebar-pie">
+      <?php /* MISE-B, novena ronda: nombre y fecha se suman aquí al aviso de sesión que ya
+               vivía en este pie (octava ronda) — mismos datos que el <header>, mismo criterio
+               de "sólo a partir de 1024px, que es cuando la barra rotula con texto"; por
+               debajo se siguen viendo en el <header> (.head-eyebrow/h1/.sub-sesion), nunca
+               desaparecen, sólo cambian de sitio según haya donde ponerlos. */ ?>
+      <p class="adm-sidebar-marca"><?= h(CLIENTE_NOMBRE) ?></p>
+      <p class="adm-sidebar-fecha"><?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
+      <p class="adm-sidebar-sesion">
+        Servicio en curso<?php if (!$demo): ?> · se cierra en <?= (int) SESION_MINUTOS ?> min<?php endif; ?>
+      </p>
+      <a class="adm-nav-item" href="?salir=1" aria-label="Salir">
+        <svg class="adm-nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+        <span class="txt">Salir</span>
+        <span class="adm-nav-tooltip" role="tooltip">Salir</span>
+      </a>
+    </div>
+  </nav>
+
+  <?php /* Barra inferior: sólo Platos, Ofertas, Analítica (si hay) y «Más». El resto de
+           destinos vive en la hoja, para no meter más de cuatro botones en un pulgar. */ ?>
+  <nav class="adm-navmovil" aria-label="Navegación">
+    <button type="button" class="adm-navmovil-item<?= $pestana === 'platos' ? ' on' : '' ?>" data-tab="platos" aria-label="Platos" aria-current="<?= $pestana === 'platos' ? 'page' : 'false' ?>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 12H3"/><path d="M17 18H3"/><path d="M21 6H3"/></svg>
+      <span class="txt">Platos</span>
+    </button>
+    <button type="button" class="adm-navmovil-item<?= $pestana === 'ofertas' ? ' on' : '' ?>" data-tab="ofertas" aria-label="Ofertas" aria-current="<?= $pestana === 'ofertas' ? 'page' : 'false' ?>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 20.99a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.775a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>
+      <span class="txt">Ofertas</span>
+    </button>
+    <?php if (DATOS_ACTIVO): ?>
+      <button type="button" class="adm-navmovil-item<?= $pestana === 'datos' ? ' on' : '' ?>" data-tab="datos" aria-label="Analítica" aria-current="<?= $pestana === 'datos' ? 'page' : 'false' ?>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        <span class="txt">Analítica</span>
+      </button>
+    <?php endif; ?>
+    <button type="button" class="adm-navmovil-item" id="btn-mas-movil" aria-haspopup="dialog" aria-controls="sheet-mas" aria-label="Más opciones">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      <span class="txt">Más</span>
+    </button>
+  </nav>
+
+  <div class="velo" id="velo-sheet"></div>
+  <div class="adm-sheet" id="sheet-mas" role="dialog" aria-modal="true" aria-labelledby="sheet-titulo" aria-hidden="true" inert>
+    <div class="adm-sheet-agarre" aria-hidden="true"></div>
+    <div class="adm-sheet-cab">
+      <h2 id="sheet-titulo">Más</h2>
+      <button type="button" id="sheet-cerrar" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="adm-sheet-lista">
+      <?php if (CLIENTE_PUBLICIDAD): ?>
+        <button type="button" class="adm-sheet-item" data-tab="publicidad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+          Publicidad
+        </button>
+      <?php endif; ?>
+      <?php if (CLIENTE_JUEGO): ?>
+        <button type="button" class="adm-sheet-item" data-tab="juego">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="12" x="2" y="6" rx="6" ry="6"/><circle cx="8" cy="12" r="2"/></svg>
+          Juego
+        </button>
+      <?php endif; ?>
+      <button type="button" class="adm-sheet-item" data-tab="marca">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        Marca
+      </button>
+      <button type="button" class="adm-sheet-item" data-tab="ajustes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
+        Ajustes
+      </button>
+      <a class="adm-sheet-item" href="?salir=1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+        Salir
+      </a>
+    </div>
   </div>
 
-  <?php /* ================================================== AGOTADOS ============== */ ?>
-  <?php /* =============================================================== agotados, en bento ==
-   * La pantalla que se usa DE PIE y con prisa, a media faena: «se ha acabado la sopa de
-   * lentejas». Por eso lo primero y más grande es el buscador, y lo segundo el aviso de
-   * cuántos hay marcados ahora mismo con su botón de quitarlos todos.
+
+  <?php /* ==================================================== MISE-B: PLATOS (fusión) ==
+   * Consolida lo que antes eran tres pestañas —Agotados hoy, Destacados, Precios— más un
+   * indicador de solo lectura de Ofertas, en una sola pantalla por plato. Los CUATRO
+   * handlers siguen siendo exactamente los de siempre (guardar_agotados,
+   * destacado_add/destacado_del, precios_calcular/precios_manual/precios_publicar/
+   * precios_reset): esto es recomposición de interfaz, no un endpoint nuevo. Ver SPEC.md.
    *
-   * Los 312 platos van plegados por categoría, como en Ofertas: el que busca escribe, y el
-   * acordeón con resultados se abre solo. El que repasa abre la categoría que le interesa.
-   *
-   * La foto del plato es otra cosa y va por su cuenta: se sube sola, sin pasar por el
-   * Guardar de la pestaña. Mezclarlas obligaría a guardar los agotados para cambiar una foto.
+   * Oferta es la única columna que NO tiene control aquí: es una regla que vive en su
+   * propia pantalla (categorías + platos + horario + días), no un dato por plato. El
+   * enlace lleva a Ofertas tal cual, sin JavaScript de por medio.
    */ ?>
-  <section class="pane" data-pane="agotados" role="tabpanel" id="panel-agotados" aria-labelledby="tab-agotados"<?= $pestana === 'agotados' ? '' : ' hidden' ?>>
+  <section class="pane" data-pane="platos" role="tabpanel" id="panel-platos" aria-labelledby="navtab-platos"<?= $pestana === 'platos' ? '' : ' hidden' ?>>
     <div class="adm-board">
+
+    <?php if ($previsua): ?>
+      <?php /* ------------------------------------------------------------------ revisar
+       * Lo que antes era la pantalla «Precios, paso 2»: se relocaliza tal cual, sin tocar
+       * ni un campo. Sigue ocupando la pantalla entera mientras está en pantalla —es una
+       * subida que toca de golpe hasta 312 platos, y no se quiere ver Platos detrás como si
+       * ya estuviera publicado. */ ?>
+      <?php
+        $pctTxt = $previsua['pct'] === null
+          ? null
+          : rtrim(rtrim(number_format($previsua['pct'], 2, ',', ''), '0'), ',');
+        $porTab = [];
+        foreach ($previsua['filas'] as $f) $porTab[$f['tab']][] = $f;
+      ?>
+      <form method="post" id="precios-form" class="adm-form-suelto">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+      </form>
+
       <div class="adm-bento">
 
-        <form method="post" id="agotados-form" class="adm-form-suelto">
-          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-          <input type="hidden" name="guardar_agotados" value="1">
-        </form>
-
-        <section class="adm-f adm-f-agbuscar">
+        <section class="adm-f adm-f-prev">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5l14 14"/><path d="M6.5 9.5a8.5 8.5 0 0 0 8 8"/><circle cx="12" cy="12" r="8.5"/></svg></span>
-            <h2>Agotados hoy</h2>
-            <span class="der adm-a-agotados">
-              <span class="vp-per" role="group" aria-label="Filtro">
-                <button type="button" data-filter="todos" aria-pressed="true">Todos</button>
-                <button type="button" data-filter="marcados" aria-pressed="false">Sólo marcados</button>
-              </span>
+            <span class="adm-f-ico"><?php if ($pctTxt === null): ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><?php else: ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg><?php endif; ?></span>
+            <h2><?= $pctTxt === null ? 'Precios a mano' : 'Subida del ' . h($pctTxt) . '%' ?></h2>
+            <span class="der adm-a-prev">
+              <span class="adm-f-nota"><?= count($previsua['filas']) ?> platos</span>
             </span>
           </div>
-          <p class="hint" data-adm-ayuda="Los agotados de hoy" data-adm-ancla=".adm-a-agotados">
-            Marca la casilla y el plato sale tachado en la carta. Se limpia solo mañana a las
-            <?= (int) CORTE_HORA ?>:00<?php if ($hoy !== $hoyReal): ?>, y lo que hay marcado ahora es del
-            servicio del <?= h(minuscula(dia_semana($hoy))) ?><?php endif; ?>. Un plato que está en su
-            pestaña de comida y otra vez en Sin gluten o en Vegano es el mismo plato: se marca y
-            se desmarca en las tres a la vez.
+          <p class="hint" data-adm-ayuda="Todavía no se ha publicado nada" data-adm-ancla=".adm-a-prev">
+            <?php if ($pctTxt === null): ?>
+              Ésta es la lista con los precios que hay puestos ahora mismo. Cambia los que
+              quieras y publica; lo que no toques se queda igual.
+            <?php else: ?>
+              Esto es lo que quedaría con una subida del <?= h($pctTxt) ?>%, ya redondeado a
+              múltiplos de 5 céntimos. Cambia los que no te cuadren y publica.
+            <?php endif; ?>
+            Un precio en blanco devuelve ese plato al precio de la carta. El mismo plato que
+            sale en Sin gluten o en Vegano se cambia una vez y las dos filas se mueven solas.
           </p>
           <label class="adm-buscar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L20 20"/></svg>
-            <input class="adm-campo" type="search" id="q" autocomplete="off"
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+            <input class="adm-campo" type="search" id="precios-filtro" autocomplete="off"
                    placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
           </label>
-          <?php /* El resumen no existe hasta que hay algo marcado: una fila que dice «0» es
-                   ruido. El JavaScript la enseña al momento, sin esperar a guardar. */ ?>
-          <div class="adm-fila adm-ag-resumen" id="resumen"<?= count($agotados) === 0 ? ' hidden' : '' ?>>
-            <span class="adm-fila-que"><span id="n"><?= count($agotados) ?></span> <span id="n-txt"><?= count($agotados) === 1 ? 'plato marcado' : 'platos marcados' ?></span> ahora mismo</span>
-            <button type="button" class="adm-btn adm-btn-fino adm-btn-quitar" id="clear-all">Quitar todos</button>
-          </div>
-          <p class="adm-vacio" id="vacio" hidden>Ningún plato coincide con la búsqueda.</p>
+          <p class="adm-f-nota adm-filtro-cuenta" id="precios-cuenta" role="status" aria-live="polite" hidden></p>
         </section>
 
-        <?php
-          $porCategoria = [];
-          foreach ($lista as $p) {
-            $cid = (string) ($p['catId'] ?? $p['cat']);
-            if (!isset($porCategoria[$cid])) {
-              $porCategoria[$cid] = ['nombre' => $catsEs[$p['cat']] ?? $p['cat'], 'tab' => $p['tab'], 'platos' => []];
-            }
-            $porCategoria[$cid]['platos'][] = $p;
-          }
-        ?>
-        <?php foreach ($porCategoria as $cid => $grupo):
-          $agotadosAqui = 0;
-          foreach ($grupo['platos'] as $p) if (isset($agotados[$p['key']])) $agotadosAqui++; ?>
-          <section class="adm-f adm-f-otab">
-            <details class="adm-acordeon" data-cat-acordeon<?= $agotadosAqui > 0 ? ' data-con-marcas' : '' ?>>
-              <summary class="adm-acordeon-cab">
-                <svg class="adm-acordeon-v" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                <span class="adm-acordeon-nm"><?= h($grupo['nombre']) ?><small><?= h($grupo['tab']) ?></small></span>
-                <span class="adm-acordeon-marca" data-dentro<?= $agotadosAqui > 0 ? '' : ' hidden' ?>><?= (int) $agotadosAqui ?> agotado<?= $agotadosAqui === 1 ? '' : 's' ?></span>
-                <span class="adm-acordeon-n"><?= count($grupo['platos']) ?></span>
-              </summary>
-              <div class="adm-ofertas">
-                <?php foreach ($grupo['platos'] as $p):
-                  $on = isset($agotados[$p['key']]);
-                  $suFoto = (string) ($fotosPlato[$p['key']] ?? ''); ?>
-                  <div class="adm-orow adm-agrow<?= $on ? ' es-agotado' : '' ?>"
-                       data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
-                    <label class="adm-agrow-marca">
-                      <input type="checkbox" name="agotado[]" value="<?= h($p['key']) ?>" form="agotados-form"<?= $on ? ' checked' : '' ?>
-                             <?= isset($hermanas[$p['key']]) ? 'data-plato="' . h($p['name'] . ' ' . $p['price']) . '"' : '' ?>>
-                      <span class="adm-orow-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9 -9"/></svg></span>
-                      <span class="sr">Agotado hoy: <?= h($p['name']) ?></span>
-                    </label>
-                    <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                    <span class="adm-orow-nm"><?= h($p['name']) ?><small><?= h($p['sub']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?></small></span>
-                    <button type="button" class="camara<?= $suFoto !== '' ? ' tiene' : '' ?>"
-                            data-k="<?= h($p['key']) ?>" data-foto="<?= h($suFoto) ?>"
-                            data-nombre="<?= h($p['name']) ?>"
-                            title="<?= $suFoto !== '' ? 'Cambiar la foto' : 'Poner foto' ?>"
-                            aria-label="<?= $suFoto !== '' ? 'Cambiar la foto de ' : 'Poner foto a ' ?><?= h($p['name']) ?>">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
-                           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>
-                        <circle cx="12" cy="12.5" r="3.2"/>
-                      </svg>
-                    </button>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            </details>
+        <?php foreach ($porTab as $tab => $filas): ?>
+          <section class="adm-f adm-f-ptab" data-tab-precios>
+            <div class="adm-f-cab">
+              <h2><?= h($tab) ?></h2>
+              <span class="der"><span class="adm-f-nota"><?= count($filas) ?></span></span>
+            </div>
+            <div class="adm-precios">
+              <?php foreach ($filas as $f): ?>
+                <div class="adm-prow" data-busca="<?= h(minuscula($f['name']) . ' ' . $f['id']) ?>">
+                  <span class="adm-prow-n"><?= h($f['id']) ?></span>
+                  <span class="adm-prow-nm"><?= h($f['name']) ?></span>
+                  <span class="adm-prow-viejo"><?= h(CLIENTE_MONEDA) ?><?= h($f['actual']) ?></span>
+                  <input class="adm-campo adm-prow-nuevo" type="text" inputmode="decimal"
+                         form="precios-form"
+                         name="precio[<?= h($f['key']) ?>]" value="<?= h($f['nuevo']) ?>"
+                         <?= isset($hermanas[$f['key']]) ? 'data-plato="' . h($f['name'] . ' ' . $f['carta']) . '"' : '' ?>
+                         aria-label="Precio nuevo de <?= h($f['name']) ?>">
+                </div>
+              <?php endforeach; ?>
+            </div>
           </section>
         <?php endforeach; ?>
 
       </div>
-    </div>
+
+    <?php else: ?>
+
+      <form method="post" id="agotados-form" class="adm-form-suelto">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <input type="hidden" name="guardar_agotados" value="1">
+      </form>
+      <form method="post" id="precios-form" class="adm-form-suelto">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <input type="hidden" name="precios_publicar" value="1">
+      </form>
+
+      <?php
+        $porCategoria = [];
+        foreach ($lista as $p) {
+          $cid = (string) ($p['catId'] ?? $p['cat']);
+          if (!isset($porCategoria[$cid])) {
+            $porCategoria[$cid] = ['nombre' => $catsEs[$p['cat']] ?? $p['cat'], 'tab' => $p['tab'], 'platos' => []];
+          }
+          $porCategoria[$cid]['platos'][] = $p;
+        }
+      ?>
+
+      <?php /* MISE-B, corrección de paridad con el prototipo v2.1: Platos deja de vivir
+               dentro de una ficha con acordeones por categoría —eso era la arquitectura
+               antigua de Agotados, reutilizada por comodidad al implementar, y el propio
+               propietario la ha rechazado tras revisión visual—. Categoría pasa a ser
+               separador + filtro, nunca una puerta que hay que abrir: por defecto, los 312
+               platos están servidos y visibles. Ver SPEC.md.
+
+               Bento, tras la prueba en Ofertas: sustituye al separador+lista de arriba por
+               el mismo mecanismo ya probado allí — cuarenta fichas, tres por fila, cada una
+               con scroll propio en vez de un fuelle que abrir. Cumple la misma regla de
+               arriba mejor que el separador: ya no hay ni una puerta que fingir que está
+               abierta, no existe el concepto de plegar. */ ?>
+      <?php /* El titulo "Platos" y su cifra se retiran: la cabecera fija de arriba ya dice
+               en que pantalla estas, y el total vive ahora en la tarjeta "Todos" de las
+               cuatro de abajo, que es donde ademas se puede pulsar. Queda el ancla del
+               boton de ayuda, que el JavaScript rellena. */ ?>
+      <?php /* La ayuda general de Platos se retira entera. Su contenido esta repartido
+               donde se usa: cada tarjeta de filtro explica lo suyo, y el aviso de que la
+               oferta se cambia en Ofertas vive en la tarjeta "Con oferta". Un boton de
+               ayuda suelto al lado del buscador, sin nada que lo explicara, era ruido. */ ?>
+
+      <?php /* Los cuatro filtros de estado, como la rejilla de cuatro tarjetas del
+               prototipo: la cifra grande arriba y el rotulo debajo. Siguen siendo los
+               MISMOS botones —mismo data-filter, mismo contenedor .adm-chips-estado del
+               que cuelga su JavaScript, mismos id de contador (#n-chip-agotados y
+               #n-chip-oferta, que actualiza la sincronizacion con Ofertas)—: solo cambia
+               como se ven y donde estan. */ ?>
+      <div class="adm-chips-estado adm-kpis" role="group" aria-label="Filtrar por estado">
+        <button type="button" class="adm-chip adm-kpi" data-filter="todos" aria-pressed="true">
+          <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
+          <span class="adm-kpi-txt">
+            <span class="adm-chip-n adm-kpi-n"><?= count($lista) ?></span>
+            <span class="adm-kpi-t">Todos</span>
+            <span class="adm-kpi-s">Los que hay en la carta</span>
+          </span>
+        </button>
+        <button type="button" class="adm-chip adm-kpi" data-filter="agotados" aria-pressed="false">
+          <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>
+          <span class="adm-kpi-txt">
+            <span class="adm-chip-n adm-kpi-n" id="n-chip-agotados"><?= count($agotados) ?></span>
+            <span class="adm-kpi-t">Agotados</span>
+            <span class="adm-kpi-s">Hoy no se pueden pedir. Se limpian solos a las <?= (int) CORTE_HORA ?>:00</span>
+          </span>
+        </button>
+        <button type="button" class="adm-chip adm-kpi" data-filter="destacados" aria-pressed="false">
+          <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg></span>
+          <span class="adm-kpi-txt">
+            <span class="adm-chip-n adm-kpi-n"><?= count($tags) ?></span>
+            <span class="adm-kpi-t">Destacados</span>
+            <span class="adm-kpi-s">Llevan etiqueta visible en la carta</span>
+          </span>
+        </button>
+        <button type="button" class="adm-chip adm-kpi" data-filter="oferta" aria-pressed="false">
+          <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></span>
+          <span class="adm-kpi-txt">
+            <span class="adm-chip-n adm-kpi-n" id="n-chip-oferta">0</span>
+            <span class="adm-kpi-t">Con oferta</span>
+            <span class="adm-kpi-s">La regla se cambia en Ofertas, no aquí</span>
+          </span>
+        </button>
+      </div>
+
+
+      <div class="adm-platos-filtros">
+        <label class="adm-buscar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>
+          <input class="adm-campo" type="search" id="q" autocomplete="off"
+                 placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
+        </label>
+      </div>
+
+      <?php /* MISE-B, tercera ronda: «Ajustar precios %» dejó de ser un <details> que
+               reordenaba la pantalla al abrirse — visible desde el primer momento, en una
+               única fila. Mismos cinco formularios/handlers de siempre
+               (precios_calcular/precios_manual/precios_reset), eso no cambia aquí tampoco:
+               siguen siendo exactamente los mismos campos, dentro del mismo <div
+               class="adm-ajustar-precios">, sólo que ahora ese div vive dentro de un
+               <details> en vez de a la intemperie.
+
+               Auditoría UX/UI, hallazgo H1: en móvil (≤699px, el mismo corte que ya usa el
+               resto del panel para "estrecho") esta caja, siempre abierta, apilaba tantas
+               filas (etiqueta + 4 botones de porcentaje + el campo "otro %" + "Cambiar precio manual") que
+               empujaba la primera fila de plato debajo de la barra de navegación inferior
+               fija — medido en la auditoría: a 320px la primera fila quedaba oculta al
+               100%, a 390px al 81%. Es una acción de vez en cuando (subir precios en
+               bloque), no la tarea diaria (buscar/marcar un plato) — no debería ganarle el
+               sitio a la lista en la pantalla más pequeña.
+
+               La solución es un <details> de verdad, no un imitador con JS desde cero: sin
+               JavaScript (o con él roto) esta caja se sirve con el atributo `open` puesto,
+               así que se ve y funciona exactamente igual que hoy — ni un control deja de
+               estar visible ni de funcionar. Con JavaScript, un script mínimo (más abajo,
+               junto al resto de scripts de Platos) decide el estado según el ancho real:
+               cerrada por defecto en ≤699px, abierta en cualquier otro — y usa
+               matchMedia para mantenerlo así si la ventana cambia de tamaño cruzando ese
+               corte, no sólo en la carga. En escritorio/tablet, un guardián de un renglón
+               evita que un clic accidental en la cabecera la cierre — se queda exactamente
+               como estaba, "sin añadir interacción innecesaria". */ ?>
+      <details class="adm-ajustar-precios-caja" open>
+        <summary class="adm-ajustar-precios-resumen">
+          <span class="adm-ajustar-precios-etq">Ajustar precios</span>
+          <svg class="adm-ajustar-precios-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="adm-ajustar-precios">
+          <form method="post" style="display:contents">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <input type="hidden" name="precios_calcular" value="1">
+            <?php foreach ([3, 5, 10, 15] as $n): ?>
+              <button class="adm-pct" name="subir" value="<?= $n ?>" type="submit">+<?= $n ?>%</button>
+            <?php endforeach; ?>
+          </form>
+          <form method="post" class="adm-pct-otro">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <span class="adm-pct-mas" aria-hidden="true">+</span>
+            <input class="adm-pct-num" type="text" inputmode="decimal" name="subir" size="4"
+                   placeholder="7,5" required aria-label="Otro porcentaje de subida">
+            <span class="adm-pct-pc" aria-hidden="true">%</span>
+            <button class="adm-pct-ir" name="precios_calcular" value="1" type="submit"
+                    aria-label="Ver cómo quedaría con ese porcentaje"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </form>
+          <form method="post" style="display:contents">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <button class="adm-btn adm-btn-fino adm-ajustar-precios-mano" name="precios_manual" value="1" type="submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+              Cambiar precio manual
+            </button>
+          </form>
+          <?php if ($precios): ?>
+            <form method="post" class="adm-ajustar-precios-volver"
+                  onsubmit="return confirm('¿Devolver TODOS los precios a los de la carta? Se pierden los <?= count($precios) ?> cambios y no se puede deshacer desde aquí.')">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+              <span class="adm-f-nota"><?= count($precios) ?> distinto<?= count($precios) === 1 ? '' : 's' ?> de la carta</span>
+              <button class="adm-btn adm-btn-fino adm-btn-quitar" name="precios_reset" value="1" type="submit">Volver a los de la carta</button>
+            </form>
+          <?php endif; ?>
+        </div>
+      </details>
+      <div class="adm-fila adm-ag-resumen" id="resumen"<?= count($agotados) === 0 ? ' hidden' : '' ?>>
+        <span class="adm-fila-que"><span id="n"><?= count($agotados) ?></span> <span id="n-txt"><?= count($agotados) === 1 ? 'plato marcado' : 'platos marcados' ?></span> agotados ahora mismo</span>
+        <button type="button" class="adm-btn adm-btn-fino adm-btn-quitar" id="clear-all">Quitar todos</button>
+      </div>
+      <p class="adm-vacio" id="vacio" hidden>Ningún plato coincide con la búsqueda.</p>
+
+      <?php /* El formulario de etiquetas, compartido por las 312 filas: el JavaScript lo
+               mueve debajo de la que se toca. Sin JavaScript no se mueve de aquí y no
+               estorba —se elige el plato desde el propio botón «Destacar» igualmente,
+               sólo que sin el desplazamiento visual—. */ ?>
+      <form method="post" id="dest-et" class="adm-destet" hidden>
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <input type="hidden" name="destacado_add" value="1">
+        <input type="hidden" name="hl_key" id="dest-et-key" value="">
+        <span class="adm-destet-rot">¿Con qué etiqueta?</span>
+        <?php foreach (ETIQUETAS as $e): ?>
+          <button class="adm-destet-b" name="hl_label" value="<?= h($e) ?>" type="submit"><?= h(ETIQUETAS_ES[$e] ?? $e) ?></button>
+        <?php endforeach; ?>
+        <button type="button" class="adm-destet-x" id="dest-et-x" aria-label="Cerrar las etiquetas">Cancelar</button>
+      </form>
+
+      <div class="adm-bento adm-platos-lista">
+        <?php foreach ($porCategoria as $cid => $grupo): ?>
+          <section class="adm-f adm-cat-bento" data-cat-bento>
+            <div class="adm-cat-bento-cab">
+              <span class="adm-cat-bento-nm"><?= h(etiqueta_categoria($grupo['nombre'], $grupo['tab'])) ?></span>
+              <span class="adm-cat-bento-n"><?= count($grupo['platos']) ?></span>
+            </div>
+            <?php
+              /* A todo el ancho, la ficha ya no compite en alto con sus vecinas de fila
+                 (era una de tres, ahora la única) — se reparte a dos columnas para no
+                 desperdiciar ese ancho en una lista angosta. Reparto por CANTIDAD, mitad
+                 y mitad (izquierda se lleva el impar de sobra), no por altura calculada:
+                 predecible con cualquier dato. */
+              $mitadPlatos = (int) ceil(count($grupo['platos']) / 2);
+              $columnasPlatos = [
+                array_slice($grupo['platos'], 0, $mitadPlatos),
+                array_slice($grupo['platos'], $mitadPlatos),
+              ];
+            ?>
+            <div class="adm-ofertas adm-cat-bento-lista">
+            <?php foreach ($columnasPlatos as $columnaPlatos): ?>
+              <div class="adm-cat-bento-col">
+              <?php foreach ($columnaPlatos as $p):
+                $k = $p['key'];
+                $onAg = isset($agotados[$k]);
+                $suFoto = (string) ($fotosPlato[$k] ?? '');
+                $etiqueta = $tags[$k] ?? null;
+                $tienePrecio = $p['price'] !== '';
+                $precioActual = $tienePrecio ? (string) ($estado['prices'][$k] ?? $p['price']) : '';
+                $enOferta = $oferta['on'] && (
+                  in_array((string) ($p['catId'] ?? ''), (array) $oferta['cats'], true)
+                  || in_array($k, (array) $oferta['keys'], true)
+                );
+              ?>
+              <div class="adm-orow adm-platorow<?= $onAg ? ' es-agotado' : '' ?><?= $etiqueta !== null ? ' es-destacado' : '' ?><?= $enOferta ? ' es-oferta' : '' ?>"
+                   data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
+                <button type="button" class="camara<?= $suFoto !== '' ? ' tiene' : '' ?>"
+                        data-k="<?= h($k) ?>" data-foto="<?= h($suFoto) ?>"
+                        data-nombre="<?= h($p['name']) ?>"
+                        title="<?= $suFoto !== '' ? 'Cambiar la foto' : 'Poner foto' ?>"
+                        aria-label="<?= $suFoto !== '' ? 'Cambiar la foto de ' : 'Poner foto a ' ?><?= h($p['name']) ?>">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                    <circle cx="12" cy="13" r="3"/>
+                  </svg>
+                </button>
+                <span class="adm-prow-n"><?= h($p['id']) ?></span>
+                <span class="adm-orow-nm" title="<?= h($p['name'] . ($p['sub'] !== '' ? ' — ' . $p['sub'] : '') . ($p['name_en'] !== $p['name'] ? ' · ' . $p['name_en'] : '')) ?>"><?= h($p['name']) ?></span>
+
+                <?php /* MISE-B, segunda ronda: grupo operativo único al final —
+                         precio · oferta · destacado · agotado—, en vez de agotado suelto al
+                         principio. Mismo input, mismo form, mismo handler: sólo cambia dónde
+                         vive en la fila. */ ?>
+                <span class="adm-plato-acciones">
+                  <?php if ($tienePrecio): ?>
+                    <input class="adm-campo adm-prow-nuevo" type="text" inputmode="decimal"
+                           form="precios-form" name="precio[<?= h($k) ?>]" value="<?= h($precioActual) ?>"
+                           <?= isset($hermanas[$k]) ? 'data-plato="' . h($p['name'] . ' ' . $p['price']) . '"' : '' ?>
+                           aria-label="Precio de <?= h($p['name']) ?>">
+                  <?php else: ?>
+                    <span class="adm-prow-fijo adm-plato-incluido">Incluido</span>
+                  <?php endif; ?>
+
+                  <?php if ($enOferta): ?>
+                    <a class="adm-tag adm-tag-oferta" href="?t=ofertas" title="En oferta — ver la regla de Ofertas"
+                       aria-label="<?= h($p['name']) ?> está en oferta — ver la regla de Ofertas">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="7.5" r="2"/><circle cx="16.5" cy="16.5" r="2"/><path d="M17 7L7 17"/></svg>
+                    </a>
+                  <?php else: ?>
+                    <span class="adm-plato-sinoferta" aria-hidden="true">—</span>
+                  <?php endif; ?>
+
+                  <?php if ($etiqueta !== null): ?>
+                    <?php /* Un solo control percibido: el pill cambia la etiqueta (reabre el
+                             mismo selector real), la × la quita — dos acciones, un formulario
+                             cada una, sin colisionar con el hl_label del selector. */ ?>
+                    <span class="adm-tag-destacado">
+                      <button type="button" class="adm-destpick adm-tag-destacado-cambiar"
+                              data-k="<?= h($k) ?>" data-id="<?= h($p['id']) ?>" data-nombre="<?= h($p['name']) ?>"
+                              title="<?= h(ETIQUETAS_ES[$etiqueta] ?? $etiqueta) ?>"
+                              aria-expanded="false" aria-label="Destacado de <?= h($p['name']) ?>: <?= h(ETIQUETAS_ES[$etiqueta] ?? $etiqueta) ?> — cambiar etiqueta"><?= h(ETIQUETAS_ES[$etiqueta] ?? $etiqueta) ?></button>
+                      <form method="post" style="display:contents">
+                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                        <button class="adm-tag-destacado-quitar" name="destacado_del" value="<?= h($k) ?>" type="submit" aria-label="Quitar destacado de <?= h($p['name']) ?>">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </form>
+                    </span>
+                  <?php else: ?>
+                    <button type="button" class="adm-destpick adm-plato-destbtn"
+                            data-k="<?= h($k) ?>" data-id="<?= h($p['id']) ?>" data-nombre="<?= h($p['name']) ?>"
+                            aria-expanded="false" aria-label="Destacar <?= h($p['name']) ?>">
+                      <span class="txt">Destacar</span>
+                      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 20.99a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.775a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>
+                    </button>
+                  <?php endif; ?>
+
+                  <label class="adm-sw adm-sw-agotado">
+                    <input type="checkbox" name="agotado[]" value="<?= h($k) ?>" form="agotados-form"<?= $onAg ? ' checked' : '' ?>
+                           <?= isset($hermanas[$k]) ? 'data-plato="' . h($p['name'] . ' ' . $p['price']) . '"' : '' ?>>
+                    <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
+                    <span class="sr">Agotado hoy: <?= h($p['name']) ?></span>
+                  </label>
+                </span>
+              </div>
+              <?php endforeach; ?>
+              </div>
+            <?php endforeach; ?>
+            </div>
+            <?php /* SocialCard: la ficha muestra tres platos por columna —seis en total— y
+                     el resto se despliega desde aqui. Con 312 platos en 41 categorias, la
+                     lista completa era un scroll larguisimo antes de llegar a la segunda
+                     categoria. El boton solo aparece si de verdad sobra algo. */ ?>
+            <?php if (count($grupo['platos']) > 6): $sobran = count($grupo['platos']) - 6; ?>
+              <button type="button" class="adm-vermas" data-vermas aria-expanded="false"
+                      data-mas="Ver <?= $sobran ?> <?= $sobran === 1 ? 'plato' : 'platos' ?> más" data-menos="Ver menos">
+                <span class="adm-vermas-txt">Ver <?= $sobran ?> <?= $sobran === 1 ? 'plato' : 'platos' ?> más</span>
+                <svg class="adm-vermas-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            <?php endif; ?>
+          </section>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
 
     <!-- El recorte de la foto. Una sola capa para los 312 platos: se abre con el plato que se
          haya pulsado y se cierra al terminar. -->
@@ -5919,7 +8001,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <h3 id="rec-t">Foto del plato</h3>
         <p class="quien" id="rec-quien"></p>
 
-        <!-- lo que hay ahora -->
         <div id="rec-actual" hidden>
           <img id="rec-img" alt="" width="120" height="120"
                style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-sheet);display:block">
@@ -5932,7 +8013,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </div>
         </div>
 
-        <!-- el recorte -->
         <div id="rec-editor" hidden>
           <div class="lienzo-caja" id="rec-caja"><canvas id="rec-lienzo" width="1000" height="1000"></canvas></div>
           <input type="range" class="zoom" id="rec-zoom" min="100" max="400" value="100"
@@ -5949,130 +8029,292 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     </div>
     <input type="file" id="rec-file" accept="image/*" hidden>
 
+    <?php if (!$previsua): ?>
     <script>
-      /* Los controles viajan con form="agotados-form" y ya no cuelgan del <form>, así que
-         todo se escucha en el pane: un oyente en el formulario no vería ni un cambio. */
-      var pane = document.querySelector('.pane[data-pane="agotados"]');
-      var formAg = document.getElementById('agotados-form');
-      var q = document.getElementById('q');
-      var vacio = document.getElementById('vacio');
-      var fichas = [].slice.call(pane.querySelectorAll('[data-cat-acordeon]'));
-      var filtro = 'todos';
-      var sucio = false;
-
-      function aplicarFiltro() {
-        var t = q.value.trim().toLowerCase();
-        var total = 0;
-        fichas.forEach(function (ficha) {
-          var visibles = 0;
-          [].slice.call(ficha.querySelectorAll('.adm-orow')).forEach(function (fila) {
-            var hay = (!t || fila.dataset.busca.indexOf(t) !== -1)
-                   && (filtro === 'todos' || fila.classList.contains('es-agotado'));
-            fila.hidden = !hay;
-            if (hay) visibles++;
-          });
-          ficha.closest('.adm-f').hidden = visibles === 0;
-          /* Con búsqueda o con filtro se abre lo que tiene resultados: encontrarlo y dejarlo
-             plegado es no haberlo encontrado. Sin nada escrito, todo vuelve a cerrarse. */
-          if (t || filtro !== 'todos') ficha.open = visibles > 0;
-          else ficha.open = false;
-          total += visibles;
+      /* ---------------------------------------------- plegado de "Ajustar precios" en móvil
+       * Auditoría UX/UI, hallazgo H1. Sin JavaScript, `<details open>` deja esto exactamente
+       * como estaba: visible siempre, cero controles perdidos. Con JavaScript, el estado se
+       * decide por el ancho real (mismo corte de 699px que ya usa el resto del panel), no al
+       * cargar una vez nada más: un cambio de tamaño que cruce ese corte (girar una tablet,
+       * redimensionar la ventana) lo vuelve a ajustar solo. En ancho de escritorio/tablet, un
+       * guardián de un renglón evita que un clic en la cabecera la cierre por accidente —
+       * ahí no es un control, es un rótulo fijo, igual que antes de este cambio. */
+      (function () {
+        var caja = document.querySelector('.adm-ajustar-precios-caja');
+        if (!caja) return;
+        var mq = window.matchMedia('(max-width:699px)');
+        function ajustar(m) { caja.open = !m.matches; }
+        ajustar(mq);
+        if (mq.addEventListener) mq.addEventListener('change', ajustar);
+        else if (mq.addListener) mq.addListener(ajustar);
+        var resumen = caja.querySelector('.adm-ajustar-precios-resumen');
+        resumen.addEventListener('click', function (e) {
+          if (!mq.matches) e.preventDefault();
         });
-        vacio.hidden = total > 0;
-      }
-      q.addEventListener('input', aplicarFiltro);
+      })();
+    </script>
+    <script>
+      /* -------------------------------------------------------- buscador y filtro por estado */
+      (function () {
+        var pane = document.querySelector('.pane[data-pane="platos"]');
+        if (!pane) return;
+        var formAg = document.getElementById('agotados-form');
+        var formPrecio = document.getElementById('precios-form');
+        var q = document.getElementById('q');
+        var vacio = document.getElementById('vacio');
+        /* Bento: cada categoría es una ficha [data-cat-bento] siempre a la vista, con su
+           propio scroll — se oculta entera sólo si el filtro le deja cero filas dentro.
+           Ya no hay nada que plegar, así que tampoco hay aria-expanded que recalcular. Y
+           ya no hay filtro de categoría (se retiró: con las 40 siempre a la vista, saltar
+           a una sola dejaba de tener sentido) — sólo texto y chips de estado. */
+        var fichas = [].slice.call(pane.querySelectorAll('[data-cat-bento]'));
+        var filtro = 'todos';
+        var sucio = false;
 
-      pane.querySelectorAll('[data-filter]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          filtro = b.dataset.filter;
-          pane.querySelectorAll('[data-filter]').forEach(function (o) {
-            o.setAttribute('aria-pressed', String(o === b));
+        function aplicarFiltro() {
+          var t = q.value.trim().toLowerCase();
+          var total = 0;
+          fichas.forEach(function (ficha) {
+            var visibles = 0;
+            [].slice.call(ficha.querySelectorAll('.adm-orow')).forEach(function (fila) {
+              var pasaFiltro = filtro === 'todos'
+                || (filtro === 'agotados' && fila.classList.contains('es-agotado'))
+                || (filtro === 'destacados' && fila.classList.contains('es-destacado'))
+                || (filtro === 'oferta' && fila.classList.contains('es-oferta'));
+              var hay = (!t || fila.dataset.busca.indexOf(t) !== -1) && pasaFiltro;
+              fila.hidden = !hay;
+              if (hay) visibles++;
+            });
+            ficha.hidden = visibles === 0;
+            total += visibles;
           });
+          vacio.hidden = total > 0;
+          /* Buscando o filtrando se levanta el recorte de tres por columna: un plato que
+             coincide no puede quedarse escondido detras de un "Ver mas". Es una clase en
+             el contenedor, no un cambio fila a fila: el recorte lo hace el CSS. */
+          var lista = pane.querySelector('.adm-platos-lista');
+          if (lista) lista.classList.toggle('esta-filtrando', !!t || filtro !== 'todos');
+        }
+        q.addEventListener('input', aplicarFiltro);
+
+        /* ---- "Ver X platos mas": abre y cierra su propia ficha ----
+           Solo pone/quita un atributo en la <section>; quien enseña o esconde las filas
+           es el CSS. Sin peticion, sin tocar el marcado de las filas y sin depender de
+           cuantas haya. */
+        /* document y no pane: el mismo boton existe en Platos y en Ofertas, y asi se
+           engancha una sola vez para los dos. */
+        [].slice.call(document.querySelectorAll('[data-vermas]')).forEach(function (boton) {
+          boton.addEventListener('click', function () {
+            var ficha = boton.closest('.adm-cat-bento');
+            if (!ficha) return;
+            var abierta = ficha.hasAttribute('data-abierto');
+            if (abierta) ficha.removeAttribute('data-abierto');
+            else ficha.setAttribute('data-abierto', '');
+            boton.setAttribute('aria-expanded', String(!abierta));
+            var txt = boton.querySelector('.adm-vermas-txt');
+            if (txt) txt.textContent = !abierta ? boton.dataset.menos : boton.dataset.mas;
+          });
+        });
+
+        pane.querySelectorAll('.adm-chips-estado [data-filter]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            filtro = b.dataset.filter;
+            pane.querySelectorAll('.adm-chips-estado [data-filter]').forEach(function (o) {
+              o.setAttribute('aria-pressed', String(o === b));
+            });
+            aplicarFiltro();
+          });
+        });
+
+        var nChipOferta = document.getElementById('n-chip-oferta');
+        if (nChipOferta) nChipOferta.textContent = pane.querySelectorAll('.adm-orow.es-oferta').length;
+
+        /* V7: cuenta PLATOS, no casillas. Un plato puede tener DOS casillas en esta misma
+           pantalla —una en su categoría y otra en la lista de agotados—, y marcarHermanas
+           las sincroniza a propósito; contando casillas, marcar un plato ponía «2 platos
+           agotados». Se cuentan identificadores distintos (data-plato); si alguna casilla
+           no lo trae, cuenta como una suya y no se pierde del recuento. */
+        function agotadosDistintos() {
+          var vistos = Object.create(null), n = 0, i = 0;
+          pane.querySelectorAll('input[name="agotado[]"]:checked').forEach(function (cb) {
+            var id = cb.dataset.plato || ('#sin-id-' + (i++));
+            if (vistos[id]) return;
+            vistos[id] = true; n++;
+          });
+          return n;
+        }
+
+        function refrescar() {
+          var n = agotadosDistintos();
+          var nEl = document.getElementById('n');
+          if (nEl) nEl.textContent = n;
+          var nTxt = document.getElementById('n-txt');
+          if (nTxt) nTxt.textContent = n === 1 ? 'plato marcado' : 'platos marcados';
+          var resumen = document.getElementById('resumen');
+          if (resumen) resumen.hidden = n === 0;
+          var nChip = document.getElementById('n-chip-agotados');
+          if (nChip) nChip.textContent = n;
+          var c = document.querySelector('.adm-acciones-fuera[data-para="platos"] .adm-acciones-estado');
+          if (c) c.textContent = (n === 1 ? '1 plato agotado' : n + ' platos agotados') + (sucio ? ' · guardando…' : '');
+        }
+
+        function marcarHermanas(cb) {
+          var plato = cb.dataset.plato;
+          if (!plato) return;
+          pane.querySelectorAll('input[name="agotado[]"][data-plato="' + plato.replace(/"/g, '\\"') + '"]')
+            .forEach(function (otra) {
+              if (otra === cb || otra.checked === cb.checked) return;
+              otra.checked = cb.checked;
+              var suFila = otra.closest('.adm-orow');
+              if (suFila) suFila.classList.toggle('es-agotado', otra.checked);
+            });
+        }
+
+        /* Autosubmit: cada click en Agotado envía el estado COMPLETO de las 312 casillas por
+           detrás (fetch), igual contrato que el botón «Guardar cambios» de siempre —
+           guardar_agotados sigue reemplazando el array entero, así que hace falta mandarlo
+           entero, y con todas las filas siempre en el DOM (el buscador sólo las oculta con
+           CSS) el fetch nunca puede perder una marca por no estar montada. Sin JavaScript la
+           casilla se queda marcada y el botón «Guardar cambios» de fuera hace exactamente lo
+           mismo, en una vuelta de página. */
+        /* Cierre funcional MISE-B, punto 3: `alGuardarBien`/`alFallar` son nuevos y
+           opcionales — las llamadas de siempre (2 argumentos) se comportan exactamente
+           igual. Sirven para que quien llame pueda quedarse con el último conjunto
+           CONFIRMADO por el servidor y, si falla, deshacer hasta ese mismo conjunto —
+           nunca el optimista que se pintó antes de saber si el guardado salía bien. */
+        function enviarFormulario(form, entradaSucia, alGuardarBien, alFallar) {
+          if (!window.fetch) { form.submit(); return; }
+          entradaSucia(true);
+          var datos = new FormData(form);
+          fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+            .then(function (r) { if (!r.ok) throw new Error('http'); })
+            .then(function () {
+              entradaSucia(false);
+              if (alGuardarBien) alGuardarBien();
+              if (window.toast) toast('Guardado.', 'ok');
+            })
+            .catch(function () {
+              entradaSucia(false);
+              if (alFallar) alFallar();
+              if (window.toast) toast('No se ha podido guardar. Comprueba la conexión.', 'bad');
+            });
+        }
+
+        /* El conjunto de claves agotadas tal y como lo confirmó el servidor la última vez
+           — al cargar, es justo lo que el propio PHP acaba de pintar marcado. Sólo se
+           mueve cuando un guardado termina bien; un fallo restaura la interfaz ENTERA
+           (casillas, .es-agotado, contador, resumen, chip) a este mismo conjunto, nunca
+           al optimista a medio camino. */
+        var agotadosConfirmados = [].slice.call(pane.querySelectorAll('input[name="agotado[]"]:checked'))
+          .map(function (cb) { return cb.value; });
+        function clavesAgotadasActuales() {
+          return [].slice.call(pane.querySelectorAll('input[name="agotado[]"]:checked'))
+            .map(function (cb) { return cb.value; });
+        }
+        function restaurarAgotados(claves) {
+          var deben = {};
+          claves.forEach(function (k) { deben[k] = true; });
+          pane.querySelectorAll('input[name="agotado[]"]').forEach(function (cb) {
+            var debeEstar = !!deben[cb.value];
+            if (cb.checked === debeEstar) return;
+            cb.checked = debeEstar;
+            var fila = cb.closest('.adm-orow');
+            if (fila) fila.classList.toggle('es-agotado', debeEstar);
+          });
+          refrescar();
+        }
+
+        var envioPendiente = null;
+        pane.addEventListener('change', function (e) {
+          if (!e.target || e.target.name !== 'agotado[]') return;
+          var fila = e.target.closest('.adm-orow');
+          if (fila) fila.classList.toggle('es-agotado', e.target.checked);
+          marcarHermanas(e.target);
+          refrescar();
+          sucio = true;
+          clearTimeout(envioPendiente);
+          envioPendiente = setTimeout(function () {
+            enviarFormulario(formAg, function (v) { sucio = v; refrescar(); },
+              function () { agotadosConfirmados = clavesAgotadasActuales(); },
+              function () { restaurarAgotados(agotadosConfirmados); });
+          }, 250);
+        });
+
+        document.getElementById('clear-all').addEventListener('click', function () {
+          var marcados = pane.querySelectorAll('input[name="agotado[]"]:checked');
+          if (!marcados.length) return;
+          if (!window.confirm('¿Quitar los ' + marcados.length + ' agotados?')) return;
+          marcados.forEach(function (cb) {
+            cb.checked = false;
+            cb.closest('.adm-orow').classList.remove('es-agotado');
+          });
+          refrescar();
           aplicarFiltro();
+          clearTimeout(envioPendiente);
+          enviarFormulario(formAg, function (v) { sucio = v; refrescar(); },
+            function () { agotadosConfirmados = clavesAgotadasActuales(); },
+            function () { restaurarAgotados(agotadosConfirmados); aplicarFiltro(); });
         });
-      });
 
-      // Contadores en vivo: marcar veinte platos y no ver subir el número deja la duda de si
-      // se ha marcado algo de verdad.
-      function refrescar() {
-        var n = pane.querySelectorAll('input[name="agotado[]"]:checked').length;
-        document.getElementById('n').textContent = n;
-        var nTxt = document.getElementById('n-txt');
-        if (nTxt) nTxt.textContent = n === 1 ? 'plato marcado' : 'platos marcados';
-        document.getElementById('resumen').hidden = n === 0;
-        var c = document.querySelector('.adm-acciones-fuera[data-para="agotados"] .adm-acciones-estado');
-        if (c) c.textContent = (n === 1 ? '1 plato agotado' : n + ' platos agotados') + (sucio ? ' · sin guardar' : '');
-        /* La insignia de cada acordeón: cerrado no puede esconder que dentro hay algo
-           agotado sin decirlo. */
-        fichas.forEach(function (ficha) {
-          var dentro = ficha.querySelectorAll('.adm-orow.es-agotado').length;
-          var ins = ficha.querySelector('[data-dentro]');
-          ficha.toggleAttribute('data-con-marcas', dentro > 0);
-          if (ins) { ins.hidden = dentro === 0; ins.textContent = dentro + (dentro === 1 ? ' agotado' : ' agotados'); }
+        /* El precio autosubmite al salir del campo (blur / Enter), no en cada tecla: escribir
+           «9» antes de «9,50» no debe publicar un precio de 9€ a medio escribir.
+
+           Cierre funcional MISE-B, punto 4: `precios_publicar` NO se toca (sigue siendo la
+           autoridad, sigue re-validando por su cuenta) — todo esto es una guardia delante,
+           para que un valor que ya se sabe malo ni salga de aquí. `dataset.confirmado`
+           guarda, por campo, el último valor que el servidor SÍ confirmó (empieza siendo
+           el que el propio PHP acaba de pintar); un valor inválido, o un guardado que
+           falla, vuelve ahí — nunca se queda enseñando lo que se intentó mandar. */
+        var preciosNuevos = [].slice.call(pane.querySelectorAll('.adm-prow-nuevo'));
+        preciosNuevos.forEach(function (el) { el.dataset.confirmado = el.value; });
+
+        function precioValido(crudo) {
+          var v = crudo.trim().replace(',', '.');
+          if (v === '') return true; // vacío = precio base, comportamiento de siempre
+          return /^\d+(\.\d+)?$/.test(v) && parseFloat(v) > 0;
+        }
+
+        var envioPrecio = null;
+        var preciosPendientes = [];
+        pane.addEventListener('change', function (e) {
+          if (!e.target || !e.target.classList || !e.target.classList.contains('adm-prow-nuevo')) return;
+          var input = e.target;
+          if (!precioValido(input.value)) {
+            input.value = input.dataset.confirmado || '';
+            return;
+          }
+          var afectados = [input];
+          var plato = input.dataset.plato;
+          if (plato) {
+            pane.querySelectorAll('.adm-prow-nuevo[data-plato="' + plato.replace(/"/g, '\\"') + '"]')
+              .forEach(function (otro) { if (otro !== input) { otro.value = input.value; afectados.push(otro); } });
+          }
+          afectados.forEach(function (el) { if (preciosPendientes.indexOf(el) === -1) preciosPendientes.push(el); });
+
+          clearTimeout(envioPrecio);
+          envioPrecio = setTimeout(function () {
+            var lote = preciosPendientes;
+            preciosPendientes = [];
+            enviarFormulario(formPrecio, function () {},
+              function () { lote.forEach(function (el) { el.dataset.confirmado = el.value; }); },
+              function () { lote.forEach(function (el) { el.value = el.dataset.confirmado || ''; }); });
+          }, 200);
         });
-      }
 
-      /* Las filas del mismo plato se marcan y se desmarcan juntas.
-         Un plato está en su pestaña de comida y otra vez en Sin gluten o en Vegano, y son el
-         mismo plato: si la cocina se queda sin él, se queda sin él en las tres. El servidor
-         lo completa igual al guardar, pero hacerlo aquí es lo que permite DESmarcarlo: si la
-         casilla hermana se quedara marcada, el servidor volvería a tacharlo y quitar el
-         agotado sería imposible. */
-      function marcarHermanas(cb) {
-        var plato = cb.dataset.plato;
-        if (!plato) return;
-        pane.querySelectorAll('input[name="agotado[]"][data-plato="' + plato.replace(/"/g, '\\"') + '"]')
-          .forEach(function (otra) {
-            if (otra === cb || otra.checked === cb.checked) return;
-            otra.checked = cb.checked;
-            var suFila = otra.closest('.adm-orow');
-            if (suFila) suFila.classList.toggle('es-agotado', otra.checked);
-          });
-      }
-
-      /* Solo las casillas de agotado ensucian la pantalla. El buscador (al salir del campo) y
-         el selector de foto del recortador —que vive dentro de este pane— tambien disparan
-         change aqui, y con ellos el aviso de «cambios sin guardar» saltaba sin haber tocado
-         ninguna casilla: escribir «sopa» y cambiar de pestaña ya preguntaba si querias salir. */
-      pane.addEventListener('change', function (e) {
-        if (!e.target || e.target.name !== 'agotado[]') return;
-        var fila = e.target.closest('.adm-orow');
-        if (fila) fila.classList.toggle('es-agotado', e.target.checked);
-        marcarHermanas(e.target);
-        sucio = true;
-        refrescar();
-      });
-
-      document.getElementById('clear-all').addEventListener('click', function () {
-        var marcados = pane.querySelectorAll('input[name="agotado[]"]:checked');
-        if (!window.confirm('¿Quitar los ' + marcados.length + ' agotados?')) return;
-        marcados.forEach(function (cb) {
-          cb.checked = false;
-          cb.closest('.adm-orow').classList.remove('es-agotado');
+        window.addEventListener('beforeunload', function (e) {
+          if (!sucio) return;
+          e.preventDefault();
+          e.returnValue = '';
         });
-        sucio = true;
-        refrescar();
-        aplicarFiltro();
-      });
-
-      // Marcar diez platos y cerrar la pestaña sin guardar es el error caro de esta pantalla.
-      window.addEventListener('beforeunload', function (e) {
-        if (!sucio) return;
-        e.preventDefault();
-        e.returnValue = '';
-      });
-      formAg.addEventListener('submit', function () { sucio = false; });
+      })();
     </script>
 
     <script>
       /* ---------------------------------------------------------------- foto del plato
-       * Todo el trabajo pesado lo hace el NAVEGADOR: recorta a 1000x1000 y comprime a WebP por
-       * debajo de medio mega antes de subir. Al servidor le llega una foto pequena y ya hecha,
-       * y por eso no hace falta GD en el hosting ni esperar a que suban ocho megas por el wifi
-       * del restaurante.
-       *
-       * La foto se sube sola, sin pasar por el Guardar de la pestana: son cosas distintas, y
-       * mezclarlas obligaria a guardar los agotados para cambiar una foto. */
+       * Idéntico al de siempre: todo el trabajo pesado lo hace el navegador (recorta a
+       * 1000x1000, comprime a WebP) y sube por fetch a foto_accion, sin pasar por ningún
+       * Guardar. Sólo cambia el formulario del que lee el CSRF (ahora agotados-form vive en
+       * Platos, con el mismo id de siempre). */
       (function () {
         var DIM = 1000, MAX_BYTES = 512000, MAX_ORIGINAL = 25 * 1024 * 1024;
 
@@ -6093,8 +8335,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         var csrf = campoCsrf ? campoCsrf.value : '';
 
         var ctx = lienzo.getContext('2d');
-        var boton = null;                    // el boton de camara que abrio la capa
-        var st = null;                       // { img, escala, minEscala, x, y }
+        var boton = null;
+        var st = null;
         var ultimoFoco = null;
 
         function error(m) { errEl.textContent = m || ''; }
@@ -6116,13 +8358,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           if (ultimoFoco) { ultimoFoco.focus(); ultimoFoco = null; }
         }
 
-        /* ---- pintar ---- */
         function encajar() {
           var min = Math.max(DIM / st.img.width, DIM / st.img.height);
           st.minEscala = min;
           if (st.escala < min) st.escala = min;
           var w = st.img.width * st.escala, h = st.img.height * st.escala;
-          /* El cuadrado, siempre cubierto: nada de bordes blancos por arrastrar de mas. */
           st.x = Math.min(0, Math.max(DIM - w, st.x));
           st.y = Math.min(0, Math.max(DIM - h, st.y));
         }
@@ -6136,7 +8376,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           zoom.value = String(Math.round((st.escala / st.minEscala) * 100));
         }
 
-        /* ---- cargar el archivo elegido ---- */
         function cargar(f) {
           error('');
           if (!f) return;
@@ -6145,8 +8384,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                 + 'abrirla aqui. Mandatela por WhatsApp y sube la que llega, que viene mas ligera.');
             return;
           }
-          /* createImageBitmap respeta la orientacion EXIF: sin esto, las fotos verticales de
-             movil salen tumbadas. */
           createImageBitmap(f).then(function (img) {
             st = { img: img, escala: Math.max(DIM / img.width, DIM / img.height), x: 0, y: 0 };
             st.x = (DIM - img.width * st.escala) / 2;
@@ -6158,7 +8395,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           });
         }
 
-        /* ---- arrastrar y pellizcar ---- */
         var punteros = {}, dist0 = 0, escala0 = 1;
         caja.addEventListener('pointerdown', function (e) {
           if (!st) return;
@@ -6176,7 +8412,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var prev = punteros[e.pointerId];
           punteros[e.pointerId] = { x: e.clientX, y: e.clientY };
           var ids = Object.keys(punteros);
-          var razon = DIM / caja.getBoundingClientRect().width;   // pantalla -> lienzo
+          var razon = DIM / caja.getBoundingClientRect().width;
           if (ids.length === 2) {
             var a = punteros[ids[0]], b = punteros[ids[1]];
             var d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -6194,8 +8430,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         caja.addEventListener('pointerup', soltar);
         caja.addEventListener('pointercancel', soltar);
 
-        /* El zoom deja quieto el centro del cuadrado. Sin esto, acercar echa la foto hacia una
-           esquina y hay que recolocarla a mano cada vez. */
         function escalar(nueva) {
           if (!st) return;
           var min = st.minEscala || Math.max(DIM / st.img.width, DIM / st.img.height);
@@ -6217,7 +8451,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           pintar();
         });
 
-        /* ---- exportar y subir ---- */
         function exportar() {
           var calidades = [0.82, 0.77, 0.72, 0.67, 0.62, 0.57, 0.52];
           var i = 0;
@@ -6225,8 +8458,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             (function probar() {
               if (i >= calidades.length) { rechazar(new Error('grande')); return; }
               lienzo.toBlob(function (blob) {
-                /* Un navegador sin WebP devuelve null. Se avisa y se para: subir cuatro megas
-                   en otro formato para que el servidor lo rechace no ayuda a nadie. */
                 if (!blob) { rechazar(new Error('webp')); return; }
                 if (blob.size <= MAX_BYTES) resolver(blob);
                 else probar();
@@ -6251,7 +8482,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var actual = boton;
           var textoAntes = bGuardar.textContent;
           bGuardar.disabled = true;
-          bGuardar.textContent = 'Guardando\u2026';
+          bGuardar.textContent = 'Guardando…';
           actual.classList.add('cargando');
           exportar().then(function (blob) {
             var fd = new FormData();
@@ -6263,8 +8494,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             actual.dataset.foto = j.foto;
             actual.classList.add('tiene');
             actual.title = 'Cambiar la foto';
-            /* El nombre accesible cambia con el title: si no, el lector de pantalla seguia
-               diciendo «Poner foto» sobre un boton que ya cambia la foto. */
             actual.setAttribute('aria-label', 'Cambiar la foto de ' + (actual.dataset.nombre || ''));
             cerrar();
           }).catch(function (e) {
@@ -6306,7 +8535,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         });
         file.addEventListener('change', function () { cargar(file.files && file.files[0]); });
 
-        /* Un solo oyente para las 312 filas. */
         document.addEventListener('click', function (e) {
           var b = e.target.closest ? e.target.closest('.camara') : null;
           if (!b) return;
@@ -6316,8 +8544,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           quienEl.textContent = b.dataset.nombre || '';
           error('');
           if (b.dataset.foto) {
-            /* El panel vive en admin/ y FOTOS_URL cuelga de la raiz de la carta, que esta un piso
-               por encima: sin el ../ la vista previa pediria admin/assets/platos/ y no habria foto. */
             imgEl.src = '../' + <?= json_encode(FOTOS_URL) ?> + b.dataset.foto + '?t=' + Date.now();
             imgEl.alt = b.dataset.nombre || '';
             abrir('actual');
@@ -6328,318 +8554,56 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       })();
     </script>
 
-  <?php /* ================================================ DESTACADOS ============== */ ?>
-  </section>
+    <script>
+      /* -------------------------------------------------- combobox y selector de Destacar
+       * Adaptado del que tenía la antigua pestaña Destacados: mismo buscador con teclado,
+       * mismo formulario compartido #dest-et movido junto al plato que se toca. Sólo cambia
+       * el selector del pane (ahora «platos») y el ancla del formulario compartido, que
+       * ahora cuelga de la fila entera (.adm-platorow) y no de un botón suelto, para que se
+       * vea pegado a la fila y no a mitad de sus controles. */
+      (function () {
+        var pane = document.querySelector('.pane[data-pane="platos"]');
+        if (!pane) return;
+        function etiquetasForm() { return document.getElementById('dest-et'); }
+        function cerrarEtiquetas() {
+          var etForm = etiquetasForm();
+          if (etForm) etForm.hidden = true;
+          pane.querySelectorAll('.adm-destpick.es-elegido').forEach(function (o) {
+            o.classList.remove('es-elegido');
+            o.setAttribute('aria-expanded', 'false');
+          });
+        }
+        pane.addEventListener('click', function (e) {
+          if (e.target.closest('#dest-et')) return;
+          var b = e.target.closest('.adm-destpick');
+          if (!b) { cerrarEtiquetas(); return; }
+          var yaAbierto = b.classList.contains('es-elegido');
+          cerrarEtiquetas();
+          if (yaAbierto) return;
 
-  <?php /* ============================================================= destacados, en bento ==
-   * La pestaña más pequeña, y por eso va en UNA ficha: lo que hay puesto arriba y, debajo de
-   * un filete, la fila para añadir. Dos cajas para tres controles habría sido inventarse
-   * estructura.
-   *
-   * El vocabulario de etiquetas es cerrado a propósito —cada una está traducida a los tres
-   * idiomas—, así que se elige de una lista y no se escribe.
-   */ ?>
-  <section class="pane" data-pane="destacados" role="tabpanel" id="panel-destacados" aria-labelledby="tab-destacados"<?= $pestana === 'destacados' ? '' : ' hidden' ?>>
-    <div class="adm-board">
-      <div class="adm-bento">
-
-        <section class="adm-f adm-f-dest">
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.9l5.4-.8z"/></svg></span>
-            <h2>Destacados</h2>
-            <span class="der adm-a-dest">
-              <span class="adm-f-nota"><?= count($tags) ?></span>
-            </span>
-          </div>
-          <p class="hint" data-adm-ayuda="Los destacados" data-adm-ancla=".adm-a-dest">
-            Son las etiquetas que salen al lado del número del plato en la carta. El vocabulario
-            es cerrado a propósito: cada etiqueta está traducida a los tres idiomas, así que se
-            elige de la lista y no se escribe. No caducan: se quedan hasta que las quites. Para
-            elegir el plato hay dos caminos: escribir aquí el número o el nombre, o abrir una
-            categoría más abajo y tocarlo.
-          </p>
-
-          <?php if (!$tags): ?>
-            <p class="adm-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.9l5.4-.8z"/></svg>
-              Ahora mismo no hay ningún plato destacado.
-            </p>
-          <?php else: ?>
-            <div class="adm-filas">
-              <?php foreach ($tags as $k => $et): $p = $porKey[$k] ?? null; if (!$p) continue; ?>
-                <div class="adm-fila">
-                  <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                  <span class="adm-fila-txt">
-                    <span class="adm-fila-que"><?= h($p['name']) ?></span>
-                    <span class="adm-fila-dato"><?= h($p['sub']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?></span>
-                  </span>
-                  <span class="adm-tag"><?= h(ETIQUETAS_ES[$et] ?? $et) ?></span>
-                  <form method="post" style="display:contents">
-                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                    <button class="adm-btn adm-btn-fino adm-btn-quitar" name="destacado_del" value="<?= h($k) ?>" type="submit">Quitar</button>
-                  </form>
-                </div>
-              <?php endforeach; ?>
-            </div>
-          <?php endif; ?>
-
-          <?php /* Un <select> de 313 opciones era un castigo. Se escribe —número o nombre, en
-                   español o en inglés, sin tildes— y la lista se filtra al momento. El valor
-                   que viaja es la clave del plato, en el campo oculto; el servidor la sigue
-                   validando contra el catálogo como antes. */ ?>
-          <form method="post" class="adm-dest-add">
-            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-
-            <div class="adm-dest-plato">
-              <label class="adm-lbl" for="hl-q">Plato <span class="opt">(el número o el nombre)</span></label>
-              <div class="combo" id="hl-combo">
-                <input id="hl-q" class="combo-q" type="text" inputmode="search" autocomplete="off" spellcheck="false"
-                       placeholder="Por ejemplo: 56, cordero o lamb…"
-                       role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="hl-lista" aria-haspopup="listbox">
-                <input type="hidden" name="hl_key" id="hl-key" value="">
-                <ul class="combo-lista" id="hl-lista" role="listbox" hidden></ul>
-              </div>
-            </div>
-
-            <div class="adm-dest-et">
-              <label class="adm-lbl" for="hl-label">Etiqueta</label>
-              <select class="adm-campo adm-select" id="hl-label" name="hl_label" required>
-                <?php foreach (ETIQUETAS as $e): ?>
-                  <option value="<?= h($e) ?>"><?= h(ETIQUETAS_ES[$e]) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-
-            <button class="adm-btn adm-btn-fino adm-dest-btn" name="destacado_add" value="1" type="submit">Añadir destacado</button>
-          </form>
-
-          <script>
-            /* Catálogo mínimo para buscar: clave, número, nombre en español e inglés, pestaña,
-               y si ya está destacado. ~20 KB que sólo carga quien abre el panel. */
-            var PLATOS = <?= json_encode(array_map(function ($p) use ($tags) {
-              return ['k' => $p['key'], 'id' => (string) $p['id'], 'es' => $p['name'], 'en' => $p['name_en'], 'g' => $p['sub'], 'd' => isset($tags[$p['key']])];
-            }, $lista), JSON_UNESCAPED_UNICODE) ?>;
-            (function () {
-              var q = document.getElementById('hl-q'), key = document.getElementById('hl-key'), lista = document.getElementById('hl-lista');
-              var activo = -1, visibles = [];
-              function plano(t) {
-                var d = String(t).toLowerCase().normalize('NFD'), out = '';
-                for (var i = 0; i < d.length; i++) { var c = d.charCodeAt(i); if (c < 768 || c > 879) out += d.charAt(i); }
-                return out;
-              }
-              function filtrar(t) {
-                t = plano(t.trim());
-                if (!t) return [];
-                var esNum = /^\d+$/.test(t);
-                return PLATOS.filter(function (p) {
-                  if (esNum) return p.id === t || p.id.indexOf(t) === 0;
-                  return plano(p.es).indexOf(t) !== -1 || plano(p.en).indexOf(t) !== -1 || plano(p.g).indexOf(t) !== -1;
-                }).slice(0, 12);
-              }
-              function pintar() {
-                visibles = filtrar(q.value);
-                lista.textContent = '';
-                activo = -1;
-                if (!visibles.length) {
-                  if (q.value.trim()) {
-                    var v = document.createElement('li'); v.className = 'combo-vacio'; v.textContent = 'Ningún plato coincide.'; lista.appendChild(v);
-                    abrir(true);
-                  } else abrir(false);
-                  return;
-                }
-                visibles.forEach(function (p, i) {
-                  var li = document.createElement('li');
-                  li.setAttribute('role', 'option'); li.id = 'hl-op-' + i;
-                  li.className = 'combo-op' + (p.d ? ' ya' : '');
-                  li.setAttribute('aria-selected', 'false');
-                  var n = document.createElement('span'); n.className = 'combo-num'; n.textContent = p.id || '·';
-                  var t = document.createElement('span'); t.className = 'combo-txt';
-                  t.textContent = p.es;
-                  var s = document.createElement('small'); s.textContent = p.g + (p.en !== p.es ? ' · ' + p.en : '') + (p.d ? ' · ya destacado' : '');
-                  t.appendChild(s);
-                  li.appendChild(n); li.appendChild(t);
-                  li.addEventListener('pointerdown', function (e) { e.preventDefault(); elegir(i); });
-                  lista.appendChild(li);
-                });
-                abrir(true);
-              }
-              function abrir(si) { lista.hidden = !si; q.setAttribute('aria-expanded', String(si)); }
-              function marcar(i) {
-                var ops = lista.querySelectorAll('.combo-op');
-                ops.forEach(function (o, j) { o.setAttribute('aria-selected', String(j === i)); o.classList.toggle('is-activo', j === i); });
-                activo = i;
-                q.setAttribute('aria-activedescendant', i >= 0 ? 'hl-op-' + i : '');
-                if (i >= 0 && ops[i].scrollIntoView) ops[i].scrollIntoView({ block: 'nearest' });
-              }
-              function elegir(i) {
-                var p = visibles[i]; if (!p || p.d) return;
-                key.value = p.k;
-                q.value = (p.id ? p.id + ' · ' : '') + p.es;
-                q.classList.add('is-ok');
-                abrir(false);
-              }
-              q.addEventListener('input', function () { key.value = ''; q.classList.remove('is-ok'); pintar(); });
-              q.addEventListener('focus', function () { if (!key.value && q.value.trim()) pintar(); });
-              q.addEventListener('keydown', function (e) {
-                if (lista.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { pintar(); }
-                if (e.key === 'ArrowDown') { e.preventDefault(); marcar(Math.min(visibles.length - 1, activo + 1)); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); marcar(Math.max(0, activo - 1)); }
-                else if (e.key === 'Enter') { if (!lista.hidden && visibles.length) { e.preventDefault(); elegir(activo >= 0 ? activo : 0); } else if (!key.value) { e.preventDefault(); } }
-                else if (e.key === 'Escape') { abrir(false); }
-              });
-              document.addEventListener('pointerdown', function (e) {
-                if (!document.getElementById('hl-combo').contains(e.target)) abrir(false);
-              });
-              /* Sin plato elegido no se envía: el servidor lo rechazaría igual, pero el aviso aquí
-                 llega antes y dice qué falta. */
-              /* La lista plegada de abajo NO añade sola: mete el plato en este campo y deja
-                 la etiqueta, que es la decisión que falta. Así hay un solo sitio donde se
-                 decide, y el que llega por el buscador y el que llega por la lista acaban en
-                 la misma pantalla. */
-              /* Tocar un plato de la lista abre las etiquetas DEBAJO DE ÉL. En pleno
-                 servicio, mandar la vista de vuelta al campo de arriba para elegir la
-                 etiqueta y volver a bajar era el paso que sobraba: la decisión que falta se
-                 toma donde se está mirando. */
-              var pane = document.querySelector('.pane[data-pane="destacados"]');
-              /* El formulario de etiquetas se pinta DESPUES de este script —esta en la lista
-                 de abajo, no en esta ficha—, asi que al parsear todavia no existe. Se busca
-                 cuando hace falta y no al arrancar. */
-              function etiquetasForm() { return document.getElementById('dest-et'); }
-
-              function cerrarEtiquetas() {
-                var etForm = etiquetasForm();
-                if (etForm) etForm.hidden = true;
-                pane.querySelectorAll('.adm-destpick.es-elegido').forEach(function (o) {
-                  o.classList.remove('es-elegido');
-                  o.setAttribute('aria-expanded', 'false');
-                });
-              }
-
-              pane.addEventListener('click', function (e) {
-                if (e.target.closest('#dest-et')) return;
-                var b = e.target.closest('.adm-destpick');
-                if (!b) { cerrarEtiquetas(); return; }
-                var yaAbierto = b.classList.contains('es-elegido');
-                cerrarEtiquetas();
-                if (yaAbierto) return;                 // segundo toque: se cierra
-
-                /* El buscador de arriba se rellena igual: los dos caminos acaban en el mismo
-                   sitio y se ve cuál está elegido mires donde mires. */
-                key.value = b.dataset.k;
-                q.value = (b.dataset.id ? b.dataset.id + ' · ' : '') + b.dataset.nombre;
-                q.classList.add('is-ok');
-                abrir(false);
-
-                b.classList.add('es-elegido');
-                b.setAttribute('aria-expanded', 'true');
-                var etForm = etiquetasForm();
-                if (etForm) {
-                  document.getElementById('dest-et-key').value = b.dataset.k;
-                  b.insertAdjacentElement('afterend', etForm);
-                  etForm.hidden = false;
-                  var primera = etForm.querySelector('.adm-destet-b');
-                  if (primera) primera.focus({ preventScroll: true });
-                }
-              });
-
-              pane.addEventListener('click', function (e) {
-                if (e.target.id === 'dest-et-x') cerrarEtiquetas();
-              });
-              document.addEventListener('keydown', function (e) {
-                var etForm = etiquetasForm();
-                if (e.key === 'Escape' && etForm && !etForm.hidden) cerrarEtiquetas();
-              });
-
-              q.form.addEventListener('submit', function (e) {
-                if (!key.value) {
-                  e.preventDefault();
-                  if (window.toast) toast('Elige un plato de la lista: escribe el número o el nombre y toca el que sea.', 'bad');
-                  q.focus();
-                }
-              });
-            })();
-          </script>
-        </section>
-
-        <?php /* ------------------------------------------------- todos los platos, plegados
-         * El buscador es el camino rápido cuando ya sabes qué plato quieres. Esto es el otro:
-         * abrir una categoría y ver qué hay. Sin él, destacar algo obligaba a acordarse del
-         * nombre antes de escribirlo.
-         *
-         * La lista NO añade por su cuenta: al tocar un plato lo mete en el campo de arriba y
-         * te deja elegir la etiqueta, que es la decisión que falta. Poner un desplegable de
-         * etiquetas en cada una de las 312 filas habría sido 312 desplegables para elegir uno.
-         *
-         * Lo que ya está destacado no se puede volver a elegir —lo dice su etiqueta— y lleva
-         * su propio Quitar, para no tener que subir a la lista de arriba.
-         */ ?>
-        <?php
-          $porCategoria = [];
-          foreach ($lista as $p) {
-            $cid = (string) ($p['catId'] ?? $p['cat']);
-            if (!isset($porCategoria[$cid])) {
-              $porCategoria[$cid] = ['nombre' => $catsEs[$p['cat']] ?? $p['cat'], 'tab' => $p['tab'], 'platos' => []];
-            }
-            $porCategoria[$cid]['platos'][] = $p;
+          b.classList.add('es-elegido');
+          b.setAttribute('aria-expanded', 'true');
+          var etForm = etiquetasForm();
+          if (etForm) {
+            document.getElementById('dest-et-key').value = b.dataset.k;
+            var fila = b.closest('.adm-platorow') || b;
+            fila.insertAdjacentElement('afterend', etForm);
+            etForm.hidden = false;
+            var primera = etForm.querySelector('.adm-destet-b');
+            if (primera) primera.focus({ preventScroll: true });
           }
-        ?>
-        <?php /* Un solo formulario de etiquetas para las 312 filas: el JavaScript lo mueve
-                 debajo de la que se toca y le escribe la clave del plato. Repetirlo en cada
-                 fila serian 312 formularios y 1.872 botones metidos en el HTML para usar uno.
-                 Sin JavaScript no se mueve de aqui y sigue sirviendo: se elige el plato con
-                 el buscador de arriba, que es como funcionaba antes. */ ?>
-        <form method="post" id="dest-et" class="adm-destet" hidden>
-          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-          <input type="hidden" name="destacado_add" value="1">
-          <input type="hidden" name="hl_key" id="dest-et-key" value="">
-          <span class="adm-destet-rot">¿Con qué etiqueta?</span>
-          <?php foreach (ETIQUETAS as $e): ?>
-            <button class="adm-destet-b" name="hl_label" value="<?= h($e) ?>" type="submit"><?= h(ETIQUETAS_ES[$e] ?? $e) ?></button>
-          <?php endforeach; ?>
-          <button type="button" class="adm-destet-x" id="dest-et-x" aria-label="Cerrar las etiquetas">Cancelar</button>
-        </form>
+        });
+        pane.addEventListener('click', function (e) {
+          if (e.target.id === 'dest-et-x') cerrarEtiquetas();
+        });
+        document.addEventListener('keydown', function (e) {
+          var etForm = etiquetasForm();
+          if (e.key === 'Escape' && etForm && !etForm.hidden) cerrarEtiquetas();
+        });
+      })();
+    </script>
+    <?php endif; ?>
 
-        <?php foreach ($porCategoria as $cid => $grupo):
-          $destAqui = 0;
-          foreach ($grupo['platos'] as $p) if (isset($tags[$p['key']])) $destAqui++; ?>
-          <section class="adm-f adm-f-otab">
-            <details class="adm-acordeon"<?= $destAqui > 0 ? ' data-con-marcas' : '' ?>>
-              <summary class="adm-acordeon-cab">
-                <svg class="adm-acordeon-v" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                <span class="adm-acordeon-nm"><?= h($grupo['nombre']) ?><small><?= h($grupo['tab']) ?></small></span>
-                <?php if ($destAqui > 0): ?>
-                  <span class="adm-acordeon-marca"><?= (int) $destAqui ?> destacado<?= $destAqui === 1 ? '' : 's' ?></span>
-                <?php endif; ?>
-                <span class="adm-acordeon-n"><?= count($grupo['platos']) ?></span>
-              </summary>
-              <div class="adm-ofertas">
-                <?php foreach ($grupo['platos'] as $p): $ya = $tags[$p['key']] ?? null; ?>
-                  <?php if ($ya !== null): ?>
-                    <div class="adm-orow adm-destrow es-destacado">
-                      <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                      <span class="adm-orow-nm"><?= h($p['name']) ?><small><?= h($p['sub']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?></small></span>
-                      <span class="adm-tag"><?= h(ETIQUETAS_ES[$ya] ?? $ya) ?></span>
-                      <form method="post" style="display:contents">
-                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                        <button class="adm-btn adm-btn-fino adm-btn-quitar" name="destacado_del" value="<?= h($p['key']) ?>" type="submit">Quitar</button>
-                      </form>
-                    </div>
-                  <?php else: ?>
-                    <button type="button" class="adm-orow adm-destrow adm-destpick"
-                            data-k="<?= h($p['key']) ?>" data-id="<?= h($p['id']) ?>" data-nombre="<?= h($p['name']) ?>"
-                            aria-expanded="false">
-                      <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                      <span class="adm-orow-nm"><?= h($p['name']) ?><small><?= h($p['sub']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?></small></span>
-                      <span class="adm-destpick-ir">Elegir</span>
-                    </button>
-                  <?php endif; ?>
-                <?php endforeach; ?>
-              </div>
-            </details>
-          </section>
-        <?php endforeach; ?>
-
-      </div>
     </div>
   </section>
 
@@ -6651,8 +8615,13 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * categorías enteras, sueltas y a la vista. Y al final los platos, plegados en un acordeón
    * por categoría, que es lo único que de verdad hacía scroll.
    *
-   * Todo guarda con el mismo botón, así que los controles se enganchan con
-   * form="ofertas-form" y el formulario no dibuja nada.
+   * Fase 2: ya no hay nada que dependa de bajar hasta «Guardar cambios» — cada control
+   * autoguarda el suyo (oferta_pct_guardar / oferta_horario_guardar / oferta_dias_guardar /
+   * oferta_estado_toggle / oferta_cat_toggle / oferta_plato_toggle, todos más abajo).
+   * «Guardar cambios» y form="ofertas-form" NO se retiran: siguen siendo el camino
+   * completo de siempre, y con JavaScript sin inicializar o desactivado son la ÚNICA
+   * forma de guardar — todos los campos siguen llevando form="ofertas-form" a propósito.
+   * Con JS, ese botón pasa a ser un respaldo que nunca hace falta pulsar.
    */ ?>
   <?php
     $ofEstado = !$oferta['on'] ? 'APAGADA' : ($oferta_corriendo ? 'CORRIENDO' : 'PROGRAMADA');
@@ -6674,11 +8643,31 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
          */ ?>
         <section class="adm-f adm-f-ooferta">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 12.6V5.4a1.6 1.6 0 0 1 1.6-1.6h7.2l7.4 7.4a1.6 1.6 0 0 1 0 2.3l-5.7 5.7a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8.2" cy="8.2" r="1.3"/><path d="M9 15l5-5"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></span>
             <h2>La oferta</h2>
             <span class="der adm-a-oferta">
               <span class="adm-estado <?= $ofClase ?>"><?= $ofEstado ?></span>
             </span>
+          </div>
+
+          <?php /* SocialCard V4: el interruptor maestro sale del <details>.
+                   Vivia dentro de "Configurar oferta", asi que en movil —donde ese bloque
+                   se pliega— encender o apagar la oferta exigia desplegar la configuracion
+                   entera. Es la accion mas frecuente de esta pantalla y la segunda en la
+                   jerarquia, detras del estado: ahora esta siempre a la vista, justo debajo
+                   del titulo y de la insignia.
+                   Es un cambio de SITIO en el marcado, no de control: mismo <input>, mismo
+                   name="oferta_on", mismo form, mismo `.adm-sw` alrededor. El JS lo busca
+                   por `input[name="oferta_on"]` y sube con `closest('.adm-sw')`, asi que
+                   sigue encontrandolo igual, y repintarEstadoOferta sigue apuntando dentro
+                   de .adm-f-ooferta. Cero cambios de contrato. */ ?>
+          <div class="adm-oferta-maestro">
+            <span class="adm-lbl" id="of-rot-on">Estado</span>
+            <label class="adm-sw adm-sw-alto">
+              <input type="checkbox" name="oferta_on" value="1" form="ofertas-form" aria-labelledby="of-rot-on"<?= $oferta['on'] ? ' checked' : '' ?>>
+              <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
+              <span class="adm-sw-txt" data-on="Encendida" data-off="Apagada"><?= $oferta['on'] ? 'Encendida' : 'Apagada' ?></span>
+            </label>
           </div>
           <p class="hint" data-adm-ayuda="Cómo funciona la oferta" data-adm-ancla=".adm-a-oferta">
             Un descuento que se enciende y se apaga solo a la hora que digas, en hora canaria y
@@ -6699,7 +8688,22 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                    Y la frase del reloj cierra la ficha a todo el ancho, con su filete: es un
                    dato de lo que está pasando —no el pie de ningún control— y hace juego con
                    el chip de la cabecera, que dice lo mismo en una palabra. Debajo del
-                   interruptor estiraba su columna y dejaba las otras tres cojas. */ ?>
+                   interruptor estiraba su columna y dejaba las otras tres cojas.
+
+                   Auditoría UX/UI, hallazgo H3, Fase 2: en móvil (≤560px, ver el <details>
+                   mismo, más abajo, para la medida que justifica ese corte) esta fila de
+                   cuatro grupos se apila en hasta cuatro pisos (712px medidos a 320px de
+                   ancho, con la primera categoría de "Platos sueltos" recién a y=1115) —
+                   configuración que se toca de vez en cuando, por delante de la tarea diaria
+                   (elegir platos). El estado (icono, insignia y la frase de abajo,
+                   `.adm-regla-pie`) NUNCA se pliega — sólo esto, la configuración detallada,
+                   dentro de un <details> de verdad: sin JavaScript queda abierto, exactamente
+                   como hoy. */ ?>
+          <details class="adm-oferta-config" open>
+            <summary class="adm-oferta-config-resumen">
+              <span class="adm-oferta-config-etq">Configurar oferta</span>
+              <svg class="adm-oferta-config-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
           <div class="adm-regla">
             <div class="adm-regla-g">
               <label class="adm-lbl" for="of-pct">Descuento</label>
@@ -6716,7 +8720,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <div class="adm-rango" role="group" aria-labelledby="of-rot-horas">
                 <input class="adm-campo" id="of-desde" type="time" name="desde" form="ofertas-form"
                        value="<?= h(hhmm((int) $oferta['from'])) ?>" required aria-label="Desde">
-                <span class="adm-rango-f" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="M13 7l5 5-5 5"/></svg></span>
+                <span class="adm-rango-f" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/></svg></span>
                 <input class="adm-campo" id="of-hasta" type="time" name="hasta" form="ofertas-form"
                        value="<?= h(hhmm((int) $oferta['to'])) ?>" required aria-label="Hasta, no incluida">
               </div>
@@ -6739,15 +8743,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               </div>
             </div>
 
-            <div class="adm-regla-g adm-regla-sw">
-              <span class="adm-lbl" id="of-rot-on">Estado</span>
-              <label class="adm-sw adm-sw-alto">
-                <input type="checkbox" name="oferta_on" value="1" form="ofertas-form" aria-labelledby="of-rot-on"<?= $oferta['on'] ? ' checked' : '' ?>>
-                <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
-                <span class="adm-sw-txt" data-on="Encendida" data-off="Apagada"><?= $oferta['on'] ? 'Encendida' : 'Apagada' ?></span>
-              </label>
-            </div>
           </div>
+          </details>
 
           <p class="adm-regla-pie">
             <?php if (!$oferta['on']): ?>
@@ -6761,40 +8758,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             <?= h(minuscula(dia_semana($ahora_canarias->format('Y-m-d')))) ?>.
           </p>
         </section>
-        <?php /* ------------------------------------------------------------- categorías
-         * Pastillas sueltas y a la vista, sin plegar: son cuarenta decisiones de una sola
-         * pulsación y aquí lo que hace falta es verlas todas de golpe para comparar. Lo que
-         * sí se pliega es la lista de platos de abajo, que son 312.
-         */ ?>
-        <section class="adm-f adm-f-ocats">
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></span>
-            <h2>Categorías enteras</h2>
-            <span class="der adm-a-cats">
-              <span class="adm-f-nota"><?= count((array) $oferta['cats']) ?> marcadas</span>
-            </span>
-          </div>
-          <p class="hint" data-adm-ayuda="Categorías enteras" data-adm-ancla=".adm-a-cats">
-            Marca aquí una categoría y entran todos sus platos, incluidos los que se añadan más
-            adelante. Debajo puedes además elegir platos sueltos. Los platos de una categoría ya
-            marcada salen atenuados en la lista de abajo: ya están dentro y no hace falta
-            tocarlos.
-          </p>
-          <div class="adm-cats">
-            <?php foreach ($catsVisibles as $c => $n): $cid = $catIdDe[$c] ?? $c; ?>
-              <label class="adm-cat">
-                <input type="checkbox" name="cat[]" value="<?= h($cid) ?>" form="ofertas-form"<?= in_array($cid, (array) $oferta['cats'], true) ? ' checked' : '' ?>>
-                <span class="adm-cat-nm"><?= h($catsEs[$c] ?? $c) ?></span>
-                <span class="adm-cat-n"><?= (int) $n ?></span>
-              </label>
-            <?php endforeach; ?>
-          </div>
-        </section>
+        <?php /* MISE-B, prueba bento: la ficha "Categorías enteras" se retira — el
+                 selector de categoría entera se muda a la cabecera de cada ficha, ahí
+                 donde ya se ven sus platos, en vez de en una rejilla aparte que había que
+                 relacionar a ojo con la lista de abajo. Mismo checkbox `cat[]`, mismo
+                 oferta_cat_toggle, mismo autoguardado: sólo cambia dónde vive. */ ?>
 
         <?php /* --------------------------------------------------------- platos sueltos */ ?>
         <section class="adm-f adm-f-osueltos">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10"/><path d="M4 12h13"/><path d="M4 17h7"/><circle cx="19" cy="7" r="1.4"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></span>
             <h2>Platos sueltos</h2>
             <span class="der">
               <span class="vp-per" role="group" aria-label="Filtro">
@@ -6804,7 +8777,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             </span>
           </div>
           <label class="adm-buscar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L20 20"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
             <input class="adm-campo" type="search" id="qo" autocomplete="off"
                    placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
           </label>
@@ -6812,21 +8785,26 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         </section>
 
         <?php /* ------------------------------------------- los platos, por categoría
-         * 312 filas seguidas eran un rollo de papel: para llegar a un curry había que pasar
-         * por delante de doscientos platos. Van en acordeones CERRADOS, uno por categoría,
-         * y se abre el que se va a tocar.
+         * PRUEBA (sin acordeón): 312 filas repartidas en cuarenta fichas de bento, tres
+         * por fila, TODAS a la vista de golpe — nada que abrir ni cerrar. Cada ficha lleva
+         * su propia lista con scroll interno (~10 platos visibles, el resto se desplaza
+         * dentro de la ficha) para que una categoría de 40 no empuje a las demás pantalla
+         * abajo. El resumen sigue diciendo cuántos hay y cuántos están dentro de la
+         * oferta — ya no hay un acordeón cerrado que esconder, pero la cifra sigue
+         * ahorrando contarlos a ojo. Y la pestaña de la carta va al lado del nombre porque
+         * los nombres de categoría se repiten: hay «Sopas» en más de una.
          *
-         * El resumen de cada uno dice cuántos hay y cuántos están dentro de la oferta, para
-         * que un acordeón cerrado nunca esconda algo marcado sin avisar. Y la pestaña de la
-         * carta va al lado del nombre porque los nombres de categoría se repiten: hay
-         * «Sopas» en más de una.
-         *
-         * Al buscar se abren solos los que tienen resultados, y al vaciar la búsqueda se
-         * vuelven a cerrar: un buscador que no enseña lo que encuentra no es un buscador.
+         * El buscador ya no necesita abrir nada (todo está siempre visible): sólo oculta
+         * filas y, si una ficha se queda sin ninguna, la ficha entera.
          */ ?>
         <?php
           $porCategoria = [];
           foreach ($lista as $p) {
+            /* Sin precio, la oferta no aplica — no hay nada que descontar. Se descarta
+               aquí, a la entrada: una categoría que sólo tuviera platos sin precio no
+               llega a tener ficha (nunca se le añade ni un plato), y no hace falta
+               esconderla aparte. */
+            if ($p['price'] === '') continue;
             $cid = (string) ($p['catId'] ?? $p['cat']);
             if (!isset($porCategoria[$cid])) {
               $porCategoria[$cid] = [
@@ -6848,42 +8826,82 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           foreach ($grupo['platos'] as $p) {
             if ($catMarcada || in_array($p['key'], (array) $oferta['keys'], true)) $enOferta++;
           } ?>
-          <section class="adm-f adm-f-otab">
-            <details class="adm-acordeon" data-cat-acordeon<?= $enOferta > 0 ? ' data-con-marcas' : '' ?>>
-              <summary class="adm-acordeon-cab">
-                <svg class="adm-acordeon-v" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                <span class="adm-acordeon-nm"><?= h($grupo['nombre']) ?><small><?= h($grupo['tab']) ?></small></span>
-                <?php if ($enOferta > 0): ?>
-                  <span class="adm-acordeon-marca" data-dentro><?= (int) $enOferta ?> en oferta</span>
-                <?php endif; ?>
-                <span class="adm-acordeon-n"><?= count($grupo['platos']) ?></span>
-              </summary>
-              <div class="adm-ofertas">
-                <?php foreach ($grupo['platos'] as $p):
-                  $porCat = $catMarcada;
-                  $suelto = in_array($p['key'], (array) $oferta['keys'], true);
-                  $sinPrecio = $p['price'] === ''; ?>
-                  <label class="adm-orow<?= $porCat ? ' por-categoria' : '' ?><?= $suelto ? ' es-oferta' : '' ?><?= $sinPrecio ? ' sin-precio' : '' ?>"
-                         data-cat="<?= h($cid) ?>"
-                         data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
+          <section class="adm-f adm-cat-bento" data-cat-bento<?= $enOferta > 0 ? ' data-con-marcas' : '' ?>>
+            <div class="adm-cat-bento-cab">
+              <span class="adm-cat-bento-nm"><?= h(etiqueta_categoria($grupo['nombre'], $grupo['tab'])) ?></span>
+              <?php if ($enOferta > 0): ?>
+                <span class="adm-cat-bento-marca" data-dentro><?= (int) $enOferta ?> en oferta</span>
+              <?php endif; ?>
+              <span class="adm-cat-bento-n"><?= count($grupo['platos']) ?></span>
+            </div>
+            <?php
+              $mitadPlatos = (int) ceil(count($grupo['platos']) / 2);
+              $columnasPlatos = [
+                array_slice($grupo['platos'], 0, $mitadPlatos),
+                array_slice($grupo['platos'], $mitadPlatos),
+              ];
+            ?>
+            <div class="adm-ofertas adm-cat-bento-lista">
+            <?php foreach ($columnasPlatos as $columnaPlatos): ?>
+              <div class="adm-cat-bento-col">
+              <?php foreach ($columnaPlatos as $p):
+                $porCat = $catMarcada;
+                $suelto = in_array($p['key'], (array) $oferta['keys'], true); ?>
+                <div class="adm-orow<?= $porCat ? ' por-categoria' : '' ?><?= $suelto ? ' es-oferta' : '' ?>"
+                     data-cat="<?= h($cid) ?>"
+                     data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
+                  <span class="adm-prow-n"><?= h($p['id']) ?></span>
+                  <span class="adm-orow-nm"><?= h($p['name']) ?><?php if ($porCat): ?><small>Toda la categoría</small><?php endif; ?></span>
+                  <span class="adm-prow-fijo"><?= h(CLIENTE_MONEDA) . h($p['price']) ?></span>
+                  <label class="adm-sw adm-sw-oferta" title="<?= $porCat ? 'Ya incluido por su categoría' : ($suelto ? 'Quitar de la oferta' : 'Meter en la oferta') ?>">
                     <input type="checkbox" name="oferta_plato[]" value="<?= h($p['key']) ?>" form="ofertas-form"
-                           <?= $suelto ? ' checked' : '' ?><?= ($porCat || $sinPrecio) ? ' disabled' : '' ?>>
-                    <span class="adm-orow-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9 -9"/></svg></span>
-                    <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                    <span class="adm-orow-nm"><?= h($p['name']) ?><small><?= h($p['group']) ?><?= $p['name_en'] !== $p['name'] ? ' · ' . h($p['name_en']) : '' ?><?php
-                      if ($porCat) echo ' · toda la categoría';
-                      elseif ($sinPrecio) echo ' · sin precio';
-                    ?></small></span>
-                    <span class="adm-prow-fijo"><?= $sinPrecio ? '' : h(CLIENTE_MONEDA) . h($p['price']) ?></span>
+                           <?= $suelto ? ' checked' : '' ?><?= $porCat ? ' disabled' : '' ?>
+                           aria-label="<?= h($p['name']) ?> en oferta">
+                    <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
                   </label>
-                <?php endforeach; ?>
+                </div>
+              <?php endforeach; ?>
               </div>
-            </details>
+            <?php endforeach; ?>
+            </div>
+            <?php /* Mismo pie que en Platos: tres por columna y el resto detras del
+                     desplegable. */ ?>
+            <?php if (count($grupo['platos']) > 6): $sobran = count($grupo['platos']) - 6; ?>
+              <button type="button" class="adm-vermas" data-vermas aria-expanded="false"
+                      data-mas="Ver <?= $sobran ?> <?= $sobran === 1 ? 'plato' : 'platos' ?> más" data-menos="Ver menos">
+                <span class="adm-vermas-txt">Ver <?= $sobran ?> <?= $sobran === 1 ? 'plato' : 'platos' ?> más</span>
+                <svg class="adm-vermas-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            <?php endif; ?>
           </section>
         <?php endforeach; ?>
 
       </div>
     </div>
+
+    <script>
+      /* ------------------------------------------- plegado de "Configurar oferta" en móvil
+       * Hallazgo H3, Fase 2. Mismo patrón que "Ajustar precios" en Platos (H1): sin
+       * JavaScript, `<details open>` deja esto exactamente como estaba — visible siempre,
+       * cero controles perdidos. Con JavaScript, el estado se decide por el ancho real
+       * (560px, medido — ver el comentario junto a la regla CSS), con un listener de
+       * `change` (no sólo al cargar) para que un cambio de tamaño que cruce ese corte lo
+       * reajuste solo. En escritorio/tablet, un guardián de un renglón evita que un clic
+       * en la cabecera la cierre por accidente — ahí no es un control, ni siquiera se ve. */
+      (function () {
+        var caja = document.querySelector('.adm-oferta-config');
+        if (!caja) return;
+        var mq = window.matchMedia('(max-width:560px)');
+        function ajustar(m) { caja.open = !m.matches; }
+        ajustar(mq);
+        if (mq.addEventListener) mq.addEventListener('change', ajustar);
+        else if (mq.addListener) mq.addListener(ajustar);
+        var resumen = caja.querySelector('.adm-oferta-config-resumen');
+        resumen.addEventListener('click', function (e) {
+          if (!mq.matches) e.preventDefault();
+        });
+      })();
+    </script>
 
     <script>
       /* El buscador y el filtro de la lista de la oferta.
@@ -6894,7 +8912,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         var q = document.getElementById('qo');
         if (!pane || !q) return;
         var vacio = document.getElementById('ovacio');
-        var fichas = [].slice.call(pane.querySelectorAll('[data-cat-acordeon]'));
+        var fichas = [].slice.call(pane.querySelectorAll('[data-cat-bento]'));
         var filtro = 'todos';
 
         function aplicar() {
@@ -6909,15 +8927,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               fila.hidden = !hay;
               if (hay) visibles++;
             });
-            /* La ficha entera se esconde: si no queda ni un plato, su cabecera tampoco
-               pinta nada. Y con busqueda se ABRE la que tiene resultados: un buscador que
-               encuentra algo y lo deja plegado no ha encontrado nada. */
-            ficha.closest('.adm-f').hidden = visibles === 0;
-            if (t || filtro !== 'todos') ficha.open = visibles > 0;
-            else ficha.open = false;
+            ficha.hidden = visibles === 0;
             total += visibles;
           });
           vacio.hidden = total > 0;
+          /* Mismo criterio que en Platos: buscando o filtrando se levanta el recorte de
+             tres por columna, o un plato que coincide se quedaria detras del "Ver mas". */
+          var lista = pane.querySelector('.adm-bento');
+          if (lista) lista.classList.toggle('esta-filtrando', !!t || filtro !== 'todos');
         }
         q.addEventListener('input', aplicar);
 
@@ -6935,8 +8952,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var n = pane.querySelectorAll('input[name="oferta_plato[]"]:checked').length;
           var c = document.querySelector('.adm-acciones-fuera[data-para="ofertas"] .adm-acciones-estado');
           if (c) c.textContent = n === 1 ? '1 plato suelto en oferta' : n + ' platos sueltos en oferta';
-          /* La insignia de cada acordeon: un acordeon cerrado no puede esconder que dentro
-             hay algo en oferta sin decirlo. */
+          /* La insignia de cada ficha: con quince platos visibles y el resto con scroll
+             dentro, la cifra dice lo que hay marcado sin tener que desplazarse a mirar. */
           fichas.forEach(function (ficha) {
             var dentro = [].slice.call(ficha.querySelectorAll('.adm-orow'))
               .filter(function (f) { return f.classList.contains('es-oferta') || f.classList.contains('por-categoria'); }).length;
@@ -6946,232 +8963,368 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           });
         }
 
-        /* "Semanal": enciende los siete o los apaga los siete. */
+        /* "Semanal" selecciona los siete días; nunca los desmarca (ver el listener, más
+           abajo, y su comentario propio). */
         var semanal = document.getElementById('of-semanal');
         function pintarSemanal() {
           var dias = [].slice.call(pane.querySelectorAll('input[name="dia[]"]'));
           var todos = dias.length > 0 && dias.every(function (d) { return d.checked; });
           if (semanal) semanal.setAttribute('aria-pressed', String(todos));
         }
+
+        /* Autoguardado de categorías y platos sueltos: NUNCA el ofertas-form completo — ese
+           manda también pct/horas/días/on, y marcar un plato no puede publicar de rebote un
+           porcentaje a medio escribir. oferta_cat_toggle/oferta_plato_toggle (servidor) tocan
+           un solo campo cada uno.
+
+           Cola en vez de fetch suelto: si el usuario marca varias filas muy rápido, dos
+           guardados en paralelo harían cada uno su propio read-modify-write sobre
+           estado.offer y el segundo en terminar pisaría al primero. Aquí cada autoguardado
+           espera a que el anterior termine (éxito o fallo) antes de mandarse — nunca dos a
+           la vez. */
+        var colaOferta = Promise.resolve();
+        function encolarOferta(tarea) {
+          var resultado = colaOferta.then(tarea, tarea);
+          colaOferta = resultado.then(function () {}, function () {});
+          return resultado;
+        }
+        function csrfOferta() {
+          var form = document.getElementById('ofertas-form');
+          var campo = form ? form.querySelector('input[name="csrf"]') : null;
+          return campo ? campo.value : '';
+        }
+        /* El error de verdad ya viaja en cada respuesta, aunque nadie lo leyera hasta
+           ahora: es la misma página recién repintada, y esta trae siempre el toast(...)
+           de la linea 6540 con el $error exacto del servidor. Sacarlo de ahi es leer lo
+           que ya esta, no adivinar ni repetir la validacion: si un dia cambia el texto
+           de un mensaje, este sigue funcionando sin tocarlo. */
+        function mensajeErrorDeRespuesta(html) {
+          if (typeof html !== 'string') return null;
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var script = doc.getElementById('toasts');
+          script = script ? script.nextElementSibling : null;
+          if (!script || script.tagName !== 'SCRIPT') return null;
+          var m = /toast\(\s*("(?:[^"\\]|\\.)*")\s*,\s*'bad'\s*\)/.exec(script.textContent);
+          return m ? JSON.parse(m[1]) : null;
+        }
+
+        function autoguardarOferta(campos) {
+          return encolarOferta(function () {
+            /* URLSearchParams(objeto) no sabe de arrays — un valor array se aplanaria a
+               "1,3,5" en vez de mandar dia[]=1&dia[]=3&dia[]=5. Se construye a mano para
+               que un campo como 'dia[]' con un array llegue igual que si lo mandara un
+               <form> real con varias casillas del mismo name. */
+            var datos = new URLSearchParams();
+            Object.keys(campos).forEach(function (k) {
+              var v = campos[k];
+              if (Array.isArray(v)) { v.forEach(function (item) { datos.append(k, item); }); }
+              else { datos.append(k, v); }
+            });
+            datos.set('csrf', csrfOferta());
+            return fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+              .then(function (r) {
+                return r.text().then(function (texto) {
+                  if (!r.ok) {
+                    if (window.toast) {
+                      toast(mensajeErrorDeRespuesta(texto) || 'No se ha podido guardar. Comprueba la conexión.', 'bad');
+                    }
+                    throw new Error('http');
+                  }
+                  return texto;
+                });
+              });
+          });
+        }
+
+        /* Cierre funcional MISE-B, punto 6 (y remate Fase 0.1): tras guardar bien un cambio
+           que puede mover si la oferta está "corriendo" ahora mismo (encender/apagar,
+           horario, días), ni la insignia ESTADO (APAGADA/CORRIENDO/PROGRAMADA) ni la frase
+           de debajo (.adm-regla-pie: "En la carta no hay ningún descuento." / "Corriendo
+           ahora mismo..." / "Fuera de su horario...", con la hora de Canarias) pueden
+           quedarse diciendo lo de antes — las dos cuentan la MISMA cosa, así que las dos se
+           repintan juntas o ninguna, nunca una sí y la otra no. La respuesta del propio
+           guardado YA es la página entera recién repintada con el estado nuevo — se le
+           sacan esos dos trozos y se copian a los que se ven, en vez de recalcular en JS si
+           "ahora" cae dentro del horario y los días (esa cuenta ya la hace el servidor,
+           aquí no se repite). Sin insignias nuevas, sin tarjetas nuevas, sin tocar el resto
+           de la ficha. */
+        function repintarEstadoOferta(html) {
+          if (typeof html !== 'string') return;
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+
+          var badgeActual = pane.querySelector('.adm-f-ooferta .adm-estado');
+          var badgeNuevo = doc.querySelector('.adm-f-ooferta .adm-estado');
+          if (badgeActual && badgeNuevo) {
+            badgeActual.className = badgeNuevo.className;
+            badgeActual.textContent = badgeNuevo.textContent;
+          }
+
+          var pieActual = pane.querySelector('.adm-f-ooferta .adm-regla-pie');
+          var pieNuevo = doc.querySelector('.adm-f-ooferta .adm-regla-pie');
+          if (pieActual && pieNuevo) {
+            pieActual.textContent = pieNuevo.textContent;
+          }
+        }
+
+        /* Auditoría de uso real: Platos e Ofertas viven en el mismo documento pero cada
+           uno pinta SU PROPIA copia de la fila del plato (misma clase .adm-orow, dos
+           elementos distintos) — tocar una oferta aquí no movía ni el contador "Con
+           oferta" ni la etiqueta de Platos hasta volver a cargar. Mismo patrón que
+           repintarEstadoOferta: la respuesta del guardado YA trae Platos recien pintado
+           con el estado nuevo (misma pagina, mismo PHP, mismo $enOferta) — se copia lo
+           que cambia fila a fila, por la clave real del plato (data-k de .camara, no
+           data-busca: un plato puede repetirse en varias categorias/pestañas y las dos
+           filas tienen que quedar iguales). No se reemplaza el pane ni la fila entera:
+           sólo la clase es-oferta y la etiqueta/guion, así que el buscador, los filtros,
+           el scroll y un precio a medio escribir en esa misma fila no se tocan. Semántica
+           congelada: sigue siendo exactamente $enOferta = on && (categoria o plato), la
+           misma que ya calcula PHP — aquí no se recalcula nada, sólo se copia. */
+        function repintarPlatosDesdeOferta(html) {
+          if (typeof html !== 'string') return;
+          var platosPane = document.querySelector('.pane[data-pane="platos"]');
+          if (!platosPane) return;
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var platosFresco = doc.querySelector('.pane[data-pane="platos"]');
+          if (!platosFresco) return;
+
+          var frescoPorClave = {};
+          [].slice.call(platosFresco.querySelectorAll('.adm-orow')).forEach(function (filaFresca) {
+            var camaraFresca = filaFresca.querySelector('.camara[data-k]');
+            if (camaraFresca) frescoPorClave[camaraFresca.dataset.k] = filaFresca;
+          });
+
+          [].slice.call(platosPane.querySelectorAll('.adm-orow')).forEach(function (filaViva) {
+            var camaraViva = filaViva.querySelector('.camara[data-k]');
+            var filaFresca = camaraViva ? frescoPorClave[camaraViva.dataset.k] : null;
+            if (!filaFresca) return;
+            filaViva.classList.toggle('es-oferta', filaFresca.classList.contains('es-oferta'));
+            var slotViejo = filaViva.querySelector('.adm-tag-oferta, .adm-plato-sinoferta');
+            var slotNuevo = filaFresca.querySelector('.adm-tag-oferta, .adm-plato-sinoferta');
+            if (slotViejo && slotNuevo) slotViejo.replaceWith(slotNuevo.cloneNode(true));
+          });
+
+          var nChipOferta = document.getElementById('n-chip-oferta');
+          if (nChipOferta) nChipOferta.textContent = platosPane.querySelectorAll('.adm-orow.es-oferta').length;
+        }
+
+        /* Marcar una categoría entera desactiva sus platos sueltos: ya están dentro, y dejar
+           las dos casillas vivas invita a pensar que hay que marcar las dos. Función aparte
+           porque el revertido de un fallo es literalmente volver a llamarla con el estado
+           contrario. */
+        function marcarPorCategoria(cat, activa) {
+          pane.querySelectorAll('.adm-orow').forEach(function (fila) {
+            if (fila.dataset.cat !== cat) return;
+            var cb = fila.querySelector('input[name="oferta_plato[]"]');
+            fila.classList.toggle('por-categoria', activa);
+            if (cb) cb.disabled = activa;
+          });
+        }
+
+        /* ---------------------------------------------------------- fase 2: porcentaje
+           Sólo en change (que en un <input type=number> ya es "al perder el foco con el
+           valor cambiado", nunca tecla a tecla) y en Enter explícito — escribir "30" no
+           manda "3" y luego "30", manda "30" una vez. Valor inválido: no se manda nada y
+           el campo vuelve al último que sí está guardado. */
+        var pctInput = document.getElementById('of-pct');
+        var pctPersistido = pctInput ? parseInt(pctInput.value, 10) : null;
+        function guardarPct() {
+          var n = parseInt(pctInput.value, 10);
+          var valido = Number.isFinite(n) && n >= 1 && n <= 90;
+          if (!valido) { pctInput.value = pctPersistido; return; }
+          if (n === pctPersistido) return;
+          pctInput.disabled = true;
+          autoguardarOferta({ oferta_pct_guardar: '1', pct: String(n) })
+            .then(function () { pctPersistido = n; })
+            .catch(function () { pctInput.value = pctPersistido; })
+            .then(function () { pctInput.disabled = false; }, function () { pctInput.disabled = false; });
+        }
+        if (pctInput) {
+          pctInput.addEventListener('change', guardarPct);
+          pctInput.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            guardarPct();
+          });
+        }
+
+        /* ------------------------------------------------------------- fase 2: horario
+           Desde y Hasta viajan SIEMPRE juntos en un único guardado — nunca uno sin el
+           otro, para no dejar a medias una combinación que sólo tiene sentido completa. */
+        var desdeInput = document.getElementById('of-desde');
+        var hastaInput = document.getElementById('of-hasta');
+        var desdePersistido = desdeInput ? desdeInput.value : null;
+        var hastaPersistido = hastaInput ? hastaInput.value : null;
+        function horaAMinutos(hhmm) {
+          var m = /^([0-9]{1,2}):([0-9]{2})$/.exec(hhmm || '');
+          if (!m) return null;
+          var v = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+          return (v >= 0 && v <= 1440) ? v : null;
+        }
+        function guardarHorario() {
+          var desde = desdeInput.value, hasta = hastaInput.value;
+          var dMin = horaAMinutos(desde), hMin = horaAMinutos(hasta);
+          var valido = dMin !== null && hMin !== null && hMin > dMin;
+          if (!valido) { desdeInput.value = desdePersistido; hastaInput.value = hastaPersistido; return; }
+          if (desde === desdePersistido && hasta === hastaPersistido) return;
+          desdeInput.disabled = true; hastaInput.disabled = true;
+          autoguardarOferta({ oferta_horario_guardar: '1', desde: desde, hasta: hasta })
+            .then(function (html) { desdePersistido = desde; hastaPersistido = hasta; repintarEstadoOferta(html); })
+            .catch(function () { desdeInput.value = desdePersistido; hastaInput.value = hastaPersistido; })
+            .then(function () {
+              desdeInput.disabled = false; hastaInput.disabled = false;
+            }, function () {
+              desdeInput.disabled = false; hastaInput.disabled = false;
+            });
+        }
+        if (desdeInput && hastaInput) {
+          desdeInput.addEventListener('change', guardarHorario);
+          hastaInput.addEventListener('change', guardarHorario);
+        }
+
+        /* ---------------------------------------------------------------- fase 2: días
+           Al tocar UN día se manda la colección completa resultante (así lo exige
+           oferta_dias_guardar): se recalcula desde las casillas, no desde el que cambió.
+           "Semanal" usa esta MISMA función — no un camino aparte — así que corre por la
+           misma cola y con el mismo guardado que un día suelto. */
+        var diasInputs = [].slice.call(pane.querySelectorAll('input[name="dia[]"]'));
+        var diasPersistidos = diasInputs.filter(function (d) { return d.checked; })
+          .map(function (d) { return parseInt(d.value, 10); }).sort(function (a, b) { return a - b; });
+        function diasActuales() {
+          var vistos = {};
+          var arr = [];
+          diasInputs.forEach(function (d) {
+            var v = parseInt(d.value, 10);
+            if (d.checked && !vistos[v]) { vistos[v] = true; arr.push(v); }
+          });
+          arr.sort(function (a, b) { return a - b; });
+          return arr;
+        }
+        function marcarDias(lista) {
+          diasInputs.forEach(function (d) { d.checked = lista.indexOf(parseInt(d.value, 10)) !== -1; });
+          pintarSemanal();
+        }
+        function mismosDias(a, b) {
+          return a.length === b.length && a.every(function (v, i) { return v === b[i]; });
+        }
+        function guardarDias() {
+          var actuales = diasActuales();
+          pintarSemanal();
+          if (mismosDias(actuales, diasPersistidos)) return;
+          diasInputs.forEach(function (d) { d.disabled = true; });
+          if (semanal) semanal.disabled = true;
+          autoguardarOferta({ oferta_dias_guardar: '1', 'dia[]': actuales })
+            .then(function (html) { diasPersistidos = actuales; repintarEstadoOferta(html); })
+            .catch(function () { marcarDias(diasPersistidos); })
+            .then(function () {
+              diasInputs.forEach(function (d) { d.disabled = false; });
+              if (semanal) semanal.disabled = false;
+            }, function () {
+              diasInputs.forEach(function (d) { d.disabled = false; });
+              if (semanal) semanal.disabled = false;
+            });
+        }
         if (semanal) {
+          /* Cierre funcional MISE-B, punto 1: "Semanal" sólo SELECCIONA los siete días —
+             nunca los quita. Antes era un interruptor de verdad (los siete marcados +
+             clic = los siete a cero), y el servidor no admite una oferta sin ningún día
+             (cae de vuelta a los siete si le llega el array vacío) — el navegador se
+             quedaba enseñando cero mientras el disco decía siete, hasta el siguiente
+             recargado. Con los siete ya marcados, un clic no cambia nada y no hay
+             petición que mandar. */
           semanal.addEventListener('click', function () {
-            var dias = [].slice.call(pane.querySelectorAll('input[name="dia[]"]'));
-            var todos = dias.every(function (d) { return d.checked; });
-            dias.forEach(function (d) { d.checked = !todos; });
-            pintarSemanal();
+            var todos = diasInputs.every(function (d) { return d.checked; });
+            if (todos) return;
+            diasInputs.forEach(function (d) { d.checked = true; });
+            guardarDias();
+          });
+        }
+
+        /* --------------------------------------------------------------- fase 2: estado
+           Encendida/Apagada. Apagar siempre se deja (no borra nada). Encender lo valida
+           el SERVIDOR contra lo que ya está en disco (categoría/plato, día, porcentaje,
+           horario) — el cliente no repite esa cuenta, sólo revierte si el servidor dice
+           que no. El rótulo Encendida/Apagada lo actualiza ya un listener genérico de
+           todas las .adm-sw (más abajo en este archivo); en el revertido se toca a mano
+           porque cambiar checked por JS no dispara ese listener. */
+        var estadoInput = document.querySelector('input[name="oferta_on"]');
+        if (estadoInput) {
+          estadoInput.addEventListener('change', function () {
+            var marcar = estadoInput.checked;
+            var caja = estadoInput.closest('.adm-sw');
+            var texto = caja ? caja.querySelector('.adm-sw-txt') : null;
+            estadoInput.disabled = true;
+            autoguardarOferta({ oferta_estado_toggle: '1', oferta_estado_on: marcar ? '1' : '0' })
+              .then(function (html) { repintarEstadoOferta(html); repintarPlatosDesdeOferta(html); })
+              .catch(function () {
+                estadoInput.checked = !marcar;
+                if (texto && texto.dataset.on) {
+                  texto.textContent = estadoInput.checked ? texto.dataset.on : texto.dataset.off;
+                }
+              })
+              .then(function () { estadoInput.disabled = false; }, function () { estadoInput.disabled = false; });
           });
         }
 
         pane.addEventListener('change', function (e) {
           if (e.target.name === 'oferta_plato[]') {
-            e.target.closest('.adm-orow').classList.toggle('es-oferta', e.target.checked);
+            var cb = e.target;
+            var fila = cb.closest('.adm-orow');
+            var marcar = cb.checked;
+            /* Estado visual inmediato — antes de saber si el guardado sale bien. */
+            fila.classList.toggle('es-oferta', marcar);
+            contar();
+            cb.disabled = true; // evita una segunda pulsación mientras esta viaja
+            autoguardarOferta({ oferta_plato_toggle: cb.value, oferta_plato_on: marcar ? '1' : '0' })
+              .catch(function () {
+                // Fallo: se restaura la casilla y todo lo que se pintó a partir de ella.
+                cb.checked = !marcar;
+                fila.classList.toggle('es-oferta', !marcar);
+                contar();
+              })
+              .then(function (html) {
+                /* No un simple "false": si una categoría se marcó MIENTRAS este guardado
+                   viajaba, la fila ya lleva .por-categoria y el control tiene que seguir
+                   bloqueado — reactivarlo a ciegas desharía ese bloqueo. */
+                cb.disabled = fila.classList.contains('por-categoria');
+                /* Sólo al marcar, y sólo tras confirmar el guardado — no en el optimista de
+                   arriba, que podría acabar revertido. Quitar de la oferta no lo pide nadie
+                   y ya se ve solo (el interruptor vuelve a su sitio). */
+                if (marcar && window.toast) toast('Puesto en oferta.', 'ok');
+                repintarPlatosDesdeOferta(html);
+              }, function () {
+                cb.disabled = fila.classList.contains('por-categoria');
+              });
+            return;
           }
-          /* Marcar una categoría entera desactiva sus platos sueltos: ya están dentro, y dejar
-             las dos casillas vivas invita a pensar que hay que marcar las dos. */
-          if (e.target.name === 'dia[]') pintarSemanal();
+          if (e.target.name === 'dia[]') {
+            /* Cierre funcional MISE-B, punto 1: una oferta necesita al menos un día. Si
+               quitar ÉSTE la dejaría en cero, se repone en el momento — ni una petición
+               con dia[] vacío llega a salir. */
+            if (diasActuales().length === 0) { e.target.checked = true; return; }
+            guardarDias();
+            return;
+          }
           if (e.target.name === 'cat[]') {
-            var cat = e.target.value;
-            pane.querySelectorAll('.adm-orow').forEach(function (fila) {
-              if (fila.dataset.cat !== cat) return;
-              var cb = fila.querySelector('input[name="oferta_plato[]"]');
-              fila.classList.toggle('por-categoria', e.target.checked);
-              if (cb && !fila.classList.contains('sin-precio')) cb.disabled = e.target.checked;
-            });
+            var cbCat = e.target;
+            var cat = cbCat.value;
+            var marcarCat = cbCat.checked;
+            marcarPorCategoria(cat, marcarCat);
+            contar();
+            cbCat.disabled = true;
+            autoguardarOferta({ oferta_cat_toggle: cat, oferta_cat_on: marcarCat ? '1' : '0' })
+              .catch(function () {
+                cbCat.checked = !marcarCat;
+                marcarPorCategoria(cat, !marcarCat);
+                contar();
+              })
+              .then(function () { cbCat.disabled = false; }, function () { cbCat.disabled = false; });
+            return;
           }
           contar();
         });
       })();
     </script>
 
-  </section>
-
-  <?php /* ================================================================ precios, en bento ==
-   * Dos pantallas en un mismo pane, según haya propuesta o no:
-   *
-   *   ELEGIR   — de dónde sale el cambio: un porcentaje para todos, o la lista a mano.
-   *   REVISAR  — los 312 platos con su precio editable, agrupados por pestaña de la carta.
-   *
-   * Al entrar en REVISAR, la botonera de pestañas se esconde (lo hace `.tabs-wrap` allí
-   * arriba): es un modo de tarea y no se sale de él por accidente, se sale por Cancelar.
-   *
-   * La lista editable ya existía; lo que no había era forma de abrirla sin subir antes un
-   * porcentaje. Ése es el botón de «a mano»: la misma pantalla, con los precios de ahora.
-   */ ?>
-  <section class="pane" data-pane="precios" role="tabpanel" id="panel-precios" aria-labelledby="tab-precios"<?= $pestana === 'precios' ? '' : ' hidden' ?>>
-    <div class="adm-board">
-
-    <?php if ($previsua): ?>
-      <?php /* ------------------------------------------------------------------ revisar */ ?>
-      <?php
-        $pctTxt = $previsua['pct'] === null
-          ? null
-          : rtrim(rtrim(number_format($previsua['pct'], 2, ',', ''), '0'), ',');
-        /* Las filas ya vienen agrupadas por pestaña de la carta; aquí sólo se parten en
-           fichas, una por pestaña, para que cada bloque tenga su cabecera y su contador. */
-        $porTab = [];
-        foreach ($previsua['filas'] as $f) $porTab[$f['tab']][] = $f;
-      ?>
-      <form method="post" id="precios-form" class="adm-form-suelto">
-        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-      </form>
-
-      <div class="adm-bento">
-
-        <section class="adm-f adm-f-prev">
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><?php if ($pctTxt === null): ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/></svg><?php else: ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15.5l5-5 3.5 3.5L19 8"/><path d="M15 8h4v4"/></svg><?php endif; ?></span>
-            <h2><?= $pctTxt === null ? 'Precios a mano' : 'Subida del ' . h($pctTxt) . '%' ?></h2>
-            <span class="der adm-a-prev">
-              <span class="adm-f-nota"><?= count($previsua['filas']) ?> platos</span>
-            </span>
-          </div>
-          <p class="hint" data-adm-ayuda="Todavía no se ha publicado nada" data-adm-ancla=".adm-a-prev">
-            <?php if ($pctTxt === null): ?>
-              Ésta es la lista con los precios que hay puestos ahora mismo. Cambia los que
-              quieras y publica; lo que no toques se queda igual.
-            <?php else: ?>
-              Esto es lo que quedaría con una subida del <?= h($pctTxt) ?>%, ya redondeado a
-              múltiplos de 5 céntimos. Cambia los que no te cuadren y publica.
-            <?php endif; ?>
-            Un precio en blanco devuelve ese plato al precio de la carta. El mismo plato que
-            sale en Sin gluten o en Vegano se cambia una vez y las dos filas se mueven solas.
-          </p>
-          <label class="adm-buscar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L20 20"/></svg>
-            <input class="adm-campo" type="search" id="precios-filtro" autocomplete="off"
-                   placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
-          </label>
-          <p class="adm-f-nota adm-filtro-cuenta" id="precios-cuenta" role="status" aria-live="polite" hidden></p>
-        </section>
-
-        <?php foreach ($porTab as $tab => $filas): ?>
-          <section class="adm-f adm-f-ptab" data-tab-precios>
-            <div class="adm-f-cab">
-              <h2><?= h($tab) ?></h2>
-              <span class="der"><span class="adm-f-nota"><?= count($filas) ?></span></span>
-            </div>
-            <div class="adm-precios">
-              <?php foreach ($filas as $f): ?>
-                <div class="adm-prow" data-busca="<?= h(minuscula($f['name']) . ' ' . $f['id']) ?>">
-                  <span class="adm-prow-n"><?= h($f['id']) ?></span>
-                  <span class="adm-prow-nm"><?= h($f['name']) ?></span>
-                  <span class="adm-prow-viejo"><?= h(CLIENTE_MONEDA) ?><?= h($f['actual']) ?></span>
-                  <input class="adm-campo adm-prow-nuevo" type="text" inputmode="decimal"
-                         form="precios-form"
-                         name="precio[<?= h($f['key']) ?>]" value="<?= h($f['nuevo']) ?>"
-                         <?= isset($hermanas[$f['key']]) ? 'data-plato="' . h($f['name'] . ' ' . $f['carta']) . '"' : '' ?>
-                         aria-label="Precio nuevo de <?= h($f['name']) ?>">
-                </div>
-              <?php endforeach; ?>
-            </div>
-          </section>
-        <?php endforeach; ?>
-
-      </div>
-
-    <?php else: ?>
-      <?php /* ------------------------------------------------------------------- elegir */ ?>
-      <div class="adm-bento">
-
-        <?php /* Todas las formas de cambiar un precio son la misma pregunta —«¿cuánto?»— y
-                 aquí se contestan en una sola banda de opciones del mismo tamaño: cuatro
-                 porcentajes, uno que se escribe, y «a mano», que es el cero.
-                 Nada de dos columnas con un filete en medio: eso las contaba como dos
-                 apartados, y no lo son. «A mano» se separa por lo que ES, no por una raya:
-                 va sin relleno y al final de la fila, porque es la única que no sube nada.
-                 Los tres formularios van en display:contents para que sus botones sean
-                 hijos directos de la banda y midan todos igual. */ ?>
-        <section class="adm-f adm-f-pcambiar">
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 12.6V5.4a1.6 1.6 0 0 1 1.6-1.6h7.2l7.4 7.4a1.6 1.6 0 0 1 0 2.3l-5.7 5.7a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8.2" cy="8.2" r="1.3"/></svg></span>
-            <h2>Cambiar precios</h2>
-            <span class="der adm-a-cambiar"></span>
-          </div>
-          <p class="hint" data-adm-ayuda="Cómo se cambian los precios" data-adm-ancla=".adm-a-cambiar">
-            Elijas lo que elijas, va en dos pasos: primero ves la lista con los precios nuevos
-            plato a plato, y sólo se publica cuando lo dices tú. Los porcentajes se redondean a
-            múltiplos de 5 céntimos, que es como se cobra: por eso una subida pequeña puede
-            dejar un plato barato en el mismo precio. Antes de escribir se guarda una copia de
-            los precios de ahora, y está en Marca por si hay que volver.
-          </p>
-          <p class="adm-f-txt adm-pcambiar-guia">
-            <strong>Todas abren la misma lista para revisar.</strong> En la carta no cambia nada
-            hasta que pulses «Publicar precios».
-          </p>
-
-          <div class="adm-banda">
-            <form method="post" style="display:contents">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-              <input type="hidden" name="precios_calcular" value="1">
-              <?php foreach ([3, 5, 10, 15] as $n): ?>
-                <button class="adm-pct" name="subir" value="<?= $n ?>" type="submit">+<?= $n ?>%</button>
-              <?php endforeach; ?>
-            </form>
-
-            <?php /* El porcentaje libre es UNA opción más, no un formulario aparte: misma
-                     altura, mismo borde y mismo radio que los cuatro de al lado. */ ?>
-            <form method="post" class="adm-pct-otro">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-              <span class="adm-pct-mas" aria-hidden="true">+</span>
-              <input class="adm-pct-num" type="text" inputmode="decimal" name="subir" size="4"
-                     placeholder="7,5" required aria-label="Otro porcentaje de subida">
-              <span class="adm-pct-pc" aria-hidden="true">%</span>
-              <button class="adm-pct-ir" name="precios_calcular" value="1" type="submit"
-                      aria-label="Ver cómo quedaría con ese porcentaje"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="M13 7l5 5-5 5"/></svg></button>
-            </form>
-
-            <form method="post" style="display:contents">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-              <button class="adm-pct adm-pct-mano" name="precios_manual" value="1" type="submit">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/></svg>
-                A mano, uno a uno
-              </button>
-            </form>
-          </div>
-        </section>
-
-        <section class="adm-f adm-f-pfuera">
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 12.6V5.4a1.6 1.6 0 0 1 1.6-1.6h7.2l7.4 7.4a1.6 1.6 0 0 1 0 2.3l-5.7 5.7a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8.2" cy="8.2" r="1.3"/></svg></span>
-            <h2>Precios distintos de la carta</h2>
-            <span class="der adm-a-fuera">
-              <span class="adm-f-nota"><?= count($precios) ?></span>
-            </span>
-          </div>
-          <p class="hint" data-adm-ayuda="Precios distintos de la carta" data-adm-ancla=".adm-a-fuera">
-            La carta trae sus precios de fábrica; aquí salen los que el restaurante ha cambiado
-            desde el panel. Volver a los de la carta borra todos los cambios de precio a la vez
-            y no se puede deshacer desde aquí — para eso están las copias de Marca.
-          </p>
-
-          <?php if (!$precios): ?>
-            <p class="adm-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 12.6V5.4a1.6 1.6 0 0 1 1.6-1.6h7.2l7.4 7.4a1.6 1.6 0 0 1 0 2.3l-5.7 5.7a1.6 1.6 0 0 1-2.3 0z"/><circle cx="8.2" cy="8.2" r="1.3"/></svg>
-              Ahora mismo la carta muestra sus precios originales.
-            </p>
-          <?php else: ?>
-            <div class="adm-precios">
-              <?php foreach ($precios as $k => $v): $p = $porKey[$k] ?? null; if (!$p) continue; ?>
-                <div class="adm-prow">
-                  <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                  <span class="adm-prow-nm"><?= h($p['name']) ?></span>
-                  <span class="adm-prow-viejo"><?= h(CLIENTE_MONEDA) ?><?= h($p['price']) ?></span>
-                  <span class="adm-prow-fijo"><?= h(CLIENTE_MONEDA) ?><?= h((string) $v) ?></span>
-                </div>
-              <?php endforeach; ?>
-            </div>
-            <form method="post" class="adm-fila adm-fila-peligro"
-                  onsubmit="return confirm('¿Devolver TODOS los precios a los de la carta? Se pierden los <?= count($precios) ?> cambios y no se puede deshacer desde aquí.')">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-              <span class="adm-fila-que">Volver a los precios de la carta. No se puede deshacer.</span>
-              <button class="adm-btn adm-btn-fino adm-btn-quitar" name="precios_reset" value="1" type="submit">Volver a los de la carta</button>
-            </form>
-          <?php endif; ?>
-        </section>
-
-      </div>
-    <?php endif; ?>
-    </div>
   </section>
 
   <?php if (CLIENTE_JUEGO): ?>
@@ -7195,7 +9348,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-juego">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5.5H5.5A2.5 2.5 0 0 0 8 10.5"/><path d="M16 5.5h2.5A2.5 2.5 0 0 1 16 10.5"/><path d="M12 13v3"/><path d="M8.5 20h7"/><path d="M10 20v-1.5a2 2 0 0 1 4 0V20"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5.5H5.5A2.5 2.5 0 0 0 8 10.5"/><path d="M16 5.5h2.5A2.5 2.5 0 0 1 16 10.5"/><path d="M12 13v3"/><path d="M8.5 20h7"/><path d="M10 20v-1.5a2 2 0 0 1 4 0V20"/></svg></span>
             <h2>Los tres mejores</h2>
             <span class="der adm-a-podio">
               <span class="adm-f-nota"><?= count($record) ?> de 3</span>
@@ -7233,7 +9386,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
           <?php if (!$record): ?>
             <p class="adm-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M12 13v3"/><path d="M8.5 20h7"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
               Todavía no ha jugado nadie. El primero que puntúe abre el marcador.
             </p>
           <?php else: ?>
@@ -7344,7 +9497,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-estado">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l6 4V5L8 9z"/><path d="M18 9.5a4 4 0 0 1 0 5"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg></span>
             <h2>Estado</h2>
             <span class="der">
               <span class="adm-estado adm-e-<?= h(minuscula($pubEstado)) ?>"><?= h($pubEstado) ?></span>
@@ -7361,7 +9514,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-crea">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span>
             <h2>Vista previa en vivo</h2>
             <span class="der"><span class="adm-f-nota">Solo movil</span></span>
           </div>
@@ -7371,7 +9524,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                  alt="La creatividad actual del banner">
           <?php else: ?>
             <div class="adm-previo-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="M4 17l5-4.5l4 3.5l3-2.5l4 3.5"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
               Sin imagen todavia
             </div>
           <?php endif; ?>
@@ -7383,7 +9536,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                        fichero pulsa el envio. Sin JavaScript se queda escondida y se ven el
                        campo y el boton de siempre. */ ?>
               <label class="adm-btn adm-btn-archivo" for="pub_img" hidden>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="M4 17l5-4.5l4 3.5l3-2.5l4 3.5"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                 <?= $tieneImg ? 'Reemplazar imagen' : 'Subir imagen' ?>
               </label>
               <input type="file" id="pub_img" name="pub_img" accept="image/jpeg,image/png,image/webp">
@@ -7397,7 +9550,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     onsubmit="return confirm('¿Quitar la imagen del banner? Se borra del servidor y no se puede deshacer.')">
                 <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                 <button class="adm-btn adm-btn-quitar" name="eliminar_banner" value="1" type="submit">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                   Quitar imagen
                 </button>
               </form>
@@ -7420,7 +9573,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-dur">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></span>
             <h2>Duracion de la campana</h2>
             <span class="der"></span>
           </div>
@@ -7434,7 +9587,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-horas">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
             <h2>Horario diario</h2>
             <span class="der"><span class="adm-f-nota">Hora del restaurante</span></span>
           </div>
@@ -7443,7 +9596,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-enlace">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
             <h2>Enlace al tocar el banner</h2>
             <span class="der"><span class="adm-f-nota">Opcional</span></span>
           </div>
@@ -7539,7 +9692,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php /* --------------------------------------------------------- los 30 días */ ?>
         <section class="adm-f adm-f-dt30" id="dt-tile">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V10"/><path d="M9.3 19.5V5"/><path d="M14.7 19.5v-6.5"/><path d="M20 19.5V8"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>
             <h2>Últimos 30 días</h2>
             <span class="der adm-a-dt30">
               <span class="dt-vivo" aria-hidden="true"></span>
@@ -7586,7 +9739,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php /* ------------------------------------------------------ las tres cifras */ ?>
         <section class="adm-f adm-f-dthoy">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M5.6 5.6l1.4 1.4"/><path d="M17 17l1.4 1.4"/><path d="M18.4 5.6L17 7"/><path d="M7 17l-1.4 1.4"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
             <h2>Hoy</h2>
             <span class="der"><?= dt_chip(datos_pct($dt["hoy"], $dt["hoyAntes"]), $dt["habiaHoy"]) ?></span>
           </div>
@@ -7596,7 +9749,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-dtsem">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M8 3.5v3"/><path d="M16 3.5v3"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></span>
             <h2>Esta semana</h2>
             <span class="der"><?= dt_chip(datos_pct($dt["semana"], $dt["semanaAntes"]), $dt["habiaSemana"]) ?></span>
           </div>
@@ -7606,7 +9759,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         <section class="adm-f adm-f-dtmes">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M7.5 13h3v3h-3z"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span>
             <h2><?= h($dt["mesNombre"]) ?></h2>
             <span class="der"><?= dt_chip(datos_pct($dt["mes"], $dt["mesAntes"]), $dt["habiaMes"]) ?></span>
           </div>
@@ -7627,7 +9780,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php /* -------------------------------------------------------- los platos */ ?>
         <section class="adm-f adm-f-dtplatos">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10"/><path d="M4 12h13"/><path d="M4 17h7"/><circle cx="19" cy="7" r="1.4"/></svg></span>
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg></span>
             <h2>Platos más consultados</h2>
             <span class="der adm-a-platos">
               <?php if ($vhayAlgo): ?>
@@ -7649,7 +9802,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
           <?php if (!$vhayAlgo): ?>
             <p class="adm-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10"/><path d="M4 12h13"/><path d="M4 17h7"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg>
               Todavía nadie ha abierto la ficha de un plato. Los platos sin foto no abren ficha,
               así que no aparecen aquí.
             </p>
@@ -7714,84 +9867,32 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <div class="adm-board">
       <div class="adm-bento">
 
-        <?php /* ------------------------------------------------------------- las portadas
-         * Es la ficha grande, el mismo papel que la vista previa en Publicidad: lo que se
-         * mira. Las flechas y la papelera van en el pie de cada miniatura y no encima de la
-         * foto: sobre una imagen cualquier icono se pierde a la primera portada oscura.
-         */ ?>
-        <section class="adm-f adm-f-fotos">
+        <?php /* ---------------------------------------------------------------- el nombre */ ?>
+        <section class="adm-f adm-f-nombre">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M4 17l4.5-4.5a2 2 0 0 1 2.8 0L16 17"/></svg></span>
-            <h2>Fotos de portada</h2>
-            <span class="der adm-a-fotos">
-              <span class="adm-f-nota"><?= count($fotos) ?> de <?= (int) HERO_MAX ?></span>
-            </span>
+            <span class="adm-f-ico"><?php /* Lucide «type» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16"/><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/></svg></span>
+            <h2>Nombre en la carta</h2>
+            <span class="der adm-a-nombre"></span>
           </div>
-          <p class="hint" data-adm-ayuda="Las fotos de portada" data-adm-ancla=".adm-a-fotos">
-            La carta abre con ellas y se pasan con el dedo. Máximo 1 MB por foto: por encima de
-            eso no se ve mejor y sí tarda más en abrir con datos móviles. JPG, PNG o WebP, mínimo
-            800 px de ancho. Salen recortadas a lo ancho, así que lo importante conviene tenerlo
-            en el centro. Puedes elegir varias de una vez, y si el servidor rechaza el envío por
-            tamaño, súbelas de dos en dos.
+          <p class="hint" data-adm-ayuda="El nombre en la carta" data-adm-ancla=".adm-a-nombre">
+            Lo que ve el comensal al abrir la carta: el nombre grande y el texto pequeño de
+            encima. Deja los dos en blanco para usar los de fábrica. El texto pequeño se enseña
+            igual en los tres idiomas: escribir aquí no lo traduce, así que si lo cambias,
+            cámbialo pensando que lo van a leer en cualquiera de ellos.
           </p>
-
-          <?php if (!$fotos): ?>
-            <p class="adm-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 17l4.5-4.5a2 2 0 0 1 2.8 0L16 17"/></svg>
-              Todavía no hay fotos. La carta abre directamente con el nombre del restaurante.
-            </p>
-          <?php else: ?>
-            <div class="adm-fotos">
-              <?php foreach ($fotos as $i => $f): ?>
-                <div class="adm-foto" data-foto="<?= h($f) ?>">
-                  <img src="../assets/hero/<?= h($f) ?>" alt="">
-                  <div class="adm-foto-pie">
-                    <span class="pos adm-foto-pos"><?= $i + 1 ?></span>
-                    <form method="post" style="display:contents">
-                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                      <input type="hidden" name="dir" value="arriba">
-                      <button class="adm-foto-b" name="mover_foto" value="<?= h($f) ?>" type="submit"
-                              data-mover="arriba"
-                              aria-label="Subir la foto <?= $i + 1 ?>"<?= $i === 0 ? ' disabled' : '' ?>><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6 -6l6 6"/></svg></button>
-                    </form>
-                    <form method="post" style="display:contents">
-                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                      <input type="hidden" name="dir" value="abajo">
-                      <button class="adm-foto-b" name="mover_foto" value="<?= h($f) ?>" type="submit"
-                              data-mover="abajo"
-                              aria-label="Bajar la foto <?= $i + 1 ?>"<?= $i === count($fotos) - 1 ? ' disabled' : '' ?>><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg></button>
-                    </form>
-                    <form method="post" style="display:contents"
-                          onsubmit="return confirm('¿Quitar esta foto de la carta? Se borra del servidor y no se puede deshacer.')">
-                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                      <button class="adm-foto-b adm-foto-b-quitar" name="quitar_foto" value="<?= h($f) ?>" type="submit"
-                              aria-label="Quitar la foto <?= $i + 1 ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></svg></button>
-                    </form>
-                  </div>
-                </div>
-              <?php endforeach; ?>
-            </div>
-            <p class="adm-foto-aviso" role="status" aria-live="polite"></p>
-          <?php endif; ?>
-
-          <?php if (count($fotos) < HERO_MAX): ?>
-            <form method="post" enctype="multipart/form-data" class="adm-subida">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-              <?php /* Aviso al navegador, no defensa: el limite de verdad se comprueba en PHP. */ ?>
-              <input type="hidden" name="MAX_FILE_SIZE" value="<?= (int) HERO_MAX_BYTES ?>">
-              <input type="file" name="foto[]" accept="image/jpeg,image/png,image/webp" multiple required
-                     aria-label="Elegir fotos">
-              <button class="adm-btn adm-btn-fino" name="subir_foto" value="1" type="submit">Subir</button>
-            </form>
-          <?php else: ?>
-            <p class="adm-f-txt adm-al-pie">Ya están las <?= (int) HERO_MAX ?>. Quita una para poder subir otra.</p>
-          <?php endif; ?>
+          <label class="adm-lbl" for="marca-nombre">Nombre del restaurante <span class="opt">(máximo 20)</span></label>
+          <input class="adm-campo" id="marca-nombre" name="marca_nombre" form="marca-form" maxlength="20"
+                 value="<?= h($marca['nombreVisible']) ?>" placeholder="<?= h(CLIENTE_NOMBRE) ?>">
+          <label class="adm-lbl" for="marca-rotulo">Texto pequeño, encima del nombre <span class="opt">(máximo 25)</span></label>
+          <input class="adm-campo" id="marca-rotulo" name="marca_rotulo" form="marca-form" maxlength="25"
+                 value="<?= h($marca['rotuloVisible']) ?>"
+                 placeholder="<?= h(defined('CLIENTE_ROTULO') ? CLIENTE_ROTULO : '') ?>">
         </section>
 
         <?php /* ----------------------------------------------------------------- el color */ ?>
         <section class="adm-f adm-f-color">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H13a1.5 1.5 0 0 1 0-3h2.5A5.5 5.5 0 0 0 21 8.5C21 5.4 16.9 3 12 3z"/><circle cx="7.5" cy="11" r="1.15"/><circle cx="10.5" cy="7.5" r="1.15"/><circle cx="15" cy="8.5" r="1.15"/></svg></span>
+            <span class="adm-f-ico"><?php /* Lucide «palette» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/></svg></span>
             <h2>Color de marca</h2>
             <span class="der adm-a-color"></span>
           </div>
@@ -7834,32 +9935,94 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </div>
         </section>
 
-        <?php /* ---------------------------------------------------------------- el nombre */ ?>
-        <section class="adm-f adm-f-nombre">
+        <?php /* ------------------------------------------------------------- las portadas
+         * Es la ficha grande, el mismo papel que la vista previa en Publicidad: lo que se
+         * mira. Las flechas y la papelera van en el pie de cada miniatura y no encima de la
+         * foto: sobre una imagen cualquier icono se pierde a la primera portada oscura.
+         */ ?>
+        <section class="adm-f adm-f-fotos">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5V5.5h14v2"/><path d="M12 5.5v13"/><path d="M9 18.5h6"/></svg></span>
-            <h2>Nombre en la carta</h2>
-            <span class="der adm-a-nombre"></span>
+            <span class="adm-f-ico"><?php /* Lucide «images» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 22H4a2 2 0 0 1-2-2V6"/><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"/><circle cx="12" cy="8" r="2"/><rect width="16" height="16" x="6" y="2" rx="2"/></svg></span>
+            <h2>Fotos de portada</h2>
+            <span class="der adm-a-fotos">
+              <span class="adm-f-nota"><?= count($fotos) ?> de <?= (int) HERO_MAX ?></span>
+            </span>
           </div>
-          <p class="hint" data-adm-ayuda="El nombre en la carta" data-adm-ancla=".adm-a-nombre">
-            Lo que ve el comensal al abrir la carta: el nombre grande y el texto pequeño de
-            encima. Deja los dos en blanco para usar los de fábrica. El texto pequeño se enseña
-            igual en los tres idiomas: escribir aquí no lo traduce, así que si lo cambias,
-            cámbialo pensando que lo van a leer en cualquiera de ellos.
+          <p class="hint" data-adm-ayuda="Las fotos de portada" data-adm-ancla=".adm-a-fotos">
+            La carta abre con ellas y se pasan con el dedo. Máximo 1 MB por foto: por encima de
+            eso no se ve mejor y sí tarda más en abrir con datos móviles. JPG, PNG o WebP, mínimo
+            800 px de ancho. Salen recortadas a lo ancho, así que lo importante conviene tenerlo
+            en el centro. Puedes elegir varias de una vez, y si el servidor rechaza el envío por
+            tamaño, súbelas de dos en dos.
           </p>
-          <label class="adm-lbl" for="marca-nombre">Nombre del restaurante <span class="opt">(máximo 20)</span></label>
-          <input class="adm-campo" id="marca-nombre" name="marca_nombre" form="marca-form" maxlength="20"
-                 value="<?= h($marca['nombreVisible']) ?>" placeholder="<?= h(CLIENTE_NOMBRE) ?>">
-          <label class="adm-lbl" for="marca-rotulo">Texto pequeño, encima del nombre <span class="opt">(máximo 25)</span></label>
-          <input class="adm-campo" id="marca-rotulo" name="marca_rotulo" form="marca-form" maxlength="25"
-                 value="<?= h($marca['rotuloVisible']) ?>"
-                 placeholder="<?= h(defined('CLIENTE_ROTULO') ? CLIENTE_ROTULO : '') ?>">
+
+          <?php if (!$fotos): ?>
+            <p class="adm-vacio">
+              <?php /* Lucide «image» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              Todavía no hay fotos. La carta abre directamente con el nombre del restaurante.
+            </p>
+          <?php else: ?>
+            <div class="adm-fotos">
+              <?php foreach ($fotos as $i => $f): ?>
+                <div class="adm-foto" data-foto="<?= h($f) ?>">
+                  <img src="../assets/hero/<?= h($f) ?>" alt="">
+                  <div class="adm-foto-pie">
+                    <span class="pos adm-foto-pos"><?= $i + 1 ?></span>
+                    <form method="post" style="display:contents">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <input type="hidden" name="dir" value="arriba">
+                      <button class="adm-foto-b" name="mover_foto" value="<?= h($f) ?>" type="submit"
+                              data-mover="arriba"
+                              aria-label="Subir la foto <?= $i + 1 ?>"<?= $i === 0 ? ' disabled' : '' ?>><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
+                    </form>
+                    <form method="post" style="display:contents">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <input type="hidden" name="dir" value="abajo">
+                      <button class="adm-foto-b" name="mover_foto" value="<?= h($f) ?>" type="submit"
+                              data-mover="abajo"
+                              aria-label="Bajar la foto <?= $i + 1 ?>"<?= $i === count($fotos) - 1 ? ' disabled' : '' ?>><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    </form>
+                    <form method="post" style="display:contents"
+                          onsubmit="return confirm('¿Quitar esta foto de la carta? Se borra del servidor y no se puede deshacer.')">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <button class="adm-foto-b adm-foto-b-quitar" name="quitar_foto" value="<?= h($f) ?>" type="submit"
+                              aria-label="Quitar la foto <?= $i + 1 ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
+                    </form>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+            <p class="adm-foto-aviso" role="status" aria-live="polite"></p>
+          <?php endif; ?>
+
+          <?php if (count($fotos) < HERO_MAX): ?>
+            <form method="post" enctype="multipart/form-data" class="adm-subida">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+              <?php /* Aviso al navegador, no defensa: el limite de verdad se comprueba en PHP. */ ?>
+              <input type="hidden" name="MAX_FILE_SIZE" value="<?= (int) HERO_MAX_BYTES ?>">
+              <?php /* SocialCard V6: el campo nativo se estira invisible sobre una caja que sí
+                       es del sistema. Sigue siendo el mismo input —multiple, accept, required y
+                       name intactos—; lo único que cambia es que ahora mide 40 como el resto de
+                       campos y se ve igual en claro y en oscuro. El rótulo lo escribe el propio
+                       navegador dentro del botón que ya no se dibuja, así que lo ponemos aquí y
+                       lo actualiza el guion de abajo al elegir. */ ?>
+              <label class="adm-archivo">
+                <?php /* Lucide «image-plus» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/></svg>
+                <input type="file" name="foto[]" accept="image/jpeg,image/png,image/webp" multiple required
+                       aria-label="Elegir fotos">
+                <span class="adm-archivo-txt" data-vacio="Elegir fotos…">Elegir fotos…</span>
+              </label>
+              <button class="adm-btn adm-btn-fino" name="subir_foto" value="1" type="submit">Subir</button>
+            </form>
+          <?php else: ?>
+            <p class="adm-f-txt adm-al-pie">Ya están las <?= (int) HERO_MAX ?>. Quita una para poder subir otra.</p>
+          <?php endif; ?>
         </section>
 
         <?php /* -------------------------------------------------------- la nota de Google */ ?>
         <section class="adm-f adm-f-google">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.9l5.4-.8z"/></svg></span>
+            <span class="adm-f-ico"><?php /* Lucide «star» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 20.99a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.775a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg></span>
             <h2>La nota de Google</h2>
             <span class="der adm-a-google"></span>
           </div>
@@ -7898,7 +10061,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php /* ----------------------------------------------------------------- las redes */ ?>
         <section class="adm-f adm-f-redes">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1"/><path d="M8.2 13.2l7.6 4.1"/></svg></span>
+            <span class="adm-f-ico"><?php /* Lucide «share-2» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg></span>
             <h2>Redes</h2>
             <span class="der adm-a-redes"></span>
           </div>
@@ -7916,22 +10079,58 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </p>
           <input class="adm-campo" id="red-whatsapp" name="red_whatsapp" form="marca-form" inputmode="tel" maxlength="20"
                  value="<?= h($redes['whatsapp'] ?? '') ?>" placeholder="34617798557">
-          <label class="adm-lbl" for="red-instagram">Instagram</label>
-          <input class="adm-campo" id="red-instagram" name="red_instagram" type="url" inputmode="url" maxlength="300" form="marca-form"
-                 value="<?= h($redes['instagram'] ?? '') ?>" placeholder="https://www.instagram.com/turestaurante">
-          <label class="adm-lbl" for="red-facebook">Facebook</label>
-          <input class="adm-campo" id="red-facebook" name="red_facebook" type="url" inputmode="url" maxlength="300" form="marca-form"
-                 value="<?= h($redes['facebook'] ?? '') ?>" placeholder="https://www.facebook.com/turestaurante">
+          <?php /* SocialCard V6: las tres direcciones son el mismo tipo de dato y se rellenan
+                   de una sentada. En columna sumaban 383 px de ficha para tres campos; a dos
+                   columnas la ficha baja a la altura de la de Google, que es su pareja de fila,
+                   y deja de haber un escalón de 90 px entre las dos. WhatsApp se queda arriba y
+                   a lo ancho porque no es una URL y lleva su propia ayuda. */ ?>
+          <div class="adm-2col adm-2col-redes">
+            <div class="adm-2col-c">
+              <label class="adm-lbl" for="red-instagram">Instagram</label>
+              <input class="adm-campo" id="red-instagram" name="red_instagram" type="url" inputmode="url" maxlength="300" form="marca-form"
+                     value="<?= h($redes['instagram'] ?? '') ?>" placeholder="https://www.instagram.com/turestaurante">
+            </div>
+            <div class="adm-2col-c">
+              <label class="adm-lbl" for="red-facebook">Facebook</label>
+              <input class="adm-campo" id="red-facebook" name="red_facebook" type="url" inputmode="url" maxlength="300" form="marca-form"
+                     value="<?= h($redes['facebook'] ?? '') ?>" placeholder="https://www.facebook.com/turestaurante">
+            </div>
+          </div>
           <label class="adm-lbl" for="red-tripadvisor">Tripadvisor</label>
           <input class="adm-campo" id="red-tripadvisor" name="red_tripadvisor" type="url" inputmode="url" maxlength="300" form="marca-form"
                  value="<?= h($redes['tripadvisor'] ?? '') ?>" placeholder="https://www.tripadvisor.es/Restaurant_Review-...">
         </section>
 
-        <?php /* ---------------------------------------------------------------- las copias */ ?>
+        <?php /* La ficha de copias de seguridad vive ahora en Ajustes, junto al resto de
+                 mantenimiento de cuenta — ver SPEC.md, MISE-B Fase 1. */ ?>
+
+        <?php /* El formulario no dibuja: con display:contents no ocupa sitio en la rejilla.
+                 Solo lleva el csrf; los campos de las cuatro fichas que guardan juntas se
+                 enganchan a el con form="marca-form", y el boton que lo envia vive FUERA de la
+                 tarjeta. Funciona sin JavaScript. */ ?>
+        <form method="post" id="marca-form" class="adm-form-suelto">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        </form>
+
+      </div>
+    </div>
+  </section>
+
+
+  <?php /* ===================================================== MISE-B: AJUSTES (nueva) ==
+   * Agrupa lo que antes vivía suelto colgado de Marca: la ficha de copias de seguridad
+   * (ligada a los cambios de precio, no a la identidad del restaurante) y, sólo para
+   * superadministrador, el mantenimiento de cuenta. Ningún campo ni handler cambia — es
+   * la reubicación que documenta SPEC.md, MISE-B Fase 1, corrección #4: reiniciar_record
+   * se queda en Juego porque el objeto que administra es el marcador, no la cuenta. */ ?>
+  <section class="pane" data-pane="ajustes" role="tabpanel" id="panel-ajustes" aria-labelledby="navtab-ajustes"<?= $pestana === 'ajustes' ? '' : ' hidden' ?>>
+    <div class="adm-board">
+      <div class="adm-bento">
+
         <?php $copias = copias_listar(); ?>
         <section class="adm-f adm-f-copias">
           <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="7.5" width="17" height="12" rx="2.2"/><path d="M3.5 11.5h17"/><path d="M6 7.5V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1.5"/></svg></span>
+            <span class="adm-f-ico"><?php /* Lucide «archive» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></span>
             <h2>Copias de seguridad</h2>
             <span class="der adm-a-copias">
               <span class="adm-f-nota"><?= count($copias) ?> de <?= (int) COPIAS_MAX ?></span>
@@ -7953,20 +10152,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
           <?php if (!$copias): ?>
             <p class="adm-vacio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+              <?php /* Lucide «clock» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               Todavía no hay ninguna. La primera se escribe la próxima vez que cambien los precios.
             </p>
           <?php else: ?>
             <div class="adm-filas">
               <?php foreach ($copias as $c):
                 $kb = max(1, (int) round($c['bytes'] / 1024));
-                /* La fecha sale del NOMBRE y no de filemtime: el fichero se puede mover, bajar y
-                   volver a subir, y entonces su fecha de sistema deja de decir cuando se hizo el
-                   cambio de precios, que es lo unico que interesa saber de el. */
                 $sinExt = substr($c['nombre'], 0, -5);
                 if (preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})$/', $sinExt, $m)) {
-                  /* El nombre de ahora: hora, minuto, segundo y un contador por si dos
-                     cambios caen en el mismo segundo (solo se enseña cuando pasa). */
                   $dia   = new DateTimeImmutable($m[1]);
                   $cuando = minuscula(dia_semana($m[1])) . ' '
                           . $dia->format('d/m/y') . ' · ' . $m[2] . ':' . $m[3] . ':' . $m[4]
@@ -7979,7 +10173,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   $dia    = new DateTimeImmutable($sinExt);
                   $cuando = minuscula(dia_semana($sinExt)) . ' ' . $dia->format('d/m/y');
                 } else {
-                  $cuando = 'de antes';               // anterior.json, si queda alguno
+                  $cuando = 'de antes';
                 }
                 $confirmar = '¿Devolver los precios a como estaban antes del cambio del '
                            . $cuando . '?'; ?>
@@ -8011,164 +10205,236 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <?php endif; ?>
         </section>
 
-        <?php /* El formulario no dibuja: con display:contents no ocupa sitio en la rejilla.
-                 Solo lleva el csrf; los campos de las cuatro fichas que guardan juntas se
-                 enganchan a el con form="marca-form", y el boton que lo envia vive FUERA de la
-                 tarjeta. Funciona sin JavaScript. */ ?>
-        <form method="post" id="marca-form" class="adm-form-suelto">
-          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-        </form>
+      <?php if ($super): ?>
+        <?php /* SocialCard V6. Sólo lo ve una sesión de superadministrador: el restaurante ni
+                 conoce estas acciones ni puede llegar a ellas —los manejadores comprueban el
+                 rol de SESIÓN, no la presencia del formulario, así que esconder el HTML no es
+                 la defensa y quitarlo tampoco la debilita—.
+
+                 Lo que cambia en V6 es sólo cómo se ve: eran tres `<details class="card">` con
+                 estilos en el atributo, campos `.fld` de 56 px, un `button.save` negro de 48 y
+                 un `<pre>` sin caja. Ahora son tres fichas del sistema dentro del mismo bento
+                 que las copias. Ni un name, ni un value, ni un handler cambian. */ ?>
+        <div class="adm-seccion adm-f-super-tit">
+          <h2>Superadministrador</h2>
+        </div>
+
+        <?php /* --------------------------------------- la contraseña del restaurante */ ?>
+        <details class="adm-f adm-f-super adm-f-plega adm-f-clicli">
+          <summary>
+            <span class="adm-f-ico"><?php /* Lucide «key-round» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>
+            <span class="adm-f-tit">Contraseña del restaurante</span>
+            <span class="adm-f-plega-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+          </summary>
+          <div class="adm-f-plega-cuerpo">
+            <p class="adm-aviso-seg">
+              <?php /* Lucide «triangle-alert» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span>Al cambiarla se cierran todas las sesiones abiertas del restaurante. Si no
+                le comunicas la nueva, se queda fuera del panel.</span>
+            </p>
+            <p class="adm-f-txt">
+              El restaurante no puede cambiar su contraseña: sólo se cambia desde aquí. No hace
+              falta saber la antigua.
+            </p>
+            <form method="post" class="adm-form-seg">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+              <input type="hidden" name="reset_cliente" value="1">
+              <label class="adm-lbl" for="super-cliente-nueva">Contraseña nueva del restaurante <span class="opt">(mín. 8)</span></label>
+              <input class="adm-campo" type="password" id="super-cliente-nueva" name="cliente_nueva" autocomplete="off" required>
+              <button class="adm-btn" type="submit">Restablecer</button>
+            </form>
+          </div>
+        </details>
+
+        <?php /* ------------------------------------------------ mi propia contraseña */ ?>
+        <details class="adm-f adm-f-super adm-f-plega adm-f-clisuper">
+          <summary>
+            <span class="adm-f-ico"><?php /* Lucide «lock» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <span class="adm-f-tit">Mi contraseña</span>
+            <span class="adm-f-plega-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+          </summary>
+          <div class="adm-f-plega-cuerpo">
+            <?php if ($super_en_entorno): ?>
+              <p class="adm-f-txt">
+                Tu hash vive en la variable de entorno <code>SUPERADMIN_PASSWORD_HASH</code>.
+                Genera uno nuevo con <code>hash.php</code> y cámbialo donde esté definida la
+                variable; desde aquí no se puede escribir.
+              </p>
+            <?php else: ?>
+              <p class="adm-aviso-seg">
+                <?php /* Lucide «triangle-alert» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                <span>Cambiarla expulsa a cualquier otra sesión de superadministrador abierta.
+                  Esta sigue dentro.</span>
+              </p>
+              <form method="post" class="adm-form-seg">
+                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                <input type="hidden" name="cambiar_super" value="1">
+                <label class="adm-lbl" for="super-actual">Contraseña actual</label>
+                <input class="adm-campo" type="password" id="super-actual" name="super_actual" autocomplete="current-password" required>
+                <label class="adm-lbl" for="super-nueva">Contraseña nueva <span class="opt">(mín. 12)</span></label>
+                <input class="adm-campo" type="password" id="super-nueva" name="super_nueva" autocomplete="new-password" required>
+                <button class="adm-btn" type="submit">Cambiar</button>
+              </form>
+            <?php endif; ?>
+          </div>
+        </details>
+
+        <?php /* ----------------------------------------------- el registro de accesos */ ?>
+        <?php
+          $log_lineas = [];
+          $log_raw = @file_get_contents(LOG_PATH);
+          if (is_string($log_raw) && $log_raw !== '') {
+            $log_lineas = array_slice(array_filter(explode("\n", trim($log_raw))), -30);
+            $log_lineas = array_reverse($log_lineas);
+          }
+        ?>
+        <details class="adm-f adm-f-super adm-f-plega adm-f-log">
+          <summary>
+            <span class="adm-f-ico"><?php /* Lucide «scroll-text» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg></span>
+            <span class="adm-f-tit">Registro de accesos</span>
+            <span class="der"><span class="adm-f-nota"><?= $log_lineas ? count($log_lineas) . ' líneas' : 'vacío' ?></span></span>
+            <span class="adm-f-plega-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+          </summary>
+          <div class="adm-f-plega-cuerpo">
+            <p class="adm-f-txt">
+              Entradas, fallos y cambios de contraseña, con fecha UTC e IP. Nunca se apuntan
+              contraseñas. Se rota solo al pasar de 256&nbsp;KB.
+            </p>
+            <?php if (!$log_lineas): ?>
+              <p class="adm-vacio">
+                <?php /* Lucide «file-clock» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 18a3 3 0 1 0-6 0"/><path d="M4.5 13V4a2 2 0 0 1 2-2h7.5l6 6v12a2 2 0 0 1-2 2H8"/><path d="M12 16v2l1.5 1"/></svg>
+                Todavía no hay nada apuntado.
+              </p>
+            <?php else: ?>
+              <pre class="adm-log" tabindex="0" aria-label="Últimas <?= count($log_lineas) ?> líneas del registro"><?php
+                foreach ($log_lineas as $l) echo h($l) . "\n";
+              ?></pre>
+            <?php endif; ?>
+          </div>
+        </details>
+      <?php endif; ?>
 
       </div>
+
     </div>
   </section>
 
-
-  <?php if ($super): ?>
-    <?php /* Sólo lo ve una sesión de superadministrador. El restaurante ni conoce estas
-             acciones ni puede llegar a ellas: los manejadores comprueban el rol de sesión,
-             no la presencia del formulario. */ ?>
-    <h2 style="margin-top:var(--s5)">Superadministrador</h2>
-
-    <details class="card">
-      <summary style="cursor:pointer;font-weight:600">Restablecer la contraseña del restaurante</summary>
-      <p class="hint" style="margin-top:14px">
-        El restaurante no puede cambiar su contraseña: sólo se cambia desde aquí. No hace
-        falta saber la antigua: se escribe una nueva y se le comunica en mano.
-      </p>
-      <form method="post" style="max-width:340px">
-        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-        <input type="hidden" name="reset_cliente" value="1">
-        <label class="fld">Contraseña nueva del restaurante <span class="opt">(mín. 8)</span>
-          <input type="password" name="cliente_nueva" autocomplete="off" required>
-        </label>
-        <button class="save" type="submit" style="margin-top:12px">Restablecer</button>
-      </form>
-    </details>
-
-    <details class="card">
-      <summary style="cursor:pointer;font-weight:600">Cambiar mi contraseña de superadministrador</summary>
-      <?php if ($super_en_entorno): ?>
-        <p class="hint" style="margin-top:14px">
-          Tu hash vive en la variable de entorno <code>SUPERADMIN_PASSWORD_HASH</code>.
-          Genera uno nuevo con <code>hash.php</code> y cámbialo donde esté definida la
-          variable; desde aquí no se puede escribir.
-        </p>
-      <?php else: ?>
-        <form method="post" style="margin-top:14px;max-width:340px">
-          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-          <input type="hidden" name="cambiar_super" value="1">
-          <label class="fld">Contraseña actual
-            <input type="password" name="super_actual" autocomplete="current-password" required>
-          </label>
-          <label class="fld">Contraseña nueva <span class="opt">(mín. 12)</span>
-            <input type="password" name="super_nueva" autocomplete="new-password" required>
-          </label>
-          <button type="submit" style="margin-top:12px">Cambiar</button>
-        </form>
-      <?php endif; ?>
-    </details>
-
-    <details class="card">
-      <summary style="cursor:pointer;font-weight:600">Registro de accesos</summary>
-      <p class="hint" style="margin-top:14px">
-        Entradas, fallos y cambios de contraseña, con fecha UTC e IP. Nunca se apuntan
-        contraseñas. Se rota solo al pasar de 256&nbsp;KB.
-      </p>
-      <?php
-        $log_lineas = [];
-        $log_raw = @file_get_contents(LOG_PATH);
-        if (is_string($log_raw) && $log_raw !== '') {
-          $log_lineas = array_slice(array_filter(explode("\n", trim($log_raw))), -30);
-          $log_lineas = array_reverse($log_lineas);
-        }
-      ?>
-      <?php if (!$log_lineas): ?>
-        <p class="hint">Todavía no hay nada apuntado.</p>
-      <?php else: ?>
-        <pre style="margin:0;padding:var(--s2) 0;font:12px/1.6 ui-monospace,monospace;overflow-x:auto"><?php
-          foreach ($log_lineas as $l) echo h($l) . "\n";
-        ?></pre>
-      <?php endif; ?>
-    </details>
-  <?php endif; ?>
-
-
   <script>
-    /* Las cinco pestañas están en el mismo documento; esto sólo enseña una. Es lo mismo que
-       hace la carta con sus trece categorías, y por eso ahora se siente igual: sin recarga,
-       sin parpadeo y sin perder lo que estabas haciendo. La URL se actualiza con replaceState
-       para que recargar caiga en la misma pestaña, y el servidor sigue entendiendo ?t= cuando
-       vuelve de un guardado. */
+    /* MISE-B: todos los destinos siguen en el mismo documento; esto sólo enseña un panel.
+       Los botones que cambian de panel viven en tres sitios —sidebar, barra inferior, hoja
+       «Más»— y los tres llevan data-tab con el mismo slug de siempre. La URL se sigue
+       actualizando con replaceState, y el servidor sigue entendiendo ?t= al volver de un
+       guardado, exactamente igual que con la barra de pestañas que sustituye. */
     (function () {
-      var botones = [].slice.call(document.querySelectorAll('.tabs [data-tab]'));
+      var botones = [].slice.call(document.querySelectorAll('[data-tab]'));
       var paneles = [].slice.call(document.querySelectorAll('.pane'));
       if (!botones.length || !paneles.length) return;
 
-      var envoltorio = document.getElementById('tabs-wrap');
-      var fila = document.getElementById('tabs');
-      var flechaPrev = envoltorio && envoltorio.querySelector('.tabs-arrow-prev');
-      var flechaNext = envoltorio && envoltorio.querySelector('.tabs-arrow-next');
-      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      function sincronizar() {
-        if (!envoltorio || !fila) return;
-        var max = fila.scrollWidth - fila.clientWidth;
-        envoltorio.classList.toggle('is-scrollable', max > 1);
-        envoltorio.classList.toggle('at-start', fila.scrollLeft <= 1);
-        envoltorio.classList.toggle('at-end', fila.scrollLeft >= max - 1);
-        if (flechaPrev) flechaPrev.disabled = fila.scrollLeft <= 1;
-        if (flechaNext) flechaNext.disabled = fila.scrollLeft >= max - 1;
-      }
-      function empujar(dir) {
-        fila.scrollBy({ left: dir * fila.clientWidth * 0.6, behavior: reduce ? 'auto' : 'smooth' });
-      }
-      if (envoltorio && fila) {
-        if (flechaPrev) flechaPrev.addEventListener('click', function () { empujar(-1); });
-        if (flechaNext) flechaNext.addEventListener('click', function () { empujar(1); });
-        fila.addEventListener('scroll', sincronizar, { passive: true });
-        window.addEventListener('resize', sincronizar);
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(sincronizar);
-        sincronizar();
-        // la pestaña con la que se llega (tras un guardado) queda a la vista, no recortada
-        var activaAhora = fila.querySelector('.on');
-        if (activaAhora && activaAhora.scrollIntoView) activaAhora.scrollIntoView({ block: 'nearest', inline: 'center' });
-      }
+      var tituloCabecera = document.getElementById('adm-topbar-titulo');
 
       function abrir(slug) {
         paneles.forEach(function (p) { p.hidden = p.dataset.pane !== slug; });
         botones.forEach(function (b) {
           var on = b.dataset.tab === slug;
           b.classList.toggle('on', on);
-          b.setAttribute('aria-selected', String(on));
-          b.tabIndex = on ? 0 : -1;
-          if (on && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'center' });
+          if (b.hasAttribute('aria-selected')) b.setAttribute('aria-selected', String(on));
+          if (b.hasAttribute('aria-current')) b.setAttribute('aria-current', on ? 'page' : 'false');
         });
+        /* SocialCard V2: el titulo de la cabecera dice donde estas. El nombre se lee del
+           propio boton de navegacion (su aria-label), que ya lo trae de $PESTANAS: no hay
+           una segunda lista de rotulos en JavaScript que se pueda quedar vieja. */
+        if (tituloCabecera) {
+          var boton = botones.filter(function (b) { return b.dataset.tab === slug && b.getAttribute('aria-label'); })[0];
+          if (boton) tituloCabecera.textContent = boton.getAttribute('aria-label');
+        }
         try { history.replaceState(null, '', '?t=' + encodeURIComponent(slug)); } catch (e) {}
-        // cambiar de pestaña es empezar otra tarea: se vuelve arriba, como al abrirla
+        // cambiar de destino es empezar otra tarea: se vuelve arriba, como al abrirla
         window.scrollTo(0, 0);
       }
+      window.admIrA = abrir;
 
       botones.forEach(function (b) {
-        b.addEventListener('click', function () { abrir(b.dataset.tab); });
+        b.addEventListener('click', function () {
+          abrir(b.dataset.tab);
+          if (b.closest('#sheet-mas')) cerrarSheet();
+        });
       });
 
-      // Patrón de teclado de pestañas (WAI-ARIA APG): flechas mueven el foco y activan a la
-      // vez, como ya hace el click — Home/End van al extremo. Tab/Enter/Espacio no se tocan,
-      // los da gratis el <button> nativo. MISE-A R1.
-      if (fila) {
-        fila.addEventListener('keydown', function (e) {
-          var i = botones.indexOf(document.activeElement);
-          if (i === -1) return;
-          var next = null;
-          if (e.key === 'ArrowRight') next = (i + 1) % botones.length;
-          else if (e.key === 'ArrowLeft') next = (i - 1 + botones.length) % botones.length;
-          else if (e.key === 'Home') next = 0;
-          else if (e.key === 'End') next = botones.length - 1;
-          else return;
-          e.preventDefault();
-          botones[next].focus();
-          abrir(botones[next].dataset.tab);
+      /* ---- hoja «Más» (móvil): inert de verdad mientras está cerrada, foco atrapado
+         mientras está abierta, fondo (sidebar/barra inferior incluidos) bloqueado entero. */
+      /* ---- SocialCard V2: claro / oscuro ----------------------------------------
+         La clase ya la puso el guion del <head> antes de pintar nada; esto solo la
+         cambia y la recuerda. Preferencia puramente visual: no viaja al servidor, no
+         toca estado.json y no anade ninguna peticion. */
+      (function () {
+        var sw = document.getElementById('adm-tema-sw');
+        if (!sw) return;
+        var raiz = document.documentElement;
+
+        function pintar(modo) {
+          var oscuro = modo === 'dark';
+          raiz.classList.toggle('dark', oscuro);
+          raiz.classList.toggle('light', !oscuro);
+          sw.setAttribute('aria-checked', String(oscuro));
+          sw.title = oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+          sw.setAttribute('aria-label', oscuro ? 'Modo oscuro activado' : 'Modo oscuro');
+        }
+
+        pintar(raiz.classList.contains('dark') ? 'dark' : 'light');
+
+        sw.addEventListener('click', function () {
+          var nuevo = raiz.classList.contains('dark') ? 'light' : 'dark';
+          pintar(nuevo);
+          try { localStorage.setItem('socialcard-color-mode', nuevo); } catch (e) {}
+        });
+      })();
+
+      var sheet = document.getElementById('sheet-mas');
+      var velo = document.getElementById('velo-sheet');
+      var btnMas = document.getElementById('btn-mas-movil');
+      var btnCerrar = document.getElementById('sheet-cerrar');
+      var FONDO = ['#adm-sidebar', '.adm-navmovil'].map(function (s) { return document.querySelector(s); });
+      var elementoQueAbrio = null;
+
+      function bloquearFondo(bloquear) {
+        FONDO.forEach(function (el) { if (el) el.inert = bloquear; });
+      }
+      function focosDe(cont) {
+        return [].slice.call(cont.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'))
+          .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+      }
+      function abrirSheet(disparador) {
+        if (!sheet) return;
+        elementoQueAbrio = disparador || document.activeElement;
+        velo.classList.add('activo');
+        sheet.classList.add('activo');
+        sheet.setAttribute('aria-hidden', 'false');
+        sheet.inert = false;
+        bloquearFondo(true);
+        var primero = sheet.querySelector('.adm-sheet-item');
+        if (primero) primero.focus();
+      }
+      function cerrarSheet() {
+        if (!sheet || !sheet.classList.contains('activo')) return;
+        velo.classList.remove('activo');
+        sheet.classList.remove('activo');
+        sheet.setAttribute('aria-hidden', 'true');
+        sheet.inert = true;
+        bloquearFondo(false);
+        if (elementoQueAbrio && elementoQueAbrio.focus) elementoQueAbrio.focus();
+      }
+      if (btnMas) btnMas.addEventListener('click', function () { abrirSheet(btnMas); });
+      if (btnCerrar) btnCerrar.addEventListener('click', cerrarSheet);
+      if (velo) velo.addEventListener('click', cerrarSheet);
+      if (sheet) {
+        sheet.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { e.preventDefault(); cerrarSheet(); return; }
+          if (e.key !== 'Tab') return;
+          var f = focosDe(sheet);
+          if (!f.length) return;
+          var primero = f[0], ultimo = f[f.length - 1];
+          if (e.shiftKey && document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
+          else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
         });
       }
     })();
@@ -8185,6 +10451,23 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
        Si el navegador no tiene fetch, no se toca nada y los formularios siguen funcionando
        como siempre. Es la razon por la que se han dejado puestos. */
+    /* SocialCard V6: el campo de fichero ya no enseña el rótulo que pinta el navegador
+       —está tapado—, así que lo escribe esto. Es puro adorno: sin JavaScript el campo sigue
+       subiendo igual, sólo que sin decir cuántas fotos hay elegidas. */
+    (function () {
+      var campos = [].slice.call(document.querySelectorAll('.adm-archivo input[type=file]'));
+      campos.forEach(function (inp) {
+        var rot = inp.parentNode.querySelector('.adm-archivo-txt');
+        if (!rot) return;
+        inp.addEventListener('change', function () {
+          var n = inp.files ? inp.files.length : 0;
+          rot.textContent = n === 0 ? rot.dataset.vacio
+                          : n === 1 ? inp.files[0].name
+                          : n + ' fotos elegidas';
+        });
+      });
+    })();
+
     (function () {
       var caja = document.querySelector('.adm-fotos');
       if (!caja || !window.fetch) return;
@@ -8298,30 +10581,38 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <span class="adm-acciones-estado"><?= h($pubEstado ?? '') ?></span>
       <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
       <button class="adm-btn adm-btn-guardar" form="pub-form" name="guardar_publicidad" value="1" type="submit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Guardar cambios
       </button>
     </div>
   <?php endif; ?>
 
-  <?php /* Destacados no lleva tira: cada destacado se añade y se quita con su propio botón,
-           al momento. No hay nada que "guardar" después. */ ?>
-  <?php $nAgotados = count($agotados); ?>
-  <div class="adm-acciones-fuera" data-para="agotados">
+  <?php /* MISE-B: agotado y precio ya se guardan solos (autosubmit por JS, ver el script de
+           Platos); esta tira es el respaldo SIN JavaScript de los dos a la vez — dos botones,
+           cada uno enganchado a su propio formulario/handler de siempre. Destacado sigue sin
+           tira: cada etiqueta se añade y se quita con su propio botón, al momento, igual que
+           antes. */ ?>
+  <?php if (!$previsua): $nAgotados = count($agotados); ?>
+  <div class="adm-acciones-fuera" data-para="platos">
     <span class="adm-acciones-estado"><?= $nAgotados === 1 ? '1 plato agotado' : $nAgotados . ' platos agotados' ?></span>
     <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
     <button class="adm-btn adm-btn-guardar" form="agotados-form" type="submit">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-      Guardar cambios
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      Guardar agotados
+    </button>
+    <button class="adm-btn adm-btn-guardar" form="precios-form" type="submit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      Guardar precios
     </button>
   </div>
+  <?php endif; ?>
 
   <?php $ofSueltos = count((array) $oferta['keys']); ?>
   <div class="adm-acciones-fuera" data-para="ofertas">
     <span class="adm-acciones-estado"><?= $ofSueltos === 1 ? '1 plato suelto en oferta' : $ofSueltos . ' platos sueltos en oferta' ?></span>
     <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
     <button class="adm-btn adm-btn-guardar" form="ofertas-form" name="guardar_oferta" value="1" type="submit">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
       Guardar cambios
     </button>
   </div>
@@ -8329,11 +10620,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php if ($previsua): ?>
     <?php /* Sólo mientras hay propuesta en pantalla: en la otra pantalla de Precios no hay
              nada que guardar, se elige de dónde sale el cambio y ya. */ ?>
-    <div class="adm-acciones-fuera" data-para="precios">
+    <div class="adm-acciones-fuera" data-para="platos-revisar">
       <span class="adm-acciones-estado">Todavía no se ha publicado nada</span>
-      <a class="adm-btn adm-btn-ver" href="?t=precios">Cancelar</a>
+      <a class="adm-btn adm-btn-ver" href="?t=platos">Cancelar</a>
       <button class="adm-btn adm-btn-guardar" form="precios-form" name="precios_publicar" value="1" type="submit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Publicar precios
       </button>
     </div>
@@ -8344,7 +10635,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <span class="adm-acciones-estado"><?= !empty($juego['on']) ? 'El juego sale en la carta' : 'El juego no sale en la carta' ?></span>
       <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
       <button class="adm-btn adm-btn-guardar" form="juego-form" name="guardar_juego" value="1" type="submit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Guardar cambios
       </button>
     </div>
@@ -8355,7 +10646,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <span class="adm-acciones-estado">En la carta: <?= h($marcaNombre) ?></span>
     <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
     <button class="adm-btn adm-btn-guardar" form="marca-form" name="guardar_marca" value="1" type="submit">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
       Guardar cambios
     </button>
   </div>
@@ -8556,10 +10847,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     sinfin:   '<path d="M7 15.5a3.5 3.5 0 1 1 0-7c2.6 0 3.4 3.5 5 3.5s2.4-3.5 5-3.5a3.5 3.5 0 1 1 0 7c-2.6 0-3.4-3.5-5-3.5s-2.4 3.5-5 3.5z"/>',
     otras:    '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><circle cx="12.5" cy="15" r="2.5"/><path d="M14.4 16.9l1.6 1.6"/>',
     sin:      '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M9.5 15.5l5-3.5M9.5 12l5 3.5"/>',
-    reloj:    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'
+    reloj:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'
   };
   function dibujo(n) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"'
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
       + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (DIBUJOS[n] || '') + '</svg>';
   }
 
@@ -8593,7 +10884,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   function flecha(d) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"'
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
       + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'
       + (d < 0 ? 'M15 6l-6 6l6 6' : 'M9 6l6 6l-6 6') + '"/></svg>';
   }
@@ -8864,16 +11155,24 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
    * se ven todas": si este script no corre, la clase no se pone y se ven todas. */
   document.documentElement.classList.add('adm-con-js');
   var tiras = [].slice.call(document.querySelectorAll('.adm-acciones-fuera'));
+  /* Platos es la única pestaña cuya tira es puro respaldo sin JavaScript: agotado y precio
+     ya se guardan solos (autosubmit, ver el script de Platos). Con JS activo no se enseña
+     ni siendo la pestaña activa — con JS apagado, el bloque de arriba (adm-con-js) nunca se
+     añade y la regla CSS de siempre la sigue mostrando igual que a las demás. */
   function tiraDe(slug) {
     tiras.forEach(function (t) {
-      if (t.dataset.para === slug) t.setAttribute('data-visible', '');
+      /* La tira de revisar precios no depende de qué pestaña esté «activa» — sólo existe en
+         el DOM cuando el servidor está mostrando esa pantalla ($previsua), así que si está
+         presente, se enseña siempre. */
+      if (t.dataset.para === 'platos-revisar') { t.setAttribute('data-visible', ''); return; }
+      if (t.dataset.para === slug && t.dataset.para !== 'platos') t.setAttribute('data-visible', '');
       else t.removeAttribute('data-visible');
     });
   }
   if (tiras.length) {
-    var activa = document.querySelector('.tabs [data-tab].on');
+    var activa = document.querySelector('[data-tab].on');
     tiraDe(activa ? activa.dataset.tab : '');
-    document.querySelectorAll('.tabs [data-tab]').forEach(function (b) {
+    document.querySelectorAll('[data-tab]').forEach(function (b) {
       b.addEventListener('click', function () { tiraDe(b.dataset.tab); });
     });
   }
