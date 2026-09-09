@@ -8,15 +8,17 @@
  * dejaría el producto publicado distinto. Eso es justo lo que esta fase tiene que demostrar que
  * no pasa.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { Informe } from '../lib/informe.mjs';
 import { correr } from '../lib/proc.mjs';
 import {
-  CLIENTE, MOTOR, SALIDA, QA, NODE, PHP, limpiarTemporales, versiones, commitActual,
+  CLIENTE, MOTOR, SALIDA, QA, NODE, PHP, carpetaTemporal, limpiarTemporales, versiones, commitActual,
 } from '../lib/entorno.mjs';
 import { clonarTinge, compilar, verificarBuild, lock, hashesDe, comparaHashes } from '../lib/clientes.mjs';
 import * as inventario from './inventario.mjs';
+import { normalizaEstadoParaHuella, CLAVES_ESQUEMA_TOLERADAS } from '../lib/fixtura-lh.mjs';
 
 /* El mismo motivo en FAST-13, FAST-19 y FULL-93: una sola frase, y no tres que se
    desincronicen. */
@@ -37,6 +39,7 @@ function listaRelativa(raiz) {
 }
 
 const ICONO_PESTANA = 'assets/titleIcon-accent.svg';
+const shaCorto = (t) => createHash('sha256').update(String(t), 'utf8').digest('hex').slice(0, 16);
 
 export async function fast(informe = new Informe('QA rapida')) {
   informe.seccion('arbol y sintaxis');
@@ -104,6 +107,93 @@ export async function fast(informe = new Informe('QA rapida')) {
     'estado-EJEMPLO.json', 'admin/index.php', 'admin/cliente.php', 'admin/record.php', ICONO_PESTANA];
   const faltan = obligatorios.filter((f) => !existsSync(path.join(clon.salida, f)));
   informe.comprueba('FAST-08', 'los ficheros obligatorios estan en la salida', faltan.length === 0, faltan.join(', '));
+
+  /* ---- el panel servido: sin comentarios, pero SOLO donde no hay PHP ----
+   *
+   * El panel se copia a la salida y hasta este release se iba al navegador con todos sus
+   * comentarios de CSS y de JavaScript: 270.062 bytes que no ejecutan nada. Ahora el build los
+   * quita, y con dos limites que hay que poder demostrar manana tambien:
+   *
+   *   - un bloque con PHP dentro NO se toca, sin juzgar si ese PHP parece inofensivo;
+   *   - fuera de <style> y <script> no se toca ni un byte.
+   *
+   * Se mira el FUENTE contra lo COMPILADO, que es lo unico que importa. La idempotencia ya la
+   * comprueba FAST-07 —dos builds seguidos solo difieren en los tres ficheros con sello, y el
+   * panel no es uno de ellos—, asi que no se repite aqui. */
+  {
+    const fuentePanel = path.join(clon.proyecto, 'motor', 'server', 'admin', 'index.php');
+    const salidaPanel = path.join(clon.salida, 'admin', 'index.php');
+    const hayLosDos = existsSync(fuentePanel) && existsSync(salidaPanel);
+    const src = hayLosDos ? readFileSync(fuentePanel, 'utf8') : '';
+    const out = hayLosDos ? readFileSync(salidaPanel, 'utf8') : '';
+    const BLOQUES = /<style\b[^>]*>([\s\S]*?)<\/style>|<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+    const trocear = (t) => {
+      const bloques = []; const fuera = []; let ultimo = 0;
+      for (const m of t.matchAll(BLOQUES)) {
+        fuera.push(t.slice(ultimo, m.index));
+        const cuerpo = m[1] !== undefined ? m[1] : m[2];
+        bloques.push({ cuerpo, css: m[1] !== undefined, php: cuerpo.includes('<?') || cuerpo.includes('?>') });
+        ultimo = m.index + m[0].length;
+      }
+      fuera.push(t.slice(ultimo));
+      return { bloques, fuera };
+    };
+    const A = trocear(src); const B = trocear(out);
+
+    /* 1. Todo lo que NO es <style>/<script> sale byte a byte igual. */
+    informe.comprueba('FAST-25', 'el panel servido es byte a byte el fuente en todo lo que no es <style> ni <script>',
+      hayLosDos && A.fuera.length === B.fuera.length && A.fuera.every((x, i) => x === B.fuera[i]),
+      hayLosDos ? `${A.fuera.length} tramos comparados` : 'no estan los dos ficheros');
+
+    /* 2. Un bloque con PHP no se toca. Ni uno. */
+    const mixtos = A.bloques.filter((b) => b.php).length;
+    const mixtosIguales = A.bloques.every((b, i) => !b.php || (B.bloques[i] && B.bloques[i].cuerpo === b.cuerpo));
+    informe.comprueba('FAST-26', 'todo bloque con PHP dentro sale del build byte a byte como entro',
+      hayLosDos && A.bloques.length === B.bloques.length && mixtos > 0 && mixtosIguales,
+      `${mixtos} bloques con PHP de ${A.bloques.length}`);
+
+    /* 3. Los bloques puros pierden los comentarios y CONSERVAN lo que se ejecuta. Las tres
+          trampas del recorrido son las URLs con //, las cadenas con // o con las marcas de
+          comentario dentro, y las expresiones regulares literales: se cuentan antes y despues
+          y tienen que salir igual. Si el limpiador se comiera una, aqui bajaria el numero. */
+    const puros = A.bloques.map((b, i) => [b, B.bloques[i]]).filter(([a]) => !a.php);
+    const cuenta = (t, re) => (t.match(re) || []).length;
+    const urlsA = puros.reduce((n, [a]) => n + cuenta(a.cuerpo, /https?:\/\//g), 0);
+    const urlsB = puros.reduce((n, [, b]) => n + cuenta(b.cuerpo, /https?:\/\//g), 0);
+    const comentaBloque = puros.reduce((n, [, b]) => n + cuenta(b.cuerpo, /\/\*/g), 0);
+    const menos = puros.reduce((n, [a, b]) => n + (a.cuerpo.length - b.cuerpo.length), 0);
+    informe.comprueba('FAST-27', 'los bloques sin PHP salen sin comentarios y conservan las URLs y las expresiones regulares',
+      hayLosDos && puros.length > 0 && menos > 0 && comentaBloque === 0 && urlsA === urlsB && urlsA > 0,
+      `${puros.length} bloques puros · ${menos} bytes menos · ${urlsA}/${urlsB} URLs · ${comentaBloque} restos de /*`);
+
+    /* 3b. Y la demostracion de verdad: el JavaScript servido SIGUE ANALIZANDOSE.
+           Contar URLs es una pista; que el analizador de Node acepte cada bloque es otra cosa.
+           Si el limpiador se hubiera comido el cierre de una cadena, el final de una expresion
+           regular o el `${` de una plantilla, aqui saltaria — y ese es exactamente el fallo que
+           un limpiador a base de buscar y reemplazar comete en silencio.
+           Solo se analizan los bloques SIN PHP: los otros no son JavaScript valido y no se han
+           tocado. */
+    {
+      const dir = carpetaTemporal('totm-panel-js-');
+      const rotos = [];
+      let analizados = 0;
+      puros.filter(([a]) => !a.css).forEach(([, b], i) => {
+        const ruta = path.join(dir, `bloque-${i}.mjs`);
+        writeFileSync(ruta, b.cuerpo, 'utf8');
+        const r = correr(NODE, ['--check', ruta]);
+        analizados++;
+        if (!r.ok) rotos.push(`bloque ${i}: ${r.texto.trim().split('\n')[0].slice(0, 120)}`);
+      });
+      informe.comprueba('FAST-29', 'el JavaScript servido del panel sigue analizandose despues de quitarle los comentarios',
+        analizados > 0 && rotos.length === 0,
+        rotos.length ? rotos.slice(0, 3).join(' | ') : `${analizados} bloques analizados sin un error`);
+    }
+
+    /* 4. Y el FUENTE no se toca: sus comentarios son la documentacion de este proyecto. */
+    const comentaFuente = A.bloques.filter((b) => !b.php).reduce((n, b) => n + cuenta(b.cuerpo, /\/\*/g), 0);
+    informe.comprueba('FAST-28', 'el fuente del panel conserva sus comentarios: el adelgazado es sobre la copia',
+      hayLosDos && comentaFuente > 0, `${comentaFuente} comentarios de bloque en el fuente`);
+  }
 
   /* ---- El manifiesto aprobado de la salida ----
    * La lista de arriba es un minimo escrito a mano; esto es la salida entera, fichero a fichero,
@@ -241,8 +331,45 @@ export async function fast(informe = new Informe('QA rapida')) {
   } else {
     const despuesRepo = hashesDe(SALIDA);
     const repo = comparaHashes(antesRepo, despuesRepo);
+    /* Mismo arreglo que en FULL-93: `hashesDe` devuelve un Map y `Object.keys` sobre un Map
+       da cero siempre. Y hay que nombrar los NUEVOS, que es lo que de verdad aparece aqui. */
     informe.comprueba('FAST-13', 'el 2-subir del repositorio no se ha tocado', repo.iguales,
-      `${Object.keys(despuesRepo).length} ficheros | cambiados: ${repo.cambiados.join(', ') || '(ninguno)'}`);
+      `${despuesRepo.size} ficheros | cambiados: ${repo.cambiados.join(', ') || '(ninguno)'}`
+      + ` | nuevos: ${repo.nuevos.join(', ') || '(ninguno)'}`
+      + ` | perdidos: ${repo.perdidos.join(', ') || '(ninguno)'}`);
+  }
+
+  /* La normalizacion semantica del estado para la huella de Lighthouse, con sus dos caras.
+     Afinar una guarda es legitimo; debilitarla, no, y la diferencia entre las dos cosas hay que
+     poder demostrarla manana tambien. Por eso los escenarios viven aqui y no en un cuaderno:
+     lo unico que se tolera es «clave ausente» == «clave presente y EXACTAMENTE []», y solo para
+     las siete claves nominadas. Todo lo demas —contenido dentro de esas claves, una octava
+     clave aunque venga vacia, {} o null en lugar de [], o cualquier dato sembrado distinto—
+     sigue bloqueando la comparacion. */
+  {
+    const sem = [];
+    const h = (o) => shaCorto(normalizaEstadoParaHuella(JSON.stringify(o)));
+    const base = { hero: ['a1'], ad: { on: true }, game: { on: true }, actualizado: 'x' };
+    const siete = {};
+    for (const k of CLAVES_ESQUEMA_TOLERADAS) siete[k] = [];
+    const conSiete = { ...base, ...siete };
+    const comprueba = (etq, iguales, esperado) => { if (iguales !== esperado) sem.push(etq); };
+
+    comprueba('las siete vacias equivalen a ausentes', h(base) === h(conSiete), true);
+    comprueba('una de las siete CON contenido bloquea', h(base) === h({ ...conSiete, orden: ['algo'] }), false);
+    comprueba('{} no equivale a []', h(base) === h({ ...conSiete, orden: {} }), false);
+    comprueba('null no equivale a []', h(base) === h({ ...conSiete, editados: null }), false);
+    comprueba('una octava clave vacia bloquea', h(base) === h({ ...conSiete, inventada: [] }), false);
+    comprueba('un dato sembrado distinto bloquea', h(base) === h({ ...conSiete, game: { on: false } }), false);
+    comprueba('otra portada bloquea', h(base) === h({ ...conSiete, hero: ['otra'] }), false);
+    comprueba('dos arboles nuevos siguen comparandose', h(conSiete) === h(conSiete), true);
+    /* Y que no invente: con datos dentro, la clave sobrevive a la normalizacion. */
+    const vivo = JSON.parse(normalizaEstadoParaHuella(JSON.stringify({ ...base, orden: { c1: ['d1'] } })));
+    comprueba('una clave autorizada CON datos no se borra', vivo.orden !== undefined, true);
+
+    informe.comprueba('FAST-24', 'la normalizacion del estado para Lighthouse tolera SOLO las siete claves de esquema vacias, y nada mas',
+      sem.length === 0 && CLAVES_ESQUEMA_TOLERADAS.length === 7,
+      sem.length ? sem.join(' | ') : `${CLAVES_ESQUEMA_TOLERADAS.length} claves: ${CLAVES_ESQUEMA_TOLERADAS.join(', ')}`);
   }
 
   informe.seccion('inventario y trazabilidad');

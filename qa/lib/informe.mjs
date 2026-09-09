@@ -160,6 +160,20 @@ export class Informe {
     };
   }
 
+  /* Identificadores emitidos mas de una vez EN ESTA PASADA.
+   * Se mira lo que de verdad salio, no lo que hay escrito en los ficheros: dos ramas
+   * excluyentes pueden compartir identificador a proposito —un E2E-00 que bloquea por falta de
+   * PHP o por falta de Chrome— y eso no es un duplicado, porque solo corre una. Duplicado es
+   * que el informe ensene dos lineas con el mismo nombre: ahi el inventario ya no puede decir
+   * cual es cual y una de las dos deja de ser trazable.
+   * Paso de verdad: dos pruebas nuevas de caducidad de sesion nacieron como E2E-AUTH-10 y -11,
+   * que ya existian. No lo vigilaba nadie. */
+  duplicados() {
+    const vistos = new Map();
+    for (const i of this.items) vistos.set(i.id, (vistos.get(i.id) || 0) + 1);
+    return [...vistos.entries()].filter(([, n]) => n > 1).map(([id, n]) => `${id} x${n}`);
+  }
+
   /* Escribe el veredicto de la política como comprobaciones de pleno derecho, para que salgan en
      el log, en el JSON y en el informe igual que cualquier otra. */
   aplicaPolitica(lista = leerBlockedAprobados()) {
@@ -167,7 +181,11 @@ export class Informe {
        POL-01 en la misma pasada descuadrarian los totales del informe. */
     if (this._politicaAplicada) return this._politicaAplicada;
     const p = this.politicaBlocked(lista);
+    /* Antes de nada, porque cuenta los items ya anotados y POL-01/02 aun no lo estan. */
+    const repes = this.duplicados();
     this.seccion('politica de bloqueos');
+    this.comprueba('POL-03', 'ningun identificador de prueba se ha emitido dos veces: un informe con dos lineas del mismo nombre no es trazable',
+      repes.length === 0, repes.join(', ') || 'sin repetidos');
     this.comprueba('POL-01', 'ningun BLOCKED ni NO APLICA fuera de la allowlist aprobada',
       p.inesperados.length === 0,
       p.inesperados.map((i) => `${i.id}: ${i.texto}${i.detalle ? ' — ' + i.detalle : ''}`).join(' | '));

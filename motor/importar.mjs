@@ -101,13 +101,21 @@ const CARTA = FUENTE.pestanas;
     yaUsados.add(id);
     return id;
   };
+  CARTA.forEach((t) => { if (t.pestanaId) yaUsados.add(t.pestanaId); });
   let generados = 0;
-  CARTA.forEach((t) => t.grupos?.forEach((g) => {
-    if (!g.categoryId) { g.categoryId = nuevoId('c_'); generados++; }
-    g.platos?.forEach((p) => {
-      if (!p.dishId) { p.dishId = nuevoId('d_'); generados++; }
+  CARTA.forEach((t) => {
+    /* La PESTAÑA tambien tiene identidad permanente, y por el mismo motivo que el plato y la
+       categoria: el panel deja renombrarla, y una preferencia guardada bajo el texto que se
+       esta cambiando se queda huerfana la primera vez que alguien toca ese texto en la carta.
+       Se acuña aqui, con el mismo formato y la misma comprobacion de unicidad. */
+    if (!t.pestanaId) { t.pestanaId = nuevoId('t_'); generados++; }
+    t.grupos?.forEach((g) => {
+      if (!g.categoryId) { g.categoryId = nuevoId('c_'); generados++; }
+      g.platos?.forEach((p) => {
+        if (!p.dishId) { p.dishId = nuevoId('d_'); generados++; }
+      });
     });
-  }));
+  });
   if (generados) {
     /* String.fromCharCode(10), no NL: esa constante se define mas abajo en este mismo
        fichero y este bloque corre antes de que exista. */
@@ -122,6 +130,12 @@ const CARTA = FUENTE.pestanas;
 {
   const vistos = new Map();
   const mal = [];
+  CARTA.forEach((t, ti) => {
+    const dondeT = 'pestanas[' + ti + ']';
+    if (!/^t_[0-9a-f]{10,}$/.test(t.pestanaId || '')) mal.push(dondeT + ': pestanaId ' + JSON.stringify(t.pestanaId));
+    else if (vistos.has(t.pestanaId)) mal.push(dondeT + ': pestanaId repetido con ' + vistos.get(t.pestanaId));
+    else vistos.set(t.pestanaId, dondeT);
+  });
   CARTA.forEach((t, ti) => t.grupos?.forEach((g, gi) => {
     const donde = 'pestanas[' + ti + '].grupos[' + gi + ']';
     if (!/^c_[0-9a-f]{10,}$/.test(g.categoryId || '')) mal.push(donde + ': categoryId ' + JSON.stringify(g.categoryId));

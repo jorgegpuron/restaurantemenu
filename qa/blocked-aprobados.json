@@ -37,6 +37,16 @@
   ],
   "no_aplica_aprobados": [
     {
+      "id": "E2E-INV-NA-CAT",
+      "que": "interfaz de «categoria entera» en Ofertas",
+      "motivo": "el propietario retiro la casilla cat[] de la cabecera de cada ficha (SPEC.md, MISE-B 7 Sep 2026): no hay UI que probar. El handler del servidor oferta_cat_toggle sigue vivo y se cubre por POST directo en admin-e2e.mjs::ofertas (E2E-OF-22).",
+      "suites": [
+        "e2e"
+      ],
+      "condicional": false,
+      "condicion_para_retirarlo": "que vuelva a existir una casilla cat[] en la interfaz de Ofertas"
+    },
+    {
       "id": "CAR-09",
       "que": "alergenos por plato en la carta de Tinge",
       "motivo": "Tinge no declara alergenos por plato, asi que sobre este cliente no hay nada que medir. La funcionalidad del motor SI se prueba, en MC-23, sobre un cliente nuevo que si los declara.",

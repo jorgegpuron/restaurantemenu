@@ -2,16 +2,28 @@
  *
  * Nada de POST a pelo cuando existe el control: se pulsa donde pulsaría una persona. Sólo se
  * baja a `fetch` para lo que un navegador no puede montar por la interfaz —un CSRF inventado, un
- * `dia[]` repetido— y eso está dicho en cada sitio donde pasa.
+ * `dia[]` repetido, un plato que la interfaz no deja tocar— y eso está dicho en cada sitio.
  *
- * Cada prueba deja el estado como lo encontró en lo que importa, o lo declara: el orden de las
- * pruebas no puede cambiar el resultado de la siguiente.
+ * FASE A (2026-09-08): reescrita contra el panel MISE-B + SocialCard. La versión anterior
+ * buscaba `#tabs button`, ocho pestañas, `label.adm-agrow-marca`, `#hl-q` y un botón «Guardar»
+ * por formulario: nada de eso existe desde MISE-B (7 pantallas, navegación `[data-tab]`,
+ * interruptores `.adm-sw`, autoguardado). La suite estaba en rojo sin que nadie lo supiera —
+ * defecto de la propia batería, no del producto.
+ *
+ * Este fichero se queda con lo que otras suites importan (`entrarAlPanel`, `leerEstado`,
+ * `pruebasAdmin`, `pruebasSuperadmin`) y con la matriz corta; la batería exhaustiva de la Fase A
+ * vive en `admin-e2e.mjs` y usa estos mismos ayudantes.
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { clicVisible, abrirAcordeones, textoAviso } from '../lib/navegador.mjs';
 import { CLAVE_QA } from '../lib/clientes.mjs';
 
+/* Las ocho pantallas del panel, en el orden del catálogo de destinos ($PESTANAS). Juego,
+   Publicidad y Analítica dependen de la capacidad del cliente; Tinge las tiene todas. */
+export const PANTALLAS = ['platos', 'precios', 'ofertas', 'juego', 'publicidad', 'datos', 'marca', 'ajustes'];
+
+/* Entra al panel. Devuelve las pantallas que ofrece la navegación (sin repetir: el mismo destino
+   está en la barra lateral, en la barra inferior y en la hoja «Más»). */
 export async function entrarAlPanel(pagina, url, clave = CLAVE_QA) {
   await pagina.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
   await pagina.waitForTimeout(250);
@@ -29,7 +41,15 @@ export async function entrarAlPanel(pagina, url, clave = CLAVE_QA) {
     await pagina.waitForLoadState('networkidle').catch(() => {});
     await pagina.waitForTimeout(250);
   }
-  return pagina.evaluate(() => [...document.querySelectorAll('#tabs button')].map((b) => b.dataset.tab));
+  return pestanasVisibles(pagina);
+}
+
+export function pestanasVisibles(pagina) {
+  return pagina.evaluate(() => {
+    const vistas = new Set();
+    document.querySelectorAll('[data-tab]').forEach((b) => vistas.add(b.dataset.tab));
+    return [...vistas];
+  });
 }
 
 export function leerEstado(docroot) {
@@ -38,210 +58,287 @@ export function leerEstado(docroot) {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
 }
 
-async function guardar(pagina, formulario) {
-  await pagina.click(`button[form="${formulario}"]`);
-  await pagina.waitForLoadState('networkidle').catch(() => {});
-  await pagina.waitForTimeout(350);
-  return textoAviso(pagina);
+/* Abre una pantalla por URL, que es lo que decide en el servidor qué tira de acciones se enseña
+   (`[data-tab].on` -> tiraDe()). Cambiar de pantalla por JavaScript sin recargar es otra prueba
+   distinta y se hace aparte. */
+export async function irA(pagina, url, pantalla, espera = 300) {
+  await pagina.goto(`${url}/admin/index.php?t=${pantalla}`, { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(espera);
+}
+
+/* El botón «Guardar cambios» de la tira de acciones de esa pantalla. Pulsa el que se ve; si la
+   tira no está visible (pantalla abierta por JavaScript) lo pulsa igualmente por DOM: es el mismo
+   <button form="..."> y el navegador envía el mismo formulario. */
+export async function guardar(pagina, formulario) {
+  /* Se envía el formulario por fetch construyendo su payload igual que un submit nativo
+     (FormData del propio <form> —incluye los campos enganchados por form="..."— más el nombre
+     del botón que dispara la acción). Se hace así por dos razones medidas:
+       · el toast de la página lo pinta un <script> al cargar y se disuelve solo, leerlo del DOM
+         es una carrera; la RESPUESTA del POST trae ese mismo `toast("...", 'ok'|'bad')`;
+       · un submit nativo lo bloquea la validación HTML5 de un `type="url"` con valor inválido
+         (marca-form), sin dar aviso; el fetch envía exactamente lo que el usuario dejó escrito.
+     Después se recarga la página para que el DOM refleje lo guardado (el fetch no navega). */
+  const r = await pagina.evaluate(async (formId) => {
+    const form = document.getElementById(formId);
+    const fd = form ? new FormData(form) : new FormData();
+    const btn = document.querySelector(`.adm-btn-guardar[form="${formId}"][name]`) || document.querySelector(`button[form="${formId}"][name][type="submit"]`);
+    if (btn && btn.name && !fd.has(btn.name)) fd.set(btn.name, btn.value || '1');
+    const resp = await fetch(location.pathname + location.search, { method: 'POST', body: fd, credentials: 'same-origin' });
+    const t = await resp.text();
+    const m = /toast\(\s*("(?:[^"\\]|\\.)*")\s*,\s*'(ok|bad)'/.exec(t);
+    let mensaje = '';
+    if (m) { try { mensaje = JSON.parse(m[1]); } catch { /* sin mensaje */ } }
+    return { status: resp.status, mensaje };
+  }, formulario);
+  await pagina.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+  await pagina.waitForTimeout(200);
+  return r.mensaje;
+}
+
+/* El último aviso: el toast si lo hay, si no el mensaje del servidor pintado en la página. */
+export async function textoAvisoPanel(pagina) {
+  return pagina.evaluate(() => {
+    const t = document.querySelector('#toasts');
+    if (t && t.innerText.trim()) return t.innerText.trim().split('\n').filter(Boolean).slice(0, 3).join(' | ');
+    /* El servidor deja el mensaje escrito en el <script> que sigue a #toasts. */
+    const s = t ? t.nextElementSibling : null;
+    if (s && s.tagName === 'SCRIPT') {
+      const x = /toast\(\s*("(?:[^"\\]|\\.)*")/.exec(s.textContent);
+      if (x) { try { return JSON.parse(x[1]); } catch { /* sigue */ } }
+    }
+    /* `.msg` va la ULTIMA. No es un aviso de guardado: es cualquier bloque de estado de
+       la pagina, y llegaba a devolver el «todavia no hay ningun dato» de Analitica como si
+       fuera la respuesta a un guardado. El <script> de arriba si es lo que mando el
+       servidor para ESTA pagina, y ademas no caduca: el aviso flotante se va solo a los
+       tres segundos y ese texto se queda. */
+    const m = document.querySelector('.msg');
+    if (m && m.innerText.trim()) return m.innerText.trim().slice(0, 240);
+    return '';
+  });
 }
 
 /* POST directo desde la propia página, con su cookie de sesión. Se usa sólo para lo que la
-   interfaz no permite montar. Devuelve el estado leído del servidor después. */
-async function postCrudo(pagina, ruta, pares, { csrfValido = true } = {}) {
-  return pagina.evaluate(async ({ ruta, pares, csrfValido }) => {
-    const csrf = csrfValido ? document.querySelector('input[name="csrf"]').value : 'csrf-inventado-por-la-bateria';
+   interfaz no permite montar. Devuelve estado HTTP y el mensaje que trae la respuesta. */
+/* La confirmación del panel, que sustituyó a los diez confirm() del navegador.
+ *
+ * Antes esto se leía de `pagina.registro.dialogos`, que es donde Playwright apunta los
+ * cuadros nativos. Ya no hay ninguno: la pregunta es marcado del propio panel, así que se
+ * espera a que la capa esté abierta, se lee lo que dice y se pulsa. Devuelve el texto entero
+ * —título y nota— para que la prueba siga comprobando QUÉ se preguntó y no sólo que se
+ * preguntó algo. */
+export async function confirmarEnPanel(pagina, aceptar = true, tope = 3000) {
+  const hasta = Date.now() + tope;
+  let txt = null;
+  for (;;) {
+    txt = await pagina.evaluate(() => {
+      const c = document.getElementById('adm-modal');
+      if (!c || c.hidden) return null;
+      const t = document.getElementById('adm-modal-t');
+      const n = document.getElementById('adm-modal-txt');
+      return ((t ? t.textContent : '') + ' ' + (n ? n.textContent : '')).trim();
+    }).catch(() => null);
+    if (txt || Date.now() > hasta) break;
+    await new Promise((r) => setTimeout(r, 80));
+  }
+  if (!txt) return '';
+  await pagina.evaluate((si) => {
+    const c = document.getElementById('adm-modal');
+    const b = c.querySelector(si ? '[data-modal-si]' : '[data-modal-no]');
+    if (b) b.click();
+  }, aceptar).catch(() => {});
+  return txt;
+}
+
+export async function postCrudo(pagina, ruta, pares, { csrfValido = true, cabeceras = {} } = {}) {
+  return pagina.evaluate(async ({ ruta, pares, csrfValido, cabeceras }) => {
+    const c = document.querySelector('input[name="csrf"]');
+    const csrf = csrfValido && c ? c.value : 'csrf-inventado-por-la-bateria';
     const fd = new URLSearchParams();
     fd.set('csrf', csrf);
     for (const [k, v] of pares) fd.append(k, v);
     const r = await fetch(ruta, {
-      method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: 'POST', body: fd,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...cabeceras },
+      credentials: 'same-origin',
     });
-    return { status: r.status };
-  }, { ruta, pares, csrfValido });
+    const t = await r.text();
+    let mensaje = '';
+    const m = /toast\(\s*("(?:[^"\\]|\\.)*")\s*,\s*'(ok|bad)'/.exec(t);
+    if (m) { try { mensaje = JSON.parse(m[1]); } catch { /* sin mensaje */ } }
+    return { status: r.status, mensaje, bytes: t.length, json: t.trim().startsWith('{') };
+  }, { ruta, pares, csrfValido, cabeceras });
 }
 
+/* ---------------------------------------------------------------------------- la matriz corta
+ * Lo que `full` y `weekly` ejecutan desde siempre. La cobertura exhaustiva es admin-e2e.mjs. */
 export async function pruebasAdmin(informe, ctx) {
-  const { pagina, servidor, docroot, fixtures, etiqueta = '' } = ctx;
+  const { pagina, servidor, docroot, etiqueta = '' } = ctx;
   const url = servidor.url;
   const suf = etiqueta ? ` (${etiqueta})` : '';
 
   informe.seccion('panel: acceso y sesion' + suf);
   const pestanas = await entrarAlPanel(pagina, url);
-  informe.comprueba('ADM-01', 'se entra al panel y estan las ocho pestanas' + suf,
-    pestanas.length === 8, pestanas.join(','));
+  informe.comprueba('ADM-01', 'se entra al panel y estan las ocho pantallas en la navegacion' + suf,
+    pestanas.length === 8 && PANTALLAS.every((p) => pestanas.includes(p)), pestanas.join(','));
   informe.comprueba('ADM-02', 'los ocho paneles existen en el HTML' + suf,
     await pagina.evaluate(() => document.querySelectorAll('section.pane').length) === 8);
-
-  /* La sesión sobrevive a una recarga: si no, cada guardado pediría la clave otra vez. */
   await pagina.reload({ waitUntil: 'domcontentloaded' });
   informe.comprueba('ADM-03', 'la sesion sobrevive a una recarga' + suf,
     await pagina.evaluate(() => !document.querySelector('#clave')));
 
-  informe.seccion('panel: agotados' + suf);
-  await pagina.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
-  await abrirAcordeones(pagina, 'section.pane[data-pane="agotados"]');
-  await pagina.waitForTimeout(200);
+  informe.seccion('panel: agotados (autoguardado)' + suf);
+  await irA(pagina, url, 'platos');
   const claves = await pagina.evaluate(() =>
-    [...document.querySelectorAll('label.adm-agrow-marca input')].slice(0, 2).map((i) => i.value));
-  await clicVisible(pagina, 'label.adm-agrow-marca', 0);
-  await pagina.waitForTimeout(120);
-  await clicVisible(pagina, 'label.adm-agrow-marca', 1);
-  await pagina.waitForTimeout(120);
-  const avisoAgotados = await guardar(pagina, 'agotados-form');
-  const estadoAgotados = leerEstado(docroot);
-  const marcados = Object.keys(estadoAgotados?.soldOut || {});
-  informe.comprueba('ADM-04', 'guardar agotados avisa y persiste' + suf,
-    /agotado/i.test(avisoAgotados) && claves.every((k) => marcados.includes(k)),
-    `${avisoAgotados} | estado: ${marcados.length} claves`);
-  informe.comprueba('ADM-05', 'el estado guarda la doble clave (id y legado)' + suf,
-    marcados.length >= claves.length * 2 || marcados.some((k) => k.includes(' :: ')),
-    marcados.slice(0, 4).join(' | '));
+    [...document.querySelectorAll('input[name="agotado[]"]')].slice(0, 2).map((i) => i.value));
+  for (const k of claves) {
+    await pagina.evaluate((v) => {
+      const cb = document.querySelector(`input[name="agotado[]"][value="${CSS.escape(v)}"]`);
+      cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true }));
+    }, k);
+    await pagina.waitForTimeout(700);
+  }
+  await pagina.waitForTimeout(600);
+  const marcados = Object.keys(leerEstado(docroot)?.soldOut || {});
+  informe.comprueba('ADM-04', 'marcar agotado autoguarda y persiste' + suf,
+    claves.every((k) => marcados.includes(k)), `estado: ${marcados.length} claves`);
+  informe.comprueba('ADM-05', 'el estado guarda tambien las filas hermanas del mismo plato' + suf,
+    marcados.length >= claves.length, marcados.slice(0, 4).join(' | '));
+  /* Se deja como se encontró: los dos desmarcados. */
+  for (const k of claves) {
+    await pagina.evaluate((v) => {
+      const cb = document.querySelector(`input[name="agotado[]"][value="${CSS.escape(v)}"]`);
+      cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true }));
+    }, k);
+    await pagina.waitForTimeout(700);
+  }
+  await pagina.waitForTimeout(600);
 
   informe.seccion('panel: destacados' + suf);
-  await pagina.goto(url + '/admin/?t=destacados', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
-  const primerPlato = await pagina.evaluate(() => {
-    const n = document.querySelector('section.pane[data-pane="agotados"] label.adm-agrow-marca input');
-    return n ? n.value : '';
+  await irA(pagina, url, 'platos');
+  const platoDest = await pagina.evaluate(() => {
+    const b = document.querySelector('.adm-plato-destbtn');
+    if (!b) return null;
+    b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    return b.dataset.k;
   });
-  await pagina.fill('#hl-q', await pagina.evaluate(() => {
-    const h = document.querySelector('section.pane[data-pane="agotados"] .dish-name, section.pane[data-pane="agotados"] h4, section.pane[data-pane="agotados"] .adm-agrow-nombre');
-    return h ? h.textContent.trim().split('\n')[0].slice(0, 12) : 'a';
-  }));
-  await pagina.waitForTimeout(450);
+  await pagina.waitForTimeout(300);
   let anadido = false;
-  const haySugerencia = await pagina.evaluate(() => !!document.querySelector('.adm-dest-add li'));
-  if (haySugerencia) {
-    await clicVisible(pagina, '.adm-dest-add li', 0);
-    await pagina.waitForTimeout(200);
-    await pagina.selectOption('#hl-label', { index: 2 }).catch(() => {});
-    await pagina.click('button[name="destacado_add"]');
-    await pagina.waitForLoadState('networkidle').catch(() => {});
-    await pagina.waitForTimeout(300);
-    anadido = Object.keys(leerEstado(docroot)?.tags || {}).length > 0;
+  if (platoDest) {
+    const hayEtiquetas = await pagina.evaluate(() => {
+      const f = document.getElementById('dest-et');
+      return f && !f.hidden && f.querySelectorAll('.adm-destet-b').length > 0;
+    });
+    if (hayEtiquetas) {
+      await pagina.evaluate(() => document.querySelector('#dest-et .adm-destet-b').click());
+      await pagina.waitForLoadState('networkidle').catch(() => {});
+      await pagina.waitForTimeout(400);
+      anadido = !!(leerEstado(docroot)?.tags || {})[platoDest];
+    }
   }
-  informe.comprueba('ADM-06', 'anadir destacado por el buscador' + suf, anadido,
-    haySugerencia ? await textoAviso(pagina) : 'el buscador no ofrecio sugerencias');
+  informe.comprueba('ADM-06', 'destacar un plato desde su fila guarda la etiqueta' + suf, anadido,
+    platoDest ? `plato ${platoDest}` : 'no habia boton Destacar');
 
-  /* Etiqueta fuera del catálogo: la interfaz sólo ofrece las válidas, así que esto va por POST. */
   const antesTags = JSON.stringify(leerEstado(docroot)?.tags || {});
-  await postCrudo(pagina, '/admin/index.php?t=destacados',
-    [['destacado_add', '1'], ['hl_key', primerPlato || 'x'], ['hl_label', 'Etiqueta inventada por QA']]);
+  await postCrudo(pagina, '/admin/index.php?t=platos',
+    [['destacado_add', '1'], ['hl_key', platoDest || 'x'], ['hl_label', 'Etiqueta inventada por QA']]);
   informe.comprueba('ADM-07', 'una etiqueta fuera del catalogo no se guarda' + suf,
     JSON.stringify(leerEstado(docroot)?.tags || {}) === antesTags);
 
   if (anadido) {
-    await pagina.goto(url + '/admin/?t=destacados', { waitUntil: 'domcontentloaded' });
-    await pagina.waitForTimeout(250);
-    const hayQuitar = await pagina.$('button[name="destacado_del"]');
-    if (hayQuitar) {
-      await hayQuitar.click();
-      await pagina.waitForLoadState('networkidle').catch(() => {});
-      await pagina.waitForTimeout(300);
-      informe.comprueba('ADM-08', 'quitar destacado' + suf,
-        Object.keys(leerEstado(docroot)?.tags || {}).length === 0, await textoAviso(pagina));
-    } else {
-      informe.blocked('ADM-08', 'quitar destacado' + suf, 'no aparecio el boton de quitar');
-    }
+    await irA(pagina, url, 'platos');
+    const quitado = await pagina.evaluate((k) => {
+      const b = document.querySelector(`button[name="destacado_del"][value="${CSS.escape(k)}"]`);
+      if (!b) return false;
+      b.click();
+      return true;
+    }, platoDest);
+    await pagina.waitForLoadState('networkidle').catch(() => {});
+    await pagina.waitForTimeout(400);
+    informe.comprueba('ADM-08', 'quitar destacado' + suf,
+      quitado && !(leerEstado(docroot)?.tags || {})[platoDest]);
   } else {
-    informe.blocked('ADM-08', 'quitar destacado' + suf, 'no se llego a anadir ninguno');
+    informe.fail('ADM-08', 'quitar destacado' + suf, 'no se llego a anadir ninguno');
   }
 
-  informe.seccion('panel: ofertas' + suf);
-  await pagina.goto(url + '/admin/?t=ofertas', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
-  await pagina.fill('#of-pct', '20');
-  await pagina.fill('#of-desde', '00:00');
-  await pagina.fill('#of-hasta', '23:59');
-  await pagina.evaluate(() => {
-    document.querySelectorAll('input[name="dia[]"]').forEach((c) => { c.checked = true; });
-    const cat = document.querySelector('input[name="cat[]"]');
-    if (cat) cat.checked = true;
-    const on = document.querySelector('input[name="oferta_on"]');
-    if (on) on.checked = true;
-  });
-  const avisoOferta = await guardar(pagina, 'ofertas-form');
+  informe.seccion('panel: ofertas (autoguardado)' + suf);
+  await irA(pagina, url, 'ofertas');
+  const antesOferta = leerEstado(docroot)?.offer || {};
+  const r1 = await postCrudo(pagina, '/admin/index.php?t=ofertas', [['oferta_pct_guardar', '1'], ['pct', '20']]);
+  const r2 = await postCrudo(pagina, '/admin/index.php?t=ofertas', [['oferta_pct_guardar', '1'], ['pct', '95']]);
   const oferta = leerEstado(docroot)?.offer || {};
-  informe.comprueba('ADM-09', 'guardar oferta encendida' + suf,
-    oferta.on === true && oferta.percent === 20 && (oferta.cats || []).length > 0,
-    `${avisoOferta} | ${JSON.stringify(oferta).slice(0, 140)}`);
-
-  await pagina.goto(url + '/admin/?t=ofertas', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
-  await pagina.fill('#of-pct', '95');
-  const avisoPct = await guardar(pagina, 'ofertas-form');
-  informe.comprueba('ADM-10', 'un descuento fuera de 1-90 se rechaza con la oferta encendida' + suf,
-    (leerEstado(docroot)?.offer?.percent) === 20,
-    `${avisoPct} | percent=${leerEstado(docroot)?.offer?.percent}`);
+  informe.comprueba('ADM-09', 'el porcentaje autoguarda con 200 y persiste' + suf,
+    r1.status === 200 && oferta.percent === 20, `status ${r1.status} | percent=${oferta.percent}`);
+  informe.comprueba('ADM-10', 'un descuento fuera de 1-90 devuelve 422 y no se guarda' + suf,
+    r2.status === 422 && oferta.percent === 20, `status ${r2.status} | ${r2.mensaje}`);
+  if (antesOferta.percent && antesOferta.percent !== 20) {
+    await postCrudo(pagina, '/admin/index.php?t=ofertas', [['oferta_pct_guardar', '1'], ['pct', String(antesOferta.percent)]]);
+  }
 
   informe.seccion('panel: precios' + suf);
-  await pagina.goto(url + '/admin/?t=precios', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
-  await pagina.click('button[name="subir"][value="5"]');
+  /* Ajustar precios ya no vive arriba de Platos: tiene pantalla propia. */
+  await irA(pagina, url, 'precios');
+  await pagina.click('button.adm-pct[name="subir"][value="5"]');
   await pagina.waitForLoadState('networkidle').catch(() => {});
   await pagina.waitForTimeout(400);
-  const hayCampos = await pagina.evaluate(() => document.querySelectorAll('input[name^="precio["]').length);
+  const hayCampos = await pagina.evaluate(() => document.querySelectorAll('.adm-f-ptab input[name^="precio["]').length);
   informe.comprueba('ADM-11', 'el atajo +5% abre la lista con los precios propuestos' + suf, hayCampos > 0, `${hayCampos} campos`);
   const avisoPrecios = await guardar(pagina, 'precios-form');
   const precios = leerEstado(docroot)?.prices || {};
   informe.comprueba('ADM-12', 'publicar precios persiste' + suf,
     Object.keys(precios).length > 0, `${avisoPrecios} | ${Object.keys(precios).length} claves`);
 
-  /* «A mano, uno a uno»: abre la misma lista sin aplicar porcentaje. */
-  await pagina.goto(url + '/admin/?t=precios', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
+  await irA(pagina, url, 'precios');
   const manual = await pagina.$('button[name="precios_manual"]');
   if (manual) {
     await manual.click();
     await pagina.waitForLoadState('networkidle').catch(() => {});
     await pagina.waitForTimeout(350);
     informe.comprueba('ADM-13', 'el modo manual abre la lista sin aplicar porcentaje' + suf,
-      await pagina.evaluate(() => document.querySelectorAll('input[name^="precio["]').length) > 0);
+      await pagina.evaluate(() => document.querySelectorAll('.adm-f-ptab input[name^="precio["]').length) > 0);
   } else {
-    informe.blocked('ADM-13', 'modo manual de precios' + suf, 'no se encontro el boton');
+    informe.fail('ADM-13', 'modo manual de precios' + suf, 'no se encontro el boton');
   }
+  /* Se devuelven los precios a los de la carta: las pruebas de despues cuentan con ello. */
+  await postCrudo(pagina, '/admin/index.php?t=platos', [['precios_reset', '1']]);
 
   informe.seccion('panel: juego, publicidad y marca' + suf);
-  await pagina.goto(url + '/admin/?t=juego', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
+  await irA(pagina, url, 'juego');
   const juegoAntes = leerEstado(docroot)?.game?.on;
-  await clicVisible(pagina, 'input[name="juego_on"] ~ *, label:has(input[name="juego_on"])', 0).catch(async () => {
-    await pagina.evaluate(() => { const c = document.querySelector('input[name="juego_on"]'); c.checked = !c.checked; });
-  });
+  await pagina.evaluate(() => { const c = document.querySelector('input[name="juego_on"]'); c.checked = !c.checked; });
   const avisoJuego = await guardar(pagina, 'juego-form');
   informe.comprueba('ADM-14', 'el interruptor del juego cambia y persiste' + suf,
     leerEstado(docroot)?.game?.on !== juegoAntes, `${avisoJuego} | antes=${juegoAntes}`);
 
-  await pagina.goto(url + '/admin/?t=publicidad', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(300);
-  if (fixtures['banner-1120x480.png']) {
-    await pagina.setInputFiles('#pub_img', fixtures['banner-1120x480.png']);
+  await irA(pagina, url, 'publicidad');
+  if (ctx.fixtures && ctx.fixtures['banner-1120x480.png']) {
+    await pagina.setInputFiles('#pub_img', ctx.fixtures['banner-1120x480.png']);
+    await pagina.waitForLoadState('networkidle').catch(() => {});
     await pagina.waitForTimeout(900);
     const img = leerEstado(docroot)?.publicidad?.banner?.img;
     informe.comprueba('ADM-15', 'subir la imagen del banner' + suf, !!img, String(img));
   } else {
-    informe.blocked('ADM-15', 'subir la imagen del banner' + suf, 'sin fixture');
+    informe.fail('ADM-15', 'subir la imagen del banner' + suf, 'sin fixture');
   }
-  await pagina.goto(url + '/admin/?t=publicidad', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(300);
+  await irA(pagina, url, 'publicidad');
   await pagina.fill('input[name="pub_url"]', 'https://ejemplo.invalido/promo-qa');
-  await pagina.fill('#pub-inicio', '2026-01-01T00:00');
-  await pagina.fill('#pub-fin', '2030-12-31T23:59');
-  await pagina.evaluate(() => { const c = document.querySelector('input[name="pub_on"]'); if (c) c.checked = true; });
+  await pagina.evaluate(() => {
+    document.getElementById('pub-inicio').value = '2026-01-01T00:00';
+    document.getElementById('pub-fin').value = '2030-12-31T23:59';
+    const c = document.querySelector('input[name="pub_on"]'); if (c) c.checked = true;
+  });
   const avisoPub = await guardar(pagina, 'pub-form');
   informe.comprueba('ADM-16', 'guardar publicidad con fechas' + suf,
     leerEstado(docroot)?.publicidad?.banner?.on === true, avisoPub);
-
-  await pagina.goto(url + '/admin/?t=publicidad', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(300);
-  await pagina.fill('#pub-inicio', '2030-12-01T10:00');
-  await pagina.fill('#pub-fin', '2030-11-01T10:00');
+  await irA(pagina, url, 'publicidad');
+  await pagina.evaluate(() => {
+    document.getElementById('pub-inicio').value = '2030-12-01T10:00';
+    document.getElementById('pub-fin').value = '2030-11-01T10:00';
+  });
   const avisoFechas = await guardar(pagina, 'pub-form');
   informe.comprueba('ADM-17', 'fin anterior al inicio se rechaza' + suf,
     /DESPUES del inicio/i.test(avisoFechas), avisoFechas);
 
-  await pagina.goto(url + '/admin/?t=marca', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(300);
+  await irA(pagina, url, 'marca');
   await pagina.fill('#marca-rotulo', 'Ñandú, José y Müller');
   await pagina.fill('#color-principal-hex', '#4FA3D1');
   await pagina.fill('#op-url', 'https://ejemplo.invalido/resenas');
@@ -259,46 +356,31 @@ export async function pruebasAdmin(informe, ctx) {
     && marca.social?.whatsapp === '34600111222',
     `${avisoMarca} | ${JSON.stringify(marca.marca)} ${JSON.stringify(marca.social).slice(0, 80)}`);
 
-  informe.seccion('panel: analitica, copias y marcador' + suf);
-  await pagina.goto(url + '/admin/?t=datos', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(400);
+  informe.seccion('panel: analitica, copias y descargas' + suf);
+  await irA(pagina, url, 'datos', 400);
   const textoDatos = await pagina.evaluate(() =>
     (document.querySelector('section.pane[data-pane="datos"]') || document.body).innerText.trim().slice(0, 120));
-  informe.comprueba('ADM-19', 'la pestana Analitica pinta algo coherente' + suf,
+  informe.comprueba('ADM-19', 'la pantalla Analitica pinta algo coherente' + suf,
     textoDatos.length > 10, textoDatos.replace(/\n+/g, ' '));
 
-  await pagina.goto(url + '/admin/?t=marca', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(400);
+  await irA(pagina, url, 'ajustes', 400);
   const copias = await pagina.evaluate(() =>
     [...document.querySelectorAll('button[name="restaurar_copia"]')].map((b) => b.value));
-  informe.comprueba('ADM-20', 'las copias de precios aparecen listadas' + suf, copias.length > 0, copias.join(', '));
-  const descarga = await pagina.evaluate(async () => {
-    const b = document.querySelector('button[name="descargar_copia"]');
-    if (!b) return 'sin copias';
-    const csrf = document.querySelector('input[name="csrf"]').value;
-    const fd = new URLSearchParams(); fd.set('csrf', csrf); fd.set('descargar_copia', b.value);
-    const r = await fetch('/admin/index.php', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    const t = await r.text();
-    return r.status + ':' + (t.trim().startsWith('{') ? 'json' : t.slice(0, 40));
-  });
-  informe.comprueba('ADM-21', 'descargar una copia devuelve su JSON' + suf, /:json$/.test(descarga), descarga);
-  const descargaEstado = await pagina.evaluate(async () => {
-    const csrf = document.querySelector('input[name="csrf"]').value;
-    const fd = new URLSearchParams(); fd.set('csrf', csrf); fd.set('descargar_estado', '1');
-    const r = await fetch('/admin/index.php', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    const t = await r.text();
-    return r.status + ':' + (t.trim().startsWith('{') ? 'json' : t.slice(0, 40));
-  });
-  informe.comprueba('ADM-22', 'descargar el estado devuelve su JSON' + suf, /:json$/.test(descargaEstado), descargaEstado);
+  informe.comprueba('ADM-20', 'las copias de precios aparecen listadas en Ajustes' + suf, copias.length > 0, copias.join(', '));
+  const descarga = copias.length
+    ? await postCrudo(pagina, '/admin/index.php', [['descargar_copia', copias[0]]])
+    : { status: 0, json: false };
+  informe.comprueba('ADM-21', 'descargar una copia devuelve su JSON' + suf, descarga.status === 200 && descarga.json, JSON.stringify(descarga));
+  const descargaEstado = await postCrudo(pagina, '/admin/index.php', [['descargar_estado', '1']]);
+  informe.comprueba('ADM-22', 'descargar el estado devuelve su JSON' + suf, descargaEstado.status === 200 && descargaEstado.json, JSON.stringify(descargaEstado));
 
   informe.seccion('panel: CSRF' + suf);
   const juegoPrevio = leerEstado(docroot)?.game?.on;
-  await pagina.goto(url + '/admin/?t=juego', { waitUntil: 'domcontentloaded' });
-  await pagina.waitForTimeout(250);
-  await postCrudo(pagina, '/admin/index.php?t=juego',
-    [['guardar_juego', '1']], { csrfValido: false });
-  informe.comprueba('ADM-23', 'un POST con csrf invalido no cambia el estado' + suf,
-    leerEstado(docroot)?.game?.on === juegoPrevio, `antes=${juegoPrevio} despues=${leerEstado(docroot)?.game?.on}`);
+  await irA(pagina, url, 'juego');
+  const rc = await postCrudo(pagina, '/admin/index.php?t=juego', [['guardar_juego', '1']], { csrfValido: false });
+  informe.comprueba('ADM-23', 'un POST con csrf invalido devuelve 403 y no cambia el estado' + suf,
+    rc.status === 403 && leerEstado(docroot)?.game?.on === juegoPrevio,
+    `status ${rc.status} | antes=${juegoPrevio} despues=${leerEstado(docroot)?.game?.on}`);
 
   informe.seccion('panel: salida' + suf);
   await pagina.goto(url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
@@ -310,8 +392,7 @@ export async function pruebasAdmin(informe, ctx) {
   await pagina.waitForLoadState('networkidle').catch(() => {});
   await pagina.waitForTimeout(300);
   informe.comprueba('ADM-25', 'una clave incorrecta no entra' + suf,
-    await pagina.evaluate(() => !!document.querySelector('#clave')
-      && /incorrecta/i.test(document.body.innerText)));
+    await pagina.evaluate(() => !!document.querySelector('#clave') && /incorrecta/i.test(document.body.innerText)));
   await entrarAlPanel(pagina, url);
 
   informe.seccion('panel: avisos de PHP' + suf);
@@ -322,17 +403,14 @@ export async function pruebasAdmin(informe, ctx) {
   return informe;
 }
 
-/* Superadministrador: entra por la variable de entorno del hosting, que es lo que documenta el
-   LEEME. Se prueba en su propio servidor para no dejar una sesión con más permisos abierta. */
+/* Superadministrador: entra por la misma casilla que el restaurante. Se prueba en su propio
+   servidor para no dejar una sesión con más permisos abierta. */
 export async function pruebasSuperadmin(informe, { pagina, servidor, docroot, clave }) {
   informe.seccion('panel: superadministrador');
   await pagina.goto(servidor.url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
   await pagina.waitForTimeout(200);
   await pagina.goto(servidor.url + '/admin/', { waitUntil: 'domcontentloaded' });
   await pagina.waitForTimeout(200);
-  /* Un docroot recien copiado no tiene clave.php, asi que el panel ofrece PONER contrasena en vez
-     de pedirla. Se pone una de cliente primero y despues se entra con la del super, que es el
-     camino real: el super entra por la misma casilla que el restaurante. */
   if (await pagina.$('input[name="nueva"]')) {
     await pagina.fill('input[name="nueva"]', CLAVE_QA);
     await pagina.click('button[type="submit"]');
@@ -341,71 +419,40 @@ export async function pruebasSuperadmin(informe, { pagina, servidor, docroot, cl
     await pagina.waitForTimeout(250);
   }
   if (!(await pagina.$('#clave'))) {
-    informe.blocked('ADM-30', 'entrar como superadministrador', 'el panel no pidio contrasena');
+    informe.fail('ADM-30', 'entrar como superadministrador', 'el panel no pidio contrasena');
     return informe;
   }
   await pagina.fill('#clave', clave);
   await pagina.click('button[type="submit"]');
   await pagina.waitForLoadState('networkidle').catch(() => {});
   await pagina.waitForTimeout(350);
+  await irA(pagina, servidor.url, 'ajustes');
   const esSuper = await pagina.evaluate(() => !!document.querySelector('input[name="reset_cliente"]'));
   informe.comprueba('ADM-30', 'la clave del super abre la sesion de superadministrador', esSuper);
   if (!esSuper) return informe;
 
   const claveNueva = 'clave-cliente-qa-9876';
-  const r = await pagina.evaluate(async (nueva) => {
-    const f = document.querySelector('input[name="reset_cliente"]').form;
-    const csrf = f.querySelector('input[name="csrf"]').value;
-    const fd = new URLSearchParams();
-    fd.set('csrf', csrf); fd.set('reset_cliente', '1'); fd.set('cliente_nueva', nueva);
-    const x = await fetch('/admin/index.php', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    return x.status;
-  }, claveNueva);
+  const r = await postCrudo(pagina, '/admin/index.php', [['reset_cliente', '1'], ['cliente_nueva', claveNueva]]);
   const clavePhp = path.join(docroot, 'admin', 'clave.php');
   informe.comprueba('ADM-31', 'el super restablece la contrasena del restaurante',
-    r === 200 && existsSync(clavePhp), `status ${r}`);
+    r.status === 200 && existsSync(clavePhp), `status ${r.status}`);
 
-  const corta = await pagina.evaluate(async () => {
-    const f = document.querySelector('input[name="reset_cliente"]');
-    if (!f) return 'ya no hay formulario';
-    const csrf = f.form.querySelector('input[name="csrf"]').value;
-    const fd = new URLSearchParams();
-    fd.set('csrf', csrf); fd.set('reset_cliente', '1'); fd.set('cliente_nueva', 'corta');
-    const x = await fetch('/admin/index.php', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    const t = await x.text();
-    return /8 caracteres|al menos 8/.test(t) ? 'rechazada' : 'sin aviso';
-  });
+  const corta = await postCrudo(pagina, '/admin/index.php', [['reset_cliente', '1'], ['cliente_nueva', 'corta']]);
   informe.comprueba('ADM-32', 'una contrasena corta se rechaza tambien desde el super',
-    corta === 'rechazada', corta);
+    /8 caracteres|al menos 8/.test(corta.mensaje), corta.mensaje);
 
-  /* Cambiar la clave del propio super. Sólo se puede cuando el hash vive en `superclave.php` —si
-     viniera de la variable de entorno del hosting, el panel dice que se cambie allí— y aquí vive
-     ahí, así que la prueba se hace de verdad en vez de declararse bloqueada. */
   const claveSuperNueva = 'clave-super-qa-nueva-8765';
-  const cambio = await pagina.evaluate(async ({ actual, nueva }) => {
-    const i = document.querySelector('input[name="cambiar_super"]');
-    if (!i) return { hay: false };
-    const csrf = i.form.querySelector('input[name="csrf"]').value;
-    const mal = new URLSearchParams();
-    mal.set('csrf', csrf); mal.set('cambiar_super', '1');
-    mal.set('super_actual', 'esta-no-es-la-actual'); mal.set('super_nueva', nueva);
-    const r1 = await fetch('/admin/index.php', { method: 'POST', body: mal, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    const t1 = await r1.text();
-    const bien = new URLSearchParams();
-    bien.set('csrf', csrf); bien.set('cambiar_super', '1');
-    bien.set('super_actual', actual); bien.set('super_nueva', nueva);
-    const r2 = await fetch('/admin/index.php', { method: 'POST', body: bien, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    return { hay: true, rechazada: /no es correcta|incorrecta/i.test(t1), estado: r2.status };
-  }, { actual: clave, nueva: claveSuperNueva });
-
-  if (!cambio.hay) {
-    informe.blocked('ADM-33', 'cambiar la clave del propio superadministrador',
+  const hayCambio = await pagina.evaluate(() => !!document.querySelector('input[name="cambiar_super"]'));
+  if (!hayCambio) {
+    informe.fail('ADM-33', 'cambiar la clave del propio superadministrador',
       'no aparece el formulario: el hash vive en la variable de entorno del hosting');
   } else {
-    informe.comprueba('ADM-33', 'una clave actual equivocada no cambia la del super', cambio.rechazada,
-      JSON.stringify(cambio));
-    /* Y la prueba de verdad: entrar con la nueva. Cambiar la contrasena expulsa la sesion abierta
-       —es lo que hace el panel a proposito— asi que hay que volver a entrar. */
+    const mal = await postCrudo(pagina, '/admin/index.php',
+      [['cambiar_super', '1'], ['super_actual', 'esta-no-es-la-actual'], ['super_nueva', claveSuperNueva]]);
+    const bien = await postCrudo(pagina, '/admin/index.php',
+      [['cambiar_super', '1'], ['super_actual', clave], ['super_nueva', claveSuperNueva]]);
+    informe.comprueba('ADM-33', 'una clave actual equivocada no cambia la del super',
+      /no es correcta|incorrecta/i.test(mal.mensaje) && bien.status === 200, JSON.stringify({ mal, bien }));
     await pagina.goto(servidor.url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
     await pagina.goto(servidor.url + '/admin/', { waitUntil: 'domcontentloaded' });
     await pagina.waitForTimeout(250);
@@ -415,6 +462,7 @@ export async function pruebasSuperadmin(informe, { pagina, servidor, docroot, cl
       await pagina.waitForLoadState('networkidle').catch(() => {});
       await pagina.waitForTimeout(350);
     }
+    await irA(pagina, servidor.url, 'ajustes');
     informe.comprueba('ADM-34', 'la clave nueva del super abre su sesion',
       await pagina.evaluate(() => !!document.querySelector('input[name="reset_cliente"]')));
   }

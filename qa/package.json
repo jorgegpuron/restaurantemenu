@@ -10,6 +10,7 @@
   "scripts": {
     "fast": "node suites/fast.mjs",
     "smoke": "node suites/smoke.mjs",
+    "e2e": "node suites/admin-e2e.mjs",
     "full": "node suites/full.mjs",
     "pagespeed": "node suites/pagespeed.mjs",
     "comparativa": "node suites/pagespeed.mjs --control 54ed519",

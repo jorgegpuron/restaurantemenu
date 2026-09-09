@@ -1,4 +1,4 @@
-import { adelgazarCSS, adelgazarJS } from './adelgazar.mjs';
+import { adelgazarCSS, adelgazarJS, adelgazarPanel } from './adelgazar.mjs';
 import {
   readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync, rmSync, existsSync,
   lstatSync,
@@ -11,8 +11,8 @@ import {
   cssMarca, verificar as verificarMarcaDefecto, verificarPaleta, normalizarHex,
   PRINCIPAL_DEFECTO, SECUNDARIO, OSCURO, NEUTRO,
 } from './temas.mjs';
-import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE, resolver as resolverAlergeno,
-  CANONICAS, ALIAS } from './alergenos.mjs';
+import { ICONO_POR_CLAVE, ETIQUETA_POR_CLAVE, ETIQUETA, ETIQUETA_ES, ICONO,
+  resolver as resolverAlergeno, CANONICAS, ALIAS , pistasDe } from './alergenos.mjs';
 import { verificarBuild } from './verificar-build.mjs';
 /* Todo lo que es de ESTE restaurante. gen.mjs no lleva dentro ni un nombre ni una
    categoria: si hay que abrirlo para dar de alta a un cliente, algo esta mal puesto. */
@@ -626,6 +626,10 @@ for (const [clave, def] of Object.entries(CARTA2.escalas || {})) {
 
 /* La taxonomia, del derecho: pestañas -> grupos, con su metadato en el sitio. */
 const TAXO = CARTA2.pestanas.map((t, ti) => ({
+  /* La identidad permanente de la pestaña, acuñada por importar.mjs. Es la clave con la que
+     el panel guarda un rotulo distinto: bajo el texto no valdria, porque el texto es
+     justamente lo que se cambia. */
+  pestanaId: t.pestanaId,
   label: baseTexto(t.pestana, 'pestanas[' + ti + '].pestana'),
   icono: t.icono,
   especial: t.especial === true,
@@ -647,6 +651,9 @@ const TAXO = CARTA2.pestanas.map((t, ti) => ({
     }
     return {
       id: g.categoryId,
+      /* De que pestaña cuelga. Lo necesita el grupo que NO tiene rotulo propio: en la carta
+         enseña el de su pestaña, asi que renombrar la pestaña tiene que cambiarlo tambien. */
+      pestanaId: t.pestanaId,
       cat: Array.isArray(g.categoria) ? g.categoria[0] : g.categoria,
       sub: g.subtitulo ? baseTexto(g.subtitulo, donde + '.subtitulo') : null,
       icono: g.icono || null,
@@ -1202,7 +1209,11 @@ const renderItem = (it, showSlot, icon, catName) => {
      Va el hash y no la clave porque esto viaja en el cuerpo de una petición y acaba en una
      línea de un registro. */
   const vid = vistaId(it.dishId);
-  return `                    <div class="single-menu-items" data-key="${key}" data-legacy="${legacy}" data-vid="${vid}" data-cat="${esc(catName)}" data-catid="${it.catId}"${included ? '' : ` data-price="${esc(it.price)}"`}>
+  /* El numero COMPILADO viaja en la fila. El runtime reescribe el numero visible —es la
+     posicion, y la posicion la deciden el orden y los retirados del panel— asi que necesita
+     poder mirar cual era el de origen: de el salen las dos unicas cosas que no se recalculan,
+     si esta fila lleva numero o no, y si comparte ordinal con la de al lado (24a/24b/24c). */
+  return `                    <div class="single-menu-items" data-key="${key}" data-legacy="${legacy}" data-vid="${vid}" data-cat="${esc(catName)}" data-catid="${it.catId}" data-num="${esc(it.id || '')}"${included ? '' : ` data-price="${esc(it.price)}"`}>
                       <div class="details">${column}
                         <div class="menu-content">
                           <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}${alergenoMarks(it)}</h3>
@@ -1315,7 +1326,7 @@ const renderSub = (g, showSlot) => {
   const col = (items, offset) =>
     items.map((it) => renderItem(it, showSlot, icon, g.cat)).join('\n');
 
-  return `              <div class="menu-group${escala ? ' con-escala' : ''}" data-cat="${esc(g.cat)}">
+  return `              <div class="menu-group${escala ? ' con-escala' : ''}" data-cat="${esc(g.cat)}" data-tabid="${esc(g.pestanaId || '')}"${label ? '' : ' data-titulo-prestado'}>
 ${head}${note}${offerNote}                <div class="row">
                   <div class="col-lg-6">
 ${col(left, 0)}
@@ -1336,7 +1347,7 @@ const nav = TAXO.map((t, i) => {
   const divider = SPECIAL.has(t.label) && !SPECIAL.has(TAXO[i - 1]?.label)
     ? `              <li class="nav-divider" role="presentation">${T('Special menus', 'ui')}</li>\n`
     : '';
-  return `${divider}              <li class="nav-item${i === 0 ? ' active' : ''}" role="presentation" data-tab="${esc(t.label)}">
+  return `${divider}              <li class="nav-item${i === 0 ? ' active' : ''}" role="presentation" data-tab="${esc(t.label)}" data-tabid="${esc(t.pestanaId)}">
                 <button class="nav-link i18n" ${attrs(t.label, 'tabs')} id="${id}-tab" data-target="${id}" type="button" role="tab" aria-controls="${id}" aria-selected="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}">${esc(t.label)}</button>
               </li>`;
 }).join('\n');
@@ -1350,7 +1361,7 @@ const sheetGroup = (title, tabs) => !tabs.length ? '' :
 ${tabs.map(([t, i], j) => {
   const id = ANCLAS[i];
   return `        <li>
-          <button type="button" class="sheet-item" data-target="${id}"${j === 0 && title === 'Menu' ? ' aria-current="true"' : ''}>
+          <button type="button" class="sheet-item" data-target="${id}" data-tabid="${esc(t.pestanaId)}"${j === 0 && title === 'Menu' ? ' aria-current="true"' : ''}>
             <span class="sheet-item-icon" aria-hidden="true">${t.icono === 'gf' ? DIET_ICON.gf : GROUP_ICON[t.icono]}</span>
             <span class="sheet-item-name">${T(t.label, 'tabs')}</span>
             <span class="sheet-item-count">${countOf(t)}</span>
@@ -1420,10 +1431,14 @@ const panes = TAXO.map((t, i) => {
   const cierre = t.intro
     ? String.fromCharCode(10) + `              <p class="menu-group-aviso tab-aviso"><span class="aviso-badge">${T('Important', 'ui')}</span>${T(t.intro, 'ui-cliente')}</p>`
     : '';
-  return `              <div class="tab-pane${i === 0 ? ' active' : ''}${showSlot ? ' has-ids' : ''}" id="${id}" role="tabpanel" aria-labelledby="${id}-tab" data-tab="${esc(t.label)}">
+  return `              <div class="tab-pane${i === 0 ? ' active' : ''}${showSlot ? ' has-ids' : ''}" id="${id}" role="tabpanel" aria-labelledby="${id}-tab" data-tab="${esc(t.label)}" data-tabid="${esc(t.pestanaId || '')}">
 ${body}${cierre}
               </div>`;
 }).join('\n');
+
+/* El panel habla español si la carta lo habla; si no, el idioma base. Se calcula una vez y
+   lo usan tanto CLIENTE_IDIOMA_PANEL como los rotulos de los alergenos. */
+const PANEL_ES = [IDIOMA_BASE].concat(CLIENTE.idiomas.extras).some((l) => l.code === 'es');
 
 const totalItems = GRUPOS_PLANOS.reduce((n, g) => n + g.items.length, 0);
 
@@ -5084,7 +5099,771 @@ ${sheet}
   /* ---- el render ----
      Una sola pasada por las 326 filas. Cada fila se recalcula entera desde el estado, sin
      acumular: así llamar a render() dos veces da el mismo resultado que llamarlo una. */
+  /* ---- el orden elegido en el panel ----
+     estado.orden es categoryId => [dishId, ...]. Una categoria que nadie ha tocado no
+     aparece y se queda como salio del build, que es lo de siempre: sin esa clave, esta
+     funcion no hace absolutamente nada.
+
+     NO se fabrica marcado. Son las mismas filas que ya vienen horneadas, movidas de sitio:
+     appendChild MUEVE el nodo, asi que recorrer la lista en orden y adjuntar a la columna
+     que toca deja exactamente ese orden. Se reparte mitad y mitad igual que en el build
+     (renderSub: ceil(n/2) a la izquierda), o las dos columnas quedarian cojas.
+
+     Idempotente, como render(): si las filas ya estan en su sitio no se toca el DOM. Eso
+     importa porque render() vuelve a pasar cada treinta segundos. */
+  /* ---- el orden de las SECCIONES ----
+     estado.ordenPestanas es una lista de pestanaId. La misma seccion aparece en tres sitios —el
+     panel de contenido, la barra de arriba y el indice del movil— y los tres se reordenan aqui.
+
+     Se reordena DENTRO de cada contenedor y colocando cada nodo en los huecos que ya ocupaban
+     los suyos: asi el rotulo «cartas especiales» de la barra, que es un <li> mas entre las
+     pestañas, se queda donde estaba, y una seccion de la lista de especiales no puede acabar en
+     la lista normal del indice. Mover un nodo de un contenedor a otro seria cambiarlo de bloque,
+     y eso no es reordenar. */
+  function recolocarEnSusHuecos(nodos, ordenados) {
+    var marcas = nodos.map(function (n) {
+      var m = document.createComment('');
+      n.parentNode.insertBefore(m, n);
+      return m;
+    });
+    ordenados.forEach(function (n, i) { marcas[i].parentNode.insertBefore(n, marcas[i]); });
+    marcas.forEach(function (m) { if (m.parentNode) m.parentNode.removeChild(m); });
+  }
+
+  function aplicarOrdenPestanas() {
+    var lista = (estado && estado.ordenPestanas) || null;
+    if (!lista || !lista.length) return;
+    var pos = {};
+    lista.forEach(function (t, i) { pos[t] = i; });
+    /* Cada familia de nodos por separado, y dentro de cada una por contenedor: los paneles, los
+       botones de la barra y los del indice viven en sitios distintos. */
+    ['.tab-pane[data-tabid]', '.nav-item[data-tabid]', '.sheet-item[data-tabid]'].forEach(function (sel) {
+      var todos = [].slice.call(document.querySelectorAll(sel));
+      if (todos.length < 2) return;
+      var porPadre = [];
+      todos.forEach(function (el) {
+        /* El del indice va dentro de su <li>: lo que se mueve es la fila entera. */
+        var nodo = el.matches('.sheet-item') ? (el.closest('li') || el) : el;
+        var padre = nodo.parentNode;
+        var caja = null;
+        for (var i = 0; i < porPadre.length; i++) { if (porPadre[i].padre === padre) { caja = porPadre[i]; break; } }
+        if (!caja) { caja = { padre: padre, nodos: [], ids: [] }; porPadre.push(caja); }
+        caja.nodos.push(nodo);
+        caja.ids.push(el.dataset.tabid);
+      });
+      porPadre.forEach(function (caja) {
+        if (caja.nodos.length < 2) return;
+        var origen = {};
+        caja.ids.forEach(function (id, i) { origen[id] = i; });
+        var lugar = function (i) {
+          var id = caja.ids[i];
+          return pos[id] !== undefined ? pos[id] : lista.length + origen[id];
+        };
+        var indices = caja.nodos.map(function (_, i) { return i; })
+          .sort(function (a, b) { return lugar(a) - lugar(b); });
+        var igual = true;
+        for (var k = 0; k < indices.length; k++) { if (indices[k] !== k) { igual = false; break; } }
+        if (igual) return;
+        recolocarEnSusHuecos(caja.nodos, indices.map(function (i) { return caja.nodos[i]; }));
+      });
+    });
+  }
+
+  /* ---- el orden de las categorias dentro de su seccion ----
+     estado.ordenCats es pestanaId => [categoryId, ...]. Cada .menu-group ya trae su pestaña en
+     data-tabid; su categoryId no esta en el grupo sino en sus filas (data-catid), que es de
+     donde se lee. Un grupo que la lista no menciona se queda detras, en su sitio compilado. */
+  function aplicarOrdenCategorias() {
+    var mapa = (estado && estado.ordenCats) || null;
+    if (!mapa) return;
+    var catDe = function (g) {
+      var f = g.querySelector('.single-menu-items[data-catid]');
+      return f ? f.dataset.catid : '';
+    };
+    Object.keys(mapa).forEach(function (tid) {
+      var lista = mapa[tid];
+      if (!lista || !lista.length) return;
+      var grupos = [].slice.call(document.querySelectorAll('.menu-group[data-tabid="' + tid + '"]'));
+      if (grupos.length < 2) return;
+      var padre = grupos[0].parentNode;
+      /* Si no cuelgan todos del mismo sitio, no se toca nada: mover uno a otro contenedor
+         seria cambiarlo de seccion, y eso no es lo que se pidio. */
+      for (var i = 1; i < grupos.length; i++) { if (grupos[i].parentNode !== padre) return; }
+      var pos = {};
+      lista.forEach(function (c, i) { pos[c] = i; });
+      var origen = {};
+      grupos.forEach(function (g, i) { origen[catDe(g)] = i; });
+      var lugar = function (g) {
+        var c = catDe(g);
+        return pos[c] !== undefined ? pos[c] : lista.length + origen[c];
+      };
+      var ordenados = grupos.slice().sort(function (a, b) { return lugar(a) - lugar(b); });
+      var igual = true;
+      for (var j = 0; j < grupos.length; j++) { if (ordenados[j] !== grupos[j]) { igual = false; break; } }
+      if (igual) return;
+      /* Se insertan ANTES de lo que hubiera detras del ultimo grupo —un aviso de la seccion,
+         por ejemplo— en vez de al final del contenedor: appendChild los habria puesto todos
+         por debajo de ese aviso. */
+      var marca = grupos[grupos.length - 1].nextSibling;
+      ordenados.forEach(function (g) { padre.insertBefore(g, marca); });
+    });
+  }
+
+  function aplicarOrden() {
+    var guardado = (estado && estado.orden) || null;
+    var fuera = (estado && estado.retirados) || null;
+    /* Retirados PRIMERO: lo que no se sirve no ocupa sitio, no entra en el reparto a dos
+       columnas y no se lleva un numero. Se oculta con el atributo hidden, que es justo lo que el
+       buscador de la carta ya mira para saltarse una fila —lo hace en los cinco sitios donde
+       recorre el indice—, asi que el plato retirado desaparece tambien de la busqueda y de
+       los contadores de los chips sin tocar ni una linea de esa parte. */
+    var retirados = {};
+    if (fuera && fuera.length) fuera.forEach(function (k) { retirados[k] = true; });
+    document.querySelectorAll('.single-menu-items[data-key]').forEach(function (f) {
+      var debe = !!retirados[f.dataset.key];
+      if (f.hidden !== debe) f.hidden = debe;
+    });
+    /* Un grupo sin ninguna fila servible seria un titulo con nada debajo. El servidor no deja
+       llegar a eso —no se puede retirar el ultimo plato de una categoria— pero la carta puede
+       cambiar por debajo de un estado ya guardado, y entonces esto es la red. */
+    document.querySelectorAll('.menu-group').forEach(function (g) {
+      var vivas = [].slice.call(g.querySelectorAll('.single-menu-items[data-key]')).filter(function (f) { return !f.hidden; });
+      var vacio = vivas.length === 0;
+      if (g.hidden !== vacio) g.hidden = vacio;
+    });
+    /* Una seccion creada en el panel y todavia sin platos NO sale en la carta. Nace vacia por
+       fuerza —primero se crea, despues se le dan platos— y mientras tanto seria una pestaña
+       arriba que se pulsa y no enseña nada: peor que no estar. Sale sola en cuanto tenga el
+       primero. Esto solo alcanza a las creadas aqui: las de la carta compilada no llegan
+       nunca a este caso, y si llegaran seria un problema de la carta, no del panel. */
+    document.querySelectorAll('.tab-pane[data-seccion]').forEach(function (pane) {
+      var tid = pane.dataset.seccion;
+      var vivas = [].slice.call(pane.querySelectorAll('.single-menu-items[data-key]')).filter(function (f) { return !f.hidden; });
+      var vacia = vivas.length === 0;
+      if (pane.hidden !== vacia) pane.hidden = vacia;
+      document.querySelectorAll('.nav-item[data-tabid="' + tid + '"], .sheet-item[data-tabid="' + tid + '"]').forEach(function (el) {
+        var caja = el.matches('.sheet-item') ? (el.closest('li') || el) : el;
+        if (caja.hidden !== vacia) caja.hidden = vacia;
+      });
+    });
+
+    document.querySelectorAll('.menu-group').forEach(function (grupo) {
+      var filas = [].slice.call(grupo.querySelectorAll('.single-menu-items[data-key]'))
+        .filter(function (f) { return !f.hidden; });
+      if (filas.length < 2) return;
+      var lista = guardado ? guardado[filas[0].dataset.catid] : null;
+      var todas = [].slice.call(grupo.querySelectorAll('.single-menu-items[data-key]'));
+      if (!lista || !lista.length) return;
+
+      var pos = {};
+      lista.forEach(function (k, i) { pos[k] = i; });
+      var deOrigen = {};
+      filas.forEach(function (f, i) { deOrigen[f.dataset.key] = i; });
+      /* Un plato que la lista no menciona —recien añadido a la carta despues de guardar el
+         orden— no se pierde: va detras, en su posicion compilada. */
+      var lugar = function (f) {
+        var k = f.dataset.key;
+        return pos[k] !== undefined ? pos[k] : lista.length + deOrigen[k];
+      };
+      var ordenadas = filas.slice().sort(function (a, b) { return lugar(a) - lugar(b); });
+
+      var yaEsta = true;
+      for (var i = 0; i < filas.length; i++) { if (ordenadas[i] !== filas[i]) { yaEsta = false; break; } }
+      if (yaEsta) return;
+
+      var cols = [].slice.call(grupo.querySelectorAll('.row > .col-lg-6'));
+      if (cols.length < 2) return;
+      var mitad = Math.ceil(ordenadas.length / 2);
+      ordenadas.forEach(function (f, n) { cols[n < mitad ? 0 : 1].appendChild(f); });
+    });
+
+    /* Y AL FINAL, con todo colocado, los numeros: son la posicion en la carta ENTERA, asi que
+       no se pueden repartir grupo a grupo. */
+    numerarCarta();
+  }
+
+  /* Renumerar POR POSICION, la misma regla que el panel: se reparte la MISMA baraja de
+     numeros que ya tiene la categoria, en su orden natural, a las filas en el orden en que se
+     ven. Ni se inventa un numero ni se pierde ninguno — es una permutacion del conjunto, asi
+     que repartirlo dos veces da el mismo resultado y esto sigue siendo idempotente.
+
+     Los platos sin numero se quedan sin numero: los numeros solo se reparten entre las filas
+     que ya tenian uno. El numero se pinta en DOS sitios por fila —.item-id en la columna de
+     escritorio y .item-badge delante del nombre en movil— y los dos tienen que decir lo mismo.
+     Las filas cuyo hueco lleva un icono en vez de un numero (.item-icon) no se tocan. */
+  /* Numerar la carta ENTERA, misma regla que el panel (numeros_de_carta): el numero es la
+     POSICION del plato en la carta, contando de corrido y cruzando categorias. Antes se
+     repartia la baraja de cada categoria dentro de esa categoria; con eso, un plato añadido a
+     Sopas se quedaba sin numero o repetia el del primer Vegetariano, porque la carta va
+     numerada de corrido —01 a 06 Aperitivos, 07 a 09 Sopas, 10 a 20 Vegetarianos.
+
+     Tres reglas que salen de la carta real, no de la teoria:
+       · quien no lleva numero compilado (data-num vacio) sigue sin llevarlo: las listas de
+         salsas son selectores, y las filas ESPEJO de un plato repetido en Vegano o Sin gluten
+         no numeran — numera solo la de casa;
+       · 24a, 24b y 24c comparten el ordinal 24. Se reconocen porque su parte numerica
+         COMPILADA coincide con la del anterior;
+       · un plato retirado no gasta numero: la lista se compacta.
+     Idempotente: no toca el DOM si el numero que toca ya es el que hay. */
+  /* 24a antes que 24b, y 9 antes que 10: el numero manda y la letra desempata. */
+  function comparaNumero(a, b) {
+    var na = /^\\d/.test(a) ? parseInt(a, 10) : Infinity;
+    var nb = /^\\d/.test(b) ? parseInt(b, 10) : Infinity;
+    if (na !== nb) return na - nb;
+    return a < b ? -1 : (a > b ? 1 : 0);
+  }
+  function numerarCarta() {
+    var grupos = [].slice.call(document.querySelectorAll('.menu-group'));
+    /* Misma regla que el panel (numeros_de_carta): se reparte la BARAJA de numeros que la
+       carta ya tiene, en orden de lectura, entre los platos que se sirven. Ni se arrastra el
+       numero con el plato ni se inventa ninguno. */
+    var numera = {};
+    grupos.forEach(function (g) {
+      var cid = g.dataset.catid || g.dataset.cat || '';
+      var filas = [].slice.call(g.querySelectorAll('.single-menu-items[data-key]'));
+      var conNumero = 0, deLaCarta = 0;
+      filas.forEach(function (f) {
+        if (!f.dataset.nuevo) deLaCarta++;
+        if ((f.dataset.num || '') !== '') conNumero++;
+      });
+      numera[cid] = conNumero > 0 || deLaCarta === 0;
+    });
+
+    var baraja = [];
+    var cuantosNuevos = 0;
+    grupos.forEach(function (g) {
+      var cid = g.dataset.catid || g.dataset.cat || '';
+      [].slice.call(g.querySelectorAll('.single-menu-items[data-key]')).forEach(function (f) {
+        var id = f.dataset.num || '';
+        if (id !== '') baraja.push(id);
+        else if (f.dataset.nuevo && numera[cid]) cuantosNuevos++;
+      });
+    });
+    baraja.sort(comparaNumero);
+    var tope = 0;
+    baraja.forEach(function (x) { var m = /^\\d+/.exec(x); if (m) tope = Math.max(tope, parseInt(m[0], 10)); });
+    for (var n = 1; n <= cuantosNuevos; n++) {
+      var v = tope + n;
+      baraja.push(v < 10 ? '0' + v : String(v));
+    }
+
+    var reparto = 0;
+    grupos.forEach(function (g) {
+      var cid = g.dataset.catid || g.dataset.cat || '';
+      [].slice.call(g.querySelectorAll('.single-menu-items[data-key]')).forEach(function (f) {
+        var hueco = f.querySelector('.item-id');
+        var chapa = f.querySelector('.item-badge');
+        if (!hueco || hueco.classList.contains('item-icon')) return;
+        var id = f.dataset.num || '';
+        var lleva = !f.hidden && (id !== '' || (f.dataset.nuevo && numera[cid]));
+        var v = '';
+        if (lleva && baraja[reparto] !== undefined) { v = baraja[reparto]; reparto++; }
+        if (hueco.textContent !== v) hueco.textContent = v;
+        if (chapa && !chapa.classList.contains('item-badge-icon') && chapa.textContent !== v) chapa.textContent = v;
+      });
+    });
+  }
+
+  /* ---- los platos que ha dado de alta el restaurante ----
+     estado.nuevos es dishId => { cat, nombre, desc, precio, numero, vid }. Son platos que NO
+     estan en la carta compilada: aqui no hay una fila que mover ni un texto que reescribir,
+     hay que fabricarla.
+
+     Y se fabrica CLONANDO una fila de su misma categoria en vez de escribiendo marcado a
+     mano. Es la decision que importa de todo este bloque: la fila de un plato tiene columna
+     de numero, chapa de movil, hueco de etiquetas, aviso de foto, marcas de dieta y de
+     alergenos, y todo eso lo decide el build segun el cliente. Una plantilla escrita aqui
+     seria una copia que se queda vieja el dia que cambie el build y nadie se entera. El
+     clon, por definicion, no puede quedarse viejo.
+
+     Idempotente como todo lo demas: si la fila ya existe no se vuelve a crear, solo se pone
+     al dia lo que pueda haber cambiado. */
+  var IDIOMAS_CARTA = ${JSON.stringify([IDIOMA_BASE.code].concat(LANGS.map((l) => l.code))
+    .filter((c, i, a) => a.indexOf(c) === i))};
+  /* Los catorce iconos oficiales y su rotulo. Viajan porque un plato dado de alta o editado
+     desde el panel puede llevar alergenos y su fila se fabrica AQUI: sin los dibujos no habria
+     con que pintarlos. Son los mismos SVG que hornea el build en las filas compiladas, no una
+     segunda coleccion. */
+  var ALERGENO_ICONO = ${JSON.stringify(Object.fromEntries(CANONICAS.map((k) => [k, ICONO[k]])))};
+  /* El rotulo de cada alergeno en TODOS los idiomas de la carta, con el mismo diccionario que
+     usa el build para las filas compiladas. Sin esto, la marca de un plato dado de alta se
+     quedaba anclada al ingles: la carta cambiaba de idioma y el alergeno seguia diciendo
+     «Dairy» mientras el de al lado decia «Lácteos». */
+  var ALERGENO_ETIQUETA = ${JSON.stringify(Object.fromEntries(CANONICAS.map((k) => [k,
+    Object.fromEntries([[IDIOMA_BASE.code, BT(ETIQUETA[k], 'ui')]]
+      .concat(LANGS.map((l) => [l.code, tr(ETIQUETA[k], 'ui', l)])))])))};
+
+  /* Las marcas de alergeno de una fila, rehechas desde cero. Mismo marcado que emite el build
+     (alergenoMarks): un <span class="alergeno-marks"> con un <span class="alergeno"> por
+     alergeno, cada uno con su aria-label. */
+  function marcasAlergeno(fila, claves) {
+    var h3 = fila.querySelector('.menu-content h3');
+    if (!h3) return;
+    var vieja = h3.querySelector('.alergeno-marks');
+    if (vieja) vieja.remove();
+    var buenas = (claves || []).filter(function (k) { return ALERGENO_ICONO[k]; });
+    if (!buenas.length) return;
+    var caja = document.createElement('span');
+    caja.className = 'alergeno-marks';
+    var idioma = document.documentElement.lang;
+    buenas.forEach(function (k) {
+      var m = document.createElement('span');
+      var rotulos = ALERGENO_ETIQUETA[k] || {};
+      m.className = 'alergeno';
+      m.setAttribute('role', 'img');
+      m.setAttribute('data-clave', k);
+      /* Los data-<idioma>-label son los que relee setLang() al cambiar de idioma: es la misma
+         forma que emite TL() en las filas compiladas, asi que la marca de un plato nuevo se
+         traduce por el mismo camino y no por uno propio. */
+      Object.keys(rotulos).forEach(function (code) { m.dataset[code + 'Label'] = rotulos[code]; });
+      m.setAttribute('aria-label', rotulos[idioma] || rotulos[CAT_BASE] || k);
+      m.innerHTML = ALERGENO_ICONO[k];
+      caja.appendChild(m);
+    });
+    h3.appendChild(caja);
+  }
+
+  /* Un <span class="i18n"> con el texto en todos los idiomas: el visible en el nodo y los
+     demas en data-<idioma>, que es lo que lee setLang(). Se escriben TODOS, base incluido,
+     porque setLang() solo mira los elementos que llevan el atributo del primer idioma
+     extra. */
+  function spanIdiomas(mapa, base) {
+    var sp = document.createElement('span');
+    sp.className = 'i18n';
+    IDIOMAS_CARTA.forEach(function (code) {
+      var v = typeof mapa[code] === 'string' && mapa[code].trim() ? mapa[code].trim() : base;
+      sp.dataset[code] = v;
+    });
+    sp.textContent = sp.dataset[document.documentElement.lang] !== undefined
+      ? sp.dataset[document.documentElement.lang] : base;
+    return sp;
+  }
+
+  function repartirEnColumnas(grupo) {
+    var cols = [].slice.call(grupo.querySelectorAll('.row > .col-lg-6'));
+    if (cols.length < 2) return;
+    var filas = [].slice.call(grupo.querySelectorAll('.single-menu-items[data-key]'));
+    var mitad = Math.ceil(filas.length / 2);
+    filas.forEach(function (f, n) { cols[n < mitad ? 0 : 1].appendChild(f); });
+  }
+
+  /* ---- las secciones que ha creado el restaurante ----
+     estado.secciones es pestanaId => { nombre, cat }. Una seccion es TRES sitios en esta
+     pagina —el boton de la barra de arriba, la entrada de la hoja del movil y el panel con
+     sus platos— y los tres se fabrican clonando los que ya hay, por el mismo motivo que la
+     fila de un plato: el marcado lo decide el build y una copia escrita a mano aqui se
+     quedaria vieja sin que nadie se entere.
+
+     Del panel clonado se conserva SOLO el esqueleto: un grupo, su titulo y sus dos columnas,
+     vacias. Todo lo demas —notas del grupo, escalas de picante, avisos— era de la seccion de
+     la que se copio y aqui no dice nada cierto. */
+  function aplicarSecciones() {
+    var secciones = (estado && estado.secciones) || null;
+    if (!secciones) return;
+    var barra = document.querySelector('.nav-tabs, .menu-nav ul, ul.nav');
+    var panels = document.querySelector('.tab-content');
+    if (!barra || !panels) return;
+
+    Object.keys(secciones).forEach(function (tid) {
+      var sec = secciones[tid] || {};
+      var nombre = sec.nombre || {};
+      var base = typeof nombre[CAT_BASE] === 'string' ? nombre[CAT_BASE].trim() : '';
+      if (!sec.cat || !base) return;
+      if (document.querySelector('.tab-pane[data-seccion="' + tid + '"]')) return;   // ya esta
+
+      var moldeLi = barra.querySelector('.nav-item');
+      var moldePane = panels.querySelector('.tab-pane');
+      var moldeGrupo = moldePane ? moldePane.querySelector('.menu-group') : null;
+      if (!moldeLi || !moldePane || !moldeGrupo) return;
+
+      var id = 'seccion-' + tid;
+
+      /* El panel, vacio. */
+      var pane = moldePane.cloneNode(true);
+      pane.classList.remove('active');
+      pane.id = id;
+      pane.setAttribute('aria-labelledby', id + '-tab');
+      pane.dataset.tab = base;
+      pane.dataset.seccion = tid;
+      /* Fuera todo lo que traia: grupos, avisos y la linea de la pestaña. */
+      [].slice.call(pane.children).forEach(function (c) { c.remove(); });
+      var grupo = moldeGrupo.cloneNode(true);
+      grupo.className = 'menu-group';
+      grupo.dataset.cat = sec.cat;
+      grupo.dataset.catid = sec.cat;
+      grupo.dataset.tabid = tid;
+      grupo.setAttribute('data-titulo-prestado', '');
+      [].slice.call(grupo.querySelectorAll('.menu-group-note, .menu-group-aviso, .escala-picante')).forEach(function (n) { n.remove(); });
+      var titulo = grupo.querySelector('.menu-group-title');
+      if (titulo) {
+        var ico = titulo.querySelector('.group-icon');
+        while (titulo.firstChild) titulo.removeChild(titulo.firstChild);
+        if (ico) titulo.appendChild(ico);
+        titulo.appendChild(spanIdiomas(nombre, base));
+      }
+      [].slice.call(grupo.querySelectorAll('.row > .col-lg-6')).forEach(function (col) {
+        while (col.firstChild) col.removeChild(col.firstChild);
+      });
+      pane.appendChild(grupo);
+      panels.appendChild(pane);
+      /* Las tablas de rotulos compilados se apuntan UNA vez y se guardan. Pero la primera
+         pasada de render() ocurre ANTES de que llegue estado.json —todavia no hay secciones
+         que crear— y en esa pasada esas tablas ya se cierran: la pestaña que se crea despues
+         no entraria en ellas nunca, y su renombrado no se aplicaria jamas. Se tiran para que
+         se vuelvan a apuntar con esta dentro. */
+      TAB_DEF = null;
+      CAT_DEF = null;
+
+      /* El boton de la barra de arriba. */
+      var li = moldeLi.cloneNode(true);
+      li.classList.remove('active');
+      li.dataset.tab = base;
+      li.dataset.tabid = tid;
+      var boton = li.querySelector('.nav-link');
+      if (boton) {
+        boton.id = id + '-tab';
+        boton.dataset.target = id;
+        boton.setAttribute('aria-controls', id);
+        boton.setAttribute('aria-selected', 'false');
+        boton.setAttribute('tabindex', '-1');
+        IDIOMAS_CARTA.forEach(function (code) {
+          boton.dataset[code] = typeof nombre[code] === 'string' && nombre[code].trim() ? nombre[code].trim() : base;
+        });
+        boton.textContent = boton.dataset[document.documentElement.lang] !== undefined
+          ? boton.dataset[document.documentElement.lang] : base;
+      }
+      barra.appendChild(li);
+
+      /* Y la entrada de la hoja de secciones del movil, si esta carta la tiene. */
+      var moldeHoja = document.querySelector('.sheet-item');
+      if (moldeHoja) {
+        var hoja = moldeHoja.cloneNode(true);
+        hoja.dataset.target = id;
+        hoja.dataset.tabid = tid;
+        hoja.removeAttribute('aria-current');
+        var nm = hoja.querySelector('.sheet-item-name');
+        if (nm) {
+          var sp = spanIdiomas(nombre, base);
+          if (nm.classList.contains('i18n')) { nm.parentNode.replaceChild(sp, nm); sp.className = 'sheet-item-name i18n'; }
+          else { while (nm.firstChild) nm.removeChild(nm.firstChild); nm.appendChild(sp); }
+        }
+        var cuenta = hoja.querySelector('.sheet-item-count');
+        if (cuenta) cuenta.textContent = '0';
+        var li2 = moldeHoja.closest('li');
+        if (li2 && li2.parentNode) li2.parentNode.appendChild(document.createElement('li')).appendChild(hoja);
+      }
+    });
+  }
+
+  /* ---- lo que el restaurante ha cambiado de un plato de la carta ----
+     estado.editados es dishId => { nombre, desc, alergenos }, disperso: solo lo que alguien
+     ha tocado. A diferencia de aplicarNuevos, aqui la fila YA EXISTE — no hay que fabricar
+     nada, solo reescribir tres cosas. Es el mismo mecanismo que ya reescribe el rotulo de una
+     categoria: se tocan los data-<idioma> del span, que es lo que lee el selector, para que el
+     texto cambiado siga traduciendose solo.
+
+     Lo que NO esta en el cambio se queda como salio del build: un campo vacio en el panel
+     significa «vuelve al de la carta», y esa vuelta es no tocar nada. */
+  var EDIT_ORIG = null;
+  function aplicarEditados() {
+    var puestos = (estado && estado.editados) || null;
+    if (!puestos && !EDIT_ORIG) return;
+    /* Los textos compilados se apuntan UNA vez, antes de que nada los toque: sin esto,
+       deshacer un cambio dejaria puesto el cambio anterior en vez del texto de la carta. */
+    if (!EDIT_ORIG) {
+      EDIT_ORIG = {};
+      Object.keys(puestos || {}).forEach(function (k) {
+        var fila = document.querySelector('.single-menu-items[data-key="' + k + '"]');
+        if (!fila || fila.dataset.nuevo) return;
+        var n = fila.querySelector('.menu-content h3 > .i18n');
+        var p2 = fila.querySelector('.menu-content p > .i18n') || fila.querySelector('.menu-content p');
+        EDIT_ORIG[k] = {
+          nombre: n ? Object.assign({}, n.dataset, { texto: n.textContent }) : null,
+          desc: p2 ? Object.assign({}, p2.dataset, { texto: p2.textContent }) : null,
+          alergenos: [].slice.call(fila.querySelectorAll('.alergeno-marks .alergeno'))
+            .map(function (m) { return m.getAttribute('data-clave') || ''; }),
+        };
+      });
+    }
+
+    Object.keys(puestos || {}).forEach(function (k) {
+      var e = puestos[k] || {};
+      var fila = document.querySelector('.single-menu-items[data-key="' + k + '"]');
+      if (!fila || fila.dataset.nuevo) return;
+
+      /* HIJO DIRECTO del h3, y no el primer .i18n que aparezca: el primero es la etiqueta de
+         «agotado», que vive dentro de .item-tags. Con el selector suelto, cambiar el nombre
+         de un plato reescribia el rotulo de agotado de esa fila. */
+      var n = fila.querySelector('.menu-content h3 > .i18n');
+      if (n && e.nombre) {
+        IDIOMAS_CARTA.forEach(function (code) {
+          var v = typeof e.nombre[code] === 'string' && e.nombre[code].trim() ? e.nombre[code].trim() : null;
+          if (v === null) return;                      // sin cambio en ese idioma: el de la carta
+          if (n.dataset[code] !== v) n.dataset[code] = v;
+        });
+        var ahora = n.dataset[document.documentElement.lang];
+        if (ahora !== undefined && n.textContent !== ahora) n.textContent = ahora;
+      }
+
+      var cont = fila.querySelector('.menu-content');
+      var hayDesc = false;
+      IDIOMAS_CARTA.forEach(function (code) { if (e.desc && typeof e.desc[code] === 'string' && e.desc[code].trim()) hayDesc = true; });
+      if (cont && hayDesc) {
+        var parrafo = cont.querySelector('p');
+        var sp = parrafo ? parrafo.querySelector('.i18n') : null;
+        if (!parrafo) {
+          /* El plato no tenia descripcion: se fabrica. Aqui si vale rellenar los idiomas que
+             falten con el unico texto que hay — la alternativa es que un idioma tenga
+             descripcion y otro no, que se lee como un fallo de la carta. */
+          var dBase = '';
+          IDIOMAS_CARTA.forEach(function (c) { if (!dBase && e.desc[c]) dBase = String(e.desc[c]).trim(); });
+          parrafo = document.createElement('p');
+          parrafo.appendChild(spanIdiomas(e.desc, dBase));
+          cont.appendChild(parrafo);
+        } else if (sp) {
+          /* Ya tenia: se superpone SOLO el idioma cambiado. Reescribir el bloque entero dejaba
+             el ingles con el texto español por haber tocado el español. */
+          IDIOMAS_CARTA.forEach(function (code) {
+            var v = typeof e.desc[code] === 'string' && e.desc[code].trim() ? e.desc[code].trim() : null;
+            if (v !== null && sp.dataset[code] !== v) sp.dataset[code] = v;
+          });
+          var ahoraD = sp.dataset[document.documentElement.lang];
+          if (ahoraD !== undefined && sp.textContent !== ahoraD) sp.textContent = ahoraD;
+        }
+      }
+
+      if (e.alergenos) marcasAlergeno(fila, e.alergenos);
+    });
+  }
+
+  function aplicarNuevos() {
+    var nuevos = (estado && estado.nuevos) || null;
+    if (!nuevos) return;
+    var tocados = [];
+    Object.keys(nuevos).forEach(function (k) {
+      var n = nuevos[k] || {};
+      var cid = n.cat;
+      var nombre = n.nombre || {};
+      var desc = n.desc || {};
+      var base = typeof nombre[CAT_BASE] === 'string' ? nombre[CAT_BASE].trim() : '';
+      /* Un plato a medio escribir en el estado no pinta media fila: no pinta ninguna. */
+      if (!cid || !base) return;
+
+      var fila = document.querySelector('.single-menu-items[data-key="' + k + '"]');
+      var recien = false;
+      if (!fila) {
+        /* El molde sale de su categoria. Si esa categoria no tiene todavia ni un plato
+           —una seccion recien creada— sirve cualquier fila: el esqueleto es el mismo en
+           toda la carta, y lo que se copia es justo el esqueleto. Lo que hace falta de
+           verdad es el SITIO donde meterla, y ese sale del grupo. */
+        var molde = document.querySelector('.single-menu-items[data-catid="' + cid + '"]');
+        /* A la ULTIMA columna del grupo, no a la del molde. El molde es la PRIMERA fila de la
+           categoria y vive en la columna izquierda: colgarse de ahi metia el plato nuevo en
+           mitad del orden de lectura, y como el numero es la posicion, le salia uno menos del
+           que le tocaba — el panel decia 10 y la carta 09 para el mismo plato. */
+        var destino = null;
+        if (molde) {
+          var gm = molde.closest('.menu-group');
+          var colsM = gm ? [].slice.call(gm.querySelectorAll('.row > .col-lg-6')) : [];
+          destino = colsM.length ? colsM[colsM.length - 1] : molde.parentNode;
+        }
+        if (!molde) {
+          var grupoVacio = document.querySelector('.menu-group[data-catid="' + cid + '"]');
+          molde = document.querySelector('.single-menu-items[data-key]');
+          destino = grupoVacio ? grupoVacio.querySelector('.row > .col-lg-6') : null;
+        }
+        /* Su categoria ya no esta en esta carta: no se inventa un sitio donde ponerlo. */
+        if (!molde || !destino) return;
+        fila = molde.cloneNode(true);
+        recien = true;
+        fila.dataset.key = k;
+        fila.dataset.nuevo = '1';
+        fila.dataset.catid = cid;
+        fila.dataset.cat = cid;
+        /* No traia numero compilado: es nuevo. Lo coge de su posicion, en numerarCarta(). */
+        fila.dataset.num = '';
+        /* La clave vieja era del plato copiado: dejarla puesta le daria a este el precio y el
+           agotado de aquel, porque render() cae a data-legacy cuando no encuentra el dishId. */
+        delete fila.dataset.legacy;
+        fila.hidden = false;
+        destino.appendChild(fila);
+        var grupo = fila.closest('.menu-group');
+        if (grupo && tocados.indexOf(grupo) === -1) tocados.push(grupo);
+      }
+
+      fila.dataset.vid = n.vid || '';
+      if (n.precio) fila.dataset.price = n.precio; else delete fila.dataset.price;
+
+      var h3 = fila.querySelector('.menu-content h3');
+      if (h3) {
+        var yaNombre = h3.querySelector('.dish-name');
+        if (recien || !yaNombre) {
+          /* Del molde se conservan las dos piezas que no son del plato: el hueco de las
+             etiquetas y la chapa del numero. El nombre, las marcas de dieta, los alergenos y
+             el aviso de foto eran del plato copiado y aqui no dicen nada cierto. */
+          var tags = h3.querySelector('.item-tags');
+          var badge = h3.querySelector('.item-badge');
+          while (h3.firstChild) h3.removeChild(h3.firstChild);
+          if (tags) h3.appendChild(tags);
+          if (badge) h3.appendChild(badge);
+          yaNombre = spanIdiomas(nombre, base);
+          yaNombre.classList.add('dish-name');
+          h3.appendChild(yaNombre);
+        } else {
+          IDIOMAS_CARTA.forEach(function (code) {
+            var v = typeof nombre[code] === 'string' && nombre[code].trim() ? nombre[code].trim() : base;
+            if (yaNombre.dataset[code] !== v) yaNombre.dataset[code] = v;
+          });
+          var ahora = yaNombre.dataset[document.documentElement.lang];
+          if (ahora !== undefined && yaNombre.textContent !== ahora) yaNombre.textContent = ahora;
+        }
+      }
+
+      marcasAlergeno(fila, n.alergenos);
+
+      var cont = fila.querySelector('.menu-content');
+      var hayDesc = false;
+      IDIOMAS_CARTA.forEach(function (code) { if (typeof desc[code] === 'string' && desc[code].trim()) hayDesc = true; });
+      var parrafo = cont ? cont.querySelector('p') : null;
+      if (cont && hayDesc) {
+        var dBase = typeof desc[CAT_BASE] === 'string' && desc[CAT_BASE].trim() ? desc[CAT_BASE].trim() : '';
+        if (!dBase) { IDIOMAS_CARTA.forEach(function (c) { if (!dBase && desc[c]) dBase = String(desc[c]).trim(); }); }
+        if (!parrafo) { parrafo = document.createElement('p'); cont.appendChild(parrafo); }
+        while (parrafo.firstChild) parrafo.removeChild(parrafo.firstChild);
+        parrafo.appendChild(spanIdiomas(desc, dBase));
+      } else if (parrafo && !hayDesc) {
+        /* Sin descripcion no se deja un <p> vacio: dejaria su interlinea de hueco bajo el
+           nombre y la fila quedaria mas alta que sus vecinas sin decir nada a cambio. */
+        parrafo.remove();
+      }
+    });
+    /* Las columnas se reparten otra vez solo en los grupos donde ha entrado algo: dejar la
+       fila nueva pegada al final de la primera columna dejaria el grupo cojo. */
+    tocados.forEach(repartirEnColumnas);
+    /* Y se avisa de que hay filas nuevas. El buscador arma su indice recorriendo el DOM una
+       vez al cargar: sin este aviso, el plato recien dado de alta se ve en la carta pero no
+       se encuentra al buscarlo. */
+    if (tocados.length) document.dispatchEvent(new CustomEvent('${CLIENTE.slug}:filas'));
+  }
+
+  /* ---- el nombre que el restaurante le ha puesto a una categoria ----
+     Mismo patron que el rotulo de la marca, unas lineas mas arriba: se apuntan UNA vez los
+     nombres compilados —antes de que nada los toque, para poder volver a ellos— y despues se
+     reescriben los data-<idioma> del <span class="i18n"> del titulo. El selector de idioma lee
+     justo esos atributos, asi que la categoria renombrada sigue traduciendose sola.
+
+     Un idioma sin nombre puesto cae al COMPILADO, no al texto de otro idioma: media carta
+     traducida y media no parece un fallo, y una sin traducir no. */
+  var CAT_DEF = null;
+  var CAT_BASE = ${JSON.stringify(IDIOMA_BASE.code)};
+  function apuntarNombresCategoria() {
+    if (CAT_DEF) return;
+    CAT_DEF = {};
+    document.querySelectorAll('.menu-group').forEach(function (g) {
+      var fila = g.querySelector('.single-menu-items[data-key]');
+      var t = g.querySelector('.menu-group-title .i18n');
+      if (!fila || !t) return;
+      var cid = fila.dataset.catid;
+      if (!cid || CAT_DEF[cid]) return;
+      /* Los idiomas salen del PROPIO elemento: el titulo ya trae un data-<idioma> por cada
+         uno. Asi esto no depende de la constante IDIOMAS, que se asigna setecientas lineas
+         mas abajo — render() corria antes y se encontraba un undefined. */
+      /* El idioma BASE no viaja en un data-: es el propio texto del span. Los extras si.
+         Sin esta linea el nombre nuevo en base no se escribia en ningun sitio y el titulo
+         se quedaba en blanco al volver a ese idioma. */
+      var d = {};
+      Object.keys(t.dataset).forEach(function (k) { d[k] = t.dataset[k]; });
+      if (d[CAT_BASE] === undefined) d[CAT_BASE] = t.textContent;
+      CAT_DEF[cid] = d;
+    });
+  }
+  function aplicarNombresCategoria() {
+    apuntarNombresCategoria();
+    var puestos = (estado && estado.categorias) || {};
+    var actual = document.documentElement.lang;
+    document.querySelectorAll('.menu-group').forEach(function (g) {
+      var fila = g.querySelector('.single-menu-items[data-key]');
+      var t = g.querySelector('.menu-group-title .i18n');
+      if (!fila || !t) return;
+      var cid = fila.dataset.catid;
+      var def = CAT_DEF[cid];
+      if (!def) return;
+      var ov = puestos[cid] || {};
+      Object.keys(def).forEach(function (code) {
+        var v = typeof ov[code] === 'string' && ov[code].trim() ? ov[code].trim() : def[code];
+        if (t.dataset[code] !== v) t.dataset[code] = v;
+      });
+      var ahora = t.dataset[actual] !== undefined ? t.dataset[actual] : def[actual];
+      if (t.textContent !== ahora) t.textContent = ahora;
+    });
+  }
+
+  /* ---- el nombre que el restaurante le ha puesto a una SECCION ----
+     El rotulo de una pestaña sale en TRES sitios y los tres cambian juntos, o la carta dice
+     dos cosas a la vez: el boton de la barra de arriba, la entrada de la hoja de categorias
+     del movil, y el titulo de los grupos que no tienen rotulo propio y toman prestado el de
+     su pestaña (van marcados con data-titulo-prestado desde el build).
+
+     Mismo mecanismo que el rotulo de la marca y que el de la categoria: se apuntan una vez
+     los compilados y se reescriben los data-<idioma>, que es lo que lee el selector. */
+  var TAB_DEF = null;
+  function apuntarNombresSeccion() {
+    if (TAB_DEF) return;
+    TAB_DEF = {};
+    document.querySelectorAll('[data-tabid]').forEach(function (el) {
+      var tid = el.dataset.tabid;
+      if (!tid || TAB_DEF[tid]) return;
+      var t = el.matches('.nav-item') ? el.querySelector('.nav-link.i18n') : null;
+      if (!t) return;
+      var d = {};
+      Object.keys(t.dataset).forEach(function (k) { if (k !== 'target') d[k] = t.dataset[k]; });
+      if (d[CAT_BASE] === undefined) d[CAT_BASE] = t.textContent;
+      TAB_DEF[tid] = d;
+    });
+  }
+  function aplicarNombresSeccion() {
+    apuntarNombresSeccion();
+    var puestos = (estado && estado.pestanas) || {};
+    var actual = document.documentElement.lang;
+    Object.keys(TAB_DEF).forEach(function (tid) {
+      var def = TAB_DEF[tid];
+      var ov = puestos[tid] || {};
+      var texto = {};
+      Object.keys(def).forEach(function (code) {
+        texto[code] = typeof ov[code] === 'string' && ov[code].trim() ? ov[code].trim() : def[code];
+      });
+      var ahora = texto[actual] !== undefined ? texto[actual] : def[CAT_BASE];
+      /* Los tres sitios. El titulo prestado solo si de verdad lo toma prestado. */
+      var caja = document.querySelectorAll('[data-tabid="' + tid + '"]');
+      caja.forEach(function (el) {
+        var t = null;
+        if (el.matches('.nav-item')) t = el.querySelector('.nav-link.i18n');
+        else if (el.matches('.sheet-item')) t = el.querySelector('.sheet-item-name.i18n') || el.querySelector('.sheet-item-name .i18n');
+        else if (el.matches('.menu-group[data-titulo-prestado]')) t = el.querySelector('.menu-group-title .i18n');
+        if (!t) return;
+        Object.keys(texto).forEach(function (code) {
+          if (t.dataset[code] !== texto[code]) t.dataset[code] = texto[code];
+        });
+        if (t.textContent !== ahora) t.textContent = ahora;
+      });
+    });
+  }
+
   function render() {
+    /* PRIMERO los platos nuevos: crean filas, y todo lo que viene detras —el orden, los
+       numeros, el precio, la oferta, la foto— trabaja recorriendo filas. Si se pintaran
+       despues, el plato recien dado de alta se quedaria una vuelta entera sin precio y sin
+       numero, y render() vuelve a pasar cada treinta segundos. */
+    /* Y antes que los platos, las SECCIONES: un plato de una seccion nueva no tiene donde
+       ponerse hasta que la seccion existe. */
+    aplicarSecciones();
+    aplicarNuevos();
+    aplicarEditados();
+    aplicarOrdenPestanas();
+    aplicarOrdenCategorias();
+    aplicarOrden();
+    aplicarNombresCategoria();
+    aplicarNombresSeccion();
     var hayOfertaVisible = false;
     var hoy = serviceDate();
     var out = (estado && estado.soldOut) || {};
@@ -6165,7 +6944,11 @@ ${DATOS_ACTIVO ? `
   var TAG_KEYS = ${JSON.stringify(HIGHLIGHTS)};
   var TOPE = 60;               // mas resultados que esto no se leen: se afina la busqueda
 
-  var DS = dsQ ? [].slice.call(document.querySelectorAll('.single-menu-items[data-key]')).map(function (fila) {
+  /* El indice se arma recorriendo el DOM, y por eso hay que poder volver a armarlo: los
+     platos que da de alta el restaurante son filas que NO estaban cuando cargo la pagina.
+     Sin esto, un plato nuevo se ve en la carta pero el buscador no lo encuentra — y no
+     encontrarlo se lee como que no existe. */
+  function dsIndice() { return dsQ ? [].slice.call(document.querySelectorAll('.single-menu-items[data-key]')).map(function (fila) {
     var pane = fila.closest('.tab-pane');
     return {
       el: fila,
@@ -6185,7 +6968,9 @@ ${DATOS_ACTIVO ? `
       vegan: !!fila.querySelector('.diet-vegan'),
       gf: !!fila.querySelector('.diet-gf'),
     };
-  }) : [];
+  }) : []; }
+  var DS = dsIndice();
+  document.addEventListener('${CLIENTE.slug}:filas', function () { DS = dsIndice(); });
 
   function dsPlano(t) {
     var d = String(t).toLowerCase().normalize('NFD');
@@ -7089,6 +7874,7 @@ if (missingIcons.length) {
 
    Se aplica a lo COMPILADO y en un solo sitio, para que la carta y el juego salgan iguales. */
 let ahorrado = 0;
+let panelAdelgazado = { bytes: 0, tocados: 0, intocables: 0 };
 function adelgazarDocumento(doc) {
   const antes = doc.length;
   const salida = doc
@@ -7236,6 +8022,44 @@ const catalogue = TAXO.flatMap((t) =>
                       : (resolverIdioma('es', t.label, 'tabs') ?? t.label),
       group_en: g.sub ? (resolverIdioma('en', g.sub, 'groups') ?? g.sub)
                       : (resolverIdioma('en', t.label, 'tabs') ?? t.label),
+      /* El rotulo del grupo en TODOS los idiomas de la carta, no solo en dos. El panel lo
+         necesita para dejar renombrar la categoria idioma a idioma: sin esto no sabria que
+         dice hoy el aleman y pediria un nombre a ciegas. `group_es`/`group_en` se quedan
+         donde estan por compatibilidad con lo que ya los lea. */
+      grupoI18n: Object.fromEntries(
+        [IDIOMA_BASE].concat(CLIENTE.idiomas.extras.filter((l) => l.code !== IDIOMA_BASE.code))
+          .map((l) => [l.code, g.sub
+            ? (resolverIdioma(l.code, g.sub, 'groups') ?? g.sub)
+            : (resolverIdioma(l.code, t.label, 'tabs') ?? t.label)])),
+      /* Si el grupo no tiene rotulo propio, en la carta se ve el de la PESTAÑA, que comparte
+         con otros grupos: renombrarlo ahi renombraria la pestaña entera. El panel usa esto
+         para no ofrecer un cambio que no puede cumplir. */
+      grupoPropio: !!g.sub,
+      /* El nombre y la DESCRIPCION del plato en todos los idiomas de la carta. Hasta ahora el
+         panel recibia el nombre solo en español e ingles y la descripcion en ninguno: se podia
+         enseñar el plato, pero no editarlo — nadie puede corregir un texto que no ve. `es`/`en`
+         se quedan donde estan por compatibilidad con lo que ya los lea.
+         Un plato sin descripcion no trae la clave: catorce currys sin texto no tienen por que
+         llevar tres cadenas vacias cada uno. */
+      nombreI18n: Object.fromEntries(
+        [IDIOMA_BASE].concat(CLIENTE.idiomas.extras.filter((l) => l.code !== IDIOMA_BASE.code))
+          .map((l) => [l.code, resolverIdioma(l.code, it.name, 'names') ?? it.name])),
+      ...(it.desc ? {
+        descI18n: Object.fromEntries(
+          [IDIOMA_BASE].concat(CLIENTE.idiomas.extras.filter((l) => l.code !== IDIOMA_BASE.code))
+            .map((l) => [l.code, resolverIdioma(l.code, it.desc, 'descriptions') ?? it.desc])),
+      } : {}),
+      /* La pestaña: su identidad permanente y su rotulo en TODOS los idiomas. Con esto el
+         panel puede renombrarla sin adivinar que dice hoy cada idioma. */
+      tabId: t.pestanaId,
+      tabI18n: Object.fromEntries(
+        [IDIOMA_BASE].concat(CLIENTE.idiomas.extras.filter((l) => l.code !== IDIOMA_BASE.code))
+          .map((l) => [l.code, resolverIdioma(l.code, t.label, 'tabs') ?? t.label])),
+      /* Si la seccion va en el bloque de cartas especiales. El panel lo usa para no dejar que
+         una salga de su bloque al moverla de sitio: la barra las agrupa bajo un rotulo y el
+         indice del movil las pone en otra lista, asi que cruzar el limite no seria cambiarla
+         de orden, seria cambiarla de sitio en la carta. */
+      tabEspecial: t.especial === true,
     }))));
 
 /* Los ocho caracteres del contador de consultas no pueden chocar: ni entre platos, ni con
@@ -7337,6 +8161,41 @@ writeFileSync(
     /* La ruta publica de la publicidad, horneada desde la MISMA constante que usa el JS de
        la carta: una autoridad, cero divergencia. El panel deriva de aqui su carpeta fisica. */
     "define('PUB_URL',       " + JSON.stringify(PUB_URL) + ');',
+    /* Los idiomas de ESTA carta, en el orden del selector y con el base el primero. El panel
+       los necesita para pedir un nombre de categoria por idioma: si los adivinara, un cliente
+       con dos idiomas veria tres campos y uno con cuatro se quedaria sin el ultimo. Una sola
+       fuente, cliente.mjs, via build — igual que la moneda o la zona horaria. */
+    "define('CLIENTE_IDIOMAS', ["
+      + [IDIOMA_BASE].concat(CLIENTE.idiomas.extras.filter((l) => l.code !== IDIOMA_BASE.code))
+          .map((l) => JSON.stringify(l.code) + ' => ' + JSON.stringify(l.name || l.label || l.code)).join(', ')
+      + ']);',
+    "define('CLIENTE_IDIOMA_BASE', " + JSON.stringify(IDIOMA_BASE.code) + ');',
+    /* El idioma en el que trabaja el PANEL, que no tiene por que ser el de la carta. Tinge
+       sirve la carta con el ingles de base y el restaurante la lleva en español: el panel ya
+       enseñaba los nombres de plato en español —lo hace platos() desde siempre— pero los
+       rotulos de categoria y de seccion salian en el idioma base, asi que en la misma columna
+       convivian «Appetizers» y «Aperitivos». Se publica desde aqui, una sola autoridad, y se
+       resuelve con lo que la carta tiene: el español si lo habla, y si no el base. */
+    "define('CLIENTE_IDIOMA_PANEL', " + JSON.stringify(PANEL_ES ? 'es' : IDIOMA_BASE.code) + ');',
+    /* Las CATORCE del anexo II, rotuladas en el idioma del panel. El panel las ofrece como
+       casillas al dar de alta o editar un plato; que sean catorce y cuales son no lo decide
+       el restaurante, asi que salen del motor y no de cliente.mjs. */
+    "define('CLIENTE_ALERGENOS', ["
+      + CANONICAS.map((k) => JSON.stringify(k) + ' => '
+          + JSON.stringify((PANEL_ES ? ETIQUETA_ES : ETIQUETA)[k])).join(', ')
+      + ']);',
+    /* Y sus dibujos. El panel los pinta junto a cada casilla: catorce nombres en una lista son
+       catorce lineas que hay que leer; con el icono delante se reconocen sin leerlas. Son los
+       MISMOS SVG oficiales que hornea la carta, no una segunda coleccion. */
+    /* Y las palabras que hacen sospechar de cada uno, en los idiomas de esta carta. El panel
+       las usa para RESALTAR casillas mientras se escribe el plato; no marca ninguna. Ver
+       PISTAS en motor/alergenos.mjs para el porque. */
+    "define('CLIENTE_ALERGENO_PISTAS', "
+      + JSON.stringify(JSON.stringify(pistasDe([IDIOMA_BASE.code].concat(CLIENTE.idiomas.extras.map((l) => l.code)))))
+      + ');',
+    "define('CLIENTE_ALERGENO_ICONO', ["
+      + CANONICAS.map((k) => JSON.stringify(k) + ' => ' + JSON.stringify(ICONO[k])).join(', ')
+      + ']);',
     "define('CLIENTE_JUEGO', " + (CLIENTE.funciones.juego ? 'true' : 'false') + ');',
     "define('CLIENTE_DATOS', " + (DATOS_ACTIVO ? 'true' : 'false') + ');',
     "define('CLIENTE_PUBLICIDAD', " + (CLIENTE.funciones.publicidad ? 'true' : 'false') + ');',
@@ -7540,6 +8399,35 @@ if (!existsSync(iconoPestanaUrl)) {
   copiados++;
 }
 
+/* ---- el panel, sin los comentarios que no ejecutan nada ----
+ *
+ * El panel se copia tal cual a 2-subir, y con el se iban al navegador todos sus comentarios de
+ * CSS y de JavaScript: 270.062 bytes medidos en este arbol, de los cuales 167.133 estan en
+ * bloques que NO llevan PHP. Los documentos publicos ya pasaban por adelgazarDocumento(); el
+ * panel no pasaba por nada.
+ *
+ * Aqui SOLO se quitan comentarios. Ni se aplasta el sangrado, ni se tocan los blancos, ni la
+ * sintaxis, ni nada fuera de <style> y <script>. Y un bloque con `<?` o `?>` dentro no se toca:
+ * ni se interpreta ni se juzga si ese PHP parece inofensivo. De los diecisiete bloques del
+ * panel, seis lo llevan y esos seis salen byte a byte como entraron.
+ *
+ * Sobre la COPIA, nunca sobre el fuente: los comentarios del fuente son la documentacion de
+ * este proyecto y se quedan donde estan.
+ *
+ * ABORTA si el fichero no esta, igual que la politica de los .htaccess: un adelgazado que falla
+ * en silencio deja el panel gordo y a nadie enterandose. */
+{
+  const rutaPanel = new URL('admin/index.php', SUBIR);
+  if (!existsSync(rutaPanel)) {
+    abortar('No hay admin/index.php en lo compilado: el motor no puede adelgazar el panel.',
+      'ese fichero sale de motor/server/admin/; comprueba que el build lo copie');
+  }
+  const antesPanel = readFileSync(rutaPanel, 'utf8');
+  const r = adelgazarPanel(antesPanel);
+  if (r.ahorro > 0) writeFileSync(rutaPanel, r.salida);
+  panelAdelgazado = { bytes: r.ahorro, tocados: r.tocados, intocables: r.intocables };
+}
+
 /* ---- lo que el motor exige de los dos .htaccess ----
  *
  * Los dos ficheros son del CLIENTE y con razon: llevan su direccion publica (RewriteBase,
@@ -7632,5 +8520,7 @@ if (incompleto.length) {
 console.log(
   '2-subir rehecha |', copiados, 'ficheros | build', BUILD,
   '| sin comentarios:', Math.round(ahorrado / 1024) + ' KB menos que leer',
+  '| panel:', Math.round(panelAdelgazado.bytes / 1024) + ' KB menos en '
+    + panelAdelgazado.tocados + ' bloques (' + panelAdelgazado.intocables + ' con PHP intactos)',
   dejados.length ? '| en tierra: ' + dejados.join(', ') : ''
 );
