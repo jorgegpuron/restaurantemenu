@@ -38,7 +38,11 @@ function esRegex(js, i) {
   return true;
 }
 
-export function adelgazarJS(js) {
+/* El NUCLEO: recorre el JavaScript y devuelve lo mismo SIN los comentarios. No toca nada
+   mas —ni el sangrado, ni los blancos, ni la sintaxis—, y por eso lo puede usar tanto el
+   adelgazado completo de los documentos publicos como el del panel, que solo puede quitar
+   comentarios. Un solo recorrido, un solo sitio donde equivocarse. */
+export function sinComentariosJS(js) {
   let out = '';
   let i = 0;
   const n = js.length;
@@ -118,7 +122,13 @@ export function adelgazarJS(js) {
     }
     out += c; i++;
   }
-  return aplastar(out);
+  return out;
+}
+
+/* Y el adelgazado de siempre: el nucleo mas el aplastado del sangrado. Byte a byte lo que
+   daba antes de separarlo. */
+export function adelgazarJS(js) {
+  return aplastar(sinComentariosJS(js));
 }
 
 /* Aplasta el sangrado y las líneas en blanco SIN juntar líneas: en JavaScript, unir dos líneas
@@ -134,7 +144,13 @@ function aplastar(js) {
 
 /* El CSS no tiene ni expresiones regulares ni punto y coma automático: se puede aplastar más.
    Lo único que hay que respetar son las cadenas —content:"..."— y las url(). */
-export function adelgazarCSS(css) {
+/* El NUCLEO del CSS, con el mismo criterio que el del JavaScript.
+   `espacio` decide que se deja donde habia un comentario. El adelgazado completo NO deja nada
+   —es lo que hacia antes, y detras viene el aplastado de blancos que lo arreglaria igual—; el
+   del panel SI, porque ahi no viene ningun aplastado detras: un comentario metido en medio de
+   un valor —«margin:1px», comentario, «2px»— se convertiria en `margin:1px2px` si no se deja
+   nada donde estaba, que es romper una hoja de estilos en silencio. */
+export function sinComentariosCSS(css, { espacio = false } = {}) {
   let out = '';
   let i = 0;
   const n = css.length;
@@ -144,6 +160,7 @@ export function adelgazarCSS(css) {
       i += 2;
       while (i < n && !(css[i] === '*' && css[i + 1] === '/')) i++;
       i += 2;
+      if (espacio) out += ' ';
       continue;
     }
     if (c === '"' || c === "'") {
@@ -158,6 +175,12 @@ export function adelgazarCSS(css) {
     }
     out += c; i++;
   }
+  return out;
+}
+
+/* El adelgazado completo del CSS: el nucleo mas los blancos. Lo de siempre. */
+export function adelgazarCSS(css) {
+  const out = sinComentariosCSS(css);
   /* Blancos: uno solo donde hacen falta —entre selectores y dentro de valores— y ninguno
      alrededor de la puntuación. El espacio SÍ importa en los combinadores descendentes
      (.a .b) y dentro de calc(), así que no se quita entre palabras. */
@@ -169,4 +192,54 @@ export function adelgazarCSS(css) {
        más barato y más seguro es dejarlos como están. */
     .replace(/;\}/g, '}')
     .trim();
+}
+
+/* ------------------------------------------------------------------ el panel del admin
+ *
+ * El panel se sirve tal cual se escribe: `motor/server/admin/index.php` se copia a
+ * `2-subir/admin/index.php` sin pasar por ningun adelgazado, y con el se van al navegador
+ * TODOS sus comentarios de CSS y de JavaScript. Medido sobre el arbol de este release:
+ * 270.062 bytes que viajan y no ejecutan nada.
+ *
+ * Aqui se quitan, y SOLO eso. No es el adelgazado de los documentos publicos:
+ *
+ *   - no se aplasta el sangrado;
+ *   - no se tocan los blancos;
+ *   - no se toca la sintaxis, ni un punto y coma;
+ *   - no se renombra ni se reordena nada;
+ *   - todo lo que esta FUERA de <style> y <script> se devuelve byte a byte.
+ *
+ * Y la regla que manda sobre todas: **un bloque con PHP dentro no se toca.** Ni se interpreta,
+ * ni se analiza, ni se decide si "ese PHP parece inofensivo". Basta con que aparezca `<?` o
+ * `?>` en el cuerpo para que el bloque salga igual que entro. De los diecisiete bloques del
+ * panel, seis lo llevan; esos seis son intocables y sus comentarios se quedan.
+ *
+ * Se aplica SOBRE LA COPIA que va a 2-subir, nunca sobre el fuente: los comentarios del fuente
+ * son documentacion y se quedan donde estan.
+ */
+const BLOQUES_PANEL = /<style\b[^>]*>([\s\S]*?)<\/style>|<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+
+export function tienePhp(cuerpo) {
+  return cuerpo.includes('<?') || cuerpo.includes('?>');
+}
+
+export function adelgazarPanel(html) {
+  let tocados = 0;
+  let intocables = 0;
+  let ahorro = 0;
+  const salida = html.replace(BLOQUES_PANEL, (entero, css, js) => {
+    const esCss = css !== undefined;
+    const cuerpo = esCss ? css : js;
+    if (tienePhp(cuerpo)) { intocables++; return entero; }
+    const limpio = esCss ? sinComentariosCSS(cuerpo, { espacio: true }) : sinComentariosJS(cuerpo);
+    if (limpio === cuerpo) return entero;
+    tocados++;
+    ahorro += cuerpo.length - limpio.length;
+    /* Se reconstruye con la MISMA etiqueta de apertura y de cierre que traia: lo unico que
+       cambia del documento es el cuerpo de este bloque. */
+    const abre = entero.slice(0, entero.indexOf('>') + 1);
+    const cierra = esCss ? '</style>' : entero.slice(entero.lastIndexOf('</'));
+    return abre + limpio + cierra;
+  });
+  return { salida, tocados, intocables, ahorro };
 }

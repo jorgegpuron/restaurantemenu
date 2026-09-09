@@ -1,7 +1,7 @@
-/* Matriz de anchos del panel — DOM de SocialCard/MISE-B (siete pantallas, navegación por
+/* Matriz de anchos del panel — DOM de SocialCard/MISE-B (ocho pantallas, navegación por
  * `[data-tab]`, panes por `data-pane`). Lo que se mira no es «se ve bien» —eso no lo dice una
  * máquina— sino lo objetivo: que no haya barra horizontal, que la pantalla pedida sea la que se
- * abre, que sigan existiendo los siete paneles, y que no aparezcan errores de consola ni
+ * abre, que sigan existiendo los ocho paneles, y que no aparezcan errores de consola ni
  * peticiones rotas por el camino.
  *
  * El modo oscuro y su persistencia viven en `oscuro.mjs`, que se llama desde aquí para que una
@@ -13,6 +13,13 @@ const PANTALLAS = ['platos', 'ofertas', 'juego', 'publicidad', 'datos', 'marca',
 export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = '' }) {
   const url = servidor.url;
   const suf = etiqueta ? ` (${etiqueta})` : '';
+  /* Y el identificador tambien, no solo el texto. Esta suite corre DOS veces en la pasada
+     completa —con mbstring y sin ella— y hasta ahora las dos emitian `RSP-320`, `RSP-FOCO`...
+     El informe ensenaba dos lineas con el mismo nombre y habia que leer el texto para saber
+     cual era cual: el identificador dejaba de servir para lo unico que sirve. La pasada base
+     conserva sus identificadores de siempre; la que lleva etiqueta se nombra aparte, que es
+     como ya lo hacia lote1 con `conGd` (L1-nn con GD, GD-nn sin el). */
+  const sufId = etiqueta ? '-' + etiqueta.replace(/\s+/g, '-') : '';
   informe.seccion('anchos del panel' + suf);
 
   pagina.limpiarRegistro();
@@ -31,12 +38,12 @@ export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = 
         tema: !!document.getElementById('adm-tema-sw'),
       }));
       if (r.scroll > r.cliente + 1) problemas.push(`${t}: desborda ${r.scroll}>${r.cliente}`);
-      if (r.paneles !== 7) problemas.push(`${t}: ${r.paneles} paneles`);
+      if (r.paneles !== 8) problemas.push(`${t}: ${r.paneles} paneles`);
       if (r.visible !== t) problemas.push(`${t}: abre ${r.visible}`);
-      if (r.navegacion !== 7) problemas.push(`${t}: ${r.navegacion} destinos en la barra lateral`);
+      if (r.navegacion !== 8) problemas.push(`${t}: ${r.navegacion} destinos en la barra lateral`);
       if (!r.tema) problemas.push(`${t}: sin interruptor de tema`);
     }
-    informe.comprueba(`RSP-${ancho}`, `${ancho} px: sin desborde y con las siete pantallas${suf}`,
+    informe.comprueba(`RSP-${ancho}${sufId}`, `${ancho} px: sin desborde y con las ocho pantallas${suf}`,
       problemas.length === 0, problemas.join(' | '));
   }
   await pagina.setViewportSize({ width: 1280, height: 900 });
@@ -54,7 +61,7 @@ export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = 
     const cs = getComputedStyle(el);
     return { sombra: cs.boxShadow, contorno: `${cs.outlineStyle} ${cs.outlineWidth}`, activo: document.activeElement === el };
   });
-  informe.comprueba('RSP-FOCO', 'el foco de un campo se ve' + suf,
+  informe.comprueba(`RSP-FOCO${sufId}`, 'el foco de un campo se ve' + suf,
     !!foco && foco.activo && (foco.sombra !== 'none' || !/none/.test(foco.contorno)), JSON.stringify(foco));
 
   /* Teclado: el tabulador llega a un control. */
@@ -62,7 +69,7 @@ export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = 
   await pagina.keyboard.press('Tab');
   await pagina.waitForTimeout(150);
   const focoTras = await pagina.evaluate(() => { const a = document.activeElement; return a ? `${a.tagName}${a.id ? '#' + a.id : ''}` : 'ninguno'; });
-  informe.comprueba('RSP-TAB', 'el tabulador mueve el foco a un control' + suf, focoTras !== 'ninguno' && focoTras !== 'BODY', focoTras);
+  informe.comprueba(`RSP-TAB${sufId}`, 'el tabulador mueve el foco a un control' + suf, focoTras !== 'ninguno' && focoTras !== 'BODY', focoTras);
 
   /* Ayudas: abren y cierran con Escape (en Ofertas hay una). */
   await pagina.goto(url + '/admin/?t=ofertas', { waitUntil: 'domcontentloaded' });
@@ -78,9 +85,9 @@ export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = 
     await pagina.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     await pagina.waitForTimeout(200);
     const cerrada = await pagina.evaluate(() => !document.querySelector('.adm-globo'));
-    informe.comprueba('RSP-AYUDA', 'las ayudas abren y cierran con Escape' + suf, ayuda && cerrada, `abierta=${ayuda} cerrada=${cerrada}`);
+    informe.comprueba(`RSP-AYUDA${sufId}`, 'las ayudas abren y cierran con Escape' + suf, ayuda && cerrada, `abierta=${ayuda} cerrada=${cerrada}`);
   } else {
-    informe.blocked('RSP-AYUDA', 'ayudas del panel' + suf, 'no habia ningun boton de ayuda visible');
+    informe.blocked(`RSP-AYUDA${sufId}`, 'ayudas del panel' + suf, 'no habia ningun boton de ayuda visible');
   }
 
   /* Control deshabilitado: que exista y se distinga (si aparece alguno). */
@@ -91,18 +98,18 @@ export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = 
     return { opacidad: cs.opacity, cursor: cs.cursor };
   });
   if (deshabilitado) {
-    informe.comprueba('RSP-DIS', 'un control deshabilitado se distingue' + suf,
+    informe.comprueba(`RSP-DIS${sufId}`, 'un control deshabilitado se distingue' + suf,
       Number(deshabilitado.opacidad) < 1 || deshabilitado.cursor !== 'pointer', JSON.stringify(deshabilitado));
   } else {
-    informe.blocked('RSP-DIS', 'control deshabilitado' + suf, 'no habia ninguno en pantalla');
+    informe.blocked(`RSP-DIS${sufId}`, 'control deshabilitado' + suf, 'no habia ninguno en pantalla');
   }
 
   informe.seccion('consola, red y avisos de PHP' + suf);
   const consola = pagina.registro.consola.filter((l) => !/Failed to load resource/i.test(l));
-  informe.comprueba('RSP-CONSOLA', 'sin errores de consola en toda la matriz' + suf, consola.length === 0, consola.slice(0, 3).join(' | '));
-  informe.comprueba('RSP-RED', 'sin peticiones fallidas en toda la matriz' + suf,
+  informe.comprueba(`RSP-CONSOLA${sufId}`, 'sin errores de consola en toda la matriz' + suf, consola.length === 0, consola.slice(0, 3).join(' | '));
+  informe.comprueba(`RSP-RED${sufId}`, 'sin peticiones fallidas en toda la matriz' + suf,
     pagina.registro.fallidas.length === 0, pagina.registro.fallidas.slice(0, 3).join(' | '));
   const avisos = servidor.avisos();
-  informe.comprueba('RSP-PHP', 'sin avisos de PHP en toda la matriz' + suf, avisos.length === 0, avisos.slice(0, 3).join(' | '));
+  informe.comprueba(`RSP-PHP${sufId}`, 'sin avisos de PHP en toda la matriz' + suf, avisos.length === 0, avisos.slice(0, 3).join(' | '));
   return informe;
 }

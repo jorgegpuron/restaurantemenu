@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { clicVisible, abrirAcordeones, textoAviso } from '../lib/navegador.mjs';
-import { leerEstado } from './admin.mjs';
+import { leerEstado, confirmarEnPanel } from './admin.mjs';
 
 async function subirPortada(pagina, url, fichero) {
   await pagina.goto(url + '/admin/?t=marca', { waitUntil: 'domcontentloaded' });
@@ -96,6 +96,7 @@ export async function lote2(informe, { pagina, servidor, docroot }) {
   const antes = leerEstado(docroot);
   await irA(pagina, url, 'ajustes', 300);
   await clicVisible(pagina, 'button[name="restaurar_copia"]', 0);
+  await confirmarEnPanel(pagina);
   await pagina.waitForLoadState('networkidle').catch(() => {});
   await pagina.waitForTimeout(700);
   const aviso = await textoAviso(pagina);
@@ -177,6 +178,8 @@ export async function lote6(informe, { pagina, servidor, docroot }) {
     if (cb) fd.append('oferta_plato[]', cb.value);
     fd.set('oferta_on', '1');
     const x = await fetch('/admin/index.php?t=ofertas', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    /* Y se LEE. Ver el comentario de lote7: un cuerpo sin leer bloquea al servidor. */
+    await x.text();
     return x.status;
   });
   const dias = leerEstado(docroot)?.offer?.days || [];
@@ -204,7 +207,13 @@ export async function lote7(informe, { pagina, servidor, docroot }) {
       const fd = new URLSearchParams();
       fd.set('csrf', csrf); fd.set('precios_publicar', '1');
       campos.forEach((c, i) => fd.set(c, (5 + k + i * 0.5).toFixed(2)));
-      await fetch('/admin/index.php?t=precios', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      const x = await fetch('/admin/index.php?t=precios', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      /* SE LEE EL CUERPO. Esta prueba mide tiempo, y sin leerlo medía otra cosa: la respuesta
+         del panel es la pagina entera —2,4 MB— y un navegador que ve que nadie va a leer ese
+         cuerpo deja de vaciar el socket. PHP se queda escribiendo, y cada publicacion tardaba
+         DIEZ SEGUNDOS clavados en vez de los 300 ms que tarda. La prueba fallaba por «lenta»
+         y el producto no tenia nada que ver: era esta linea la que faltaba. */
+      await x.text();
     }
     return { ms: Date.now() - t0, n: campos.length };
   });
@@ -222,7 +231,12 @@ export async function lote7(informe, { pagina, servidor, docroot }) {
 /* LOTE 8 — accesibilidad y saneamiento. Tres cosas distintas que se corrigieron juntas. */
 export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
   const url = servidor.url;
-  informe.seccion('lote 8: accesibilidad y saneamiento');
+  /* Este lote corre DOS veces en la pasada completa: con mbstring y sin ella. Hasta ahora las
+     dos emitian L8-01..07 y el informe ensenaba cada uno dos veces, sin forma de saber cual
+     era de que entorno. Se separa igual que lote1 separa GD-nn de L1-nn. */
+  const sufId = servidor.conMbstring ? '' : '-sin-mbstring';
+  const suf = servidor.conMbstring ? '' : ' (sin mbstring)';
+  informe.seccion('lote 8: accesibilidad y saneamiento' + suf);
 
   await pagina.goto(url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
   await pagina.waitForTimeout(250);
@@ -231,7 +245,7 @@ export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
     const i = document.querySelector('#clave');
     return l ? { clase: l.className, texto: l.textContent.trim(), aria: i && i.getAttribute('aria-label') } : null;
   });
-  informe.comprueba('L8-01', 'la contrasena del login tiene un <label> de verdad',
+  informe.comprueba(`L8-01${sufId}`, 'la contrasena del login tiene un <label> de verdad',
     !!label && label.texto.length > 0 && !label.aria, JSON.stringify(label));
   const { entrarAlPanel } = await import('./admin.mjs');
   await entrarAlPanel(pagina, url);
@@ -261,15 +275,15 @@ export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
     }
     const despues = await pagina.evaluate((i) =>
       document.querySelectorAll('button.camara')[i].getAttribute('aria-label'), indiceCamara);
-    informe.comprueba('L8-02', 'el aria-label de la camara cambia sin recargar',
+    informe.comprueba(`L8-02${sufId}`, 'el aria-label de la camara cambia sin recargar',
       antes.startsWith('Poner foto') && String(despues).startsWith('Cambiar la foto'),
       `${antes} -> ${despues}`);
-    informe.comprueba('L8-03', 'la foto del plato queda guardada',
+    informe.comprueba(`L8-03${sufId}`, 'la foto del plato queda guardada',
       Object.keys(leerEstado(docroot)?.fotos || {}).length > 0);
   } else {
-    informe.blocked('L8-02', 'aria-label de la camara',
+    informe.blocked(`L8-02${sufId}`, 'aria-label de la camara',
       indiceCamara < 0 ? 'todos los platos tenian ya foto: no hay ningun rotulo «Poner foto» que ver cambiar' : 'falta la fixture');
-    informe.blocked('L8-03', 'foto de plato', 'no se pudo subir');
+    informe.blocked(`L8-03${sufId}`, 'foto de plato', 'no se pudo subir');
   }
 
   /* Saneamiento del nombre del marcador: es el endpoint público del juego.
@@ -288,7 +302,7 @@ export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
     const csrf = document.querySelector('input[name="csrf"]').value;
     const fd = new URLSearchParams();
     fd.set('csrf', csrf); fd.set('guardar_juego', '1'); fd.set('juego_on', '1');
-    await fetch('/admin/index.php?t=juego', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    await fetch('/admin/index.php?t=juego', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }).then((x) => x.text());
   });
   const juegoEncendido = leerEstado(docroot)?.game?.on === true;
 
@@ -320,16 +334,16 @@ export async function lote8(informe, { pagina, servidor, docroot, fixtures }) {
     if (!hecho(n)) return informe.blocked(id, texto, 'la marca no entro en el podio: la comprobacion no llego a hacerse');
     return informe.comprueba(id, texto, condicion(guardado(n)), JSON.stringify(guardado(n)));
   };
-  juzga('L8-04', 'record.php quita las etiquetas del nombre', nombres[0], (v) => !v.includes('<') && !v.includes('script'));
-  juzga('L8-05', 'record.php recorta por caracteres sin partir un acento', nombres[1], (v) => v === 'Ámbar de la ' || (v.length <= 12 && !/�/.test(v)));
-  juzga('L8-06', 'record.php recorta a doce caracteres', nombres[2], (v) => v === 'ABCDEFGHIJKL');
+  juzga(`L8-04${sufId}`, 'record.php quita las etiquetas del nombre', nombres[0], (v) => !v.includes('<') && !v.includes('script'));
+  juzga(`L8-05${sufId}`, 'record.php recorta por caracteres sin partir un acento', nombres[1], (v) => v === 'Ámbar de la ' || (v.length <= 12 && !/�/.test(v)));
+  juzga(`L8-06${sufId}`, 'record.php recorta a doce caracteres', nombres[2], (v) => v === 'ABCDEFGHIJKL');
   const recordJson = path.join(docroot, 'record.json');
   let valido = false;
   try { JSON.parse(readFileSync(recordJson, 'utf8')); valido = true; } catch { /* no existe o roto */ }
   if (!juegoEncendido || !hecho(nombres[0])) {
-    informe.blocked('L8-07', 'record.json valido', 'no se llego a escribir ninguna marca');
+    informe.blocked(`L8-07${sufId}`, 'record.json valido', 'no se llego a escribir ninguna marca');
   } else {
-    informe.comprueba('L8-07', 'record.json queda como JSON valido', valido);
+    informe.comprueba(`L8-07${sufId}`, 'record.json queda como JSON valido', valido);
   }
   return informe;
 }

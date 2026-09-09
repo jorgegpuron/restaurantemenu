@@ -3592,3 +3592,830 @@ recepción en los dos; y el plegado de móvil sigue funcionando.
 Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
 
 **DETENER PARA REVISIÓN HUMANA. QA FINAL Y CHECKPOINT SON FASE APARTE.**
+
+---
+
+# Corrección posterior a Fase A — revisión humana (8 Sep 2026)
+
+Seis cosas que la auditoría automática dio por buenas y que se vieron mal usando el panel con
+las manos. Ninguna cambia arquitectura, contratos ni datos: es presentación y un autoguardado
+que faltaba. Las medidas de aquí están tomadas en el navegador, antes y después.
+
+**1. «Ver N platos más» no hacía nada en Ofertas.** El escuchador se enganchaba recorriendo
+`document.querySelectorAll('[data-vermas]')` desde el script de Platos, que corre mientras se
+parsea la página — las fichas de Ofertas aún no existían. Medido: en Ofertas 6 filas visibles
+antes del clic y 6 después, sin `data-abierto` y sin cambiar el rótulo; en Platos, 6 → 11.
+Ahora es un delegado en `document`, que además sirve para cualquier ficha que llegue después.
+
+**2. La barra inferior del móvil tapaba el final del contenido.** La barra mide
+`6 + 52 + 6 + 1 = 65px` **más `env(safe-area-inset-bottom)`**, y el hueco de abajo del
+documento era el número fijo `64px`. Medido: falta **1 px** en un móvil corriente y el inset
+entero (unos 34) en uno con indicador de inicio. El hueco pasa a
+`calc(65px + env(safe-area-inset-bottom))`, la misma cuenta que la barra. La barra en sí
+estaba bien: fija, pegada abajo, sin solapes y sin desborde a 320.
+
+**3. Las cuatro tarjetas de Platos no medían lo mismo.** Medido a 320: las dos de arriba a
+**102 px** y las dos de abajo a **119**, porque cada fila del grid se ajustaba a su propio
+texto. Con `grid-auto-rows:1fr` las cuatro miden igual en cualquier ancho (comprobado 1512,
+768, 390 y 320: 102 px las cuatro). Y por debajo de **480** pasan a una sola columna: a 390 la
+tarjeta salía de 155 y a 320 de 120, y descontando relleno, pastilla del icono y hueco quedaban
+75 y 40 px para la cifra, el rótulo y la explicación. A todo el ancho miden 320 y 250 y se leen
+enteras. Legibilidad por delante de «cuatro en una fila».
+
+**4. «Semanal» no parecía un botón.** Sin filete, mismo alto, mismo radio y mismo cuerpo que un
+día, y con el gris que ahí significa «día sin marcar»: se leía como un octavo día apagado.
+Ahora lleva filete propio (1 px), un separador que lo saca del grupo, y mide **100** frente a
+los **36** de un día. Con los siete puestos —donde el botón no hace nada— se dice con el filete
+discontinuo y una marca, no rellenándolo: un botón relleno invita a pulsarlo otra vez. El grupo
+de días no cambia de medida ni de estados.
+
+**5. Con la oferta apagada, la configuración se leía como activa.** La insignia decía APAGADA y
+justo debajo los siete días estaban pintados con el naranja de «esto está corriendo». La ficha
+declara `data-apagada` y, con ella, los días marcados pasan al gris de «guardado» con un anillo
+que los sigue distinguiendo de los sueltos. Debajo, una línea que separa lo configurado de lo
+activo. Nada se desactiva: la configuración se sigue tocando, que es como se prepara una oferta
+antes de encenderla. El atributo se sincroniza desde la respuesta del guardado, igual que ya se
+hacía con la insignia y el pie.
+
+**6. Los avisos flotantes salían en mitad de la pantalla.** Con una capa a pantalla completa por
+encima de todo: el aviso de un guardado que ya había salido bien tapaba justo lo que se acababa
+de tocar. Ahora viven en la esquina inferior derecha, apilados de tres en tres con 10 px, con
+entrada de 180 ms, sin transformación con «menos movimiento», y por encima de la barra inferior
+y del indicador de inicio. La capa no recibe el puntero. Cuatro variantes con significado
+(correcto, error, aviso, dato). Los buenos se van a los **3 s**; los errores **se quedan** —un
+error que se borra solo es un error que nadie ha leído, y esa decisión ya estaba tomada.
+
+**Y el contrato de botones, tal como se auditó.** Ofertas y Juego autoguardan cada control:
+su «Guardar cambios» se esconde **con JavaScript** y sigue en el documento, con su formulario y
+su handler (`guardar_oferta`, `guardar_juego`) intactos, de modo que sin JavaScript vuelve a
+verse y sigue siendo el único camino para guardar. Se esconde el BOTÓN, no la tira: el recuento
+y «Ver la carta» siguen a la vista. El interruptor del juego pasa a autoguardar reutilizando
+`guardar_juego` — no hay endpoint nuevo — con vuelta atrás completa y aviso si el servidor lo
+rechaza. Platos, Publicidad, Marca, Analítica y Ajustes no cambian.
+
+Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
+
+---
+
+# Fase 1: reordenar platos dentro de su categoría (8 Sep 2026)
+
+La primera clave del estado que define **estructura** en vez de decorarla. Hasta hoy
+`estado.json` sólo decía cosas *sobre* platos que ya existían —agotado, precio, foto,
+etiqueta, oferta—; ahora también dice en qué orden se leen.
+
+**Dónde vive.** `orden: { "<categoryId>": ["dishId", ...] }`, **disperso**: sólo aparecen las
+categorías que alguien ha tocado. Una categoría ausente se pinta en el orden compilado, que
+es exactamente lo de siempre, así que un `estado.json` anterior a esto se comporta igual sin
+migración de ninguna clase. Y cuando un orden vuelve a coincidir con el compilado, la
+categoría **se borra** del estado en lugar de guardarse igual: deshacer no deja rastro.
+
+**La regla que lo sostiene todo.** El servidor sólo acepta una **permutación exacta** de los
+platos que el catálogo compilado asigna a esa categoría. No es una validación más entre
+varias: es la que hace imposible *por construcción* lo que hay que impedir. Un plato de otra
+categoría no está en el conjunto esperado; uno repetido rompe el recuento; uno que falte,
+también. No hay que acordarse de comprobar cada caso: o es la misma baraja en otro orden, o no
+se escribe nada. Los cinco rechazos —ajeno, repetido, corto, largo, categoría inexistente—
+devuelven 422 y dejan el disco intacto.
+
+**El número no se toca.** En esta carta los números saltan (del 67 al 69), se desdoblan (24a,
+24b, 24c) y algunos están vacíos, y los clientes y los camareros piden **por número**.
+Renumerar al mover cambiaría lo que un cliente dice en voz alta y separaría la carta impresa
+de la digital. El número es identidad comercial; la posición es otra cosa. Medido en la
+prueba: 21, 22, 23 pasa a 22, 21, 23 y cada plato se lleva el suyo.
+
+**En la carta pública no se fabrica marcado.** Son las mismas filas horneadas, movidas:
+`appendChild` mueve el nodo, así que recorrer la lista en orden y adjuntar a la columna que
+toca deja ese orden. Se reparte mitad y mitad igual que en el build (`renderSub`), o las dos
+columnas quedarían cojas. La pasada es **idempotente** —si ya están en su sitio no toca el
+DOM—, que es obligatorio: `render()` vuelve a pasar cada treinta segundos. Sin JavaScript se
+ve el orden compilado: peor, pero nunca datos equivocados.
+
+**Punteros, no arrastre HTML5.** El arrastre nativo no existe en táctil y esta pantalla se usa
+en móvil. Con eventos de puntero el mismo código vale para ratón, dedo y lápiz. El nodo se
+mueve durante el gesto en vez de dibujar una línea de destino: lo que se ve durante el
+arrastre **es** el resultado. El asa se dibuja a 18 y se toca a 44, y `touch-action:none` evita
+que el dedo haga scroll en vez de arrastrar. Con teclado: Enter agarra, flechas mueven, Enter
+confirma, Escape deshace, y una región viva canta la posición.
+
+**No se reordena mientras se filtra.** Con media lista escondida, «subir una posición» no
+querría decir nada, así que el asa desaparece.
+
+**Ofertas lee el mismo orden.** No cambia de función: es que el restaurante no puede ver la
+misma categoría en dos órdenes distintos según la pantalla en la que esté.
+
+**Copia de seguridad, y su límite.** Reordenar quince platos y arrepentirse no se deshace a
+mano, así que dispara el mismo mecanismo que ya usaban los precios. **Lo que el botón
+«Restaurar» sigue restaurando es sólo los precios**, por la decisión ya tomada de no llevarse
+por delante en silencio agotados, destacados y ofertas posteriores a la copia. La copia con el
+orden de antes existe y se puede descargar; extender el botón a restaurar el orden es una
+decisión aparte, no se ha tomado aquí.
+
+Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
+
+---
+
+# Las cuatro tarjetas KPI, acabado bento (8 Sep 2026)
+
+Sobre especificación del propietario. Cambia el **acabado**; los cuatro KPI, sus cifras, su
+fuente de datos y su papel de filtro no se tocan: siguen siendo los mismos `<button>` con su
+`aria-pressed`, su `data-filter` y los mismos identificadores de contador.
+
+**Lo que se movió en el marcado**, y es lo único: el rótulo pasa **delante** de la cifra. Es la
+etiqueta del dato, así que va encima, en versalitas pequeñas y apagadas; la cifra queda debajo
+con la mayor jerarquía tipográfica de la tarjeta. Medido: rótulo 11 px contra cifra 30 en
+escritorio, 9,5 contra 22 en móvil.
+
+**El icono sube a protagonista.** Pastilla de 44 con el trazo a 22 y grosor 1,9, sobre un
+degradado del naranja del panel al 18 y al 8 por ciento. En móvil 38 y 20; a 360 px, 36 y 19.
+Los cuatro iconos ya eran de la misma familia lineal y comparten grosor — comprobado, un solo
+valor de `stroke-width` en los cuatro.
+
+**El naranja es acento, no masa.** Vive en la pastilla del icono; el fondo de la tarjeta no
+lleva ni degradado ni naranja. Y es `--sc-primary`, el que ya tiene el panel: dos naranjas
+distintos a diez centímetros se ven.
+
+**En móvil se quedan DOS columnas.** Cuatro tarjetas apiladas empujaban la lista de platos
+fuera de la primera pantalla, que es justo lo contrario de para lo que sirven. Para que quepan,
+la tarjeta baja a 88 y la explicación se retira: a 122–156 px de ancho salía cortada y no
+explicaba nada. Medido, el bloque entero: **184 px a 390 y 183 a 320**, por debajo de los 200
+que pedía la especificación. Y a 320 se aprieta el hueco, el relleno y el icono antes que
+romper la rejilla.
+
+**El corte de las cuatro columnas no es 980.** La especificación lo daba para una rejilla a
+pantalla completa, y ésta vive dentro de la columna de contenido con 232 px de barra lateral
+por delante y 34+34 de relleno. Despejando, la fila baja de 980 por debajo de **1280** de
+ventana. Con el corte a 980 —medido— a 1024 salían cuatro tarjetas de 161 px, con el rótulo
+envolviendo y la tarjeta estirada a 120 en vez de 108.
+
+**Profundidad casi imperceptible:** una línea de luz de un 3 % arriba y una sombra ancha y
+suave. Ni sombra dura, ni halo naranja fuerte, ni tarjeta flotando. Y el hover sólo donde hay
+puntero: en táctil se quedaría pegado.
+
+Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
+
+## Corrección sobre lo anterior: manda la captura, no el texto
+
+El propietario mandó primero una especificación escrita (icono a la izquierda, tarjeta
+horizontal de 44 px, sin filete) y después una captura con otra composición. **Vale la
+captura**, que es lo último y lo más concreto: rótulo arriba a la izquierda, pastilla del
+icono a la derecha, cifra grande debajo, un filete y un pie corto. La tarjeta elegida **no se
+rellena**: se queda blanca y lo dicen el filete naranja y la pastilla en sólido. Rellenarla
+apagaba la cifra, que es lo que se viene a leer.
+
+Los pies se acortan a los de la captura: «Carta completa», «Se restablecen a las 6:00», «Con
+etiqueta en la carta», «Gestionar desde Ofertas».
+
+Medido: tarjeta de 136 px en escritorio y **83 en móvil**, con el bloque entero en **175 px** a
+390 y **164** a 320 — por debajo del tope de 200. El pie y su filete se retiran por debajo de
+640, donde salían cortados.
+
+Y una trampa que costó ver: `.adm-chip[aria-pressed="true"]`, del que la tarjeta hereda,
+rellena el chip de gris. Sin decir el fondo a mano, la tarjeta elegida salía **gris** en vez de
+blanca.
+
+## El arrastre, y por qué no funcionaba
+
+Se sujetaba el puntero al asa con `setPointerCapture`, y **el asa viaja dentro de la fila**: en
+cuanto la fila cambia de sitio en el DOM el navegador suelta la captura. La traza lo decía
+entero — `pointerdown`, `gotpointercapture`, tres movimientos, `lostpointercapture` — y a
+partir de ahí no llegaba un movimiento más. Con ratón no se podía reordenar nada. Con teclado
+sí, y por eso las pruebas lo daban por bueno: **el agujero era no haber probado nunca el
+arrastre de verdad**. Ahora los movimientos se escuchan en el documento, que no se mueve nunca.
+
+Segundo fallo del mismo gesto: la fila de destino se buscaba con `elementFromPoint`, y bastaba
+arrastrar cerca del borde superior para que el punto cayera en la cabecera fija —esos 68 px— y
+el destino se perdiera. Ahora se calcula por geometría dentro de la propia ficha: la columna
+cuyo carril horizontal contiene el puntero, y dentro de ella la fila cuya banda vertical lo
+contiene, o la más cercana. No puede devolver una fila de otra categoría porque sólo mira las
+de esa ficha.
+
+Y el asa deja de ser invisible en reposo. Estaba a `opacity:0` y sólo aparecía al pasar el
+puntero: con 312 filas eso evitaba 312 manchas, pero un asa que no se ve no es un asa clara.
+
+## Rectificación: los números SÍ se reparten por posición
+
+Lo anterior de este documento decía que el número no se toca nunca. **Ya no es así**, y la
+decisión la tomó el propietario el 8 de septiembre de 2026 con la consecuencia delante.
+
+**La regla.** Se reparte la **misma baraja** de números que ya tiene la categoría, en su orden
+natural, a las filas en el orden en que se ven. No se inventa ningún número y no se pierde
+ninguno: es una permutación, igual que el orden. Los platos sin número se quedan sin número —
+los números sólo se reparten entre las filas que ya tenían uno. Veintitrés de las cuarenta
+categorías no numeran nada y una mezcla numerados con sin numerar; así ninguna de las dos se
+rompe.
+
+**Por qué es exacto.** Comprobado sobre la carta real: las cuarenta categorías vienen numeradas
+de menor a mayor, así que «orden natural» y «orden compilado» son la misma cosa. Y como el
+conjunto no cambia, repartirlo dos veces da el mismo resultado: sigue siendo idempotente, que
+es lo que necesita un repintado que pasa cada treinta segundos.
+
+**Lo que esto cambia en la sala, dicho a propósito.** Cambia **qué plato es «el 2»**. Un cliente
+que pida por número recibe otro plato, y una carta impresa deja de coincidir con la digital. Se
+planteó como la primera de tres opciones, con esa consecuencia escrita, y se eligió.
+
+**Dónde se aplica.** En las dos caras y con la misma regla: el panel lo hace al pintar la página
+(PHP) **y en caliente** al mover, porque si no el número nuevo no aparecía hasta recargar; y la
+carta pública lo hace en los **dos** sitios donde se pinta el número, la columna de escritorio y
+la chapa de delante del nombre en móvil.
+
+Ningún dato cambia de sitio: el número sigue viviendo en `carta.json` y nadie lo reescribe. Lo
+que se reparte es lo que se **enseña**, derivado del orden. La identidad de un plato sigue
+siendo su `dishId`, que es por donde van su foto, su precio y su agotado.
+
+## Del arrastre a las flechas
+
+Se cambia por petición del propietario: el mismo control que el panel ya usa para reordenar
+las fotos de portada. Dos flechas por fila, apagadas en los extremos, dibujadas a 20×28 y
+tocables a 44×44.
+
+El arrastre llegó a funcionar, pero costó dos fallos llegar ahí —la captura del puntero se
+perdía al mover el nodo, y la fila de destino se perdía bajo la cabecera fija— y el argumento
+del propietario es el bueno: es el mismo gesto en dos sitios del mismo panel, funciona igual
+con ratón, dedo y teclado, y no hay nada que se pueda soltar a medias. El precio, dicho: mover
+un plato quince puestos son quince pulsaciones.
+
+**Una ráfaga, un guardado.** Bajar un plato cinco puestos son cinco clics; mandar cinco
+peticiones sería castigar a quien usa bien la herramienta. Se espera medio segundo desde la
+última pulsación y se manda el orden final. Si el servidor rechaza, se vuelve al orden de antes
+de la ráfaga entera, no a medio camino.
+
+**El foco se queda en la flecha pulsada** aunque la fila cambie de columna: sin eso, pulsar
+cinco veces seguidas con teclado es imposible. Y la fila movida se enciende un momento, porque
+con 312 filas iguales si no no se sabe cuál se ha movido.
+
+Se retira todo el código del arrastre: nada de captura de puntero, nada de buscar la fila bajo
+el cursor. Menos superficie, y la que queda es la que ya estaba probada en otra pantalla.
+
+---
+
+# Retirar un plato de la carta (8 Sep 2026)
+
+**No es un borrado, y la diferencia es todo.** El panel no sabe escribir `carta.json` —la
+estructura se compila— así que aquí no se puede borrar un plato: lo que se hace es **dejar de
+servirlo**. Una clave nueva en el estado, `retirados: [dishId, ...]`, y el plato desaparece de
+la carta conservando intactas su foto, su precio y su etiqueta, que van todas por identificador.
+Devolverlo lo restaura entero.
+
+Que sea reversible no es un detalle: es lo único responsable en algo que se pulsa por error. Y
+responde al caso real del negocio, que es «esto no está esta temporada», no «esto no ha existido
+nunca». Un agotado dice «hoy no queda»; esto dice «ya no lo servimos».
+
+**No se reutiliza la clave `hidden`** que el estado arrastra. Viene del escaparate antiguo, no
+la lee nadie, y puede traer valores viejos de otra cosa: heredar su contenido sería retirar
+platos que nadie mandó retirar.
+
+**La única regla dura: una categoría no se puede quedar vacía.** Saldría en la carta como un
+título con nada debajo, y arreglarlo después es peor que impedirlo ahora. Mismo criterio que el
+último día de una oferta: 422 y no se escribe nada.
+
+**En la carta pública sale gratis lo que más costaba.** El plato retirado se oculta con el
+atributo `hidden`, que es exactamente lo que el buscador de la carta ya mira para saltarse una
+fila —lo hace en los cinco sitios donde recorre su índice—, así que desaparece también de la
+búsqueda y de los contadores de los chips sin tocar ni una línea de esa parte. Y como se oculta
+antes de repartir las dos columnas, no deja hueco: 311 filas servidas de 312, sin ningún grupo
+vacío.
+
+**El número.** Un plato retirado sale del reparto y se queda sin número, y los que quedan se
+renumeran entre ellos. Si entrara, el panel y la carta dirían números distintos, porque la carta
+sólo reparte entre lo que se ve.
+
+**En el panel la fila se queda.** Apagada, con el nombre tachado, sin número y con las flechas
+escondidas —su sitio da igual si no está en la carta—, pero visible: hay que poder devolverla, y
+su botón de devolver se ve siempre. Confirmación al retirar; ninguna al devolver, que es la que
+deshace.
+
+**Ofertas deja de verlo.** Un plato que no está en la carta no puede entrar en una oferta: se
+cae de esa lista igual que los que no tienen precio, y una categoría que se quede sin ninguno
+tampoco aparece allí.
+
+---
+
+# Renombrar categorías, idioma a idioma (8 Sep 2026)
+
+**Un campo por idioma, no uno solo**, y es la decisión que da forma a todo lo demás. La carta
+habla tres idiomas y el rótulo de la categoría sale de los diccionarios: con un único texto, la
+categoría renombrada dejaría de traducirse y un alemán vería español. Los idiomas los publica
+ahora el build en `CLIENTE_IDIOMAS` — no se adivinan en el panel, o un cliente con dos vería
+tres campos y uno con cuatro se quedaría sin el último.
+
+**El idioma base es obligatorio; los demás pueden ir vacíos** y entonces caen al nombre
+compilado. Lo que no se hace nunca es rellenarlos con el texto del base: media carta traducida
+y media no parece un fallo, y una sin traducir no lo parece.
+
+**Disperso, como el orden.** Sólo aparecen las categorías que alguien ha tocado, y escribir de
+nuevo los nombres de la carta borra la entrada en vez de guardarla igual.
+
+**Las cuatro categorías sin rótulo propio no se pueden renombrar**, y el panel no ofrece el
+control. En la carta esas cuatro enseñan el rótulo de su PESTAÑA, que comparten con otros
+grupos: cambiarlo ahí cambiaría la pestaña entera. Es mejor no ofrecer un cambio que no se
+puede cumplir que ofrecerlo y explicarlo después.
+
+**En la carta, el mismo mecanismo que ya usa el rótulo de la marca.** Se apuntan una vez los
+nombres compilados —antes de que nada los toque, para poder volver a ellos— y después se
+reescriben los `data-<idioma>` del `<span class="i18n">` del título. El selector de idioma lee
+justo esos atributos, así que la categoría renombrada sigue traduciéndose sola.
+
+Dos trampas que costaron encontrarlas y conviene no repetir:
+
+- **`IDIOMAS` se asigna setecientas líneas más abajo que `render()`.** Usarla aquí daba un
+  `undefined` y tiraba el repintado entero, con lo que también se caían el orden y los
+  retirados. Los idiomas salen ahora del propio elemento: el título ya trae un `data-<idioma>`
+  por cada uno.
+- **El idioma base no viaja en un `data-`: es el propio texto del span.** Sin contemplarlo, el
+  nombre nuevo en el idioma base no se escribía en ningún sitio y el título se quedaba en
+  blanco al volver a ese idioma.
+
+**Lo que el build publica ahora, y es nuevo:** `CLIENTE_IDIOMAS` y `CLIENTE_IDIOMA_BASE` en
+`cliente.php`, y en cada plato de `platos.json` el rótulo de su grupo en **todos** los idiomas
+(`grupoI18n`) más si ese grupo tiene rótulo propio (`grupoPropio`). `group_es` y `group_en` se
+quedan donde estaban por compatibilidad.
+
+## Dos remates del renombrado y de los números
+
+**La hoja del nombre no la puede recortar la tarjeta.** `.adm-cat-bento` lleva `overflow:hidden`
+—lo necesita para sus esquinas redondeadas— y una hoja absoluta dentro salía cortada: el
+último idioma quedaba partido por el borde. Pasa a `position:fixed`, colocada por el script
+debajo del lápiz, volteada arriba si no cabe, y **acotada a la pantalla en los dos sentidos**.
+Se cierra al pulsar fuera y con Escape, y cerrar sin guardar devuelve los campos a lo que
+había. **Un solo botón Guardar**, no dos: el contrato de botones de este panel dice que los
+interruptores autoguardan y el texto libre conserva su Guardar, porque un nombre a medio
+escribir no puede llegar a la carta.
+
+**Los números compactan sin huecos.** Decisión del propietario del 8 de septiembre de 2026,
+tomada con la consecuencia delante: retirar el 03 de una categoría 01..05 deja **01, 02, 03,
+04**, no 01, 02, 04, 05. Mientras ese plato esté retirado, el número más alto de la categoría
+deja de aparecer, y vuelve al devolverlo. Es lo coherente con repartir los números por
+posición: si el número es la posición, un salto se lee como un error de la carta. La baraja
+sale de la categoría **entera**, retirados incluidos; el reparto, sólo entre los que se sirven.
+
+## Y una lección sobre las esperas de la batería
+
+Seis comprobaciones de Ofertas empezaron a fallar, y **no era una regresión**: cada pasada
+fallaba con números distintos. Eran esperas de reloj —«espera 500 ms y mira»— que se quedaron
+cortas en cuanto la página engordó: 312 filas ganaron dos flechas y un botón de retirar, y el
+repintado parsea la respuesta entera con `DOMParser`. Se cambian por esperas a la CONDICIÓN
+(`esperarA`), que es lo que había que haber hecho desde el principio: si la condición no llega,
+el assert falla igual y con el último valor leído.
+
+---
+
+# Renombrar las secciones de la carta (8 Sep 2026)
+
+Las **pestañas** —lo que el comensal ve como categoría principal arriba— pasan a poder
+renombrarse, con un campo por idioma, igual que las categorías.
+
+**Con identidad propia, y esa fue la decisión.** Las pestañas no tenían id: sólo su texto y su
+icono. Guardar el cambio bajo su rótulo habría sido atarlo a lo único que se sabe que va a
+cambiar — el día que alguien renombre esa pestaña en `carta.json`, el renombrado se queda
+huérfano sin avisar. Se acuña un **`pestanaId`** en `importar.mjs`, con la misma maquinaria y
+el mismo formato que ya acuñan `dishId` y `categoryId`, y `carta.json` se reescribe con los
+trece. Un id que ya existe no se toca nunca.
+
+**El rótulo sale en dos sitios y los dos cambian juntos:** el botón de la barra de arriba y la
+entrada de la lista de secciones del móvil.
+
+**Se creyó que había un tercero y la prueba lo desmontó.** Cuatro de los cuarenta grupos no
+tienen rótulo propio, y se dio por hecho que enseñaban el de su pestaña. No es así: **no tienen
+título ninguno**, sus platos cuelgan directamente de la sección. El marcador
+`data-titulo-prestado` se queda porque dice algo cierto y útil —este grupo se pinta sin
+cabecera— pero no hay nada que reescribir en él. Dos mensajes del panel decían lo contrario y
+se han corregido, y hay una prueba que fija el hecho para que nadie vuelva a buscar un rótulo
+que no existe.
+
+**En el panel, una tira compacta**, no una pantalla nueva: los trece rótulos que ya existen,
+puestos donde se pueden cambiar, y cada uno abre la misma hoja de idiomas que las categorías,
+porque es el mismo problema. Ruedan en horizontal antes que envolver y empujar la lista de
+platos fuera de la primera pantalla.
+
+**Lo que el build publica ahora, y es nuevo:** `pestanaId` en `carta.json`, `data-tabid` en la
+barra, en la hoja del móvil y en cada grupo, `data-titulo-prestado` en los grupos sin cabecera,
+y en cada plato de `platos.json` su `tabId` con el rótulo de la sección en todos los idiomas
+(`tabI18n`).
+
+## Y otra lección sobre las esperas
+
+Volvieron a fallar cuatro comprobaciones de Ofertas, y otra vez no era una regresión. Dos
+causas, las dos de la misma familia: esperas de reloj donde hacía falta esperar a una
+condición, y —la que costó ver— **un clic contra un botón deshabilitado**. Mientras un guardado
+de días viaja, `guardarDias()` deja las siete casillas y «Semanal» apagados; un clic ahí no
+hace nada y se pierde sin ruido, así que la prueba contaba una petición donde había dos clics.
+Se espera a que el control vuelva a estar vivo antes de pulsarlo.
+
+Y `abrirTodo()`, el ayudante que destapa lo plegado, abría **también** las treinta y seis hojas
+de renombrar: treinta y seis ventanas flotantes apiladas fuera de la pantalla, que la
+comprobación responsive denunciaba con razón. Ahora abre todo menos ésas: destapar contenido
+plegado es su trabajo, abrir ventanas no.
+
+## La tira de secciones: página, no rueda (9 Sep 2026)
+
+Tres defectos que el propietario señaló en la misma frase —«esto no está alineado, y evita ese
+corte bruto»— y que resultaron ser dos causas.
+
+**El rótulo «Secciones de la carta» se va.** Trece chips con su nombre dentro no necesitan que
+nadie diga lo que son, y ese rótulo se comía la mitad del ancho útil de la tira.
+
+**Se pagina en vez de rodar.** Un carrusel deja siempre una sección cortada por el borde, y un
+rótulo partido por la mitad se lee como un fallo, no como «hay más». Ahora se enseñan sólo las
+que caben **enteras** desde la primera de la página, las demás se apagan, y los dos manejadores
+pasan de página. De paso desaparece la barra de desplazamiento horizontal, que era la que metía
+36 px de alto de más. Medido a 1512 / 1024 / 768 / 390 px: **cero secciones cortadas** en las
+tres páginas de cada ancho, y una sola visible a 390 px, que es el caso límite aceptado —una
+tira vacía sería peor que una sección cortada.
+
+**El desnivel de 6 px era una colisión de nombres, no un problema de alineación.** El chip
+nuevo se llamaba `.adm-seccion`, y ese nombre ya lo tenía el rótulo que separa las fichas del
+superadministrador: `margin:var(--space-6) 0 var(--space-3)` —24 px arriba, 12 abajo— más un
+`::after` que estira una línea. De ahí salían los 66 px de alto de la tira y el centro del chip
+en 500 contra el del manejador en 494. Se renombra a **`.adm-pestana`**, y con eso se caen las
+dos muletas que se habían puesto para tapar el síntoma (`height:fit-content` en la tira y
+`align-self:center` en cada chip). Medido después: tira 30 px, tarjeta 48 px (antes 66 y 84),
+**desnivel 0**.
+
+**Y una circularidad en el paginador.** Se medía cuántas caben con los manejadores todavía
+ocultos, salían nueve, y al encenderlos la tira se estrechaba 72 px y la última se quedaba
+cortada — el corte era exactamente el que se quería evitar. Ahora se decide **primero** si los
+manejadores hacen falta —comparando el ancho total de los chips con el de la tira— y sólo
+después se mide cuántas caben.
+
+---
+
+# La confirmación deja de ser del navegador (9 Sep 2026)
+
+El propietario, viendo el cuadro de retirar un plato: «el toast no parece del sistema, y este
+sí debe cargar al centro de pantalla». Tenía razón dos veces. `confirm()` pinta el cuadro del
+**navegador**: sale pegado a la barra de direcciones, arriba y a la izquierda, con la
+tipografía del sistema operativo y un «127.0.0.1 dice» por título. Ni se parece a esta
+pantalla ni aparece donde está mirando quien acaba de pulsar.
+
+**Se cambian los diez, no sólo el que se vio.** Uno solo distinto habría sido peor que
+ninguno: la pregunta de retirar un plato con una cara y la de vaciar el marcador con otra.
+En el fichero ya no queda ningún `confirm()`.
+
+**Cuelga del BOTÓN, no del formulario**, y eso no es un detalle de estilo. El botón que
+retira un plato lleva su `name` y su `value` (`retirar_plato=d_…`), y ese par sólo viaja si
+el envío lo dispara ese botón: reenviar el formulario a mano lo perdería. Así que se para el
+clic, se pregunta, y si dicen que sí se vuelve a pulsar el mismo botón con un pestillo puesto.
+De respaldo se vigila también el `submit`, por si alguien manda el formulario con Enter.
+
+**El foco arranca en Cancelar cuando lo que se pregunta quita algo.** Un Enter de más no puede
+ser lo que retire un plato.
+
+**Sin JavaScript no se pierde nada**, y conviene decirlo porque parece que sí: el `confirm()`
+vivía en un `onsubmit`, que también era JavaScript. Sin JS no se preguntaba antes y no se
+pregunta ahora.
+
+Un tropiezo que costó una pasada: la capa vive al final del documento, **después** del script
+que la usa, así que buscarla al arrancar devolvía `null` y el módulo se rendía sin enganchar
+nada — el botón de retirar mandaba el formulario sin preguntar. Se busca la primera vez que
+hace falta.
+
+En la batería, seis comprobaciones leían `pagina.registro.dialogos`, que es donde Playwright
+apunta los cuadros nativos. Ahora pasan por `confirmarEnPanel()` y, además, **comprueban que
+no queda ni un diálogo nativo**: antes se verificaba que se preguntaba; ahora, dónde.
+
+---
+
+# Las cuatro categorías sin lápiz (9 Sep 2026)
+
+El propietario: «hay categorías que no tienen el poder cambiar nombre». No era que faltara
+aplicar nada. Cuatro de las cuarenta —Salads, Sizzlers, House Specialities, Kids Menu— no
+tienen `subtitulo` en `carta.json`: **no tienen nombre propio**. Lo que se ve en su cabecera
+es el rótulo de su *sección*.
+
+Y de paso salía **un segundo defecto que nadie había pedido mirar**: esas cuatro se pintaban
+desde el diccionario ESPAÑOL (`$catsEs`) y las otras treinta y seis desde el idioma base
+(inglés), así que en la misma columna convivían «Appetizers» y «Ensaladas». Ahora las cuarenta
+salen de una sola función, `rotulo_categoria()`, y en el mismo idioma — el que ve el comensal.
+
+**Las cuatro se pueden renombrar**, por la puerta que les corresponde: su lápiz manda
+`pestana_nombre` en vez de `categoria_nombre`, y la nota del formulario dice lo único que no
+es obvio — que eso cambia la sección entera. La respuesta a «¿por qué éstas no?» no podía ser
+«no se puede», porque sí se puede: por otra puerta.
+
+**El contador y los botones se traen al lado del nombre.** El contador llevaba
+`margin-left:auto` y se iba al borde derecho de la ficha; con la ficha a todo el ancho eso son
+1010 px entre un título y el número que lo cuenta. Medido después: 12 px.
+
+---
+
+# Dar de alta un plato (9 Sep 2026)
+
+Lo primero que este panel **añade** a la carta en vez de taparla. Todo lo demás que escribe
+—precio, agotado, foto, orden, retirados, nombres— es una capa encima de algo que ya existe en
+`carta.json`; esto existe sólo en `estado.json`.
+
+**El identificador se acuña con el MISMO formato que los de la carta** (`d_` + diez hex), y no
+con uno propio tipo `nuevo_1`. Es la decisión que ahorra el resto del trabajo: el plato nuevo
+entra de serie en todo lo que ya funciona por `dishId` —foto, precio, agotado, destacado,
+oferta, orden, retirar— sin una sola línea de «y si es de los nuevos». Un formato aparte habría
+obligado a tocar las ocho.
+
+**Un campo por idioma**, como al renombrar una categoría, y por el mismo motivo: la carta habla
+tres y guardar un solo texto dejaría al alemán viendo inglés. La diferencia es qué pasa con un
+idioma vacío: al renombrar cae al **compilado**, aquí cae al **base**, porque debajo no hay
+nada.
+
+**El precio es obligatorio.** Un plato sin precio en la carta es un «Incluido», y el panel no
+deja tocar el precio de ésos: nacer sin precio sería nacer sin poder ponérselo nunca.
+
+**El número es opcional y no se inventa.** El número de plato es identidad comercial del
+restaurante (decisión del 8 Sep 2026): o lo escribe, o el plato sale sin número. Si lo escribe,
+no puede chocar con ninguno de la carta, y entra en la baraja de su categoría como uno más —
+`renumerar_por_posicion()` lo reparte igual que a los demás, sin una línea de excepción.
+
+**Se borra, no se retira.** Retirar existe porque un plato de la carta compilada volvería en la
+siguiente compilación y lo único que se puede hacer con él es dejar de servirlo. Éste no existe
+en ningún otro sitio: esconderlo para siempre sería dejar basura en el estado con cara de
+plato. Borrarlo se lleva por delante todo lo indexado por su identificador.
+
+**El catálogo se arma dos veces por petición.** `catalogo()` junta `platos.json` con
+`estado.nuevos`; se llama al entrar y otra vez después de los manejadores, porque un plato
+recién creado tiene que salir en la pantalla que lo crea, no en la siguiente recarga.
+
+## Y en la carta pública: se clona una fila, no se escribe una
+
+La decisión que importa de todo el bloque. La fila de un plato tiene columna de número, chapa
+de móvil, hueco de etiquetas, aviso de foto, marcas de dieta y de alérgenos, y todo eso lo
+decide el build según el cliente. Una plantilla escrita a mano en el runtime sería una copia
+que se queda vieja el día que cambie el build, y nadie se entera. **El clon, por definición, no
+puede quedarse viejo.** Se clona una fila de su misma categoría, se le quita lo que era del
+plato copiado —el nombre, las marcas, la clave vieja— y se le pone lo suyo.
+
+`data-legacy` se borra del clon y esto no es cosmética: `render()` cae a la clave vieja cuando
+no encuentra el `dishId`, así que dejarla puesta le habría dado al plato nuevo el precio y el
+agotado del plato del que se copió.
+
+`vid` —el identificador corto del contador de consultas— lo calcula el PHP y lo guarda. Sacar
+un sha1 en el navegador es asíncrono y no hacía falta pasar por ahí.
+
+**Dos cosas que aparecieron al probar y que no estaban en el plan:**
+
+- **El buscador no lo encontraba.** Arma su índice recorriendo el DOM una vez al cargar, y la
+  fila nueva no estaba. Ahora el índice se puede rearmar y `aplicarNuevos()` avisa cuando crea
+  filas. Un plato que se ve en la carta pero no se encuentra al buscarlo se lee como que no
+  existe.
+- **`renumerar()` del runtime repartía número a las filas SIN número.** El panel ya se las
+  saltaba (`renumerar_por_posicion`) y el runtime no: una fila sin número pedía sitio en una
+  baraja que no la contaba y el reparto salía corrido de uno. Se ve en cuanto alguien da de
+  alta un plato sin número, que es una respuesta perfectamente válida.
+
+Las columnas del grupo se reparten otra vez sólo donde ha entrado algo: dejar la fila nueva
+pegada al final de la primera columna dejaría el grupo cojo.
+
+---
+
+# Crear una categoría principal (9 Sep 2026)
+
+Una sección de la carta —lo que el comensal ve como pestaña arriba— creada desde el panel.
+
+**Nace con DOS identificadores, no con uno.** Una sección no puede tener platos colgando
+directamente: los platos viven en categorías, y las categorías dentro de una sección. Así que
+se acuña también su categoría, en el mismo acto. Dejar la sección sin categoría habría sido
+crear algo donde no se puede poner nada — y el desplegable del alta de plato la habría ofrecido
+vacía.
+
+**El nombre vive en `secciones`, no en `pestanas`.** `pestanas` es un *override*: dice «esta
+sección de la carta se llama distinto». Aquí no hay nada debajo que corregir, así que el nombre
+es el dato, no la corrección. Renombrarla después sí escribe en `pestanas`, encima de éste, y
+así el mecanismo de renombrar sigue siendo uno solo — la misma puerta para las trece de la
+carta y para las creadas aquí.
+
+**No se admiten dos con el mismo nombre.** No es un error del sistema, es un problema del
+comensal: dos pestañas con el mismo rótulo arriba no se distinguen.
+
+**Se borra sólo si está vacía**, y sólo si nació aquí. Una de la carta compilada volvería en la
+siguiente compilación; una con platos dentro se los llevaría de rebote, y eso es una decisión
+que no se toma escondida dentro de otra. El mensaje dice cuántos hay.
+
+**El `+` va al final de la tira, fuera de la parte que pagina.** Si entrara en ella, la página
+que le tocara lo escondería: una acción que aparece y desaparece según por dónde vaya la tira
+no se encuentra cuando hace falta. Y va detrás de los dos manejadores, no entre ellos, o la
+fila se leería «pasa página / crea / pasa página».
+
+## Dos sitios donde el panel daba por hecho que todo sale de un plato
+
+El catálogo del panel se arma **recorriendo platos**. Una sección recién creada no tiene
+ninguno, así que dos cosas fallaban en silencio y las dos se vieron al probarlas de punta a
+punta:
+
+- **No se le podía dar el primer plato.** El alta comprobaba que la categoría existiera
+  buscándola entre los platos: la de una sección vacía no estaba. Se habría creado una sección
+  a la que no se puede llegar.
+- **No se podía renombrar la que se acababa de crear**, por lo mismo. Ahora sus nombres de
+  partida salen del propio estado.
+
+## Y en la carta: tres sitios, y los tres clonados
+
+Una sección es el botón de la barra de arriba, la entrada de la hoja del móvil y el panel con
+sus platos. Los tres se fabrican clonando los que ya hay, por el mismo motivo que la fila de un
+plato: el marcado lo decide el build y una copia escrita a mano en el runtime se queda vieja sin
+que nadie se entere.
+
+Del panel clonado se conserva **sólo el esqueleto**: un grupo, su título y sus dos columnas,
+vacías. Notas del grupo, escalas de picante y avisos eran de la sección de la que se copió y
+aquí no dicen nada cierto.
+
+## Un fallo del cuadro de confirmación que sólo salió con la batería entera
+
+Ocho comprobaciones cayeron a la vez con la misma causa, y el síntoma era desconcertante: la
+pregunta salía con el texto correcto y, al aceptar, no pasaba nada. El pestillo que deja pasar
+el segundo clic se quitaba **dentro** del propio clic, y el vigilante del `submit` —que se
+dispara en esa misma tanda— ya no lo veía: volvía a preguntar, y el formulario no se mandaba
+nunca. Ahora se quita después. Una prueba que sólo mire el texto de la pregunta no ve esto: hay
+que mirar el disco.
+
+---
+
+# Ofertas, precios y la cabecera (9 Sep 2026)
+
+## Ofertas: el estado se decía tres veces
+
+La insignia de la cabecera, el texto del interruptor y la frase del pie decían lo mismo. Y de
+las tres, sólo la insignia distingue **APAGADA** de **PROGRAMADA** de **CORRIENDO**, que es lo
+único que hay que saber. Manda ella; el interruptor —que es la acción, no el estado— sube a su
+lado y se queda sin rótulo. Se va con él la caja gris de 56 px que existía para repetir una
+palabra. La nota de los días decía otra vez lo mismo y además estiraba su columna 21 px por
+encima de las otras dos, dejando la fila coja. Medido: la ficha pasa de **293 a 208 px** y la
+primera categoría de y=583 a **y=448**.
+
+## El horario no estaba mal: el mensaje sí
+
+«Parece no coger la hora indicada.» Guardaba bien —12:00 a 14:00 son 720 y 840 en disco— pero
+el aviso contestaba «12:00 a 13:59»: restaba un minuto porque el final es **exclusivo**. Es
+correcto y es como se habla, pero decirle 13:59 a quien acaba de escribir 14:00 parece que el
+sistema no lo ha cogido. Ahora el aviso repite lo que escribió, y lo que hace el final
+exclusivo lo explica **una vez** la frase de la ficha, que es donde toca.
+
+## «Platos sueltos» no tenía contenido
+
+Era la barra de trabajo de la lista de abajo —buscar y filtrar— ocupando tres pisos y 124 px
+para dos controles. En una línea: **74 px**.
+
+## Ajustar precios se muda a su propia pantalla
+
+Vivía empotrado arriba de Platos, empujando la lista hacia abajo en cada visita para una acción
+que se hace de vez en cuando. Y su paso 2, la revisión, **secuestraba Platos entera**: mientras
+había una propuesta sin publicar no se podía ni mirar un plato. Ahora son ocho pantallas y los
+dos pasos viven juntos en la suya. Ni un handler, ni un `name`, ni un formulario cambian.
+
+**Y ahí salió un fallo propio de la mudanza:** la rejilla de un pane tiene **seis columnas**, y
+una ficha que no declara cuántas ocupa cae en una sexta parte. La de precios medía 177 px sobre
+un tablero de 1168 y sus seis controles se apilaban en columna.
+
+## «Ver la carta» estaba cinco veces
+
+Una por tira de acción, y en cada pantalla había que bajar a buscarlo. No es la acción de
+ninguna pantalla: es la salida a la carta, y es la misma desde todas. Una sola, arriba, junto a
+«Añadir plato».
+
+## La cabecera se queda con la fecha
+
+El rótulo de la pantalla lo dice ya la barra lateral con su destino encendido: repetirlo en la
+cabecera era decir dos veces lo mismo a dos dedos de distancia. Se queda en el documento —un
+lector de pantalla necesita saber dónde está— y fuera de la vista. El filete de abajo se retira:
+separaba una cabecera que ya se separa sola (fondo translúcido y desenfoque) de un tablero que
+empieza con sus propias fichas enmarcadas.
+
+## La barra lateral se pliega
+
+232 px de barra son 232 px que no son carta, y quien ya sabe dónde está cada cosa no necesita
+verla siempre. Se hace **con el token del ancho**, no moviendo cajas: el relleno del cuerpo y el
+borde izquierdo de la cabecera ya salen de `--sc-sidebar-w`. La elección se recuerda, y la clase
+se pone arriba del documento junto al tema — si se pusiera al final, la barra aparecería y
+desaparecería en cada carga.
+
+## La sesión, en cuenta atrás
+
+«Se cierra en 30 min» era un número fijo que decía lo mismo al entrar que veintinueve minutos
+después. Una barra que baja dice lo que un número fijo no puede: cuánto queda **ahora**, y en
+rojo los últimos cinco minutos.
+
+**Y una cosa que sin pensarla habría mentido:** el servidor cierra la sesión tras 30 minutos
+**sin actividad**, y los autoguardados del panel van por `fetch` sin recargar. Una barra que
+sólo contara desde la carga habría llegado a cero mientras el restaurante trabaja. Se envuelve
+`fetch` una vez para reiniciar la cuenta con cada petición que sale de la página.
+
+## Cambiar un plato de la carta
+
+Se podía crear un plato y borrarlo, pero no corregirle una tilde. El lápiz de cada fila abre
+**la misma hoja** que el alta, en modo cambio: mismos campos, otro título, otro botón y otra
+puerta (`plato_editar`).
+
+Tres decisiones que no se ven pero sostienen el resto:
+
+- **`estado.editados` es disperso.** Guarda sólo lo que difiere del texto compilado, idioma a
+  idioma. Vaciar un campo no guarda vacío: **borra** ese cambio y el plato vuelve a decir lo que
+  dice la carta. Sin esa regla, editar el español congelaba el inglés y el alemán en el texto
+  del día que se editó, y la siguiente compilación de la carta no se vería nunca.
+- **`platos.json` publica `nombreI18n` y `descI18n`.** El panel recibía el nombre sólo en dos
+  idiomas y la descripción en ninguno: se podía enseñar el plato pero no corregirlo — *nadie
+  puede corregir un texto que no ve*. La hoja se abre **rellena con lo que el comensal está
+  leyendo hoy**.
+- **Los valores los trae un endpoint (`plato_datos`), no el marcado.** Nombre y descripción en
+  tres idiomas por fila serían unos cientos de kilobytes en cada carga del panel para rellenar
+  un formulario que se abre de uno en uno.
+
+Lo que **no** hace: mover un plato de categoría. Eso toca el orden de dos categorías y la
+numeración entera; el desplegable se enseña y se bloquea hasta que esa decisión se tome.
+
+Y una trampa ya conocida que volvió a morder: `h3 .i18n` **también** casa con la etiqueta de
+agotado. Reescribir el nombre con ese selector renombraba «Sold out today». Es `h3 > .i18n`.
+
+## Los catorce alérgenos, con su dibujo
+
+Los del anexo II del Reglamento (UE) 1169/2011, los catorce, siempre y en el orden del
+reglamento — no alfabético: es el que tienen las cartas y las fichas técnicas de toda la vida.
+Ni buscador ni desplegable: caben, y quien cocina los reconoce de un vistazo.
+
+**Queda dicho lo que esto no arregla:** `cliente.mjs` de Tinge declara que *«Tinge no declara
+alérgenos plato a plato en carta.json»*. Los iconos saldrán en la carta sólo en los platos que
+alguien toque desde el panel; los otros 312 no enseñarán ninguno, y un comensal puede leer eso
+como «no lleva». Se avisó y se hizo igual, que es lo que se pidió.
+
+## La hoja del plato ya no se sale de la pantalla
+
+Medía 949 px de alto en una columna, y después 857 en dos: seguía sin caber en un portátil, y
+para llegar al botón de guardar había que desplazarla por dentro. Tres cambios, en este orden
+de importancia:
+
+1. **Un idioma cada vez.** Seis campos de texto seguidos eran el grueso del alto, y además
+   ponían al mismo nivel el idioma que hay que rellenar y los dos que se pueden dejar en
+   blanco. Con pestañas se ve uno —el obligatorio, primero— y los otros están a un clic. Los
+   campos escondidos **se mandan igual**: siguen dentro del formulario, que es lo que separa
+   unas pestañas de un formulario recortado.
+2. **Cabecera y pie fijos.** Lo único que se desplaza es el cuerpo; el botón de guardar no
+   puede irse debajo del borde. En el pie va también «Cancelar», porque cerrar pulsando fuera
+   es invisible: quien no lo sabe, no lo descubre.
+3. **Más ancha (760 → 920) y apretada por altura.** Los alérgenos pasan a todo el ancho, cinco
+   por fila en tres filas, y en ventanas bajas se aprieta lo que se puede apretar sin quitar
+   nada. Lo primero que se cae, por debajo de 760 px de alto, es la caja que repite lo que ya
+   dicen la pestaña «(oblig.)» y el rótulo «Obligatorio».
+
+Medido a 1512x982: **802 px de alto y cero desplazamiento interior**. A 1280x800 y a 1024x700,
+también cero. En móvil el cuerpo se desplaza y el pie se queda: ahí no hay alto que repartir.
+
+La zona de la foto deja de ser un botón de 44 px al lado de la palabra «Foto» y pasa a ocupar
+lo que le sobra a la columna derecha. Un botón de 44 px no decía que ahí cabe una foto; una
+zona de puntos del alto de la columna, sí — y además se le puede **soltar el archivo encima**,
+que entra al mismo recortador de 1000x1000 en WebP que el clic.
+
+## El autoguardado devolvía 2,4 MB que nadie leía
+
+Marcar un plato agotado manda un `fetch` y el servidor contestaba **la página entera**. El
+JavaScript sólo miraba el código de estado y nunca leía el cuerpo; el navegador, al ver que no
+se va a leer, deja de vaciar el socket, PHP se queda escribiéndolo, y un servidor de un solo
+proceso —el de desarrollo y el de la batería— se queda **ciego** hasta que el navegador suelta
+la conexión.
+
+Se veía como «el panel no responde» diez segundos después de marcar un agotado, y no se parecía
+en nada a su causa: la batería fallaba en `ADM-04` y moría tres bloques más abajo con un
+`page.goto` agotado. Diez segundos clavados eran la pista, y aun así apuntaban a un timeout de
+red que no existía en el código.
+
+Dos mitades del arreglo, y hacen falta las dos: la petición pide **respuesta corta**
+(`X-Sin-Pagina: 1`, que ya existía para el alta y para reordenar fotos) y ahora el servidor la
+contesta para cualquier POST del panel — `{ok, aviso, error}` en vez de la pantalla; y el
+navegador **lee** ese cuerpo, que es lo que cierra la conexión. Sin cabecera no cambia nada,
+que es lo que hace que un `<form>` sin JavaScript siga recibiendo su página entera.
+
+## Mover categorías y secciones de sitio
+
+Se podía reordenar los platos dentro de una categoría, pero no las categorías ni las secciones.
+Ahora las tres cosas usan **el mismo manejador**: dos flechas. En la cabecera de cada categoría
+van tumbadas arriba/abajo; en la tira de secciones van izquierda/derecha, porque la tira es
+horizontal y ahí subir y bajar no significan nada.
+
+Dos estados nuevos, hermanos del que ya ordenaba los platos:
+
+- `estado.ordenCats` — `pestanaId => [categoryId, ...]`
+- `estado.ordenPestanas` — `[pestanaId, ...]`
+
+Los dos se guardan con la regla que ya usaba `orden_guardar`: **la permutación exacta** de lo que
+hay hoy, o no se guarda nada. Así es imposible por construcción que una categoría cambie de
+sección por aquí, que se pierda una o que se cuele la de otra. Y mandar el orden compilado
+**borra** la entrada en vez de guardarla: un estado que dice lo mismo que la carta no debe
+existir — congelaría ese orden el día que la carta cambie.
+
+Tres decisiones que no se ven:
+
+1. **Una categoría se mueve dentro de su sección; una sección, dentro de su bloque.** Sacar una
+   categoría de su sección cambia el rótulo que la encabeza; sacar una sección de las «cartas
+   especiales» la saca de su rótulo en la barra y de su lista en el índice del móvil. Ninguna de
+   las dos cosas es reordenar. La comprobación del bloque se hace hueco a hueco contra el orden
+   compilado, y `platos.json` publica `tabEspecial` para que el panel sepa cuál es cuál — Tinge
+   hoy no tiene ninguna especial, pero el motor es de todos los clientes.
+2. **Al guardar se recarga.** El número de un plato es su posición en la carta entera: mover una
+   categoría corre los números de todo lo que va detrás. Los platos sí se renumeran en el
+   navegador porque una categoría se lleva su propia baraja; esto no, y repetir la regla en
+   JavaScript sería tener dos verdades de lo mismo.
+3. **En la carta se recoloca en los huecos que ya había.** El rótulo «cartas especiales» es un
+   `<li>` más entre las pestañas de la barra: reordenar los nodos moviéndolos a otro contenedor
+   lo habría dejado encabezando otro grupo. Se coloca cada nodo en el hueco que ocupaba uno de
+   los suyos, contenedor a contenedor, así que ni el rótulo se mueve ni una sección salta de una
+   lista del índice a la otra.
+
+**Y un fallo que costó tres pruebas en rojo:** el paginador de la tira mide el ancho de los chips
+una vez y lo guarda. Las flechas las añade el JavaScript *después*, así que el paginador seguía
+creyendo que caben trece chips estrechos; los sobrantes no se escondían, se salían por el borde
+derecho de la página —20 elementos fuera a 1512— y la tira dejaba una sección cortada por la
+mitad. Se le pide volver a medir por donde ya sabe hacerlo, que es el `resize`.

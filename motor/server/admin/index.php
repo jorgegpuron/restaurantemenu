@@ -178,6 +178,106 @@ function estado_vacio(): array {
        panel para sustituirlos, y nunca al revés — el panel no toca cliente.mjs. Vacío es
        "sigue mandando el de fábrica", no "sin nombre"/"sin color". */
     'marca'   => ['nombreVisible' => '', 'rotuloVisible' => '', 'colorPrincipal' => ''],
+    /* El orden de los platos DENTRO de su categoria, elegido desde el panel.
+       categoryId => [dishId, dishId, ...]. Es DISPERSO a proposito: solo aparecen las
+       categorias que alguien ha tocado, y una categoria ausente se pinta en el orden
+       compilado, que es exactamente lo de siempre. Un estado.json anterior a esto no
+       tiene la clave y se comporta igual que antes: retrocompatible sin migracion.
+
+       Es la primera clave del estado que define ESTRUCTURA en vez de decorar. La
+       estructura sigue naciendo en carta.json —los platos, sus nombres, sus numeros—;
+       esto solo dice en que orden se leen. Y por eso el servidor no acepta cualquier
+       lista: exige una permutacion exacta de los platos que el catalogo compilado asigna
+       a esa categoria (ver el handler orden_guardar). Asi es IMPOSIBLE por construccion
+       que un plato cambie de categoria, que se pierda o que se duplique.
+
+       El NUMERO del plato no se toca nunca: en esta carta los numeros saltan (del 67 al
+       69), se desdoblan (24a, 24b, 24c) y algunos estan vacios, y los clientes piden por
+       numero. El numero es identidad comercial; la posicion es otra cosa. */
+    'orden'   => [],
+    /* Los platos RETIRADOS de la carta: [dishId, ...].
+       No es un borrado, y la diferencia importa. El panel no sabe escribir carta.json —la
+       estructura se compila— asi que aqui no se puede borrar un plato: lo que se hace es
+       dejar de servirlo. El plato sigue existiendo, con su foto, su precio y su etiqueta
+       intactas (todo eso va por dishId), y devolverlo lo restaura entero. Que sea reversible
+       no es un detalle: es lo unico responsable en algo que se pulsa por error.
+
+       Y responde al caso real del negocio, que es «esto no esta esta temporada», no «esto no
+       ha existido nunca». Un agotado dice «hoy no queda»; esto dice «ya no lo servimos».
+
+       OJO: NO se reutiliza la clave `hidden` que arrastra el estado. Esa viene del escaparate
+       antiguo, no la lee nadie hoy, y puede traer valores viejos de otra cosa: heredar su
+       contenido seria retirar platos que nadie mando retirar. */
+    'retirados' => [],
+    /* El nombre que el restaurante le ha puesto a una categoria, idioma a idioma:
+       { "<categoryId>": { "en": "...", "es": "...", "de": "..." } }.
+
+       UN CAMPO POR IDIOMA y no uno solo, porque la carta habla tres y el nombre sale de los
+       diccionarios: con un unico texto, la categoria renombrada dejaria de traducirse y un
+       aleman veria español. Los idiomas los publica el build en CLIENTE_IDIOMAS — no se
+       adivinan aqui, o un cliente con dos veria tres campos.
+
+       Disperso, como el orden: solo aparecen las categorias que alguien ha tocado, y si un
+       nombre vuelve a ser el compilado, se borra. El idioma que falte cae al compilado, no al
+       texto de otro idioma: media carta traducida es peor que una sin traducir. */
+    'categorias' => [],
+    /* Y lo mismo para las PESTAÑAS, la categoria principal de la carta:
+       { "<pestanaId>": { "en": "...", "es": "...", "de": "..." } }.
+
+       Con identidad propia, no con su rotulo por llave. Las pestañas no tenian id —solo su
+       texto y su icono— y guardar el cambio bajo el texto que se esta cambiando es atarlo a
+       lo unico que se sabe que va a cambiar: el dia que alguien renombre esa pestaña en la
+       carta, el renombrado se quedaria huerfano sin avisar. Se acuña un `pestanaId` en
+       importar.mjs, con la misma maquinaria que ya acuña dishId y categoryId. */
+    'pestanas' => [],
+    /* Los platos que ha dado de alta el restaurante, que NO estan en carta.json:
+       { "<dishId>": { "cat": "<categoryId>", "nombre": {...}, "desc": {...},
+                       "precio": "12.95", "vid": "a1b2c3d4", "alta": 1788912345 } }.
+
+       Es la primera cosa que el panel AÑADE en vez de tapar. Todo lo demas que escribe
+       —precio, agotado, foto, orden, retirados, nombres— es una capa encima de algo que ya
+       existe en la carta compilada; esto existe solo aqui. Tres decisiones:
+
+       · El identificador se acuña con el MISMO formato que los de la carta (`d_` + hex), no
+         con uno propio tipo `nuevo_1`. Asi el plato nuevo entra de serie en todo lo que ya
+         funciona por dishId —foto, precio, agotado, destacado, oferta, orden, retirar— sin
+         una sola linea de «y si es de los nuevos». Un formato aparte habria obligado a
+         tocar las ocho.
+       · Un campo por idioma, como en el renombrado de categorias: la carta habla tres y en
+         un plato nuevo no hay diccionario al que caer. El idioma base es obligatorio; los
+         demas, si faltan, caen al base — que aqui SI es lo correcto, porque la alternativa
+         es un hueco: no hay texto compilado debajo.
+       · `vid` se calcula aqui y se guarda. Es el identificador corto del contador de
+         consultas (sha1 del dishId, ocho caracteres); la carta lo necesita en cada fila y
+         calcular sha1 en el navegador es asincrono y no hace falta pasar por ahi. */
+    'nuevos' => [],
+    /* Lo que el restaurante ha cambiado de un plato QUE SI ESTA en la carta compilada:
+       { "<dishId>": { "nombre": {...}, "desc": {...}, "alergenos": [...] } }.
+
+       Encima de la carta, no en lugar de ella. Es la misma idea que `categorias` y `pestanas`
+       —un override disperso— llevada al plato: solo aparece lo que alguien ha tocado, y un
+       campo que se vacia vuelve al texto compilado en vez de guardarse vacio. Por eso editar
+       aqui nunca es destructivo: la carta sigue debajo, entera.
+
+       El precio y la foto NO viven aqui aunque la hoja los ofrezca: ya tienen su sitio
+       (`prices` y `fotos`) desde antes que esto existiera, y un dato en dos almacenes es un
+       dato que tarde o temprano dice dos cosas. */
+    'editados' => [],
+    /* Las SECCIONES que ha creado el restaurante, las que la carta enseña como pestañas:
+       { "<pestanaId>": { "nombre": {...}, "cat": "<categoryId>", "alta": 1788912345 } }.
+
+       Nacen con DOS identificadores y no con uno. Una sección de la carta no puede tener
+       platos colgando directamente: los platos viven en categorías, y las categorías dentro
+       de una sección. Las trece de la carta compilada tienen entre una y seis; una recién
+       creada necesita al menos una, así que se acuña también su categoría —con el mismo
+       formato `c_` + hex— y se acuña en el mismo acto. Dejar la sección sin categoría habría
+       sido crear algo donde no se puede poner nada.
+
+       El nombre vive aquí y no en `pestanas`. `pestanas` es un OVERRIDE: dice «esta sección
+       de la carta se llama distinto». Aquí no hay nada debajo que corregir, así que el nombre
+       es el dato, no la corrección. Renombrarla después sí escribe en `pestanas`, encima de
+       éste, y así el mecanismo de renombrar sigue siendo uno solo. */
+    'secciones' => [],
     'actualizado' => null,
   ];
 }
@@ -1172,7 +1272,27 @@ function copia_de_seguridad(array $nuevo): void {
   /* == y no ===: compara pares clave-valor sin mirar el orden, que es lo que hace falta.
      Con === bastaria con que el formulario devolviera las claves en otro orden para que
      pareciera un cambio de precios y se copiara sin motivo. */
-  if ($antes == $ahora) return;
+  $preciosIguales = ($antes == $ahora);
+
+  /* Y el ORDEN de los platos, por el mismo motivo exacto que los precios: reordenar una
+     categoria de quince platos y arrepentirse no se deshace a mano. Aqui SI es === y
+     ademas se compara la lista completa: en el orden, el orden ES el dato — dos listas con
+     las mismas claves en distinta posicion son dos ordenes distintos, no el mismo. */
+  $ordenAntes = (is_array($viejo) && is_array($viejo['orden'] ?? null)) ? $viejo['orden'] : [];
+  $ordenAhora = is_array($nuevo['orden'] ?? null) ? $nuevo['orden'] : [];
+  $ordenIgual = ($ordenAntes === $ordenAhora);
+
+  /* Y las ALTAS —platos y secciones creados aqui— por el mismo motivo llevado al extremo:
+     borrar uno no se deshace desmarcando nada, porque no queda nada que desmarcar. Es lo
+     unico que este panel escribe que no existe en ningun otro sitio. */
+  $altaIgual = true;
+  foreach (['nuevos', 'secciones'] as $clave) {
+    $a = (is_array($viejo) && is_array($viejo[$clave] ?? null)) ? $viejo[$clave] : [];
+    $b = is_array($nuevo[$clave] ?? null) ? $nuevo[$clave] : [];
+    if ($a != $b) { $altaIgual = false; break; }
+  }
+
+  if ($preciosIguales && $ordenIgual && $altaIgual) return;
 
   if (copias_dir() === null) return;
 
@@ -1196,6 +1316,524 @@ function copia_de_seguridad(array $nuevo): void {
   copias_purgar();
 }
 
+
+/* ---------------------------------------------------------------- orden de los platos
+ * Coloca los platos de UNA categoria segun lo guardado en estado['orden'], y deja en su
+ * sitio compilado todo lo que la lista guardada no mencione. Se usa igual en Platos y en
+ * Ofertas: el mismo restaurante no puede ver dos ordenes distintos de la misma categoria.
+ *
+ * Tolerante a proposito: si la carta cambia y un plato guardado ya no existe, se ignora; si
+ * aparece uno nuevo que la lista no conoce, se queda donde lo puso el build. Nada de esto
+ * puede tirar la pantalla — el orden es una preferencia, no un dato del que dependa nadie.
+ */
+function ordenar_platos(array $platos, array $ordenGuardado): array {
+  if (!$ordenGuardado) return $platos;
+  $pos = [];
+  foreach (array_values($ordenGuardado) as $i => $k) { if (is_string($k) && !isset($pos[$k])) $pos[$k] = $i; }
+  $conocidos = [];
+  $resto = [];
+  foreach ($platos as $i => $p) {
+    $k = (string) ($p['key'] ?? '');
+    if (isset($pos[$k])) $conocidos[] = ['p' => $pos[$k], 'i' => $i, 'v' => $p];
+    else $resto[] = ['i' => $i, 'v' => $p];
+  }
+  usort($conocidos, static fn($a, $b) => $a['p'] <=> $b['p']);
+  $fuera = array_map(static fn($x) => $x['v'], $resto);
+  $dentro = array_map(static fn($x) => $x['v'], $conocidos);
+  /* Los que la lista no menciona van detras, en su orden compilado: un plato recien
+     añadido a la carta aparece al final de su categoria y no se pierde. */
+  return array_merge($dentro, $fuera);
+}
+
+/* Renumerar POR POSICION, decision del propietario del 8 Sep 2026.
+ *
+ * Se reparte la MISMA baraja de numeros que ya tiene la categoria, en su orden natural, a las
+ * filas en el orden en que se van a ver. Ni se inventa un numero ni se pierde ninguno: es una
+ * permutacion, igual que el orden. Comprobado sobre la carta real: las 40 categorias vienen
+ * numeradas de menor a mayor, asi que "orden natural" y "orden compilado" son lo mismo, y esto
+ * es idempotente — repartir dos veces el mismo conjunto da el mismo resultado.
+ *
+ * Los platos SIN numero se quedan sin numero: los numeros solo se reparten entre las filas que
+ * ya tenian uno, y en el orden en que aparecen. Veintitres de las cuarenta categorias no
+ * numeran nada, y una mezcla numerados y sin numerar; asi ninguna de las dos se rompe.
+ *
+ * Lo que esto cambia en la sala, y esta dicho a proposito: cambia QUE plato es "el 2". Un
+ * cliente que pida por numero recibe otro plato, y una carta impresa deja de coincidir. El
+ * propietario lo decidio con esa consecuencia delante. */
+function comparar_numero_plato(string $a, string $b): int {
+  $na = is_numeric(substr($a, 0, 1)) ? (int) $a : PHP_INT_MAX;
+  $nb = is_numeric(substr($b, 0, 1)) ? (int) $b : PHP_INT_MAX;
+  if ($na !== $nb) return $na <=> $nb;
+  return strcmp($a, $b);                 // 24a antes que 24b
+}
+/* La baraja de numeros de una categoria, ordenada. Sale de TODOS sus platos, tambien de los
+   retirados: es lo que permite compactar sin dejar huecos. */
+function numeros_de_categoria(array $platos): array {
+  $n = [];
+  foreach ($platos as $p) { $id = (string) ($p['id'] ?? ''); if ($id !== '') $n[] = $id; }
+  usort($n, 'comparar_numero_plato');
+  return $n;
+}
+
+/* Reparte esa baraja, de menor a mayor, entre los platos que SI se sirven, en el orden en que
+   se ven. Un plato retirado se queda sin numero.
+ *
+ * COMPACTAR SIN HUECOS, decision del propietario del 8 Sep 2026: retirar el 03 de una
+ * categoria 01..05 deja 01, 02, 03, 04 — no 01, 02, 04, 05. La consecuencia, dicha: mientras
+ * ese plato este retirado, el numero mas alto de la categoria deja de aparecer en la carta, y
+ * vuelve en cuanto se devuelva el plato. Se eligio a la vista de eso, y es coherente con
+ * repartir los numeros por posicion: si el numero es la posicion, un salto es un error. */
+function renumerar_por_posicion(array $platos, array $retirados, array $baraja): array {
+  if (count($baraja) < 2) return $platos;
+  $fuera = array_flip($retirados);
+  $i = 0;
+  foreach ($platos as $k => $p) {
+    if (isset($fuera[(string) ($p['key'] ?? '')])) { $platos[$k]['id'] = ''; continue; }
+    if ((string) ($p['id'] ?? '') === '') continue;
+    $platos[$k]['id'] = $baraja[$i] ?? '';
+    $i++;
+  }
+  return $platos;
+}
+
+/* Los numeros de TODA la carta, de una vez: dishId => numero.
+ *
+ * Decision del propietario del 9 Sep 2026, y deroga a la del 8: el numero deja de ser
+ * identidad comercial intocable y pasa a ser la POSICION del plato en la carta. Se pidio asi
+ * en cuanto se dio de alta el primer plato: «debe coger el ultimo numero de la categoria y
+ * ubicarse donde corresponde; el resto de platos debe actualizarse». Con la carta numerada de
+ * corrido —01 a 06 Aperitivos, 07 a 09 Sopas, 10 a 20 Vegetarianos...— no hay otra forma:
+ * meter un plato en Sopas obliga a mover todo lo que va detras, o habria dos platos con el 10.
+ * El precio esta dicho y aceptado: al añadir un plato en medio, los numeros de la carta
+ * impresa dejan de cuadrar con los de la pantalla hasta reimprimirla.
+ *
+ * Tres cosas que la carta real obliga a respetar y que una numeracion ingenua rompe:
+ *
+ *   · NO todas las filas llevan numero. De 312 filas, 149. Las listas de salsas son selectores
+ *     y no se numeran, y las filas ESPEJO —el mismo plato repetido en Vegano o Sin gluten, 70
+ *     de ellos— tampoco: numera solo la de casa. Quien no lleva numero, sigue sin llevarlo.
+ *   · Hay numeros con letra: 24a, 24b y 24c son tres variantes del mismo Top Up Puri y
+ *     comparten el ordinal 24. Se detectan porque su parte numerica COMPILADA coincide con la
+ *     del anterior, y se les da un solo ordinal entre las tres.
+ *   · Un plato retirado no gasta numero: la lista se compacta. Eso ya estaba decidido el 8 Sep
+ *     y aqui no cambia.
+ *
+ * Que el orden de lectura es el correcto se comprueba solo: numerar la carta sin tocar nada
+ * tiene que devolver exactamente los numeros compilados. Hay una prueba que lo fija.
+ */
+function numeros_de_carta(array $porCategoriaOrdenado, array $retirados): array {
+  $fuera = array_flip($retirados);
+
+  /* Una categoria donde NADIE lleva numero compilado no empieza a llevarlo porque se le añada
+     un plato: las listas de salsas son selectores. Una categoria recien creada no tiene
+     compilado ninguno del que sacar la respuesta, y ahi la respuesta por defecto es que si:
+     un plato normal lleva numero. */
+  $categoriaNumera = [];
+  foreach ($porCategoriaOrdenado as $cid => $g) {
+    $conNumero = 0;
+    $deLaCarta = 0;
+    foreach ($g['platos'] as $p) {
+      if (empty($p['nuevo'])) $deLaCarta++;
+      if ((string) ($p['id'] ?? '') !== '') $conNumero++;
+    }
+    $categoriaNumera[$cid] = $conNumero > 0 || $deLaCarta === 0;
+  }
+
+  /* LA BARAJA: los numeros que la carta ya tiene, TODOS —tambien los de los platos
+     retirados—, mas uno nuevo por cada plato dado de alta. Se reparte en orden de lectura
+     entre los platos que se sirven.
+     Repartir la baraja y no arrastrar el numero de cada plato es lo que hace que las dos
+     reglas convivan:
+       · sin tocar nada, la baraja ordenada repartida en orden de lectura devuelve EXACTAMENTE
+         los numeros compilados —hueco del 68 incluido, que la carta de verdad lo tiene—, asi
+         que publicar esto no renumera media carta por su cuenta;
+       · mover un plato lo cambia de sitio en el reparto, asi que su categoria se sigue leyendo
+         seguida y ascendente. Eso es «renumerar por posicion», decision del 8 Sep;
+       · dar de alta uno mete una carta mas en la baraja y empuja a todos los de detras, que es
+         lo que pidio el propietario el 9 Sep;
+       · retirar uno deja la ultima carta sin repartir: la lista COMPACTA en vez de dejar el
+         salto donde estaba. */
+  $baraja = [];
+  $cuantosNuevos = 0;
+  foreach ($porCategoriaOrdenado as $cid => $g) {
+    foreach ($g['platos'] as $p) {
+      $id = (string) ($p['id'] ?? '');
+      if ($id !== '') $baraja[] = $id;
+      elseif (!empty($p['nuevo']) && $categoriaNumera[$cid]) $cuantosNuevos++;
+    }
+  }
+  usort($baraja, 'comparar_numero_plato');
+  $tope = 0;
+  foreach ($baraja as $x) { if (preg_match('/^\d+/', $x, $m)) $tope = max($tope, (int) $m[0]); }
+  for ($i = 1; $i <= $cuantosNuevos; $i++) $baraja[] = str_pad((string) ($tope + $i), 2, '0', STR_PAD_LEFT);
+
+  $numeros = [];
+  $reparto = 0;
+  foreach ($porCategoriaOrdenado as $cid => $g) {
+    foreach ($g['platos'] as $p) {
+      $k = (string) ($p['key'] ?? '');
+      if ($k === '' || isset($fuera[$k])) continue;
+      $id = (string) ($p['id'] ?? '');
+      $lleva = $id !== '' || (!empty($p['nuevo']) && $categoriaNumera[$cid]);
+      if (!$lleva) continue;                       // fila espejo o selector: sigue sin numero
+      if (!isset($baraja[$reparto])) break;
+      $numeros[$k] = $baraja[$reparto];
+      $reparto++;
+    }
+  }
+  return $numeros;
+}
+
+/* La carta ENTERA agrupada por categoria y ya colocada: es sobre esto sobre lo que se numera.
+ * Vive aparte de lo que pinta cada pantalla porque las dos pantallas que enseñan numeros
+ * —Platos y Ofertas— trabajan con listas distintas: Ofertas se deja fuera los platos sin
+ * precio. Numerar cada una por su cuenta daria dos numeraciones para el mismo plato. */
+/* ---------------------------------------------------------------- el orden de categorias
+ * `estado['ordenCats']` es pestanaId => [categoryId, ...]. Es el hermano de `estado['orden']`,
+ * que hace lo mismo con los platos DENTRO de una categoria, y se guarda con la misma regla: la
+ * permutacion exacta de lo que hay hoy en esa pestaña, o no se guarda nada.
+ *
+ * Una categoria se mueve DENTRO de su pestaña, nunca fuera. Sacarla de una y meterla en otra
+ * no es reordenar: es cambiarla de sitio en la carta, toca el rotulo que la encabeza y el
+ * indice de arriba, y es otra decision. Por eso la primera de una pestaña no puede subir mas.
+ */
+/* El orden de las SECCIONES: una lista de pestanaId, y nada mas. No va por bloques como el de
+ * las categorias porque las secciones no cuelgan de nada: son el primer nivel de la carta. */
+function orden_pestanas_de(array $estado): array {
+  $o = $estado['ordenPestanas'] ?? null;
+  if (!is_array($o)) return [];
+  $out = [];
+  foreach ($o as $t) { if (is_string($t) && $t !== '') $out[] = $t; }
+  return $out;
+}
+
+/* Reordena las claves de un mapa pestanaId => algo. Lo que la lista no menciona se queda
+   detras, en su sitio compilado. */
+function ordenar_pestanas(array $porTab, array $estado): array {
+  $orden = orden_pestanas_de($estado);
+  if (!$orden) return $porTab;
+  $tids = array_map('strval', array_keys($porTab));
+  $puesto = [];
+  foreach ($tids as $i => $tid) {
+    $j = array_search($tid, $orden, true);
+    $puesto[$tid] = [$j === false ? count($orden) + $i : $j, $i];
+  }
+  usort($tids, function ($a, $b) use ($puesto) { return $puesto[$a] <=> $puesto[$b]; });
+  $out = [];
+  foreach ($tids as $tid) $out[$tid] = $porTab[$tid];
+  return $out;
+}
+
+function orden_cats_de(array $estado): array {
+  $o = $estado['ordenCats'] ?? null;
+  return is_array($o) ? $o : [];
+}
+
+/* categoryId => pestanaId, con las secciones del panel que todavia no tienen ni un plato. */
+function pestana_de_categoria(array $lista, array $estado): array {
+  $de = [];
+  foreach ($lista as $p) {
+    $cid = (string) ($p['catId'] ?? $p['cat']);
+    if (!isset($de[$cid])) $de[$cid] = (string) ($p['tabId'] ?? '');
+  }
+  foreach (secciones_de($estado) as $tid => $sec) {
+    $cid = (string) $sec['cat'];
+    if (!isset($de[$cid])) $de[$cid] = (string) $tid;
+  }
+  return $de;
+}
+
+/* Reordena las claves de un mapa categoryId => algo.
+ *
+ * Las PESTAÑAS se quedan donde estan: su orden es el de arriba de la carta y no lo decide
+ * esto. Dentro de cada una manda `ordenCats`, y lo que la lista no menciona —una categoria
+ * que ha entrado en la carta despues de guardar el orden— se queda detras en su sitio
+ * compilado: ni se pierde ni se cuela delante. */
+function ordenar_categorias(array $porCat, array $tabDe, array $estado): array {
+  $orden = orden_cats_de($estado);
+  $ordenTabs = orden_pestanas_de($estado);
+  if (!$orden && !$ordenTabs) return $porCat;
+  $cids = array_map('strval', array_keys($porCat));
+  $tabVisto = [];
+  /* Si el restaurante ha movido las SECCIONES de sitio, ese es el orden de los bloques. Va
+     primero para que las que se han movido manden sobre el orden compilado. */
+  foreach ($ordenTabs as $tidPuesto) { if (!isset($tabVisto[$tidPuesto])) $tabVisto[$tidPuesto] = count($tabVisto); }
+  $puesto = [];
+  foreach ($cids as $i => $cid) {
+    $tid = (string) ($tabDe[$cid] ?? '');
+    if (!isset($tabVisto[$tid])) $tabVisto[$tid] = count($tabVisto);
+    $lista = array_map('strval', (array) ($orden[$tid] ?? []));
+    $j = array_search($cid, $lista, true);
+    /* El tercer numero es el desempate estable: sin el, dos categorias que la lista no
+       menciona podrian intercambiarse entre si en cada pintada. */
+    $puesto[$cid] = [$tabVisto[$tid], $j === false ? count($lista) + $i : $j, $i];
+  }
+  usort($cids, function ($a, $b) use ($puesto) { return $puesto[$a] <=> $puesto[$b]; });
+  $out = [];
+  foreach ($cids as $cid) $out[$cid] = $porCat[$cid];
+  return $out;
+}
+
+function carta_ordenada(array $lista, array $estado): array {
+  $porCat = [];
+  foreach ($lista as $p) {
+    $cid = (string) ($p['catId'] ?? $p['cat']);
+    if (!isset($porCat[$cid])) $porCat[$cid] = ['platos' => []];
+    $porCat[$cid]['platos'][] = $p;
+  }
+  /* Las secciones creadas en el panel y todavia vacias no salen de ningun plato, pero ocupan
+     su sitio en el orden de lectura. */
+  foreach (secciones_de($estado) as $sec) {
+    $cid = (string) $sec['cat'];
+    if (!isset($porCat[$cid])) $porCat[$cid] = ['platos' => []];
+  }
+  /* Y las categorias, en el orden en que se leen. Va ANTES de numerar porque el numero es la
+     posicion: mover una categoria corre los numeros de todo lo que va detras. */
+  $porCat = ordenar_categorias($porCat, pestana_de_categoria($lista, $estado), $estado);
+  foreach ($porCat as $cid => $g) {
+    $porCat[$cid]['platos'] = ordenar_platos($g['platos'], orden_de($estado, (string) $cid));
+  }
+  return $porCat;
+}
+
+/* Reparte esos numeros por las filas de una categoria. Lo que no esta en el mapa se queda sin
+ * numero: o es una fila espejo, o un selector, o esta retirado. */
+function aplicar_numeros(array $platos, array $numeros): array {
+  foreach ($platos as $i => $p) {
+    $platos[$i]['id'] = (string) ($numeros[(string) ($p['key'] ?? '')] ?? '');
+  }
+  return $platos;
+}
+
+/* El nombre de una categoria en un idioma: lo que puso el restaurante si lo puso, y si no el
+ * que trae la carta compilada. Nunca devuelve vacio. */
+function nombre_categoria(array $estado, string $cid, array $porDefecto, string $idioma): string {
+  $todo = is_array($estado['categorias'] ?? null) ? $estado['categorias'] : [];
+  $uno = is_array($todo[$cid] ?? null) ? $todo[$cid] : [];
+  $puesto = isset($uno[$idioma]) && is_string($uno[$idioma]) ? trim($uno[$idioma]) : '';
+  if ($puesto !== '') return $puesto;
+  $base = isset($porDefecto[$idioma]) && is_string($porDefecto[$idioma]) ? $porDefecto[$idioma] : '';
+  return $base !== '' ? $base : (string) reset($porDefecto);
+}
+
+/* El rotulo de una pestaña en un idioma: el que puso el restaurante, o el de la carta. */
+function nombre_pestana(array $estado, string $tid, array $porDefecto, string $idioma): string {
+  $todo = is_array($estado['pestanas'] ?? null) ? $estado['pestanas'] : [];
+  $uno = is_array($todo[$tid] ?? null) ? $todo[$tid] : [];
+  $puesto = isset($uno[$idioma]) && is_string($uno[$idioma]) ? trim($uno[$idioma]) : '';
+  if ($puesto !== '') return $puesto;
+  $base = isset($porDefecto[$idioma]) && is_string($porDefecto[$idioma]) ? $porDefecto[$idioma] : '';
+  return $base !== '' ? $base : (string) reset($porDefecto);
+}
+
+/* Como se llama HOY una categoria en la pantalla, en el idioma base de la carta.
+ *
+ * Hay dos clases de categoria y hasta ahora se pintaban de dos sitios distintos, que es de
+ * donde salia el desaguisado: las 36 con rotulo propio salian en el idioma base (ingles) y
+ * las 4 sin el salian del diccionario ESPAÑOL, asi que en la misma columna convivian
+ * «Appetizers» y «Ensaladas». Ahora las dos salen del mismo sitio y en el mismo idioma:
+ *   · con rotulo propio  -> el suyo, con el cambio del restaurante si lo hay;
+ *   · sin rotulo propio  -> el de su PESTAÑA, con el cambio del restaurante si lo hay.
+ * Que es exactamente lo que ve el comensal en la carta. */
+function rotulo_categoria(array $estado, array $grupo, string $cid): string {
+  if (!empty($grupo['propio'])) {
+    return nombre_categoria($estado, $cid, (array) ($grupo['i18n'] ?? []), CLIENTE_IDIOMA_PANEL);
+  }
+  return nombre_pestana($estado, (string) ($grupo['tabId'] ?? ''), (array) ($grupo['tabI18n'] ?? []), CLIENTE_IDIOMA_PANEL);
+}
+
+/* Si el panel corre contra un build anterior a esta constante, el idioma de trabajo es el
+   base: exactamente lo que hacia antes. */
+if (!defined('CLIENTE_IDIOMA_PANEL')) define('CLIENTE_IDIOMA_PANEL', CLIENTE_IDIOMA_BASE);
+/* Un build anterior a los alergenos por plato no publica la lista: sin ella el panel no
+   ofrece las casillas, que es exactamente lo que hacia antes. */
+if (!defined('CLIENTE_ALERGENOS')) define('CLIENTE_ALERGENOS', []);
+if (!defined('CLIENTE_ALERGENO_ICONO')) define('CLIENTE_ALERGENO_ICONO', []);
+
+/* Los idiomas de la carta con el DEL PANEL delante. En los formularios manda ese: es el que
+   escribe quien lleva el restaurante, y por tanto el obligatorio y al que caen los demas. */
+function idiomas_panel(): array {
+  $todos = CLIENTE_IDIOMAS;
+  $p = CLIENTE_IDIOMA_PANEL;
+  if (!isset($todos[$p])) return $todos;
+  return [$p => $todos[$p]] + $todos;
+}
+
+/* Minusculas que no dependen de mbstring: el panel corre en hostings donde no esta, y
+ * strtolower() a secas deja «Ñ» sin bajar y compara mal dos nombres que son el mismo. */
+function mb_minuscula_segura(string $t): string {
+  return function_exists('mb_strtolower') ? mb_strtolower($t, 'UTF-8') : strtolower($t);
+}
+
+/* Las secciones de alta propia, saneadas: solo las que tienen lo minimo para ser una
+ * seccion —un nombre en el idioma base y una categoria donde poner platos. */
+function secciones_de(array $estado): array {
+  $todo = is_array($estado['secciones'] ?? null) ? $estado['secciones'] : [];
+  $limpio = [];
+  foreach ($todo as $tid => $sec) {
+    if (!is_string($tid) || !is_array($sec)) continue;
+    $nombre = is_array($sec['nombre'] ?? null) ? $sec['nombre'] : [];
+    if (($sec['cat'] ?? '') === '' || trim((string) ($nombre[CLIENTE_IDIOMA_PANEL] ?? '')) === '') continue;
+    $limpio[$tid] = $sec;
+  }
+  return $limpio;
+}
+
+/* El nombre de una seccion propia en todos los idiomas, con el renombrado aplicado encima si
+ * lo hay. Un idioma sin texto cae al base: aqui no hay compilado debajo. */
+function seccion_i18n(array $estado, string $tid, array $sec): array {
+  $base = (string) ($sec['nombre'][CLIENTE_IDIOMA_PANEL] ?? $sec['nombre'][CLIENTE_IDIOMA_BASE] ?? '');
+  $puesto = is_array($estado['pestanas'][$tid] ?? null) ? $estado['pestanas'][$tid] : [];
+  $out = [];
+  foreach (array_keys(CLIENTE_IDIOMAS) as $code) {
+    $v = trim((string) ($puesto[$code] ?? ''));
+    if ($v === '') $v = trim((string) ($sec['nombre'][$code] ?? ''));
+    $out[$code] = $v !== '' ? $v : $base;
+  }
+  return $out;
+}
+
+/* Un identificador de seccion con el formato que acuña importar.mjs: `t_` + 32 hex. */
+function pestana_id_nueva(array $ocupados): string {
+  for ($i = 0; $i < 40; $i++) {
+    $id = 't_' . bin2hex(random_bytes(16));
+    if (!isset($ocupados[$id])) return $id;
+  }
+  return 't_' . bin2hex(random_bytes(16));
+}
+
+/* Los platos de alta propia, saneados. Solo los que tienen lo minimo para ser un plato:
+ * una categoria y un nombre en el idioma base. Uno a medio escribir en disco no puede tumbar
+ * la pantalla. */
+function nuevos_de(array $estado): array {
+  $todo = is_array($estado['nuevos'] ?? null) ? $estado['nuevos'] : [];
+  $limpio = [];
+  foreach ($todo as $id => $p) {
+    if (!is_string($id) || !is_array($p)) continue;
+    $nombre = is_array($p['nombre'] ?? null) ? $p['nombre'] : [];
+    if (($p['cat'] ?? '') === '' || trim((string) ($nombre[CLIENTE_IDIOMA_PANEL] ?? '')) === '') continue;
+    /* Los alergenos, siempre contra el catalogo: una clave que no sea una de las catorce no
+       entra, venga de donde venga. Un estado tocado a mano no puede inventarse un alergeno. */
+    $p['alergenos'] = array_values(array_intersect(
+      array_map('strval', is_array($p['alergenos'] ?? null) ? $p['alergenos'] : []),
+      array_keys(CLIENTE_ALERGENOS)
+    ));
+    $limpio[$id] = $p;
+  }
+  return $limpio;
+}
+
+/* Los cambios sobre platos de la carta, saneados contra el catalogo de alergenos. Una clave
+ * de plato que ya no existe se queda en el estado sin molestar: la carta puede cambiar por
+ * debajo, y borrar el cambio de alguien porque hoy no encuentra su plato seria decidir por el.
+ * Lo que no se hace es aplicarlo a nada. */
+function editados_de(array $estado): array {
+  $todo = is_array($estado['editados'] ?? null) ? $estado['editados'] : [];
+  $limpio = [];
+  foreach ($todo as $id => $e) {
+    if (!is_string($id) || !is_array($e)) continue;
+    $limpio[$id] = [
+      'nombre' => is_array($e['nombre'] ?? null) ? $e['nombre'] : [],
+      'desc'   => is_array($e['desc'] ?? null) ? $e['desc'] : [],
+      'alergenos' => array_values(array_intersect(
+        array_map('strval', is_array($e['alergenos'] ?? null) ? $e['alergenos'] : []),
+        array_keys(CLIENTE_ALERGENOS)
+      )),
+    ];
+  }
+  return $limpio;
+}
+
+/* Un identificador de plato con el mismo formato que los de la carta: `d_` + diez hex.
+ * random_bytes y no uniqid: uniqid es la hora, y dos altas en el mismo milisegundo chocan. */
+function dish_id_nuevo(array $ocupados): string {
+  for ($i = 0; $i < 40; $i++) {
+    $id = 'd_' . bin2hex(random_bytes(5));
+    if (!isset($ocupados[$id])) return $id;
+  }
+  return 'd_' . bin2hex(random_bytes(8));   // que no se quede sin devolver nada
+}
+
+/* Los platos de alta propia, con la forma EXACTA de los que trae platos.json, para que el
+ * resto del panel no sepa que son distintos. La categoria y la pestaña se copian de un plato
+ * que ya este en esa categoria: es de donde salen su rotulo y sus idiomas. */
+function lista_con_nuevos(array $lista, array $estado): array {
+  $nuevos = nuevos_de($estado);
+  if (!$nuevos) return $lista;   // sin platos nuevos no hay nada que añadir al catalogo
+  /* Un plato de muestra por categoria, para heredar de el todo lo que describe a la
+     categoria y a su pestaña. Un plato nuevo en una categoria que ya no existe se descarta:
+     no se inventa una categoria para colocarlo. */
+  $muestra = [];
+  foreach ($lista as $p) {
+    $cid = (string) ($p['catId'] ?? $p['cat']);
+    if (!isset($muestra[$cid])) $muestra[$cid] = $p;
+  }
+  /* Y las categorias que no salen de ningun plato porque no tienen ninguno: las de las
+     secciones que ha creado el restaurante. Se fabrica para ellas la misma descripcion que
+     un plato vecino le habria dado a las de la carta. */
+  $base = CLIENTE_IDIOMA_PANEL;
+  foreach (secciones_de($estado) as $tid => $sec) {
+    $cid = (string) $sec['cat'];
+    if (isset($muestra[$cid])) continue;
+    $i18n = seccion_i18n($estado, (string) $tid, $sec);
+    $muestra[$cid] = [
+      'cat' => $cid, 'tab' => $i18n[$base] ?? '', 'group' => $i18n[$base] ?? '',
+      'tab_es' => $i18n['es'] ?? ($i18n[$base] ?? ''), 'tab_en' => $i18n['en'] ?? ($i18n[$base] ?? ''),
+      'group_es' => $i18n['es'] ?? ($i18n[$base] ?? ''), 'group_en' => $i18n['en'] ?? ($i18n[$base] ?? ''),
+      /* Sin rotulo PROPIO: el que se ve es el de su seccion, igual que las cuatro de la
+         carta que no tienen subtitulo. Renombrarla renombra la seccion, que es justo lo
+         correcto cuando la seccion tiene una sola categoria y se llama igual. */
+      'grupoI18n' => $i18n, 'grupoPropio' => false,
+      'tabId' => (string) $tid, 'tabI18n' => $i18n, 'sub' => $i18n[$base] ?? '',
+    ];
+  }
+  foreach ($nuevos as $id => $n) {
+    $cid = (string) $n['cat'];
+    if (!isset($muestra[$cid])) continue;
+    $m = $muestra[$cid];
+    $nombre = is_array($n['nombre'] ?? null) ? $n['nombre'] : [];
+    $desc   = is_array($n['desc'] ?? null) ? $n['desc'] : [];
+    $enBase = (string) ($nombre[$base] ?? '');
+    $lista[] = [
+      'key'    => $id,
+      'legacy' => '',
+      'catId'  => $cid,
+      /* Sin numero de salida: se lo pone numeros_de_carta() por la posicion que ocupe, igual
+         que a los 149 que ya lo llevan. Un `numero` guardado en el estado —lo hubo durante un
+         dia— era un segundo sitio donde vivia el mismo dato. */
+      'id'     => '',
+      'name'   => (string) ($nombre['es'] ?? $enBase),
+      'name_en' => (string) ($nombre['en'] ?? $enBase),
+      'es'     => (string) ($nombre['es'] ?? $enBase),
+      'en'     => (string) ($nombre['en'] ?? $enBase),
+      'price'  => (string) ($n['precio'] ?? ''),
+      'desc'   => $desc,
+      'alergenos' => is_array($n['alergenos'] ?? null) ? $n['alergenos'] : [],
+      'nuevo'  => true,
+      /* Todo lo que describe a la categoria y a la pestaña, tal cual del vecino. */
+      'cat'    => $m['cat'], 'tab' => $m['tab'], 'group' => $m['group'],
+      'tab_es' => $m['tab_es'] ?? '', 'tab_en' => $m['tab_en'] ?? '',
+      'group_es' => $m['group_es'] ?? '', 'group_en' => $m['group_en'] ?? '',
+      'grupoI18n' => $m['grupoI18n'] ?? [], 'grupoPropio' => $m['grupoPropio'] ?? false,
+      'tabId' => $m['tabId'] ?? '', 'tabI18n' => $m['tabI18n'] ?? [],
+      'sub'   => $m['sub'] ?? '',
+    ];
+  }
+  return $lista;
+}
+
+/* Los platos retirados, saneados a lista de textos. */
+function retirados_de(array $estado): array {
+  $r = is_array($estado['retirados'] ?? null) ? $estado['retirados'] : [];
+  return array_values(array_unique(array_filter($r, 'is_string')));
+}
+
+/* El orden guardado de una categoria, ya saneado a lista de textos. */
+function orden_de(array $estado, string $cid): array {
+  $todo = is_array($estado['orden'] ?? null) ? $estado['orden'] : [];
+  $uno = $todo[$cid] ?? null;
+  return is_array($uno) ? array_values(array_filter($uno, 'is_string')) : [];
+}
 
 function h(?string $s): string { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
@@ -1288,6 +1926,32 @@ function minutos(string $hhmm, int $porDefecto): int {
 
 function hhmm(int $min): string {
   return sprintf('%02d:%02d', intdiv($min, 60), $min % 60);
+}
+
+/* Las horas elegibles, de cuarto en cuarto.
+ *
+ * Sustituye a <input type="time">, que delegaba el control al NAVEGADOR: cada uno lo pinta
+ * distinto, y en la tablet de una cocina obliga a teclear la hora con el dedo. Con una lista
+ * cerrada no hay nada que teclear y, sobre todo, una hora imposible deja de poder escribirse:
+ * el guard que devolvia los campos cuando el final iba antes que el inicio sigue ahi, pero ya
+ * casi no tiene trabajo que hacer.
+ *
+ * Un valor guardado que NO caiga en el cuarto de hora -- porque lo escribio el reloj viejo --
+ * se cuela igualmente en su sitio y sale elegido. Sin eso, abrir la pantalla y guardar
+ * cualquier otra cosa habria movido la hora del restaurante sin que nadie lo pidiera. */
+function horas_de_cuarto(int $actual, int $primera, int $ultima): string {
+  $vals = [];
+  for ($m = $primera; $m <= $ultima; $m += 15) $vals[] = $m;
+  if ($actual >= 0 && $actual <= 1440 && !in_array($actual, $vals, true)) {
+    $vals[] = $actual;
+    sort($vals);
+  }
+  $out = '';
+  foreach ($vals as $m) {
+    $out .= '<option value="' . h(hhmm($m)) . '"' . ($m === $actual ? ' selected' : '') . '>'
+          . h(hhmm($m)) . '</option>';
+  }
+  return $out;
 }
 
 /* Vocabulario cerrado: el panel elige entre estas, no escribe texto libre. Cada una está
@@ -1747,23 +2411,66 @@ if ($dentro && $super && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset(
 /* OJO: $lista es el catalogo de platos y lo lee TODO el panel. No reutilizar el nombre
    dentro de un manejador: pisarlo deja la pagina en blanco a partir de las pestañas, porque
    las filas se pintan recorriendo cadenas en vez de platos. Ya paso una vez con las fotos. */
-$lista   = platos();
-$porKey  = [];
-foreach ($lista as $p) $porKey[$p['key']] = $p;
-$validas = array_keys($porKey);
-$cats    = [];
-$catsEs  = [];   // clave inglesa de la categoría -> rótulo en español, como en la carta
-foreach ($lista as $p) { $cats[$p['cat']] = ($cats[$p['cat']] ?? 0) + 1; $catsEs[$p['cat']] = $p['group']; }
-$hermanas = plato_hermanas($lista);
-/* Los mapas de la migracion a identificadores permanentes. platos.json trae, por plato, la
-   clave nueva (key = dishId) y la vieja (legacy = "categoria :: nombre"), y por categoria su
-   catId. Con eso un estado.json guardado por el panel anterior se traduce al leerlo. */
-$catIdDe = [];      // nombre interno de categoria -> categoryId
-$mapaLegacy = [];   // clave vieja -> dishId
-foreach ($lista as $p) {
-  if (isset($p['catId']) && $p['catId'] !== '') $catIdDe[$p['cat']] = (string) $p['catId'];
-  if (isset($p['legacy']) && $p['legacy'] !== '') $mapaLegacy[(string) $p['legacy']] = (string) $p['key'];
+/* El catalogo con el que trabaja el panel: los platos de la carta compilada MAS los que ha
+   dado de alta el restaurante. Va en una funcion porque se arma DOS veces por peticion —al
+   entrar y otra vez despues de los manejadores—: un plato recien creado tiene que salir en
+   la misma pantalla que lo crea, no en la siguiente recarga. */
+/* Los cambios del restaurante, puestos encima del catalogo compilado. Va DESPUES de
+ * lista_con_nuevos y no dentro: los platos nuevos ya nacen con sus textos y no tienen carta
+ * debajo que corregir, asi que editarlos escribe en su propio sitio, no aqui. */
+function lista_con_editados(array $lista, array $estado): array {
+  $editados = editados_de($estado);
+  if (!$editados) return $lista;
+  $panel = CLIENTE_IDIOMA_PANEL;
+  foreach ($lista as $i => $p) {
+    $e = $editados[(string) ($p['key'] ?? '')] ?? null;
+    if (!$e || !empty($p['nuevo'])) continue;
+    /* El nombre que se enseña en el panel es el del idioma del panel; los demas se guardan
+       igual y los usa la carta. Un idioma sin cambio se queda con el compilado. */
+    foreach (['es' => 'name', 'en' => 'name_en'] as $code => $campo) {
+      $v = trim((string) ($e['nombre'][$code] ?? ''));
+      if ($v !== '') { $lista[$i][$campo] = $v; $lista[$i][$code] = $v; }
+    }
+    $suyo = trim((string) ($e['nombre'][$panel] ?? ''));
+    if ($suyo !== '') $lista[$i]['name'] = $suyo;
+    $lista[$i]['editado'] = $e;
+  }
+  return $lista;
 }
+
+function catalogo(array $estadoCrudo): array {
+  $lista = lista_con_editados(lista_con_nuevos(platos(), $estadoCrudo), $estadoCrudo);
+  $porKey = [];
+  foreach ($lista as $p) $porKey[$p['key']] = $p;
+  $cats = [];
+  $catsEs = [];   // clave inglesa de la categoría -> rótulo en español, como en la carta
+  foreach ($lista as $p) { $cats[$p['cat']] = ($cats[$p['cat']] ?? 0) + 1; $catsEs[$p['cat']] = $p['group']; }
+  /* Los mapas de la migracion a identificadores permanentes. platos.json trae, por plato, la
+     clave nueva (key = dishId) y la vieja (legacy = "categoria :: nombre"), y por categoria su
+     catId. Con eso un estado.json guardado por el panel anterior se traduce al leerlo. Los
+     platos de alta propia no tienen clave vieja: nacieron con la nueva. */
+  $catIdDe = [];      // nombre interno de categoria -> categoryId
+  $mapaLegacy = [];   // clave vieja -> dishId
+  foreach ($lista as $p) {
+    if (isset($p['catId']) && $p['catId'] !== '') $catIdDe[$p['cat']] = (string) $p['catId'];
+    if (isset($p['legacy']) && $p['legacy'] !== '') $mapaLegacy[(string) $p['legacy']] = (string) $p['key'];
+  }
+  return [
+    'lista' => $lista, 'porKey' => $porKey, 'validas' => array_keys($porKey),
+    'cats' => $cats, 'catsEs' => $catsEs, 'hermanas' => plato_hermanas($lista),
+    'catIdDe' => $catIdDe, 'mapaLegacy' => $mapaLegacy,
+  ];
+}
+
+$cat = catalogo(leer_estado());
+$lista      = $cat['lista'];
+$porKey     = $cat['porKey'];
+$validas    = $cat['validas'];
+$cats       = $cat['cats'];
+$catsEs     = $cat['catsEs'];
+$hermanas   = $cat['hermanas'];
+$catIdDe    = $cat['catIdDe'];
+$mapaLegacy = $cat['mapaLegacy'];
 $migraColisiones = []; $migraAnalisis = ['esquema' => 2, 'colisiones' => []];
 $tabsEn = [];    // clave inglesa de la pestaña -> rótulo en español
 foreach ($lista as $p) { $tabsEn[$p['tab_en']] = $p['tab']; }
@@ -2594,6 +3301,688 @@ if ($csrfOk) {
     }
   }
 
+  /* --- renombrar una PESTAÑA, idioma a idioma ---
+     Mismas reglas que la categoria: el idioma base es obligatorio, los demas pueden quedar
+     vacios y caen al compilado, y si todo coincide con lo compilado se borra la entrada.
+     La diferencia esta en el alcance: el rotulo de una pestaña se ve en la barra de arriba,
+     en la hoja de categorias del movil, y como titulo de los grupos que no tienen rotulo
+     propio. Los tres cambian a la vez o el restaurante ve su carta diciendo dos cosas. */
+  if (isset($_POST['pestana_nombre'])) {
+    $pestana = 'platos';
+    $tid = (string) $_POST['pestana_nombre'];
+    $porDefecto = [];
+    foreach ($lista as $p) {
+      if ((string) ($p['tabId'] ?? '') !== $tid) continue;
+      $porDefecto = is_array($p['tabI18n'] ?? null) ? $p['tabI18n'] : [];
+      break;
+    }
+    /* Una seccion creada aqui todavia sin platos no aparece en $lista —el catalogo se arma
+       recorriendo platos— y sin esto no se podria renombrar la que se acaba de crear. Sus
+       nombres de partida salen del propio estado. */
+    if (!$porDefecto) {
+      $propia = secciones_de($estado)[$tid] ?? null;
+      if ($propia) $porDefecto = seccion_i18n($estado, $tid, $propia);
+    }
+    $entra = (array) ($_POST['nombre'] ?? []);
+    /* El obligatorio es el idioma DEL PANEL, que es el que escribe quien lleva el
+       restaurante. Los demas, si se dejan vacios, siguen cayendo al compilado de la carta:
+       ahi si hay algo debajo a lo que caer. */
+    $base = CLIENTE_IDIOMA_PANEL;
+    $limpio = [];
+    foreach (array_keys(CLIENTE_IDIOMAS) as $code) {
+      $v = isset($entra[$code]) && is_string($entra[$code]) ? $entra[$code] : '';
+      $v = trim(preg_replace('/\s+/u', ' ', strip_tags($v)));
+      $limpio[$code] = recorte($v, 0, 60);
+    }
+    if (!$porDefecto) {
+      http_response_code(422);
+      $error = 'Esa sección no está en la carta.';
+    } elseif (($limpio[$base] ?? '') === '') {
+      http_response_code(422);
+      $error = 'El nombre en el idioma base es obligatorio: es al que caen los demás.';
+    } else {
+      $todo = is_array($estado['pestanas'] ?? null) ? $estado['pestanas'] : [];
+      $guardar = [];
+      foreach ($limpio as $code => $v) {
+        if ($v === '') continue;
+        if ($v === (string) ($porDefecto[$code] ?? '')) continue;
+        $guardar[$code] = $v;
+      }
+      if ($guardar) $todo[$tid] = $guardar; else unset($todo[$tid]);
+      $estado['pestanas'] = $todo;
+      if (guardar_estado($estado)) {
+        $aviso = $guardar ? 'Sección renombrada.' : 'Sección con su nombre de siempre.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- dar de alta una categoria principal (una seccion de la carta) ---
+     Nace con su propia categoria dentro, en el mismo acto: una seccion sin categoria es un
+     sitio donde no se puede poner nada, y el desplegable del alta de plato la ofreceria
+     vacia. Se acuñan los dos identificadores con el formato de los de la carta —`t_` + 32 hex
+     y `c_` + 10 hex, los mismos que acuña importar.mjs— por la misma razon que en el alta de
+     plato: para que todo lo que ya funciona por identificador funcione tambien con esto. */
+  if (isset($_POST['seccion_nueva'])) {
+    $pestana = 'platos';
+    $base = CLIENTE_IDIOMA_PANEL;
+    $limpiar = static function ($v): string {
+      return recorte(trim(preg_replace('/\s+/u', ' ', strip_tags((string) $v))), 0, 60);
+    };
+    $nombre = [];
+    foreach (array_keys(CLIENTE_IDIOMAS) as $code) $nombre[$code] = $limpiar($_POST['nombre'][$code] ?? '');
+    $todas = is_array($estado['secciones'] ?? null) ? $estado['secciones'] : [];
+    /* Un nombre repetido no es un error del sistema pero si un problema del comensal: dos
+       pestañas con el mismo rotulo arriba no se distinguen. */
+    $repetido = false;
+    foreach ($lista as $p) {
+      if (mb_minuscula_segura((string) ($p['tabI18n'][$base] ?? '')) === mb_minuscula_segura($nombre[$base])) { $repetido = true; break; }
+    }
+    if (!$repetido) {
+      foreach (secciones_de($estado) as $tid2 => $sec2) {
+        if (mb_minuscula_segura((string) ($sec2['nombre'][$base] ?? '')) === mb_minuscula_segura($nombre[$base])) { $repetido = true; break; }
+      }
+    }
+    if ($nombre[$base] === '') {
+      http_response_code(422);
+      $error = 'El nombre en el idioma base es obligatorio: es al que caen los demás.';
+    } elseif ($repetido) {
+      http_response_code(422);
+      $error = 'Ya hay una sección con ese nombre. Dos pestañas iguales arriba de la carta no se distinguen.';
+    } elseif (count($todas) >= 20) {
+      http_response_code(422);
+      $error = 'Ya hay 20 secciones creadas desde el panel: no se admiten más sin revisar la carta.';
+    } else {
+      $ocupadas = $todas;
+      foreach ($lista as $p) { $t = (string) ($p['tabId'] ?? ''); if ($t !== '') $ocupadas[$t] = true; }
+      $tid = pestana_id_nueva($ocupadas);
+      if (($nombre[CLIENTE_IDIOMA_BASE] ?? '') === '') $nombre[CLIENTE_IDIOMA_BASE] = $nombre[$base];
+      $todas[$tid] = [
+        'nombre' => array_filter($nombre, static fn($v) => $v !== ''),
+        'cat'    => 'c_' . bin2hex(random_bytes(5)),
+        'alta'   => time(),
+      ];
+      $estado['secciones'] = $todas;
+      if (guardar_estado($estado)) {
+        $aviso = 'Sección añadida: «' . $nombre[$base] . '». Ya puedes darle platos.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- borrar una seccion creada aqui ---
+     Solo las propias, y solo si estan vacias. Borrar una con platos dentro seria borrar los
+     platos de rebote, y eso es una decision que no se toma escondida dentro de otra. */
+  if (isset($_POST['seccion_borrar'])) {
+    $pestana = 'platos';
+    $tid = (string) $_POST['seccion_borrar'];
+    $todas = is_array($estado['secciones'] ?? null) ? $estado['secciones'] : [];
+    $cid = (string) ($todas[$tid]['cat'] ?? '');
+    $conPlatos = 0;
+    foreach (nuevos_de($estado) as $n) { if ((string) $n['cat'] === $cid) $conPlatos++; }
+    if (!isset($todas[$tid])) {
+      http_response_code(422);
+      $error = 'Esa sección viene de la carta: no se puede borrar desde aquí.';
+    } elseif ($conPlatos > 0) {
+      http_response_code(422);
+      $error = 'Esa sección tiene ' . $conPlatos . ' plato' . ($conPlatos === 1 ? '' : 's') . ' dentro. Bórralos primero.';
+    } else {
+      $comoSeLlama = (string) ($todas[$tid]['nombre'][CLIENTE_IDIOMA_PANEL] ?? $tid);
+      unset($todas[$tid]);
+      $estado['secciones'] = $todas;
+      if (is_array($estado['pestanas'] ?? null)) unset($estado['pestanas'][$tid]);
+      if (guardar_estado($estado)) {
+        $aviso = 'Sección borrada: «' . $comoSeLlama . '».';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- dar de alta un plato ---
+     Lo primero que este panel AÑADE a la carta en vez de taparla. Reglas, y todas tienen su
+     motivo:
+       · la categoria tiene que existir HOY en la carta compilada. Un plato colgando de una
+         categoria que no esta no se puede pintar en ningun sitio;
+       · el nombre en el idioma base es obligatorio: aqui no hay compilado debajo al que caer,
+         asi que sin el no hay plato, hay un hueco;
+       · el precio tambien. Un plato sin precio en la carta es un «Incluido», y el panel no
+         deja tocar el precio de esos —ver el manejador de precios—: nacer sin precio seria
+         nacer sin poder ponerselo nunca;
+       · el numero es OPCIONAL y, si se pone, no puede chocar con ninguno de la carta. El
+         numero es identidad comercial del restaurante (decision del 8 Sep 2026), asi que no
+         se inventa uno: se pide, o se deja en blanco y el plato sale sin numero. */
+  if (isset($_POST['plato_nuevo'])) {
+    $pestana = 'platos';
+    /* Si el alta viene por fetch, el «no» tambien tiene que llegar como JSON: un 422 con una
+       pagina entera dentro deja al navegador sin saber que decir. */
+    $altaSinPagina = ($_SERVER['HTTP_X_SIN_PAGINA'] ?? '') === '1';
+    $altaNo = static function (string $m) use ($altaSinPagina) {
+      http_response_code(422);
+      if ($altaSinPagina) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => $m], JSON_UNESCAPED_UNICODE);
+        exit;
+      }
+      return $m;
+    };
+    $cid = (string) $_POST['plato_nuevo'];
+    $base = CLIENTE_IDIOMA_PANEL;
+    $existeCat = false;
+    foreach ($lista as $p) { if ((string) ($p['catId'] ?? $p['cat']) === $cid) { $existeCat = true; break; } }
+    /* Y las categorias de las secciones creadas aqui, que mientras esten vacias no salen del
+       catalogo —se arma recorriendo platos— y sin esto no se les podria dar el primero: se
+       habria creado una seccion a la que no se puede llegar. */
+    if (!$existeCat) {
+      foreach (secciones_de($estado) as $sec3) { if ((string) $sec3['cat'] === $cid) { $existeCat = true; break; } }
+    }
+
+    $limpiar = static function ($v, int $tope): string {
+      return recorte(trim(preg_replace('/\s+/u', ' ', strip_tags((string) $v))), 0, $tope);
+    };
+    $nombre = [];
+    $desc = [];
+    foreach (array_keys(CLIENTE_IDIOMAS) as $code) {
+      $nombre[$code] = $limpiar($_POST['nombre'][$code] ?? '', 80);
+      $desc[$code]   = $limpiar($_POST['desc'][$code] ?? '', 200);
+    }
+    $precio = str_replace(',', '.', trim((string) ($_POST['precio'] ?? '')));
+    /* Solo las catorce del catalogo, y en su orden: lo que llegue fuera de ahi se cae sin
+       ruido. No es un 422 —no es un error del restaurante, es una casilla que no existe— y
+       dejarlo entrar seria dejar que el estado invente alergenos. */
+    $alergenosEntran = array_map('strval', (array) ($_POST['alergeno'] ?? []));
+    $alergenos = array_values(array_filter(array_keys(CLIENTE_ALERGENOS),
+      static fn($k) => in_array($k, $alergenosEntran, true)));
+    $cuantosNuevos = count(is_array($estado['nuevos'] ?? null) ? $estado['nuevos'] : []);
+
+    if (!$existeCat) {
+      $error = $altaNo('Esa categoría no está en la carta.');
+    } elseif ($nombre[$base] === '') {
+      $error = $altaNo('El nombre en el idioma base es obligatorio: es al que caen los demás.');
+    } elseif ($precio === '' || !is_numeric($precio) || (float) $precio <= 0) {
+      $error = $altaNo('El precio es obligatorio y tiene que ser un número mayor que cero.');
+    } elseif ($cuantosNuevos >= 300) {
+      $error = $altaNo('Ya hay 300 platos dados de alta desde el panel: no se admiten más sin revisar la carta.');
+    } else {
+      $todos = is_array($estado['nuevos'] ?? null) ? $estado['nuevos'] : [];
+      $id = dish_id_nuevo($porKey + $todos);
+      /* Los idiomas vacios NO se guardan: al leerlos caen al base, y guardar el mismo texto
+         tres veces seria congelar hoy una traduccion que manana puede escribirse. */
+      /* El idioma BASE de la carta se rellena con el texto del panel si venia vacio. No es
+         una traduccion y no pretende serlo: es que la carta necesita un nombre en su idioma
+         base —es al que cae todo— y aqui debajo no hay compilado del que sacarlo. Mejor el
+         plato en español dentro de la carta inglesa que un hueco donde va el nombre. */
+      if (($nombre[CLIENTE_IDIOMA_BASE] ?? '') === '') $nombre[CLIENTE_IDIOMA_BASE] = $nombre[$base];
+      if ($desc[$base] !== '' && ($desc[CLIENTE_IDIOMA_BASE] ?? '') === '') $desc[CLIENTE_IDIOMA_BASE] = $desc[$base];
+      $todos[$id] = [
+        'cat'    => $cid,
+        'nombre' => array_filter($nombre, static fn($v) => $v !== ''),
+        'desc'   => array_filter($desc, static fn($v) => $v !== ''),
+        'precio' => number_format((float) $precio, 2, '.', ''),
+        'alergenos' => $alergenos,
+        /* El identificador corto del contador de consultas, calculado aqui: la carta lo
+           necesita en cada fila y sacar un sha1 en el navegador es asincrono. Misma cuenta
+           que hace el build (vistaId): los ocho primeros del sha1 del dishId. */
+        'vid'    => substr(sha1($id), 0, 8),
+        'alta'   => time(),
+      ];
+      $estado['nuevos'] = $todos;
+      if (guardar_estado($estado)) {
+        $aviso = 'Plato añadido: «' . $nombre[$base] . '».';
+        /* Con `X-Sin-Pagina` se contesta el IDENTIFICADOR y nada mas. Lo pide el alta con
+           foto: la foto no se puede subir antes que el plato —el endpoint de fotos exige que
+           el plato exista— y el identificador no existe hasta este momento. Sin la cabecera,
+           todo sigue igual: pagina completa, como cualquier otro formulario del panel. */
+        if (($_SERVER['HTTP_X_SIN_PAGINA'] ?? '') === '1') {
+          header('Content-Type: application/json; charset=utf-8');
+          header('Cache-Control: no-store');
+          echo json_encode(['ok' => true, 'key' => $id, 'aviso' => $aviso], JSON_UNESCAPED_UNICODE);
+          exit;
+        }
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- lo que la hoja necesita saber de un plato para poder editarlo ---
+     Un endpoint diminuto en vez de escupir el dato en el marcado de las 312 filas: nombre y
+     descripcion en tres idiomas por fila serian unos cientos de kilobytes en cada carga del
+     panel para rellenar un formulario que se abre de uno en uno. */
+  if (isset($_POST['plato_datos'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    $id = (string) $_POST['plato_datos'];
+    if (!isset($porKey[$id])) {
+      http_response_code(422);
+      echo json_encode(['ok' => false, 'error' => 'Ese plato no está en la carta.'], JSON_UNESCAPED_UNICODE);
+      exit;
+    }
+    $p = $porKey[$id];
+    $propio = (is_array($estado['nuevos'] ?? null) ? $estado['nuevos'] : [])[$id] ?? null;
+    $cambio = editados_de($estado)[$id] ?? null;
+    $nombre = [];
+    $desc = [];
+    foreach (array_keys(CLIENTE_IDIOMAS) as $code) {
+      /* Lo que se enseña es lo que HAY hoy: el cambio del restaurante si lo hay, y si no el
+         compilado. Asi el campo llega relleno con lo que el comensal esta leyendo. */
+      $compNombre = (string) (($p['nombreI18n'][$code] ?? '') ?: ($code === 'es' ? ($p['name'] ?? '') : ($p['name_en'] ?? '')));
+      $compDesc = (string) ($p['descI18n'][$code] ?? '');
+      if ($propio) {
+        $nombre[$code] = (string) ($propio['nombre'][$code] ?? '');
+        $desc[$code] = (string) ($propio['desc'][$code] ?? '');
+      } else {
+        $nombre[$code] = (string) ($cambio['nombre'][$code] ?? $compNombre);
+        $desc[$code] = (string) ($cambio['desc'][$code] ?? $compDesc);
+      }
+    }
+    echo json_encode([
+      'ok' => true, 'key' => $id, 'propio' => (bool) $propio,
+      'nombre' => $nombre, 'desc' => $desc,
+      'alergenos' => $propio
+        ? array_values((array) ($propio['alergenos'] ?? []))
+        : array_values((array) (($cambio['alergenos'] ?? null) ?? ($p['alergenos'] ?? []))),
+      'precio' => (string) ($estado['prices'][$id] ?? $p['price'] ?? ''),
+      'cat' => (string) ($p['catId'] ?? $p['cat']),
+      'foto' => (string) (($estado['fotos'] ?? [])[$id] ?? ''),
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+
+  /* --- cambiar un plato ---
+     Nombre, descripcion y alergenos. El precio y la foto se guardan por sus puertas de
+     siempre —`precios_publicar` y `foto_accion`— aunque la hoja los enseñe juntos: son datos
+     que ya tenian sitio, y darles un segundo almacen es garantizar que algun dia digan cosas
+     distintas.
+
+     Donde se escribe depende de QUIEN es el plato:
+       · si nacio en el panel, en su propia entrada de `nuevos`: no hay carta debajo;
+       · si viene de la carta, en `editados`, encima y disperso — un campo que se vacia vuelve
+         al compilado en vez de guardarse en blanco, asi que editar no destruye nada. */
+  if (isset($_POST['plato_editar'])) {
+    $pestana = 'platos';
+    $id = (string) $_POST['plato_editar'];
+    $base = CLIENTE_IDIOMA_PANEL;
+    $limpiar = static function ($v, int $tope): string {
+      return recorte(trim(preg_replace('/\s+/u', ' ', strip_tags((string) $v))), 0, $tope);
+    };
+    $nombre = [];
+    $desc = [];
+    foreach (array_keys(CLIENTE_IDIOMAS) as $code) {
+      $nombre[$code] = $limpiar($_POST['nombre'][$code] ?? '', 80);
+      $desc[$code]   = $limpiar($_POST['desc'][$code] ?? '', 200);
+    }
+    $entranAle = array_map('strval', (array) ($_POST['alergeno'] ?? []));
+    $alergenos = array_values(array_filter(array_keys(CLIENTE_ALERGENOS),
+      static fn($k) => in_array($k, $entranAle, true)));
+    $propios = is_array($estado['nuevos'] ?? null) ? $estado['nuevos'] : [];
+    $esPropio = isset($propios[$id]);
+
+    if (!isset($porKey[$id])) {
+      http_response_code(422);
+      $error = 'Ese plato no está en la carta.';
+    } elseif ($esPropio && $nombre[$base] === '') {
+      /* Un plato del panel no puede quedarse sin nombre: no hay compilado al que caer. Uno de
+         la carta si — vaciar el campo es justo como se vuelve al nombre de siempre. */
+      http_response_code(422);
+      $error = 'El nombre en el idioma base es obligatorio: es al que caen los demás.';
+    } else {
+      if ($esPropio) {
+        if (($nombre[CLIENTE_IDIOMA_BASE] ?? '') === '') $nombre[CLIENTE_IDIOMA_BASE] = $nombre[$base];
+        if ($desc[$base] !== '' && ($desc[CLIENTE_IDIOMA_BASE] ?? '') === '') $desc[CLIENTE_IDIOMA_BASE] = $desc[$base];
+        $propios[$id]['nombre'] = array_filter($nombre, static fn($v) => $v !== '');
+        $propios[$id]['desc'] = array_filter($desc, static fn($v) => $v !== '');
+        $propios[$id]['alergenos'] = $alergenos;
+        $estado['nuevos'] = $propios;
+      } else {
+        $todos = is_array($estado['editados'] ?? null) ? $estado['editados'] : [];
+        /* Solo se guarda lo que DIFIERE de la carta. La hoja llega rellena con los textos
+           compilados para poder retocarlos sin escribirlos de cero, y devolverlos tal cual
+           habria guardado los tres idiomas por haber tocado uno: el override congelaria el
+           ingles y el aleman de hoy, y la siguiente compilacion de la carta no llegaria a
+           verse. Es la misma regla que al renombrar una categoria — lo que coincide con lo
+           compilado no es un cambio. */
+        $comp = $porKey[$id];
+        $soloLoCambiado = static function (array $puesto, array $compilado): array {
+          $out = [];
+          foreach ($puesto as $code => $v) {
+            if ($v === '' || $v === (string) ($compilado[$code] ?? '')) continue;
+            $out[$code] = $v;
+          }
+          return $out;
+        };
+        $aleCompilados = array_values((array) ($comp['alergenos'] ?? []));
+        $cambio = [
+          'nombre' => $soloLoCambiado($nombre, (array) ($comp['nombreI18n'] ?? [])),
+          'desc'   => $soloLoCambiado($desc, (array) ($comp['descI18n'] ?? [])),
+          'alergenos' => $alergenos,
+        ];
+        /* Y los alergenos: si son exactamente los de la carta, tampoco hay nada que guardar. */
+        if ($alergenos === $aleCompilados) $cambio['alergenos'] = [];
+        /* Sin nada dentro no se guarda una entrada vacia: se borra. Disperso, como el orden y
+           como los nombres de categoria. */
+        if (!$cambio['nombre'] && !$cambio['desc'] && !$cambio['alergenos']) unset($todos[$id]);
+        else $todos[$id] = $cambio;
+        $estado['editados'] = $todos;
+      }
+      if (guardar_estado($estado)) {
+        $aviso = 'Plato actualizado.';
+        /* Igual que el alta: si viene por fetch —porque hay una foto que subir detras— se
+           contesta el identificador y nada mas. */
+        if (($_SERVER['HTTP_X_SIN_PAGINA'] ?? '') === '1') {
+          header('Content-Type: application/json; charset=utf-8');
+          header('Cache-Control: no-store');
+          echo json_encode(['ok' => true, 'key' => $id, 'aviso' => $aviso], JSON_UNESCAPED_UNICODE);
+          exit;
+        }
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- borrar un plato dado de alta aqui ---
+     Borrar de verdad, no retirar, y SOLO los que nacieron en el panel: de un plato de la
+     carta compilada no se puede borrar nada —volveria en la siguiente compilacion— y por eso
+     a esos se los retira. A este no hay nada que devolverle: no existe en ningun otro sitio.
+     Se lleva por delante todo lo que colgaba de su identificador, que si no queda basura
+     indexada por una clave que ya no apunta a nada. */
+  if (isset($_POST['plato_borrar'])) {
+    $pestana = 'platos';
+    $id = (string) $_POST['plato_borrar'];
+    $todos = is_array($estado['nuevos'] ?? null) ? $estado['nuevos'] : [];
+    if (!isset($todos[$id])) {
+      http_response_code(422);
+      $error = 'Ese plato viene de la carta: se retira, no se borra.';
+    } else {
+      $comoSeLlama = (string) ($todos[$id]['nombre'][CLIENTE_IDIOMA_PANEL] ?? $id);
+      unset($todos[$id]);
+      $estado['nuevos'] = $todos;
+      foreach (['prices', 'soldOut', 'tags', 'fotos'] as $mapa) {
+        if (is_array($estado[$mapa] ?? null)) unset($estado[$mapa][$id]);
+      }
+      $estado['retirados'] = array_values(array_filter(retirados_de($estado), static fn($k) => $k !== $id));
+      $orden = is_array($estado['orden'] ?? null) ? $estado['orden'] : [];
+      foreach ($orden as $c => $lst) {
+        if (!is_array($lst)) continue;
+        $sin = array_values(array_filter($lst, static fn($k) => $k !== $id));
+        if (count($sin) !== count($lst)) $orden[$c] = $sin;
+      }
+      $estado['orden'] = $orden;
+      if (guardar_estado($estado)) {
+        $aviso = 'Plato borrado: «' . $comoSeLlama . '».';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- renombrar una categoria, idioma a idioma ---
+     El panel no reescribe carta.json: esto es un override que se aplica encima, igual que el
+     orden y los retirados. El nombre compilado sigue ahi debajo y volver a el es borrar el
+     campo, no escribir el mismo texto a mano.
+
+     Reglas, y las tres importan:
+       · el idioma BASE es obligatorio. Sin el no hay a que caer, y una categoria sin nombre
+         sale en la carta como un hueco.
+       · los demas idiomas pueden ir vacios: ese idioma cae al compilado. Lo que NO se hace
+         nunca es rellenarlos con el texto del base — media carta traducida y media no es
+         peor que una sin traducir, porque parece un fallo.
+       · si todo coincide con lo compilado, la categoria se BORRA del estado. Disperso. */
+  if (isset($_POST['categoria_nombre'])) {
+    $pestana = 'platos';
+    $cid = (string) $_POST['categoria_nombre'];
+    $porDefecto = [];
+    $propio = false;
+    foreach ($lista as $p) {
+      if ((string) ($p['catId'] ?? $p['cat']) !== $cid) continue;
+      $porDefecto = is_array($p['grupoI18n'] ?? null) ? $p['grupoI18n'] : [];
+      $propio = !empty($p['grupoPropio']);
+      break;
+    }
+    $entra = (array) ($_POST['nombre'] ?? []);
+    /* El obligatorio es el idioma DEL PANEL, que es el que escribe quien lleva el
+       restaurante. Los demas, si se dejan vacios, siguen cayendo al compilado de la carta:
+       ahi si hay algo debajo a lo que caer. */
+    $base = CLIENTE_IDIOMA_PANEL;
+    $limpio = [];
+    foreach (array_keys(CLIENTE_IDIOMAS) as $code) {
+      $v = isset($entra[$code]) && is_string($entra[$code]) ? $entra[$code] : '';
+      /* Sin etiquetas y sin saltos: es un rotulo, no un texto. Y con tope, que un nombre de
+         categoria de doscientos caracteres rompe la cabecera de la ficha y la de la carta. */
+      $v = trim(preg_replace('/\s+/u', ' ', strip_tags($v)));
+      $limpio[$code] = recorte($v, 0, 60);
+    }
+    if (!$porDefecto) {
+      http_response_code(422);
+      $error = 'Esa categoría no está en la carta.';
+    } elseif (!$propio) {
+      http_response_code(422);
+      $error = 'Esa categoría no tiene rótulo en la carta: sus platos salen directamente bajo su sección. Cambia el nombre de la sección, en la tira de arriba.';
+    } elseif (($limpio[$base] ?? '') === '') {
+      http_response_code(422);
+      $error = 'El nombre en el idioma base es obligatorio: es al que caen los demás.';
+    } else {
+      $todo = is_array($estado['categorias'] ?? null) ? $estado['categorias'] : [];
+      $guardar = [];
+      foreach ($limpio as $code => $v) {
+        if ($v === '') continue;                                  // vacío = cae al compilado
+        if ($v === (string) ($porDefecto[$code] ?? '')) continue;  // igual al compilado = nada que guardar
+        $guardar[$code] = $v;
+      }
+      if ($guardar) $todo[$cid] = $guardar; else unset($todo[$cid]);
+      $estado['categorias'] = $todo;
+      if (guardar_estado($estado)) {
+        $aviso = $guardar ? 'Categoría renombrada.' : 'Categoría con su nombre de siempre.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- retirar un plato de la carta, y devolverlo ---
+     Reversible a proposito: es lo unico responsable en algo que se pulsa por error. No borra
+     nada — la foto, el precio y la etiqueta del plato siguen donde estaban, indexadas por su
+     dishId, asi que devolverlo lo restaura entero.
+
+     La unica regla dura: no se puede dejar una categoria sin ningun plato. Una categoria vacia
+     saldria en la carta como un titulo con nada debajo, y arreglarlo despues es peor que
+     impedirlo ahora. Mismo criterio que el ultimo dia de una oferta. */
+  if (isset($_POST['retirar_plato'])) {
+    $pestana = 'platos';
+    $k = (string) $_POST['retirar_plato'];
+    $retirar = !empty($_POST['retirar_on']);
+    if (!isset($porKey[$k])) {
+      http_response_code(422);
+      $error = 'Ese plato no está en la carta.';
+    } else {
+      $ahora = retirados_de($estado);
+      $cid = (string) ($porKey[$k]['catId'] ?? $porKey[$k]['cat'] ?? '');
+      $quedan = 0;
+      foreach ($lista as $p) {
+        if ((string) ($p['catId'] ?? $p['cat']) !== $cid) continue;
+        $suya = (string) $p['key'];
+        if ($suya === $k) continue;
+        if (!in_array($suya, $ahora, true)) $quedan++;
+      }
+      if ($retirar && $quedan === 0) {
+        http_response_code(422);
+        $error = 'No se puede retirar el último plato de una categoría. La categoría se quedaría vacía en la carta.';
+      } else {
+        if ($retirar) { if (!in_array($k, $ahora, true)) $ahora[] = $k; }
+        else { $ahora = array_values(array_diff($ahora, [$k])); }
+        $estado['retirados'] = $ahora;
+        if (guardar_estado($estado)) {
+          $aviso = $retirar ? 'Retirado de la carta.' : 'Devuelto a la carta.';
+        } else {
+          http_response_code(500);
+          $error = 'No se ha podido escribir estado.json.';
+        }
+      }
+    }
+  }
+
+  /* --- el orden de los platos dentro de su categoria ---
+     Autoguardado, un POST por categoria movida, con el mismo contrato que los de Ofertas:
+     200 si se escribe, 422 si el POST es correcto pero la peticion no vale, 500 si falla el
+     disco.
+
+     La regla es una sola y lo decide todo: lo que llegue tiene que ser una PERMUTACION
+     EXACTA de los platos que el catalogo compilado asigna a esa categoria. No es una
+     validacion mas entre varias — es la que hace imposible por construccion lo que hay que
+     impedir. Un plato de otra categoria no esta en el conjunto esperado; uno repetido rompe
+     el recuento; uno que falte, tambien. No hay que acordarse de comprobar cada caso por
+     separado: o es la misma baraja en otro orden, o no se escribe nada.
+
+     Y cuando el orden que llega coincide con el compilado, la categoria se BORRA del estado
+     en vez de guardarse igual. Asi 'orden' se queda disperso —solo lo que de verdad se ha
+     tocado— y volver a dejar una categoria como estaba la devuelve al comportamiento de
+     siempre, sin dejar rastro. */
+  if (isset($_POST['orden_guardar'])) {
+    $pestana = 'platos';
+    $cid = (string) $_POST['orden_guardar'];
+    /* Los platos que el BUILD asigna a esa categoria, en su orden compilado. */
+    $esperados = [];
+    foreach ($lista as $p) {
+      if ((string) ($p['catId'] ?? $p['cat']) === $cid) $esperados[] = (string) $p['key'];
+    }
+    $recibidos = [];
+    foreach ((array) ($_POST['orden'] ?? []) as $v) { if (is_string($v)) $recibidos[] = $v; }
+
+    if (!$esperados) {
+      http_response_code(422);
+      $error = 'Esa categoría no está en la carta.';
+    } elseif (count($recibidos) !== count(array_unique($recibidos))) {
+      http_response_code(422);
+      $error = 'La lista trae un plato repetido. No se ha cambiado nada.';
+    } elseif (count($recibidos) !== count($esperados)
+              || array_diff($recibidos, $esperados) || array_diff($esperados, $recibidos)) {
+      /* Faltan, sobran, o hay alguno que no es de esta categoria: los tres son el mismo
+         fallo —no es la misma baraja— y merecen la misma respuesta. */
+      http_response_code(422);
+      $error = 'La lista no coincide con los platos de esa categoría. No se ha cambiado nada.';
+    } else {
+      $ordenTodo = is_array($estado['orden'] ?? null) ? $estado['orden'] : [];
+      if ($recibidos === $esperados) unset($ordenTodo[$cid]);
+      else $ordenTodo[$cid] = $recibidos;
+      $estado['orden'] = $ordenTodo;
+      if (guardar_estado($estado)) {
+        $aviso = 'Orden guardado.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- mover una SECCION de sitio ---
+     La misma regla de permutacion exacta, y una mas: una seccion no puede saltar del bloque de
+     la carta al de las cartas especiales. La barra las agrupa bajo un rotulo y el indice del
+     movil las pone en dos listas; cruzar ese limite no es cambiarla de orden, es sacarla de las
+     especiales, y eso es otra decision. Se comprueba posicion a posicion: lo que llega tiene
+     que traer en cada hueco una seccion del mismo bloque que habia. */
+  if (isset($_POST['pestanas_orden'])) {
+    $pestana = 'platos';
+    $esperados = [];
+    $especialDe = [];
+    foreach ($lista as $p) {
+      $tid = (string) ($p['tabId'] ?? '');
+      if ($tid === '' || isset($especialDe[$tid])) continue;
+      $esperados[] = $tid;
+      $especialDe[$tid] = !empty($p['tabEspecial']);
+    }
+    foreach (secciones_de($estado) as $tidPropia => $secPropia) {
+      $tidPropia = (string) $tidPropia;
+      if (isset($especialDe[$tidPropia])) continue;
+      $esperados[] = $tidPropia;
+      $especialDe[$tidPropia] = false;   // las que nacen en el panel son de la carta normal
+    }
+    /* `$esperados` se queda en el orden COMPILADO a proposito. Es la referencia de dos cosas:
+       de los bloques —una seccion no puede ocupar el hueco de una de otro bloque— y de cuando
+       hay que BORRAR la entrada del estado, que es cuando lo que llega es exactamente el orden
+       de la carta. Compararlo con el orden ya guardado dejaba una entrada que decia lo mismo
+       que la carta y que ademas congelaba ese orden si la carta cambiaba. */
+    $recibidos = [];
+    foreach ((array) ($_POST['pest'] ?? []) as $v) { if (is_string($v)) $recibidos[] = $v; }
+
+    $cruzaBloque = false;
+    if (count($recibidos) === count($esperados)) {
+      foreach ($esperados as $i => $tid) {
+        if (($especialDe[$recibidos[$i]] ?? false) !== ($especialDe[$tid] ?? false)) { $cruzaBloque = true; break; }
+      }
+    }
+
+    if (!$esperados) {
+      http_response_code(422);
+      $error = 'Esta carta no tiene secciones.';
+    } elseif (count($recibidos) !== count(array_unique($recibidos))) {
+      http_response_code(422);
+      $error = 'La lista trae una sección repetida. No se ha cambiado nada.';
+    } elseif (count($recibidos) !== count($esperados)
+              || array_diff($recibidos, $esperados) || array_diff($esperados, $recibidos)) {
+      http_response_code(422);
+      $error = 'La lista no coincide con las secciones de la carta. No se ha cambiado nada.';
+    } elseif ($cruzaBloque) {
+      http_response_code(422);
+      $error = 'Una sección no puede salir de su bloque. No se ha cambiado nada.';
+    } else {
+      if ($recibidos === $esperados) unset($estado['ordenPestanas']);
+      else $estado['ordenPestanas'] = $recibidos;
+      if (guardar_estado($estado)) {
+        $aviso = 'Orden de las secciones guardado.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
+  /* --- mover una categoria dentro de su seccion ---
+     Misma regla que orden_guardar y por el mismo motivo: se exige la permutacion EXACTA de las
+     categorias de esa pestaña. Asi es imposible por construccion que una categoria cambie de
+     seccion por aqui, que se pierda una o que se cuele la de otra. */
+  if (isset($_POST['cats_orden'])) {
+    $pestana = 'platos';
+    $tid = (string) $_POST['cats_orden'];
+    $tabDe = pestana_de_categoria($lista, $estado);
+    $esperados = [];
+    foreach ($tabDe as $cid => $suTab) { if ((string) $suTab === $tid && $tid !== '') $esperados[] = (string) $cid; }
+    $recibidos = [];
+    foreach ((array) ($_POST['cat'] ?? []) as $v) { if (is_string($v)) $recibidos[] = $v; }
+
+    if (!$esperados) {
+      http_response_code(422);
+      $error = 'Esa sección no está en la carta.';
+    } elseif (count($recibidos) !== count(array_unique($recibidos))) {
+      http_response_code(422);
+      $error = 'La lista trae una categoría repetida. No se ha cambiado nada.';
+    } elseif (count($recibidos) !== count($esperados)
+              || array_diff($recibidos, $esperados) || array_diff($esperados, $recibidos)) {
+      http_response_code(422);
+      $error = 'La lista no coincide con las categorías de esa sección. No se ha cambiado nada.';
+    } else {
+      $todo = orden_cats_de($estado);
+      if ($recibidos === $esperados) unset($todo[$tid]);
+      else $todo[$tid] = $recibidos;
+      $estado['ordenCats'] = $todo;
+      if (guardar_estado($estado)) {
+        $aviso = 'Orden de las categorías guardado.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+
   /* --- oferta, fase 2: porcentaje/horario/días/estado autoguardan cada uno por su cuenta ---
      Mismo principio que categoría/plato: cada acción toca UN campo de estado['offer'] y
      deja los demás tal como estén en disco — nunca reconstruye la oferta entera desde lo
@@ -2643,7 +4032,12 @@ if ($csrfOk) {
       $ofertaAhora['to'] = $hasta;
       $estado['offer'] = $ofertaAhora;
       if (guardar_estado($estado)) {
-        $aviso = 'Horario actualizado: ' . hhmm($desde) . ' a ' . hhmm($hasta - 1) . '.';
+        /* Se dice la hora que ESCRIBIO, no la de un minuto antes. El final es exclusivo —de
+           12:00 a 14:00 la ultima hora con descuento es las 13:59— y eso es correcto y es
+           como se habla, pero contestarle «12:00 a 13:59» a quien acaba de escribir 14:00
+           parece que el sistema no ha cogido la hora. Lo que hace el final exclusivo lo
+           explica la frase de la ficha, que es donde toca. */
+        $aviso = 'Horario actualizado: de ' . hhmm($desde) . ' a ' . hhmm($hasta) . '.';
       } else {
         http_response_code(500);
         $error = 'No se ha podido escribir estado.json.';
@@ -2722,7 +4116,7 @@ if ($csrfOk) {
      Subir toda la carta de un clic y descubrir los céntimos raros cuando ya está publicada es
      justo lo que hay que evitar. Aquí sólo se calcula; publicar es otro botón. */
   if (isset($_POST['precios_calcular'])) {
-    $pestana = 'platos';
+    $pestana = 'precios';
     $pct = (float) str_replace(',', '.', (string) ($_POST['subir'] ?? '0'));
     if ($pct <= 0 || $pct > 50) {
       $error = 'La subida tiene que estar entre 0 y 50%.';
@@ -2748,7 +4142,7 @@ if ($csrfOk) {
      pct = null es la senal de "aqui no se ha calculado nada": la plantilla no habla de
      redondeo, porque no ha redondeado nada. */
   if (isset($_POST['precios_manual'])) {
-    $pestana = 'platos';
+    $pestana = 'precios';
     $previsua = ['pct' => null, 'filas' => []];
     foreach ($lista as $p) {
       if ($p['price'] === '') continue;                     // "Incluido" no tiene precio que cambiar
@@ -2763,7 +4157,7 @@ if ($csrfOk) {
 
   /* --- precios, paso 2: publicar lo que se vea en pantalla --- */
   if (isset($_POST['precios_publicar'])) {
-    $pestana = 'platos';
+    $pestana = 'precios';
     $nuevos = [];
     /* Lo que no era un numero se descartaba en silencio y el mensaje seguia diciendo
        «Publicado». Quien escribe 9,5O con una letra O en vez de un cero veia el aviso verde,
@@ -3005,14 +4399,49 @@ if ($csrfOk) {
   }
 
   if (isset($_POST['precios_reset'])) {
-    $pestana = 'platos';
+    $pestana = 'precios';
     $estado['prices'] = [];
     if (guardar_estado($estado)) $aviso = 'Precios devueltos a los de la carta.';
     else $error = 'No se ha podido escribir estado.json.';
   }
 }
 
+/* ---------------------------------------------------------------- respuesta corta
+ * Un autoguardado -- marcar un plato agotado -- NO necesita la pagina de vuelta: la que hay
+ * en pantalla ya esta pintada y el navegador solo cambia la casilla. Devolverla igualmente
+ * son 2,4 MB por casilla que nadie lee, y ahi habia un fallo de verdad: cuando el navegador
+ * decide que no va a leer ese cuerpo deja de vaciar el socket, PHP se queda escribiendolo, y
+ * un servidor de un solo proceso -- el de desarrollo y el de la bateria -- se queda ciego
+ * hasta que el navegador suelta la conexion. Se veia como «el panel no responde» diez
+ * segundos despues de marcar un agotado, y no se parecia en nada a su causa.
+ *
+ * Con la cabecera se contesta lo unico que el que guarda necesita saber: si fue bien y que
+ * decir. Sin ella no cambia nada, que es lo que hace que un <form> sin JavaScript siga
+ * recibiendo su pagina entera. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_SERVER['HTTP_X_SIN_PAGINA'] ?? '') === '1') {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store');
+  echo json_encode([
+    'ok' => $error === null || $error === '',
+    'aviso' => (string) ($aviso ?? ''),
+    'error' => (string) ($error ?? ''),
+  ], JSON_UNESCAPED_UNICODE);
+  exit;
+}
+
 /* ---------------------------------------------------------------- datos para la vista */
+/* Se rearma el catalogo con el estado que hay AHORA en el disco: si esta peticion ha dado de
+   alta un plato, ese plato todavia no estaba en $lista cuando empezo. */
+$cat = catalogo(leer_estado());
+$lista      = $cat['lista'];
+$porKey     = $cat['porKey'];
+$validas    = $cat['validas'];
+$cats       = $cat['cats'];
+$catsEs     = $cat['catsEs'];
+$hermanas   = $cat['hermanas'];
+$catIdDe    = $cat['catIdDe'];
+$mapaLegacy = $cat['mapaLegacy'];
+
 $estadoCrudo    = leer_estado();
 $migraAnalisis  = estado_analizar($estadoCrudo, $porKey, $mapaLegacy, $catIdDe);
 $migraColisiones = $migraAnalisis['colisiones'];
@@ -3255,14 +4684,17 @@ if (DATOS_ACTIVO && $dentro) {
    y se consolidan en «platos» (ver SPEC.md). Ofertas sigue siendo su propia pantalla —es
    una regla, no un dato por plato—. «ajustes» es nuevo: agrupa copias de seguridad y el
    bloque de superadministrador, que antes vivían sueltos dentro de Marca. */
-$PESTANAS = ['platos' => 'Platos', 'ofertas' => 'Ofertas', 'juego' => 'Juego', 'publicidad' => 'Publicidad',
-             'datos' => 'Analítica', 'marca' => 'Marca', 'ajustes' => 'Ajustes'];
+$PESTANAS = ['platos' => 'Platos', 'precios' => 'Precios', 'ofertas' => 'Ofertas', 'juego' => 'Juego',
+             'publicidad' => 'Publicidad', 'datos' => 'Analítica', 'marca' => 'Marca', 'ajustes' => 'Ajustes'];
 if (!DATOS_ACTIVO)   unset($PESTANAS['datos']);     // la fuente es el contrato: ver config.php
 if (!CLIENTE_JUEGO)  unset($PESTANAS['juego']);     // sin la capacidad no hay nada que apagar
 if (!CLIENTE_PUBLICIDAD) unset($PESTANAS['publicidad']); // idem, Fase 7
 if (!isset($PESTANAS[$pestana])) $pestana = 'platos';
 $CUENTAS = [
   'platos'     => count($agotados),   // lo mismo que antes contaba «agotados»: lo accionable hoy
+  /* Cuantos precios estan hoy distintos de los de la carta. Es lo unico pendiente que puede
+     haber en esta pantalla, y saberlo sin entrar es el motivo de que la barra lleve numeros. */
+  'precios'    => count($precios),
   'ofertas'    => $oferta['on'] ? 1 : 0,
   'juego'      => $juego['on'] ? 1 : 0,
   'publicidad' => pub_estado_banner($bannerPub) === 'ACTIVO' ? 1 : 0,
@@ -3312,6 +4744,9 @@ $CUENTAS = [
     var m = 'light';
     try { var g = localStorage.getItem('socialcard-color-mode'); if (g === 'dark' || g === 'light') m = g; } catch (e) {}
     document.documentElement.classList.add(m);
+    /* Aqui arriba y no en el script del final: si la barra se plegara despues de pintar, en
+       cada carga se veria aparecer y desaparecer. */
+    try { if (localStorage.getItem('socialcard-barra-plegada') === '1') document.documentElement.classList.add('adm-riel'); } catch (e) {}
   })();
 </script>
 <?php if ($colorPrincipalOverride !== null): ?>
@@ -3390,24 +4825,48 @@ $CUENTAS = [
   :root,
   :root.light{
     color-scheme:light;
-    --sc-canvas:#F2F4F7;
-    --sc-surface:#FFFFFF;
-    /* Tercera superficie, la de la navegacion. En claro coincide con la tarjeta; en
-       oscuro NO, y por eso es un token propio y no un alias de --sc-surface. */
-    --sc-nav:#FFFFFF;
-    --sc-text:#202631;
-    --sc-text-2:#596576;
-    --sc-border:#DCE1E8;
-    --sc-primary:#C2410C;
-    --sc-primary-ink:#FFFFFF;
-    --sc-selected-bg:#FFF0E5;
-    --sc-selected-text:#9A3412;
-    --sc-muted-bg:#EDF0F4;
-    --sc-hover-bg:#EDF0F4;
+    /* ---- FASE 1 del rediseno: la paleta sale de la MARCA, no del gris de fabrica ----
+       El panel vestia un gris azulado (#F2F4F7 / #202631 / #DCE1E8) que no tenia nada que
+       ver con la carta que administra. La carta deriva sus veintiun tokens de UN solo color
+       declarado en cliente.mjs -- #FF7517 -- sobre tinta #121212 y superficie #F6F4F4. De
+       ahi salen estos valores: el naranja tal cual, la tinta en carbon CALIDO, y la familia
+       neutra desplazada al beige. Misma marca, otro registro: la carta vende, el panel se
+       opera.
+
+       Se cambian VALORES y nada mas. Ni un nombre de token, ni una regla, ni una medida:
+       todo lo que cuelga de estos tokens -- incluidos los --p-* del prototipo, que son
+       alias de --sc-primary -- sigue exactamente donde estaba. */
+    --sc-canvas:#F5F1EC;
+    --sc-surface:#FFFDFB;
+    /* Tercera superficie, la de la navegacion. Antes coincidia con la tarjeta y la barra
+       lateral se perdia contra el tablero; ahora es el crema un escalon mas profundo, que
+       es lo que la separa sin necesidad de un filete mas. */
+    --sc-nav:#EFEAE3;
+    --sc-text:#1A1614;
+    --sc-text-2:#5C5450;
+    --sc-border:#E2DAD0;
+    --sc-primary:#FF7517;
+    /* Tinta CREMA sobre el naranja, por decision expresa del propietario y con el coste
+       medido y aceptado: 2.65:1 contra el 4.5 que pide la norma. La alternativa que si
+       cumplia -- hundir el relleno a #B44A08 y quedarse la crema en 4.76 -- se descarto
+       porque ese naranja es el quemado que esta paleta vino a sustituir.
+       (La cifra decia 2.39 y no cuadraba con este par: #FFFDFB sobre #FF7517 da 2.65 por la
+       formula de WCAG, y el bloque oscuro ya traia bien su 2.31 sobre #FF8A3D. Corregida
+       aqui, y ahora la MIDE la bateria en el boton de la recepcion -- E2E-TE-CONTRASTE --,
+       que registra la excepcion como KNOWN EXCEPTION -- OWNER APPROVED y no como un PASS:
+       una decision que se documenta con un numero equivocado deja de proteger de nada.)
+       No es un despiste: la carta publica hace lo mismo en sus insignias (--badge-ink es el
+       crema), asi que panel y carta dicen lo mismo. Queda escrito aqui para que nadie lo
+       "arregle" dentro de seis meses creyendo que se coló. */
+    --sc-primary-ink:#FFFDFB;
+    --sc-selected-bg:#FFE9D6;
+    --sc-selected-text:#8A3F08;
+    --sc-muted-bg:#EBE5DD;
+    --sc-hover-bg:#E9E2D9;
     /* Tinta intermedia entre el texto principal y el secundario. La usa el prototipo
        para lo que esta seleccionado pero no es la accion principal: chip activo,
        boton secundario. Es --secondary-foreground alli. */
-    --sc-text-medio:#3D4959;
+    --sc-text-medio:#3A322E;
     /* El campo NO tiene fondo propio en el prototipo: usa el canvas, que sobre una
        tarjeta blanca es justo un escalon mas oscuro y por eso se ve sin necesidad de
        inventar un tono. Medido: background #F2F4F7, borde #DCE1E8. */
@@ -3415,39 +4874,48 @@ $CUENTAS = [
     /* Este NO es el borde del campo (ese es --sc-border): es el gris fuerte que el
        prototipo llama --input y reserva para la PISTA de los interruptores apagados
        y para lo que tiene que verse sobre blanco. */
-    --sc-input-border:#BDC6D2;
-    --sc-scrim:rgba(32,38,49,.45);
-    --sc-sombra-hoja:0 -12px 32px -12px rgba(32,38,49,.22);
-    --sc-sombra-card:0 2px 5px #18273a06;
+    --sc-input-border:#CABDAB;
+    /* Las sombras y el velo tambien se acaloran: un negro azulado sobre crema se ve gris
+       sucio. Misma opacidad que antes, otro tono. */
+    --sc-scrim:rgba(26,22,20,.45);
+    --sc-sombra-hoja:0 -12px 32px -12px rgba(26,22,20,.22);
+    --sc-sombra-card:0 2px 5px #1a161408;
 
-    --sc-ok-bg:#E4F4EC;   --sc-ok-ink:#166448;
-    --sc-warn-bg:#FFF3CC; --sc-warn-ink:#815000;
-    --sc-bad-bg:#FDECEC;  --sc-bad-ink:#BD2031;
+    /* El rojo es el MISMO que usa la carta para las ofertas (#C62828): un panel y una carta
+       que hablan del mismo restaurante no pueden tener dos rojos distintos. */
+    --sc-ok-bg:#E6F2EC;   --sc-ok-ink:#20624A;
+    --sc-warn-bg:#FBEFD9; --sc-warn-ink:#84540A;
+    --sc-bad-bg:#FAE7E7;  --sc-bad-ink:#C62828;
   }
   :root.dark{
     color-scheme:dark;
-    --sc-canvas:#15191F;
-    --sc-surface:#1E242D;
-    --sc-nav:#1A1F27;
-    --sc-text:#F3F5F8;
-    --sc-text-2:#ADB9C9;
-    --sc-border:#38424F;
-    --sc-primary:#FB923C;
-    --sc-primary-ink:#291405;
-    --sc-selected-bg:#392B22;
-    --sc-selected-text:#FDBA74;
-    --sc-muted-bg:#28313D;
-    --sc-hover-bg:#28313D;
-    --sc-text-medio:#D4DCE6;
+    /* Carbon CALIDO, nunca negro puro: la profundidad la dan cinco escalones de luminancia
+       -- canvas, nav, superficie, apagado, hover -- y no las sombras, que en oscuro casi no
+       se ven. El acento se ACLARA a #FF8A3D porque el naranja de marca sobre #1F1B18 se
+       queda corto cuando hace de texto. */
+    --sc-canvas:#14110F;
+    --sc-surface:#1F1B18;
+    --sc-nav:#1A1613;
+    --sc-text:#F5EFE8;
+    --sc-text-2:#B8ADA3;
+    --sc-border:#332C26;
+    --sc-primary:#FF8A3D;
+    /* Misma decision en oscuro: crema sobre el naranja, 2.31:1. Ver el bloque claro. */
+    --sc-primary-ink:#FFFDFB;
+    --sc-selected-bg:#33231A;
+    --sc-selected-text:#FFB877;
+    --sc-muted-bg:#262119;
+    --sc-hover-bg:#2B241D;
+    --sc-text-medio:#DCD3CA;
     --sc-input-bg:var(--sc-canvas);
-    --sc-input-border:#526174;
-    --sc-scrim:rgba(8,10,13,.62);
+    --sc-input-border:#605245;
+    --sc-scrim:rgba(10,8,7,.62);
     --sc-sombra-hoja:0 -12px 32px -12px rgba(0,0,0,.6);
     --sc-sombra-card:0 2px 5px #00000014;
 
-    --sc-ok-bg:#1D3A30;   --sc-ok-ink:#86DFB3;
-    --sc-warn-bg:#3B321F; --sc-warn-ink:#F8D37B;
-    --sc-bad-bg:#3B2022;  --sc-bad-ink:#FF8891;
+    --sc-ok-bg:#1B3A2C;   --sc-ok-ink:#6FD3A6;
+    --sc-warn-bg:#3A3020; --sc-warn-ink:#EFC578;
+    --sc-bad-bg:#3B2320;  --sc-bad-ink:#FF8D87;
   }
 
   /* Escala de spacing y de radios. Se estrenan en el shell (V2) y en cada componente
@@ -3459,6 +4927,11 @@ $CUENTAS = [
     --space-2:8px;
     --space-3:12px;
     --space-4:16px;
+    /* El escalon que faltaba. La escala iba 4-8-12-16-_-24-32 y el hueco de 20 se notaba justo
+       donde hace falta: el relleno de una hoja flotante y el aire entre grupos de un
+       formulario. Sin el, `var(--space-5)` no resolvia y la propiedad entera se caia — las dos
+       hojas de alta y el cuadro de confirmacion se estaban pintando con relleno CERO. */
+    --space-5:20px;
     --space-6:24px;
     --space-8:32px;
 
@@ -3585,11 +5058,15 @@ $CUENTAS = [
   @media (min-width:768px){
     .page{padding:var(--s3) var(--s3) calc(96px + var(--s5))}
     /* El aire baja de 55 y 89 a 34: la tarjeta ya no es una hoja de papel con margenes,
-       es el tablero de trabajo, y el ancho se usa. */
-    .card-main{padding:var(--s4)}
+       es el tablero de trabajo, y el ancho se usa.
+
+       FASE 2: y de 34 a 20, en la misma direccion y por el mismo motivo. Medido a 1512:
+       entre el relleno de .page y el de esta tarjeta se perdian 112px de ancho que no eran
+       de nadie. Baja tambien el aire de ARRIBA, que es el que empuja la primera fila. */
+    .card-main{padding:var(--space-5)}
   }
   @media (min-width:1200px){
-    .card-main{padding:var(--s4)}
+    .card-main{padding:var(--space-5)}
   }
 
   /* La pagina, mas oscura que la tarjeta: la tarjeta tiene que levantarse del fondo. */
@@ -3771,36 +5248,35 @@ $CUENTAS = [
      de por si: el resultado era una linea practicamente invisible, y lo invisible era
      justamente el dato que se viene a buscar. Fuera el cuerpo reducido y fuera la opacidad;
      el numero se queda en cifras tabulares, que es lo suyo para comparar dos compilaciones. */
+  /* MEDIDO, y estaba mal: toda la regla de abajo se escribio cuando el BODY del panel era
+     la tinta oscura. SocialCard dejo el panel y la recepcion sobre el lienzo claro
+     (#f2f4f7) y esta chapa se quedo con los colores del fondo oscuro — el cuerpo salia a
+     2,3:1 y el dato que se viene a buscar, el numero de compilacion en <strong>, a 1,05:1:
+     blanco sobre blanco, literalmente invisible en claro. Se cambia el color propio por los
+     dos tokens de texto del sistema, que ya giran solos con el tema: el secundario para el
+     cuerpo y el principal para el dato. Un token por tema, no una constante por fondo.
+
+     Y es un PIE: filete arriba, aire por encima, y al final del documento — no flotando.
+     Fijarlo con position:fixed taparia contenido, que es justo lo que la orden prohibe; el
+     hueco que el body ya reserva por debajo (barra inferior + safe-area) lo deja por encima
+     de la barra del movil sin nada mas que hacer. */
   .chapa{
-    margin:var(--s4) auto var(--s3);
-    text-align:center;
-    /* El color NO es el --muted del pie publico, y no por capricho: alli el pie cae sobre el
-       papel claro de la carta y aqui la chapa cuelga del BODY, que es --ink. El mismo token
-       daria gris oscuro sobre tinta oscura -- medido: 1,9:1 en ciruela, 2,1 en laurel, 2,3 en
-       onice, ilegible en los cinco temas. Se usa el token que ocupa ESE papel en esta cara del
-       producto: --metal, que existe justamente para leerse sobre el fondo oscuro. Es el mismo
-       criterio, no la misma constante.
-
-       Va en la regla base y no colgado de .sin-entrar. Antes solo se aclaraba en la pantalla
-       de acceso, pero la chapa esta sobre la tinta del body SIEMPRE -- es hermana de la
-       tarjeta, no descendiente-- asi que dentro del panel se quedaba en el gris oscuro y no
-       se veia. Y dentro del panel es cuando se mira: despues de subir.
-
-       El color YA NO es --metal: es la marca del cliente, y una chapa tecnica (fecha de
-       build, IDs de compilación) no es sitio para el acento de marca — se leía como un
-       aviso o una acción, no como una nota al pie. Blanco y gris, como cualquier pie de
-       version: gris para el cuerpo, y --surface (blanco) para el dato que de verdad se
-       compara, en .chapa strong, más abajo. El gris no es --muted -- ese ya se midio
-       ilegible sobre esta tinta (parrafo de arriba) -- es una mezcla con --surface que se
-       queda en 7,6:1 de contraste, comoda de sobra. */
-    color:color-mix(in srgb, var(--surface) 65%, var(--ink));
+    display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;
+    column-gap:var(--space-4);row-gap:2px;
+    margin:var(--space-6) auto var(--space-4);
+    padding:var(--space-4) var(--space-4) 0;
+    border-top:1px solid var(--sc-border);
+    color:var(--sc-text-2);
     font-family:var(--body-font);
-    font-size:14px;
-    line-height:24px;
+    font-size:13px;
+    line-height:20px;
+    text-align:center;
   }
-  .chapa strong{color:var(--surface);font-variant-numeric:tabular-nums}
+  /* Cada trozo, entero: si no cabe baja completo en vez de partirse por donde toque. */
+  .chapa-t,.chapa-id{white-space:nowrap}
+  .chapa strong{color:var(--sc-text);font-weight:600;font-variant-numeric:tabular-nums}
   .chapa-id{font-variant-numeric:tabular-nums}
-  .chapa-mal{color:var(--mal,#b3261e);font-weight:600}
+  .chapa-mal{flex:1 1 100%;color:var(--sc-bad-ink,#b3261e);font-weight:600;white-space:normal}
   .head .sub a{color:var(--ink)}
 
   /* ---------- pestañas ---------- */
@@ -3892,8 +5368,16 @@ $CUENTAS = [
   /* SocialCard V2: medidas del prototipo, medidas en el navegador y no a ojo —
      232 de barra, 68 de riel, item de 40 con radio 12 y hueco de 8. */
   .adm-sidebar{
+    /* El relleno lateral se publica como variable porque la cabecera y el pie de la barra
+       tienen que SALIRSE de el para que sus filetes lleguen de borde a borde. Cambia con
+       el ancho (riel 8, barra 12) y asi solo se dice una vez. */
+    --sc-sidebar-pad:var(--space-2);
     display:none;position:fixed;top:0;left:0;bottom:0;z-index:20;
-    flex-direction:column;gap:2px;padding:var(--space-2);overflow-y:auto;
+    flex-direction:column;gap:2px;
+    padding:var(--space-2) var(--sc-sidebar-pad);
+    /* Sin `overflow-x:hidden`: en riel los tooltips de los iconos SALEN a proposito de los
+       68px de la barra, y recortarlos los deja mudos. La barra ya vivia asi. */
+    overflow-y:auto;
     width:var(--sc-rail-w);background:var(--sc-nav);border-right:1px solid var(--sc-border);
   }
   /* El hueco del sidebar sólo se reserva con sesión: .sin-entrar (login/recepción) no lo
@@ -3904,14 +5388,23 @@ $CUENTAS = [
   }
   @media (min-width:1024px){
     body:not(.sin-entrar){padding-left:var(--sc-sidebar-w)}
-    .adm-sidebar{width:var(--sc-sidebar-w);padding:var(--space-2) var(--space-3)}
+    .adm-sidebar{--sc-sidebar-pad:var(--space-3);width:var(--sc-sidebar-w)}
   }
   /* La cabecera de la barra: marca del producto. Sólo cuando hay ancho para rotular;
      en riel el icono se queda solo y centrado. */
+  /* MEDIDO, y estaba mal: este filete caia en y=74 y el de la barra superior, justo al
+     lado, en y=68. Seis pixeles de desfase entre dos lineas horizontales contiguas, y
+     ademas esta acababa 20px antes del borde de la barra, asi que la linea se cortaba y
+     volvia a empezar mas abajo. Son la MISMA linea y tienen que leerse como una sola: la
+     cabecera toma la altura exacta de la cabecera de al lado (--sc-header-h, borde
+     incluido por box-sizing) y se sale del relleno de la barra para llegar de borde a
+     borde. El relleno interior devuelve al logo el sitio que ya tenia. */
   .adm-sidebar-cab{
+    box-sizing:border-box;height:var(--sc-header-h);
     display:flex;align-items:center;gap:var(--space-3);
-    padding:var(--space-2) var(--space-2) var(--space-4);
-    margin-bottom:var(--space-2);border-bottom:1px solid var(--sc-border);
+    margin:calc(-1 * var(--space-2)) calc(-1 * var(--sc-sidebar-pad)) var(--space-2);
+    padding:0 calc(var(--sc-sidebar-pad) + var(--space-2));
+    border-bottom:1px solid var(--sc-border);
   }
   @media (max-width:1023px){ .adm-sidebar-cab{justify-content:center;padding-left:0;padding-right:0} }
   .adm-sidebar-logo{
@@ -3930,12 +5423,6 @@ $CUENTAS = [
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   .adm-sidebar-grupo{display:flex;flex-direction:column;gap:2px;margin-bottom:var(--space-2)}
-  .adm-sidebar-rotulo{
-    display:none;align-items:center;height:32px;margin:var(--space-2) 0 0;padding:0 var(--space-2);
-    font-size:var(--t4);font-weight:500;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--sc-text-2);
-  }
-  @media (min-width:1024px){ .adm-sidebar-rotulo{display:flex} }
   .adm-nav-item{
     position:relative;display:flex;align-items:center;gap:var(--space-2);
     min-height:40px;padding:0 var(--space-3);border-radius:var(--radius-xl);border:0;background:transparent;
@@ -3970,7 +5457,15 @@ $CUENTAS = [
      empezando por el nombre del restaurante. Salir se distingue con un borde COMPLETO
      (las cuatro esquinas curvan igual, nunca una sola arista suelta) en vez de compartir
      esa línea: se lee como un botón propio, no como una acción más de la lista. */
-  .adm-sidebar-pie{margin-top:auto;padding-top:var(--space-3);border-top:1px solid var(--sc-border)}
+  /* Mismo criterio que la cabecera: el filete llega de borde a borde y el bloque se apoya
+     en el fondo de la barra en vez de quedar flotando a 8px del borde. Antes empezaba
+     donde acababa la navegacion, sin nada enfrente a esa altura, y terminaba antes que la
+     barra: se leia como un trozo suelto, no como el pie de la columna. */
+  .adm-sidebar-pie{
+    margin:auto calc(-1 * var(--sc-sidebar-pad)) calc(-1 * var(--space-2)) calc(-1 * var(--sc-sidebar-pad));
+    padding:var(--space-3) calc(var(--sc-sidebar-pad) + var(--space-1)) var(--space-3);
+    border-top:1px solid var(--sc-border);
+  }
   .adm-sidebar-pie .adm-nav-item{
     margin-top:var(--space-2);border:1px solid var(--sc-border);
   }
@@ -4023,7 +5518,9 @@ $CUENTAS = [
     padding:0 var(--space-4);
     background:color-mix(in srgb, var(--sc-canvas) 92%, transparent);
     -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--sc-border);
+    /* Sin filete. Separaba una cabecera que ya se separa sola —fondo translucido y
+       desenfoque— de un tablero que empieza con sus propias fichas enmarcadas: era una raya
+       de mas cruzando la pantalla a lo ancho. */
   }
   body:not(.sin-entrar) .adm-topbar{display:flex}
   body:not(.sin-entrar){padding-top:var(--sc-header-h)}
@@ -4038,17 +5535,94 @@ $CUENTAS = [
     margin:0;font-size:var(--t0);font-weight:600;line-height:32px;letter-spacing:-.03em;
     color:var(--sc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
+  /* Con el rotulo fuera de la vista, la fecha deja de ser el pie de un titulo y pasa a ser lo
+     unico que hay en la cabecera: se le sube el tamaño al del cuerpo. */
   .adm-topbar-sub{
-    margin:0;font-size:var(--t3);font-weight:400;line-height:1.4;color:var(--sc-text-2);
+    margin:0;font-size:var(--t2);font-weight:500;line-height:1.4;color:var(--sc-text);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   /* Por debajo de 560 el titulo de 24 y su linea de apoyo no caben juntos en 68px de
      alto sin apretarse: se queda el titulo, que es el que orienta. */
-  @media (max-width:559px){
-    .adm-topbar-titulo{font-size:var(--t1)}
-    .adm-topbar-sub{display:none}
+
+  /* Plegar la barra: se hace con el TOKEN del ancho, no moviendo cajas. Todo lo que se
+     aparta para dejarle sitio —el relleno del cuerpo y el borde izquierdo de la cabecera—
+     ya sale de `--sc-sidebar-w`, asi que ponerlo a cero lo recoloca todo de una vez. */
+  /* La cuenta atras de la sesion. Verde mientras sobra tiempo, ambar en el ultimo cuarto y
+     roja en los ultimos cinco minutos: el color hace el trabajo de mirar el numero. */
+  /* La barra y su cifra, y punto. Media hora no se ve bajar mirandola, asi que el trabajo lo
+     hace la CIFRA —que cambia cada minuto, y cada segundo en los ultimos cinco, que es cuando
+     importa— y el color, que pasa a ambar en el ultimo cuarto y a rojo en los ultimos cinco.
+     La barra sigue moviendose de verdad: se le da su ancho cada segundo. */
+  .adm-sesion{display:none;grid-gap:6px;padding:0 var(--space-3);margin-bottom:var(--space-2)}
+  @media (min-width:1024px){ html:not(.adm-riel) .adm-sesion{display:grid} }
+  .adm-sesion-barra{
+    height:4px;border-radius:999px;overflow:hidden;background:var(--sc-muted-bg);
   }
+  .adm-sesion-relleno{
+    display:block;height:100%;width:100%;border-radius:inherit;
+    /* La barra baja EN NARANJA desde el primer minuto. Antes empezaba en gris y sólo se
+       encendía en el último cuarto: una barra gris que mengua no se lee como una cuenta
+       atrás, se lee como un separador. El rojo de los últimos cinco minutos se queda —eso
+       sí es un cambio de estado, no un adorno. */
+    background:var(--sc-primary);
+    transition:width 1s linear,background var(--t-fast) var(--ease-out);
+  }
+  .adm-sesion-queda{
+    margin:0;font-size:var(--t4);font-variant-numeric:tabular-nums;color:var(--sc-text-2);
+  }
+  /* Misma historia: la barra lateral tambien esta fuera de .adm-board. */
+  .adm-sesion[data-poco] .adm-sesion-relleno{background:var(--sc-bad-ink)}
+  .adm-sesion[data-poco] .adm-sesion-queda{color:var(--sc-bad-ink);font-weight:600}
+  @media (prefers-reduced-motion:reduce){ .adm-sesion-relleno{transition:none} }
+
+  .adm-plegar{
+    flex:none;width:36px;height:36px;display:none;place-items:center;padding:0;
+    border:1px solid transparent;border-radius:var(--radius-lg);background:transparent;
+    color:var(--sc-text-2);cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  .adm-plegar svg{width:18px;height:18px}
+  .adm-plegar:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-plegar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  /* Solo donde hay barra que plegar. Por debajo de 768 la navegacion es la tira de abajo. */
+  @media (min-width:768px){ .adm-plegar{display:grid} }
+  /* Plegada NO es escondida: es el RIEL de iconos que esta barra ya sabe ser entre 768 y
+     1023. Esconderla del todo dejaba la pantalla sin navegacion —para cambiar de pantalla
+     habia que sacarla otra vez—; en riel se sigue pudiendo ir a cualquier sitio de un clic,
+     con el tooltip diciendo a donde, y se recuperan 164px de ancho. Se reusan las mismas
+     reglas que ya visten el riel, condicionadas a la clase en vez de al ancho. */
+  @media (min-width:1024px){
+    html.adm-riel body:not(.sin-entrar){padding-left:var(--sc-rail-w)}
+    html.adm-riel body:not(.sin-entrar) .adm-topbar{left:var(--sc-rail-w)}
+    html.adm-riel .adm-sidebar{--sc-sidebar-pad:var(--space-2);width:var(--sc-rail-w)}
+    html.adm-riel .adm-sidebar-cab{justify-content:center;padding-left:0;padding-right:0}
+    html.adm-riel .adm-sidebar-marcas{display:none}
+    html.adm-riel .adm-nav-item{justify-content:center;padding:0}
+    html.adm-riel .adm-nav-item .txt{display:none}
+    html.adm-riel .adm-nav-item .n{position:absolute;top:2px;right:2px;margin-left:0;min-width:18px;height:18px;padding:0 4px}
+    /* El tooltip propio se queda FUERA del riel de escritorio, y con el se va el scroll
+       horizontal que salia en la barra: vive en position:absolute a `100% + 10px` para
+       salirse de los 68px a proposito, y eso engorda el area de desplazamiento de una caja
+       que tiene overflow. En escritorio no hace falta —el `title` nativo lo dibuja el
+       navegador FUERA del documento, asi que no ensancha nada— y el nombre accesible lo
+       sigue poniendo aria-label, que va siempre. En tablet (768-1023) no se toca nada: ahi
+       no hay puntero con el que ver un `title`. */
+    html.adm-riel .adm-nav-tooltip{display:none}
+    html.adm-riel .adm-sidebar{overflow-x:hidden}
+  }
+  .adm-sidebar{transition:width var(--t-fast) var(--ease-out)}
+  @media (prefers-reduced-motion:reduce){ .adm-sidebar{transition:none} }
+
   .adm-topbar-acciones{display:flex;align-items:center;gap:var(--space-2);flex:none}
+  .adm-ver-carta{flex:none;text-decoration:none}
+  /* En movil la barra de arriba es estrecha y los dos iconos ya dicen a donde van: el rotulo
+     se retira a la etiqueta accesible, que sigue ahi para quien la necesita. */
+  @media (max-width:699px){
+    .adm-topbar-acciones .adm-btn-txt{
+      position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
+    }
+    .adm-topbar-acciones .adm-btn{padding:0 10px;gap:0}
+  }
 
   /* ---- selector de tema ---- */
   .adm-tema{
@@ -4102,7 +5676,12 @@ $CUENTAS = [
     padding:6px var(--space-1) calc(6px + env(safe-area-inset-bottom));
   }
   @media (min-width:768px){ .adm-navmovil{display:none} }
-  body:not(.sin-entrar){padding-bottom:64px}
+  /* El hueco de abajo se calcula, no se estima: 6 + 52 (alto minimo del item) + 6 de
+     relleno, +1 del borde superior, y el MISMO env(safe-area-inset-bottom) que la barra
+     suma en un movil con indicador de inicio. Con los 64px fijos de antes la barra tapaba
+     el final del contenido 1px en un movil normal y el inset entero en uno con indicador
+     (ADMIN-E2E-004). */
+  body:not(.sin-entrar){padding-bottom:calc(65px + env(safe-area-inset-bottom))}
   /* El reset de 768 decia `body` a secas y perdia por especificidad contra
      `body:not(.sin-entrar)`: en escritorio quedaban 64px muertos al final de cada
      pantalla, con la barra inferior ya oculta. Venia de MISE-B y no se habia visto;
@@ -4159,62 +5738,155 @@ $CUENTAS = [
   /* ---- Platos: filtro por estado y controles nuevos de la fila fusionada ---- */
   .adm-chips-estado{display:flex;flex-wrap:wrap;gap:6px;margin:var(--s2) 0}
 
-  /* ---- los cuatro filtros, como la rejilla de tarjetas del prototipo ----
-     Medida en el prototipo ejecutado, no estimada: tarjeta de min-height 82 con relleno
-     16 y hueco 12, la pastilla del icono a la IZQUIERDA (36x36, radio 14.4 — ni cuadrado
-     con borde ni circulo), fondo melocoton y el icono a 16 en la tinta naranja oscura.
-     Al lado, la cifra a 20/600 con tracking -.03em y el rotulo a 13 apagado. */
+  /* ---- los cuatro filtros: un bloque bento ----
+     Sobre la captura del propietario, que manda sobre la especificacion escrita anterior:
+     rotulo arriba a la izquierda, pastilla del icono a la derecha, la cifra grande debajo,
+     un filete, y un pie corto. La tarjeta elegida no se rellena de melocoton — se queda
+     blanca y lo dice el filete naranja y la pastilla en solido.
+
+     Lo que NO cambia: los cuatro KPI, sus cifras, su fuente de datos y su papel de filtro.
+     Siguen siendo los mismos <button aria-pressed> con su data-filter y sus identificadores
+     de contador.
+
+     La rejilla se arma con areas y `display:contents` en el envoltorio del texto: asi el
+     rotulo, la cifra y el pie son celdas de la tarjeta sin tocar el marcado mas de lo justo.
+     Los tokens salen del sistema del panel, de modo que el claro y el oscuro salen solos. */
+  /* ---- FASE 2, densidad: la tarjeta se tumba ----
+     Medido en la pantalla real, a 1512x982: estas cuatro tarjetas ocupaban 136px de alto y
+     empujaban la primera fila de plato hasta y=479 — la mitad de la pantalla gastada antes
+     de enseñar un solo plato. El encargo del propietario lo dice sin rodeos: «compactos,
+     fáciles de escanear, sin aumentar demasiado la altura; icono visible, dato principal,
+     label corto, información secundaria muy limitada».
+
+     El apilado de antes —rótulo, cifra, filete y pie, cada uno en su renglón— venia de una
+     captura suya anterior; esta indicacion es posterior y manda sobre aquella. Se queda
+     anotado en SPEC.md, no resuelto en silencio.
+
+     La tarjeta pasa a DOS renglones con el icono a la izquierda ocupando los dos: rotulo
+     arriba, y abajo la cifra con el pie a su lado en la misma linea. No se esconde nada —el
+     pie sigue en pantalla, sigue leyendose— simplemente deja de gastar un renglon propio y
+     el filete que lo separaba. */
   .adm-chips-estado.adm-kpis{
-    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
-    margin:0 0 var(--space-4);flex-wrap:nowrap;overflow:visible;
-  }
-  @media (min-width:1024px){
-    .adm-chips-estado.adm-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;
+    grid-auto-rows:1fr;                 /* las cuatro miden lo mismo pase lo que pase */
+    margin:0 0 var(--space-3);flex-wrap:nowrap;overflow:visible;
   }
   .adm-kpis .adm-kpi{
-    display:flex;flex-direction:row;align-items:center;gap:var(--space-3);
-    min-height:82px;padding:var(--space-3) var(--space-4);
-    min-width:0;white-space:normal;overflow:hidden;text-align:left;
-    border:1px solid var(--sc-border);border-radius:var(--radius-card);
-    background:var(--sc-surface);box-shadow:var(--sc-sombra-card);cursor:pointer;
-    transition:background var(--t-fast) var(--ease-out),border-color var(--t-fast) var(--ease-out);
+    position:relative;min-width:0;
+    display:grid;
+    /* El rotulo sale del flujo y se ancla arriba a la derecha. Mientras ocupaba renglon
+       propio empujaba al resto hacia abajo: la pareja icono+cifra se quedaba en el tercio
+       inferior por mucho que se centrara la rejilla, porque lo que se centraba eran LOS DOS
+       renglones juntos. Fuera del flujo, lo que queda -- icono, cifra y pie -- se centra de
+       verdad en el medio de la tarjeta.
+       El pie baja DEBAJO de la cifra y no a su lado: asi no puede meterse por debajo del
+       rotulo, que es lo unico que esa esquina tiene ocupado. */
+    grid-template-columns:auto minmax(0,1fr);
+    grid-template-areas:"ico cifra" "ico pie";
+    align-content:center;column-gap:10px;row-gap:1px;
+    padding:10px 12px;
+    white-space:normal;overflow:hidden;text-align:left;
+    border:1px solid var(--sc-border);border-radius:14px;
+    background:var(--sc-surface);
+    box-shadow:0 1px 2px color-mix(in srgb, var(--sc-canvas) 45%, transparent);
+    cursor:pointer;
+  }
+  /* El envoltorio del texto desaparece como caja y deja que sus tres hijos sean celdas. */
+  .adm-kpis .adm-kpi .adm-kpi-txt{display:contents}
+  /* El rotulo se alinea a la DERECHA de su renglon: la columna de la izquierda ya la
+     ocupan el icono y la cifra, que es la pareja que se lee primero. Asi el rotulo deja de
+     competir con la cifra por el mismo eje y la tarjeta tiene dos anclas, no una. */
+  .adm-kpis .adm-kpi .adm-kpi-t{
+    position:absolute;top:9px;right:12px;margin:0;text-align:right;
+    font-size:var(--t3);font-weight:500;line-height:1.25;letter-spacing:0;
+    text-transform:none;color:var(--sc-text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .adm-kpis .adm-kpi .adm-kpi-n{
+    grid-area:cifra;min-width:0;padding:0;border-radius:0;background:transparent;
+    /* `text-align` y `justify-self` hay que decirlos: la cifra tambien lleva la clase
+       .adm-chip-n, que es una insignia y viene centrada. Sin esto la cifra salia desplazada
+       a la derecha y no cuadraba con el rotulo de encima. */
+    text-align:left;justify-self:start;align-self:end;
+    font-size:26px;line-height:1.05;font-weight:700;letter-spacing:-.02em;
+    color:var(--sc-text);font-variant-numeric:tabular-nums;
   }
   .adm-kpis .adm-kpi .adm-kpi-ico{
-    flex:none;display:grid;place-items:center;width:36px;height:36px;
-    border-radius:var(--radius-xl);
+    /* Ajustada ARRIBA a la derecha, no centrada a media altura: la esquina es su sitio y
+       ademas deja la columna de texto entera para el rotulo y la cifra. */
+    /* Alto: el de los DOS renglones de texto, no una medida fija. Se estira sobre las dos
+       filas y la anchura la saca de su propio alto (cuadrado), asi que sigue al texto si
+       algun dia cambia de tamano en vez de quedarse corto o pasarse. Los margenes de la
+       tarjeta no se tocan: el estirado ocurre dentro del relleno. */
+    grid-area:ico;align-self:stretch;grid-row:1 / -1;
+    flex:none;width:auto;height:auto;aspect-ratio:1;min-height:0;
+    display:grid;place-items:center;
+    border-radius:10px;
     background:var(--sc-selected-bg);color:var(--sc-selected-text);
     transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
   }
-  .adm-kpis .adm-kpi .adm-kpi-ico svg{width:16px;height:16px}
-  .adm-kpis .adm-kpi .adm-kpi-txt{display:flex;flex-direction:column;min-width:0;gap:1px}
-  .adm-kpis .adm-kpi .adm-kpi-n{
-    min-width:0;padding:0;border-radius:0;background:transparent;
-    font-size:var(--t1);font-weight:600;line-height:1.15;letter-spacing:-.03em;
-    color:var(--sc-text);font-variant-numeric:tabular-nums;
-  }
-  .adm-kpis .adm-kpi .adm-kpi-t{font-size:var(--t3);font-weight:400;line-height:1.3;color:var(--sc-text-2)}
-  /* La explicacion de cada tarjeta. `white-space:normal` y `max-width` NO son de adorno:
-     .adm-chip —del que hereda— trae `white-space:nowrap`, y sin apagarlo la frase no
-     envuelve y saca scroll horizontal en movil. */
+  .adm-kpis .adm-kpi .adm-kpi-ico svg{width:22px;height:22px;stroke-width:1.9}
+  /* El pie, con su filete encima. El filete ES el borde del pie: una raya menos que mantener. */
+  /* El pie, ahora al lado de la cifra y sin filete: la raya separaba dos cosas que ya no
+     estan una encima de otra. Se recorta con puntos suspensivos antes que crecer de alto —
+     el alto de esta tarjeta es justo lo que se ha venido a recuperar. */
   .adm-kpis .adm-kpi .adm-kpi-s{
-    max-width:100%;min-width:0;white-space:normal;margin-top:2px;
-    font-size:var(--t4);font-weight:400;line-height:1.35;color:var(--sc-text-2);
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    grid-area:pie;max-width:100%;min-width:0;
+    align-self:start;justify-self:start;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-top:0;padding-top:0;border-top:0;
+    font-size:var(--t4);font-weight:400;line-height:1.3;color:var(--sc-text-2);
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
-  .adm-kpis .adm-kpi:hover{background:var(--sc-muted-bg)}
+  @media (hover:hover){
+    .adm-kpis .adm-kpi{transition:border-color 160ms var(--ease-out),box-shadow 160ms var(--ease-out)}
+    .adm-kpis .adm-kpi:hover{border-color:var(--sc-input-border)}
+  }
+  /* Elegida: filete naranja, pastilla en solido y un acento corto arriba a la izquierda. El
+     fondo se queda BLANCO — rellenar la tarjeta entera de melocoton apagaba la cifra, que es
+     lo que se viene a leer. */
   .adm-kpis .adm-kpi[aria-pressed="true"]{
-    background:var(--sc-selected-bg);border-color:var(--sc-selected-text);
+    /* El fondo hay que decirlo: `.adm-chip[aria-pressed="true"]`, del que hereda, rellena
+       el chip de gris, y sin esto la tarjeta elegida salia gris en vez de blanca. */
+    background:var(--sc-surface);
+    border-color:var(--sc-primary);
   }
-  /* Con la tarjeta ya en melocoton, la pastilla del icono se invierte para no fundirse
-     con ella: relleno solido y el icono en claro. */
+  .adm-kpis .adm-kpi[aria-pressed="true"]::before{
+    content:"";position:absolute;left:-1px;top:-1px;width:44px;height:3px;
+    background:var(--sc-primary);border-radius:14px 0 3px 0;
+  }
   .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-ico{
-    background:var(--sc-selected-text);color:var(--sc-selected-bg);
+    background:var(--sc-primary);color:var(--sc-primary-ink);
   }
-  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-n,
-  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-t,
-  .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-s{color:var(--sc-selected-text)}
-  .adm-kpis .adm-kpi[aria-pressed="true"]:hover{background:var(--sc-selected-bg)}
   .adm-kpis .adm-kpi:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+
+  /* Dos y dos. El corte NO es el ancho de la ventana a secas: esta rejilla vive dentro de la
+     columna de contenido, con 232px de barra lateral por delante (68 de riel entre 768 y
+     1023) mas 34+34 de relleno. La fila baja de 980 por debajo de 1280 de ventana. Medido
+     con el corte en 980: a 1024 salian cuatro tarjetas de 161px con el rotulo envolviendo. */
+  @media (max-width:1279px){
+    .adm-chips-estado.adm-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  /* Movil: SIGUEN siendo dos columnas y la tarjeta adelgaza, para que el bloque entero se
+     quede por debajo de 200px y la lista de platos no se caiga de la primera pantalla.
+     El pie —y con el su filete— se retira: a este ancho salia cortado y no explicaba nada. */
+  @media (max-width:640px){
+    .adm-chips-estado.adm-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .adm-kpis .adm-kpi{padding:11px 12px;column-gap:8px;border-radius:12px}
+    .adm-kpis .adm-kpi .adm-kpi-ico{width:34px;height:34px;border-radius:10px}
+    .adm-kpis .adm-kpi .adm-kpi-ico svg{width:17px;height:17px}
+    .adm-kpis .adm-kpi .adm-kpi-t{margin-bottom:2px;font-size:var(--t3)}
+    .adm-kpis .adm-kpi .adm-kpi-n{font-size:24px}
+    .adm-kpis .adm-kpi .adm-kpi-s{display:none}
+  }
+  @media (max-width:360px){
+    .adm-chips-estado.adm-kpis{gap:7px}
+    .adm-kpis .adm-kpi{padding:10px;column-gap:7px}
+    .adm-kpis .adm-kpi .adm-kpi-ico{width:30px;height:30px}
+    .adm-kpis .adm-kpi .adm-kpi-ico svg{width:16px;height:16px}
+    .adm-kpis .adm-kpi .adm-kpi-n{font-size:21px}
+  }
+
   /* SocialCard V3: el chip del prototipo, medido — 36 de alto (no los 40 que decidio
      DS-2, ni los 44 de H4), radio 10.4, relleno 12, 13/500, SIN borde. La pastilla es
      lo unico que dice "activo": en reposo no hay fondo. */
@@ -4256,8 +5928,12 @@ $CUENTAS = [
   .adm-ajustar-precios-resumen::-webkit-details-marker{display:none}
   .adm-ajustar-precios-resumen:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
   .adm-ajustar-precios-chev{display:none;flex:none;width:18px;height:18px;color:var(--muted)}
+  /* Agrupada y centrada, no repartida a los dos extremos. «Cambiar precio manual» llevaba
+     `margin-left:auto` y se iba al borde derecho de la fila: entre el porcentaje que se
+     escribe y ese boton quedaba una franja vacia de varios cientos de pixeles que no decia
+     nada. Son seis controles de la MISMA pregunta —cuanto subir— y se leen mejor juntos. */
   .adm-ajustar-precios{
-    display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;
   }
   .adm-ajustar-precios-etq{font-size:var(--t3,13px);font-weight:600;color:var(--muted);margin-right:2px}
   /* V7: el rótulo deja de vivir en su propio renglón. Colgaba solo encima de los botones,
@@ -4283,13 +5959,14 @@ $CUENTAS = [
        quedaba en 695 de los 1035 disponibles, envolviendo sin necesidad. */
     .adm-ajustar-precios{flex:1 1 0;min-width:0}
   }
+  /* En su propio renglon, y en todos los anchos. Es otra cosa: no es "cuanto subir" sino
+     "deshacer lo subido", y ademas es destructiva. Colgada al final de la fila de los
+     porcentajes se leia como un control mas de la misma pregunta. */
   .adm-ajustar-precios-volver{
-    display:flex;align-items:center;gap:8px;margin-left:auto;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    flex:1 1 100%;margin-left:0;
   }
   .adm-ajustar-precios-volver .adm-f-nota{white-space:nowrap}
-  @media (max-width:560px){
-    .adm-ajustar-precios-volver{margin-left:0;flex:1 1 100%}
-  }
   /* Mismo corte que ya usa el resto del panel para "estrecho" (.adm-orow, más abajo). Sólo
      aquí abajo se ve y se comporta como un desplegable de verdad: cabecera tocable y
      chevron que gira. En cualquier otro ancho, `.adm-ajustar-precios-resumen` de arriba
@@ -4383,6 +6060,14 @@ $CUENTAS = [
        el ::before de su propia regla. Esta excepción se retira por vacía. */
     .adm-cat-bento-lista .adm-plato-acciones{flex:none;gap:4px}
     .adm-cat-bento-lista .adm-plato-acciones input.adm-prow-nuevo{flex:0 0 46px;width:46px;padding:0 6px;font-size:var(--t3,13px)}
+    /* Los 19 platos sin precio propio ("Incluido") ocupaban 52 donde el resto ocupa 46: el
+       borde derecho cuadraba, pero el izquierdo de la columna de precios salia dentado en
+       esas filas — medido, 714 contra 720. Mismo hueco que el campo, y el rotulo baja al
+       cuerpo pequeño, que es lo que le toca: no es una cifra, es una nota. */
+    .adm-cat-bento-lista .adm-plato-acciones .adm-prow-fijo{
+      flex:0 0 46px;width:46px;font-size:var(--t4);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
     .adm-cat-bento-lista .adm-plato-sinoferta{display:none}
     .adm-cat-bento-lista .adm-tag-oferta{
       width:24px;height:24px;padding:0;
@@ -4472,7 +6157,12 @@ $CUENTAS = [
     border:1px solid var(--sc-border);border-radius:var(--radius-card);
     box-shadow:var(--sc-sombra-card);
   }
-  .adm-platos-filtros .adm-buscar{flex:1 1 260px;min-width:0;max-width:28rem}
+  /* El buscador ocupa TODA su fila. El tope de 28rem venia de cuando compartia la fila
+     con los cuatro chips de filtro; desde que los filtros son las cuatro tarjetas de
+     arriba, el buscador se quedo solo y ese tope dejaba una banda muerta a su derecha —
+     medido a 1512: fila de 1168, buscador de 448, 696 px de vacio sin funcion. Un campo
+     de busqueda mas ancho no estorba: ensena mas texto del plato que se escribe. */
+  .adm-platos-filtros .adm-buscar{flex:1 1 260px;min-width:0}
   .adm-platos-filtros .adm-chips-estado{
     flex:1 1 auto;justify-content:flex-end;margin:0;gap:var(--space-2);min-width:0;
   }
@@ -4691,8 +6381,11 @@ $CUENTAS = [
 
   /* El recorte. Una capa sobre todo, con el cuadrado en el centro: lo que se ve dentro del
      cuadrado es exactamente lo que se guarda, ni más ni menos. */
+  /* Encima de la hoja de alta (88) y de la confirmacion (90). Estaba en 60, que estaba bien
+     cuando la camara solo se abria desde una fila: desde la hoja, el recortador se abria por
+     DEBAJO y parecia que pulsar la foto no hacia nada. */
   .recorte{
-    position:fixed;inset:0;z-index:60;display:none;
+    position:fixed;inset:0;z-index:96;display:none;
     align-items:center;justify-content:center;padding:var(--s3);
     background:var(--scrim);
   }
@@ -5544,36 +7237,48 @@ $CUENTAS = [
   .insignia.is-demo{background:var(--ui-badge-demo);color:var(--surface)}
 
   /* ---------- avisos flotantes (toast) ----------
-     Antes cada guardado dejaba una franja fija bajo la cabecera que había que leer y que
-     empujaba el contenido. Ahora el aviso flota arriba, se va solo si es bueno y se queda
-     hasta que se cierra si es un error: un error que desaparece solo no se ha leído. */
+     Rehechos en la correccion posterior a Fase A. Antes salian en MITAD de la pantalla,
+     con una capa a pantalla completa por encima de todo: el aviso de un guardado que ya
+     habia salido bien tapaba justo lo que se acababa de tocar, y en la revision humana
+     eso fue lo primero que estorbo. Ahora viven en la esquina inferior derecha, se apilan
+     hacia arriba, no tapan la barra de navegacion del movil ni la franja del indicador de
+     inicio, y no bloquean nada: la capa no recibe el puntero, solo cada aviso.
+     Los buenos se van solos a los 3 s. Los errores NO: un error que se borra solo es un
+     error que nadie ha leido, y esa decision ya estaba tomada en el panel. */
   .toasts{
-    /* Centrado en la pantalla, no arriba: inset:0 sobre position:fixed mide siempre el
-       viewport real del navegador (también cuando la barra del móvil aparece y desaparece),
-       y el flex centra en ese alto sin calcular nada a mano. */
-    position:fixed;inset:0;z-index:60;
-    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;
-    padding:0 12px;
+    position:fixed;right:0;bottom:0;left:auto;z-index:60;
+    display:flex;flex-direction:column;align-items:flex-end;gap:10px;
+    width:min(420px,100vw);
+    padding:0 16px calc(16px + env(safe-area-inset-bottom));
     pointer-events:none;
+  }
+  /* Por debajo de 768 la barra inferior existe (ese es su corte): los avisos se suben por
+     encima de ella y por encima del indicador de inicio, no la tapan nunca. En la
+     recepcion no hay barra, asi que ahi no se suben. */
+  @media (max-width:767.98px){
+    .toasts{left:0;width:auto;align-items:stretch}
+    body:not(.sin-entrar) .toasts{padding-bottom:calc(65px + 12px + env(safe-area-inset-bottom))}
   }
   .toast{
     display:flex;align-items:flex-start;gap:var(--space-3);
-    width:min(520px,100%);padding:var(--space-3) var(--space-4);
-    /* SocialCard V1: radio 12 y cuerpo 14, las medidas del sistema. Antes usaba
-       --r-sheet (21px), que es un radio de la CARTA publica, no del panel. */
+    width:100%;padding:var(--space-3) var(--space-4);
     border-radius:var(--radius-lg);
     /* Invertido respecto a la tarjeta, que es como se separa del contenido: la tinta
        del tema hace de fondo y la superficie hace de texto. Funciona igual en los dos
-       temas sin una regla por tema. El error va en el rojo de estado. */
+       temas sin una regla por tema. */
     background:var(--ink);color:var(--surface);
     box-shadow:0 12px 32px color-mix(in srgb,var(--sc-canvas) 45%,transparent);
     font-size:var(--t2);line-height:1.4;
     pointer-events:auto;
-    opacity:0;transform:scale(.96);
-    transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
+    opacity:0;transform:translateY(12px) scale(.98);
+    transition:opacity 180ms var(--ease-out),transform 180ms var(--ease-out);
   }
   .toast.is-in{opacity:1;transform:none}
+  /* Variantes con significado: correcto, error, aviso y dato. Solo cambia el fondo — la
+     forma, el hueco y el cuerpo son los mismos para que se lean como un unico componente. */
   .toast.bad{background:var(--ui-state-error)}
+  .toast.warn{background:var(--sc-warn-ink,#8a5a00)}
+  .toast.info{background:var(--sc-primary)}
   .toast-icon{flex:0 0 auto;width:26px;height:26px;margin-top:1px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--surface) 18%,transparent);color:var(--surface)}
   .toast-icon svg{width:16px;height:16px}
   .toast-txt{flex:1 1 auto;min-width:0;padding-top:3px}
@@ -5584,7 +7289,7 @@ $CUENTAS = [
   }
   .toast-x svg{width:18px;height:18px}
   .toast-x:hover,.toast-x:focus-visible{color:var(--surface);background:color-mix(in srgb,var(--surface) 12%,transparent);outline:none}
-  @media (prefers-reduced-motion:reduce){ .toast{transform:none} }
+  @media (prefers-reduced-motion:reduce){ .toast{transform:none} .toast.is-in{transform:none} }
 
   @media (prefers-reduced-motion:reduce){
     *{transition-duration:1ms !important;animation-duration:1ms !important}
@@ -5726,7 +7431,11 @@ $CUENTAS = [
 
     .adm-f-pcambiar{grid-column:1 / span 6;grid-row:1}
     .adm-f-pfuera  {grid-column:1 / span 6;grid-row:2}
-    .adm-f-prev,.adm-f-ptab{grid-column:1 / span 6}
+    /* La rejilla de un pane tiene SEIS columnas. Una ficha que no dice cuantas ocupa cae en
+       una sexta parte: la de precios medía 177px sobre un tablero de 1168 y sus seis
+       controles se apilaban en columna. Los tres bloques de esta pantalla van a ancho
+       completo, que es lo que son. */
+    .adm-f-prev,.adm-f-ptab,.adm-f-precios{grid-column:1 / span 6}
 
     .adm-f-dt30   {grid-column:1 / span 6;grid-row:1}
     .adm-f-dthoy  {grid-column:1 / span 2;grid-row:2}
@@ -6035,6 +7744,14 @@ $CUENTAS = [
   .adm-acciones-fuera .adm-btn{flex:0 0 auto;width:auto;min-width:190px}
   /* Sin JavaScript se ven todas: feo, pero se puede guardar. */
   html:not(.adm-con-js) .adm-acciones-fuera{display:flex}
+  /* Ofertas y Juego autoguardan cada control por su cuenta: su "Guardar cambios" no
+     guardaba nada que no estuviera ya en disco, y un boton de guardar que no hace falta
+     ensena que hay algo pendiente cuando no lo hay. Se esconde el BOTON, no la tira: el
+     recuento y "Ver la carta" siguen a la vista. El <form> y su handler
+     (guardar_oferta / guardar_juego) se quedan intactos y vuelven a verse en cuanto no
+     hay JavaScript, que es lo unico que los necesita. */
+  html.adm-con-js .adm-acciones-fuera[data-para="ofertas"] .adm-btn-guardar,
+  html.adm-con-js .adm-acciones-fuera[data-para="juego"] .adm-btn-guardar{display:none}
 
   .adm-f-acc{display:grid;gap:var(--s2);align-content:start}
   .adm-acciones{display:grid;gap:10px}
@@ -6187,9 +7904,14 @@ $CUENTAS = [
      campo medida en el prototipo — 40 de alto, radio 14.4, fondo canvas y borde de
      tarjeta. Antes eran 54 y fondo gris, que la hacia parecer un boton. */
   .adm-pct-otro{
-    flex:0 1 210px;display:flex;align-items:center;gap:1px;
+    /* Ancho DERIVADO del grupo, no elegido a ojo: 152 = dos botones de porcentaje (72)
+       mas el hueco de la fila (8). Antes eran 210, un numero suelto que no cuadraba con
+       nada y hacia que el control se leyera como una pieza traida de otro sitio. El
+       relleno izquierdo es el mismo 12 que el de un .adm-pct; el derecho baja a 4 porque
+       ahi dentro hay un boton de 32 que trae su propio aire. */
+    flex:0 0 152px;display:flex;align-items:center;gap:1px;
     min-width:0;                       /* o no baja de su contenido minimo */
-    min-height:40px;margin:0;padding:0 6px 0 12px;
+    min-height:40px;margin:0;padding:0 4px 0 12px;
     border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);background:var(--sc-input-bg);
     transition:border-color var(--t-press) var(--ease-out),box-shadow var(--t-press) var(--ease-out);
   }
@@ -6208,8 +7930,11 @@ $CUENTAS = [
      y sin esto sale de 32x48. Es la tercera vez que aparece esta trampa en el panel
      (.adm-foto-b en DS-2, .adm-tema-sw en V2): cualquier boton por debajo de 48 la
      necesita. */
+  /* El radio sale de la concentrica, no del catalogo a ojo: la caja de fuera va a 14.4 y
+     este boton queda metido 4px, asi que le tocan 10.4 exactos (--radius-lg). Con los 8.4
+     de antes el boton se leia de otra familia dentro de su propia caja. */
   .adm-pct-ir{
-    flex:none;width:32px;height:32px;min-height:0;padding:0;border:0;border-radius:var(--radius-md);
+    flex:none;width:32px;height:32px;min-height:0;padding:0;border:0;border-radius:var(--radius-lg);
     background:var(--sc-surface);color:var(--sc-text-2);
     display:grid;place-items:center;cursor:pointer;
     transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
@@ -6232,7 +7957,10 @@ $CUENTAS = [
     /* V5: 40, como todos. Los 54 se pusieron para igualar el alto de los .adm-pct de al
        lado; esos bajaron a 40 en V4, asi que este ya era el unico boton del panel con
        altura propia. Sigue teniendo mas presencia que sus vecinos por ancho, no por alto. */
-    flex:0 0 auto;min-width:212px;min-height:40px;margin-left:auto;font-size:var(--t2);
+    /* Sin `margin-left:auto`: eso era lo que abria la franja vacia. Se separa del grupo de
+       porcentajes con un hueco doble —sigue siendo otra cosa, una puerta a otra pantalla—
+       pero pegada a ellos, no en la otra punta de la fila. */
+    flex:0 0 auto;min-width:212px;min-height:40px;margin-left:var(--space-2);font-size:var(--t2);
   }
   .adm-ajustar-precios-mano svg{color:var(--sc-primary)}
   @media (max-width:699px){
@@ -6240,6 +7968,641 @@ $CUENTAS = [
        media fila se leerian como sobras de la de arriba. */
     .adm-pct-otro{flex:1 1 100%}
     .adm-ajustar-precios-mano{flex:1 1 100%;margin-left:0}
+    .adm-ajustar-precios{justify-content:flex-start}
+  }
+
+  /* ---- las secciones de la carta ----
+     Una tira compacta, no una pantalla: son trece rotulos que ya existen, puestos donde se
+     pueden cambiar. Ruedan en horizontal antes que envolver en cuatro pisos y empujar la
+     lista de platos fuera de la primera pantalla. */
+  /* La caja no rueda: rueda la tira de dentro. Asi los dos manejadores se quedan quietos en
+     los extremos en vez de irse con el contenido. */
+  .adm-secciones{
+    display:flex;align-items:center;gap:var(--space-2);
+    margin:0 0 var(--space-4);padding:var(--space-2) var(--space-3);
+    background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:var(--radius-card);
+    box-shadow:var(--sc-sombra-card);
+  }
+  /* PAGINA, no rueda. Un carrusel deja siempre una seccion cortada por el borde, y un rotulo
+     cortado por la mitad se lee como un fallo, no como «hay mas». Aqui solo se enseñan las que
+     caben ENTERAS y los manejadores pasan de pagina; las demas se apagan. De paso desaparece
+     la barra de desplazamiento, que era la que metia 36px de alto de mas y dejaba los chips
+     6px por debajo del centro de las flechas. */
+  .adm-secciones-tira{
+    flex:1 1 auto;min-width:0;
+    display:flex;align-items:center;gap:var(--space-2);
+    overflow:hidden;
+  }
+  .adm-secciones-tira > .adm-pestana[hidden]{display:none}
+  /* SOLO cuando pagina: entonces es cuando sobra sitio a la derecha —lo que cabe entero no
+     llena la fila— y ese hueco, pegado a la flecha, se lee como que algo falta. Repartido
+     entre los chips que se ven, la fila queda llena de borde a borde. Si no pagina, caben
+     todas y no hay nada que repartir: se quedan juntas a la izquierda, como siempre. */
+  .adm-secciones[data-rueda] .adm-secciones-tira{justify-content:space-between}
+  /* Los manejadores. Solo aparecen si de verdad hay algo que rodar —lo decide el script— y
+     se apagan al llegar al extremo: un boton que no puede hacer nada tiene que decirlo. */
+  .adm-secciones-flecha{
+    flex:none;width:28px;height:28px;min-height:0;padding:0;display:none;place-items:center;
+    border:1px solid var(--sc-border);border-radius:50%;background:var(--sc-surface);
+    color:var(--sc-text-2);cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
+               opacity var(--t-fast) var(--ease-out);
+  }
+  .adm-secciones[data-rueda] .adm-secciones-flecha{display:grid}
+  .adm-secciones-flecha svg{width:15px;height:15px;pointer-events:none}
+  .adm-secciones-flecha:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-secciones-flecha:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-secciones-flecha:disabled{opacity:.3;cursor:default}
+  .adm-secciones-flecha:disabled:hover{background:var(--sc-surface);color:var(--sc-text-2)}
+  /* `adm-pestana` y NO `adm-seccion`: ese nombre ya lo tenia el rotulo que separa las fichas
+     del superadministrador, que trae `margin:var(--space-6) 0 var(--space-3)` y un `::after`
+     que estira una linea. Reutilizarlo le metia al chip 24px arriba y 12px abajo — de ahi
+     salian los 66px de alto de la tira y los 6px de desnivel contra los manejadores. */
+  /* El boton de crear seccion vive fuera de la tira que pagina: si entrara en ella, la
+     pagina que le tocara lo escondería, y una accion que aparece y desaparece segun por
+     donde vaya la tira no se encuentra cuando hace falta. */
+  .adm-secciones-mas{
+    flex:none;width:28px;height:28px;min-height:0;padding:0;display:grid;place-items:center;
+    border:1px dashed var(--sc-border);border-radius:50%;background:transparent;
+    color:var(--sc-text-2);cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
+               border-color var(--t-fast) var(--ease-out);
+  }
+  .adm-secciones-mas svg{width:15px;height:15px;pointer-events:none}
+  .adm-secciones-mas:hover{background:var(--sc-muted-bg);color:var(--sc-text);border-color:var(--sc-input-border)}
+  .adm-secciones-mas:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-cat-nombre-borrar{display:grid;margin-top:2px}
+  /* Los chips REPARTEN el sobrante en vez de dejarlo muerto a la derecha.
+     La tira pagina y solo enseña las secciones que caben ENTERAS —una seccion cortada por la
+     mitad se lee como un fallo, no como «hay mas»—, y el precio de esa regla era un hueco de
+     hasta un chip de ancho justo antes de la flecha. Dejandolos crecer, el hueco se reparte
+     entre los que se ven y la fila queda llena de borde a borde: sin cortar ninguno y sin
+     espacio muerto.
+
+     `flex-grow` NO estropea la medida del paginador: `medir()` los enseña TODOS a la vez, y
+     con todos puestos no sobra sitio que repartir, asi que lo que mide es el ancho natural.
+     El tope evita que dos chips solos se estiren hasta parecer botones de otra cosa. */
+  .adm-pestana{
+    /* Ancho natural, ni crecer ni encoger. Se probaron las dos cosas y las dos rompen algo:
+       encogiendo, los trece caben aplastados y los nombres se cortan; creciendo, los chips
+       falsean la medida del paginador y pasa a enseñar seis donde caben nueve. El sobrante
+       lo reparte la TIRA (ver .adm-secciones[data-rueda]), que no toca ninguna medida. */
+    flex:none;min-width:0;
+    display:inline-flex;align-items:center;gap:2px;position:relative;
+    padding:2px 2px 2px var(--space-3);
+    border:1px solid var(--sc-border);border-radius:var(--radius-lg);background:var(--sc-canvas);
+  }
+  /* El nombre se recorta con puntos suspensivos si el chip toca su tope: antes no hacia
+     falta porque el chip media lo que el texto. */
+  .adm-pestana-nm{
+    font-size:var(--t3);font-weight:500;color:var(--sc-text);white-space:nowrap;
+    min-width:0;overflow:hidden;text-overflow:ellipsis;
+  }
+  .adm-pestana .adm-cat-nombre-b{width:24px;height:24px}
+  .adm-pestana .adm-cat-nombre-b svg{width:13px;height:13px}
+  .adm-pestana:hover .adm-cat-nombre-b{opacity:1}
+  @media (max-width:560px){
+    .adm-secciones{padding:var(--space-2);gap:6px}
+  }
+
+  /* ---- la hoja de alta ----
+     Mismo sitio y mismas medidas que la confirmacion —centro de la pantalla, 420 de ancho—
+     porque es la misma clase de cosa: algo que interrumpe para pedir una respuesta. La
+     diferencia es que esta tiene campos, asi que puede crecer y desplazarse por dentro. */
+  .adm-alta{
+    position:fixed;inset:0;z-index:88;display:grid;place-items:center;padding:var(--space-4);
+  }
+  .adm-alta[hidden]{display:none}
+  .adm-alta-fondo{
+    position:absolute;inset:0;
+    background:color-mix(in srgb, var(--sc-canvas) 72%, transparent);
+    animation:adm-modal-fondo var(--t-fast) var(--ease-out);
+  }
+  .adm-alta-caja{
+    /* Ancha para caber en dos columnas. Fue de 460 a 530 y de 530 a 760: el ancho no era un
+       gusto, era lo que hacia falta para que la hoja dejara de ser una columna de 949px que
+       no cabia en ningun portatil. */
+    position:relative;width:min(760px,100%);
+    /* Y NUNCA mas alta que la ventana. Antes se apoyaba en `max-height:100%` del contenedor,
+       que en una ventana baja no bastaba y la hoja se salia por abajo con el boton de guardar
+       fuera de la pantalla. Con dvh cuenta la barra del navegador movil, que es justo donde
+       peor se notaba. */
+    max-height:calc(100dvh - 2 * var(--space-4));overflow:auto;
+    /* El ritmo lo llevan los GRUPOS, no los campos. Entre un grupo y el siguiente, aire
+       (space-5); dentro de un grupo, casi nada (4-6px). Antes habia un solo hueco repetido
+       ocho veces y todo pesaba igual: ni el titulo lideraba ni se veia que «Nombre» y sus
+       tres idiomas fueran una sola cosa. */
+    display:grid;gap:var(--space-5);padding:var(--space-5);
+    background:var(--sc-surface);border:1px solid var(--sc-border);
+    border-radius:var(--radius-card);
+    box-shadow:0 24px 64px color-mix(in srgb, var(--sc-canvas) 60%, transparent);
+    animation:adm-modal-caja var(--t-fast) var(--ease-out);
+  }
+  /* El h2 del panel viejo llega en versales apretadas de 12px: aqui es el titulo de la hoja
+     y tiene que leerse como tal. Se dice todo a mano para no heredar nada de aquella regla. */
+  .adm-alta-t{
+    margin:0;font-family:inherit;font-size:var(--t1);font-weight:600;
+    letter-spacing:-.01em;text-transform:none;color:var(--sc-text);
+  }
+  /* La hoja del PLATO es la unica con cabecera y pie: tiene tantos campos que el boton de
+     guardar se iba debajo del borde en cuanto el cuerpo se desplazaba. La de anadir seccion
+     son dos campos y se queda como estaba — ponerle un pie fijo a un formulario de tres
+     lineas es marco sin cuadro. */
+  .adm-alta-hoja{
+    width:min(920px,100%);
+    padding:0;gap:0;overflow:hidden;
+    grid-template-rows:auto minmax(0,1fr) auto;
+  }
+  .adm-alta-cab{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3);
+    padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--sc-border);
+  }
+  .adm-alta-cab-txt{min-width:0}
+  /* La ruta va ARRIBA del titulo y en versales pequenas: dice donde estas sin competir con
+     lo que vas a hacer, que es lo que dice el titulo. */
+  .adm-alta-ruta{
+    margin:0 0 3px;display:flex;align-items:center;gap:6px;min-width:0;
+    font-size:var(--t4);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--sc-text-2);
+  }
+  .adm-alta-ruta-cat{color:var(--sc-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .adm-alta-ruta-cat:empty{display:none}
+  .adm-alta-ruta-cat:empty + *,.adm-alta-ruta span[aria-hidden]:has(+ .adm-alta-ruta-cat:empty){display:none}
+  .adm-alta-x{
+    flex:none;width:34px;height:34px;display:grid;place-items:center;padding:0;
+    border:0;border-radius:var(--radius-md);background:transparent;
+    color:var(--sc-text-2);cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  .adm-alta-x svg{width:18px;height:18px}
+  .adm-alta-x:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-alta-x:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  /* Lo unico que se desplaza. El ritmo lo llevan los GRUPOS, no los campos: entre grupo y
+     grupo, aire; dentro de un grupo, casi nada. */
+  .adm-alta-cuerpo{
+    min-height:0;overflow:auto;
+    display:grid;gap:var(--space-4);align-content:start;
+    padding:var(--space-4) var(--space-5);
+  }
+  .adm-alta-pie{
+    display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+    padding:var(--space-3) var(--space-5);
+    border-top:1px solid var(--sc-border);background:var(--sc-muted-bg);
+  }
+  .adm-alta-tip{margin:0;font-size:var(--t4);color:var(--sc-text-2)}
+  .adm-alta-tip kbd{
+    display:inline-block;padding:1px 5px;border:1px solid var(--sc-border);
+    border-radius:4px;background:var(--sc-surface);
+    font:inherit;font-size:var(--t4);font-weight:600;color:var(--sc-text);
+  }
+  .adm-alta-acc{display:flex;align-items:center;gap:var(--space-3);flex:none}
+  @media (max-width:560px){
+    .adm-alta-tip{display:none}
+    .adm-alta-acc{flex:1 1 auto}
+    .adm-alta-acc .adm-btn{flex:1 1 0}
+  }
+  /* Dos columnas a partir de 700 de ventana; por debajo, una — que es lo mismo que hacia
+     antes, y en un movil dos columnas de campos de texto no caben. */
+  .adm-alta-cols{display:grid;gap:var(--space-5);min-width:0}
+  .adm-alta-col{display:grid;gap:var(--space-4);align-content:start;min-width:0}
+  @media (min-width:700px){ .adm-alta-cols{grid-template-columns:1fr 1fr} }
+  .adm-alta-g{display:grid;gap:6px;min-width:0}
+  .adm-alta-g2{display:grid;gap:6px;min-width:0}
+  .adm-alta-et{font-size:var(--t3);font-weight:600;color:var(--sc-text);line-height:1.2}
+  .adm-alta-op{font-weight:400;color:var(--sc-text-2)}
+  /* El rotulo a la izquierda y la nota a la derecha, en la MISMA linea: «IVA incluido» o
+     «Opcional» son de ese campo y no merecen un renglon propio. */
+  .adm-alta-et-fila{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3);min-width:0}
+  .adm-alta-ayuda{font-size:var(--t4);font-weight:400;color:var(--sc-text-2)}
+  .adm-alta-obl{font-size:var(--t4);font-weight:600;color:var(--sc-primary)}
+  .adm-alta-req{color:var(--sc-primary)}
+  /* Las pestanas de idioma. Se ven las tres, se rellena una: la activa levanta con el fondo
+     de la superficie sobre el carril gris, que es como se lee «esta es la que estas viendo»
+     sin gastar un borde. */
+  .adm-alta-idi-tira{
+    display:flex;gap:2px;padding:3px;
+    border-radius:var(--radius-lg);background:var(--sc-muted-bg);
+  }
+  .adm-alta-idi-tab{
+    flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:6px 8px;border:0;border-radius:var(--radius-md);background:transparent;
+    font:inherit;font-size:var(--t4);font-weight:500;color:var(--sc-text-2);cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  .adm-alta-idi-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .adm-alta-idi-ob{font-size:var(--t4);font-weight:400;color:var(--sc-text-2)}
+  .adm-alta-idi-punto{
+    flex:none;width:6px;height:6px;border-radius:50%;background:var(--sc-border);
+  }
+  .adm-alta-idi-tab:hover{color:var(--sc-text)}
+  .adm-alta-idi-tab[aria-selected="true"]{
+    background:var(--sc-surface);color:var(--sc-text);font-weight:600;
+    box-shadow:0 1px 2px color-mix(in srgb, var(--sc-canvas) 22%, transparent);
+  }
+  .adm-alta-idi-tab[aria-selected="true"] .adm-alta-idi-punto{background:var(--sc-primary)}
+  .adm-alta-idi-tab:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-alta-idi-panel{display:grid;gap:var(--space-3);min-width:0}
+  .adm-alta-idi-panel[hidden]{display:none}
+  .adm-alta-area{resize:vertical;min-height:62px;line-height:1.4;padding-top:7px;padding-bottom:7px}
+  .adm-alta-precio{position:relative;min-width:0}
+  .adm-alta-precio .adm-campo{padding-right:30px;font-weight:600}
+  .adm-alta-euro{
+    position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    font-size:var(--t3);font-weight:700;color:var(--sc-text-2);pointer-events:none;
+  }
+  /* Los tres idiomas de un mismo campo, pegados: un hilo de 1px entre ellos dice «esto es una
+     lista» sin gastar el aire que separa un grupo del siguiente. */
+  .adm-alta-idiomas{
+    display:grid;gap:1px;border-radius:var(--ui-radius-control);overflow:hidden;
+    background:var(--sc-border);
+  }
+  .adm-alta-idioma{display:grid;grid-template-columns:34px 1fr;align-items:center;background:var(--sc-surface)}
+  .adm-alta-cod{
+    height:100%;display:grid;place-items:center;
+    font-size:var(--t4);font-weight:600;letter-spacing:.06em;
+    color:var(--sc-text-2);background:var(--sc-muted-bg);
+  }
+  /* El campo dentro del bloque pierde su borde y sus esquinas: el borde ya lo pone el bloque,
+     y tres cajas redondeadas dentro de una cuarta redondeada son cuatro bordes discutiendo. */
+  .adm-alta-idioma .adm-campo{
+    border:0;border-radius:0;background:transparent;min-width:0;
+  }
+  .adm-alta-idioma:focus-within{background:var(--sc-surface);outline:2px solid var(--sc-primary);outline-offset:-2px;border-radius:2px}
+  .adm-alta-idioma .adm-campo:focus,.adm-alta-idioma .adm-campo:focus-visible{outline:none;box-shadow:none}
+  .adm-alta-pista{
+    margin:0;display:flex;align-items:flex-start;gap:8px;
+    padding:9px 10px;border-radius:var(--radius-lg);
+    border:1px solid var(--sc-border);background:var(--sc-muted-bg);
+    font-size:var(--t4);line-height:1.4;color:var(--sc-text-2);
+  }
+  .adm-alta-pista svg{flex:none;width:15px;height:15px;margin-top:1px}
+  /* Catorce casillas en dos columnas: en una sola serian catorce renglones y la hoja pasaria
+     de largo a interminable; en tres, los rotulos mas largos —«Frutos de cascara»— parten. */
+  /* El lapiz de la fila: apagado hasta que el puntero entra, encendido siempre con el dedo. */
+  .adm-prow-editar{
+    flex:none;width:26px;height:26px;display:grid;place-items:center;padding:0;
+    border:0;border-radius:var(--radius-md);background:transparent;
+    color:var(--sc-text-2);opacity:0;cursor:pointer;
+    transition:opacity var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+  }
+  .adm-prow-editar svg{width:14px;height:14px}
+  .adm-platorow:hover .adm-prow-editar,
+  .adm-prow-editar:focus-visible{opacity:1}
+  .adm-prow-editar:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-prow-editar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  @media (pointer:coarse){ .adm-prow-editar{opacity:1} }
+  /* La foto ocupa lo que le sobra a la columna derecha. Un boton de 44px al lado de la
+     palabra «Foto» no decia que ahi cabe una foto; una zona de puntos del alto de la columna,
+     si — y ademas se le puede soltar el archivo encima. Hereda de .camara, asi que se le
+     quita a mano todo lo que aquella fija: medidas, area de toque y el punto de «tiene». */
+  /* La columna derecha se ESTIRA y la foto se queda con todo lo que sobra despues del
+     precio. Antes la zona medía lo que decía su min-height y debajo quedaba un hueco muerto
+     tan alto como la columna de la izquierda: el sitio estaba, pero no era de nadie. */
+  .adm-alta-g-foto{align-content:start}
+  @media (min-width:700px){
+    .adm-alta-cols > .adm-alta-col:last-child{align-content:stretch;grid-template-rows:auto 1fr}
+    .adm-alta-g-foto{align-content:stretch;grid-template-rows:auto minmax(0,1fr) auto;min-height:0}
+    .adm-alta-suelta{height:100%}
+  }
+  .adm-alta-suelta{
+    width:100%;min-height:132px;height:auto;opacity:1;
+    display:grid;place-items:center;align-content:center;gap:5px;
+    padding:var(--space-4);text-align:center;
+    border:2px dashed var(--sc-border);border-radius:var(--radius-lg);
+    background:transparent;color:var(--sc-text-2);cursor:pointer;
+    transition:border-color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+  }
+  .adm-alta-suelta::before,.adm-alta-suelta::after{content:none}
+  .adm-alta-suelta:hover,.adm-alta-suelta[data-encima]{
+    border-color:var(--sc-primary);background:var(--sc-muted-bg);color:var(--sc-text);
+  }
+  .adm-alta-suelta:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-alta-suelta-ico{
+    width:46px;height:46px;display:grid;place-items:center;margin-bottom:2px;
+    border:1px solid var(--sc-border);border-radius:50%;background:var(--sc-surface);
+  }
+  .adm-alta-suelta-ico svg{width:22px;height:22px}
+  .adm-alta-suelta-t{font-size:var(--t3);font-weight:600;color:var(--sc-text);line-height:1.3}
+  .adm-alta-suelta-p{font-size:var(--t4);color:var(--sc-text-2);line-height:1.3}
+  .adm-alta-foto-vista{
+    width:118px;height:118px;border-radius:var(--radius-lg);object-fit:cover;display:block;
+  }
+  /* Con foto puesta manda la foto: el dibujo del marco sobra y el texto pasa a decir lo unico
+     que queda por saber, que es que se sube al guardar. */
+  .adm-alta-suelta[data-con-foto]{border-style:solid}
+  .adm-alta-suelta[data-con-foto] .adm-alta-suelta-ico,
+  .adm-alta-suelta[data-con-foto] .adm-alta-suelta-p{display:none}
+  /* Sin JavaScript el recortador no existe, asi que el bloque de la foto tampoco: prometer
+     un boton que no hace nada es peor que no ofrecerlo. */
+  html:not(.adm-con-js) .adm-solo-js{display:none}
+  /* A todo el ancho y en fichas. Antes eran dos columnas de texto dentro de media hoja:
+     catorce renglones estrechos en los que «Frutos de cascara» partia. Con la hoja mas ancha
+     caben cinco por fila, tres filas, y cada uno es un blanco de raton entero. */
+  .adm-alergenos{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:6px}
+  .adm-alergeno{
+    display:flex;align-items:center;gap:8px;min-height:30px;min-width:0;
+    padding:4px 9px;border:1px solid var(--sc-border);border-radius:var(--radius-lg);
+    font-size:var(--t4);color:var(--sc-text);cursor:pointer;
+    transition:border-color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+  }
+  .adm-alergeno:hover{background:var(--sc-muted-bg)}
+  .adm-alergeno input{flex:none;width:16px;height:16px;accent-color:var(--sc-primary);margin:0}
+  .adm-alergeno-ico{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--sc-text-2)}
+  .adm-alergeno-ico svg{width:18px;height:18px;display:block}
+  .adm-alergeno-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* SUGERIDO no es MARCADO, y tiene que verse que no lo es: el sugerido lleva el nombre en
+     negrita y un borde de puntos —algo por decidir—; el marcado lleva borde entero y fondo.
+     Si se parecieran, se leeria como que ya esta puesto y nadie lo repasaria. */
+  .adm-alergeno[data-sugerido]:not(:has(input:checked)){
+    border-style:dashed;
+    border-color:color-mix(in srgb, var(--sc-primary) 55%, var(--sc-border));
+  }
+  .adm-alergeno[data-sugerido]:not(:has(input:checked)) .adm-alergeno-txt{font-weight:700}
+  .adm-alergeno[data-sugerido]:not(:has(input:checked)) .adm-alergeno-ico{color:var(--sc-primary)}
+  .adm-ale-sug{
+    margin:0;display:flex;align-items:flex-start;gap:8px;
+    padding:8px 10px;border-radius:var(--radius-lg);
+    border:1px dashed color-mix(in srgb, var(--sc-primary) 45%, var(--sc-border));
+    font-size:var(--t4);line-height:1.4;color:var(--sc-text-2);
+  }
+  .adm-ale-sug[hidden]{display:none}
+  .adm-ale-sug b{color:var(--sc-text)}
+  .adm-alergeno:has(input:checked){
+    border-color:var(--sc-primary);border-style:solid;
+    background:color-mix(in srgb, var(--sc-primary) 8%, transparent);
+  }
+  .adm-alergeno:has(input:focus-visible){outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-alergeno:has(input:checked) .adm-alergeno-txt{font-weight:600}
+  .adm-alergeno:has(input:checked) .adm-alergeno-ico{color:var(--sc-primary)}
+  @media (max-width:460px){ .adm-alergenos{grid-template-columns:1fr 1fr} }
+  .adm-alta-fila{grid-template-columns:1fr 1fr;gap:var(--space-3)}
+  .adm-alta-nota{
+    margin:0;padding-top:var(--space-3);border-top:1px solid var(--sc-border);
+    font-size:var(--t4);line-height:1.4;color:var(--sc-text-2);
+  }
+  /* Ventanas bajas —un portatil de 13 pulgadas con la barra del navegador— aprietan lo que
+     se puede apretar sin quitar nada: la zona de la foto, el aire entre grupos y los pies de
+     texto. Es preferible a que aparezca un desplazamiento dentro del formulario, que es lo
+     que se pidio quitar. */
+  @media (max-height:880px){
+    .adm-alta-cuerpo{gap:var(--space-3);padding:var(--space-3) var(--space-4)}
+    .adm-alta-suelta{min-height:104px;padding:var(--space-3)}
+    .adm-alta-suelta-ico{width:38px;height:38px}
+    .adm-alta-suelta-ico svg{width:19px;height:19px}
+    .adm-alta-area{min-height:54px}
+    .adm-alta-foto-vista{width:92px;height:92px}
+    .adm-alta-cab{padding:var(--space-3) var(--space-4)}
+    .adm-alta-pie{padding:var(--space-2) var(--space-4)}
+    .adm-alergeno{min-height:28px;padding:3px 8px}
+    .adm-alta-pista{padding:7px 9px}
+  }
+  @media (max-height:760px){
+    .adm-alta-suelta{min-height:62px}
+    .adm-alta-suelta-p{display:none}
+    .adm-alta-suelta-ico{width:32px;height:32px}
+    .adm-alta-suelta-ico svg{width:17px;height:17px}
+    .adm-alta-foto-vista{width:72px;height:72px}
+    .adm-alta-area{min-height:40px}
+    .adm-alta-nota{padding-top:var(--space-2)}
+    .adm-alta-col{gap:var(--space-3)}
+    .adm-alta-cab{padding:10px var(--space-4)}
+    .adm-alergeno{min-height:26px;padding:2px 8px}
+    .adm-alta-cuerpo{gap:10px}
+    /* Lo primero que se cae es la caja que repite lo que ya dicen la pestana «(oblig.)» y el
+       rotulo «Obligatorio»: entre perder una explicacion duplicada y que el formulario se
+       desplace por dentro, se pierde la explicacion. */
+    .adm-alta-pista{display:none}
+  }
+  /* El boton de guardar. En la hoja del plato vive en el pie fijo, asi que ya no necesita
+     pegarse el solo; en la de seccion sigue siendo el ultimo bloque, a todo el ancho. */
+  .adm-alta-si{
+    min-height:44px;padding-left:var(--space-5);padding-right:var(--space-5);
+    border-color:var(--sc-primary);background:var(--sc-primary);color:#fff;font-weight:600;
+  }
+  .adm-alta-caja:not(.adm-alta-hoja) .adm-alta-si{width:100%}
+  .adm-alta-no{min-height:44px;padding-left:var(--space-4);padding-right:var(--space-4)}
+  .adm-alta-si:hover{
+    background:color-mix(in srgb, var(--sc-primary) 88%, black);
+    border-color:color-mix(in srgb, var(--sc-primary) 88%, black);
+  }
+  .adm-alta-si:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  /* Sin JavaScript no hay hoja: es el ultimo bloque de la pantalla, y se manda igual. */
+  html:not(.adm-con-js) .adm-alta,
+  html:not(.adm-con-js) .adm-alta[hidden]{
+    display:block;position:static;padding:0;margin-top:var(--space-4);
+  }
+  html:not(.adm-con-js) .adm-alta-fondo{display:none}
+  html:not(.adm-con-js) .adm-alta-caja{width:auto;box-shadow:none;animation:none}
+  /* Sin JavaScript no hay pestanas de idioma que valgan: se ven los tres bloques, porque el
+     que va a rellenarlos no tiene con que cambiar de uno a otro. */
+  html:not(.adm-con-js) .adm-alta-hoja{max-height:none;overflow:visible}
+  html:not(.adm-con-js) .adm-alta-cuerpo{overflow:visible}
+  html:not(.adm-con-js) .adm-alta-idi-tira{display:none}
+  html:not(.adm-con-js) .adm-alta-idi-panel[hidden]{display:grid}
+  html:not(.adm-con-js) .adm-alta-x{display:none}
+  @media (max-width:560px){ .adm-alta-fila{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){
+    .adm-alta-fondo,.adm-alta-caja{animation:none}
+  }
+
+  /* ---- la confirmacion, con la cara del panel ----
+     `confirm()` pinta el cuadro del NAVEGADOR: sale pegado a la barra de direcciones, arriba
+     y a la izquierda, con la tipografia del sistema operativo y un «127.0.0.1 dice» por
+     titulo. No se parece a nada de esta pantalla y aparece lejos de donde esta mirando el que
+     acaba de pulsar. Esta es la misma pregunta, con los tokens del panel y en el centro.
+     Sigue siendo bloqueante —no se puede seguir sin contestar—, que es lo unico que hacia
+     bien el del navegador. */
+  .adm-modal{
+    position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:var(--space-4);
+  }
+  .adm-modal[hidden]{display:none}
+  .adm-modal-fondo{
+    position:absolute;inset:0;
+    background:color-mix(in srgb, var(--sc-canvas) 72%, transparent);
+    animation:adm-modal-fondo var(--t-fast) var(--ease-out);
+  }
+  .adm-modal-caja{
+    position:relative;width:min(420px,100%);max-height:100%;overflow:auto;
+    display:grid;gap:var(--space-3);padding:var(--space-5);
+    background:var(--sc-surface);border:1px solid var(--sc-border);
+    border-radius:var(--radius-card);
+    box-shadow:0 24px 64px color-mix(in srgb, var(--sc-canvas) 60%, transparent);
+    animation:adm-modal-caja var(--t-fast) var(--ease-out);
+  }
+  .adm-modal-t{
+    margin:0;font-family:inherit;font-size:var(--t1);font-weight:600;line-height:1.3;
+    letter-spacing:-.01em;text-transform:none;color:var(--sc-text);
+  }
+  .adm-modal-txt{margin:0;font-size:var(--t2);line-height:1.45;color:var(--sc-text-2)}
+  .adm-modal-txt:empty{display:none}
+  .adm-modal-pie{display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-2)}
+  /* El boton que confirma algo que quita cosas de la carta se pinta como lo que es.
+     Con --sc-bad-ink y NO con --ui-state-danger, aunque sea su alias: ese alias se declara
+     dentro de .adm-board y esta capa vive al final del <body>, fuera. Ahi no resolvia, la
+     declaracion del fondo se caia entera —y el `color:#fff` de al lado no, porque es otra
+     declaracion— y el boton salia con texto blanco sobre blanco: invisible. El cuadro se veia
+     con un solo boton, «Cancelar», y no habia forma de confirmar nada. */
+  .adm-modal[data-tono="peligro"] .adm-modal-si{
+    border-color:var(--sc-bad-ink);background:var(--sc-bad-ink);color:#fff;
+  }
+  .adm-modal[data-tono="peligro"] .adm-modal-si:hover{
+    background:color-mix(in srgb, var(--sc-bad-ink) 88%, black);
+    border-color:color-mix(in srgb, var(--sc-bad-ink) 88%, black);
+  }
+  @keyframes adm-modal-fondo{from{opacity:0}to{opacity:1}}
+  @keyframes adm-modal-caja{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .adm-modal-fondo,.adm-modal-caja{animation:none}
+  }
+
+  /* ---- renombrar la categoria ----
+     El lapiz vive en la cabecera de la ficha, apagado, y solo se enciende cuando el puntero
+     entra en la cabecera: cuarenta lapices encendidos a la vez serian cuarenta manchas por
+     encima de lo unico que importa ahi, que es el nombre. */
+  .adm-cat-nombre{position:relative;flex:none;margin-left:2px}
+  .adm-cat-nombre-b{
+    list-style:none;width:28px;height:28px;display:grid;place-items:center;cursor:pointer;
+    border-radius:var(--radius-md);color:var(--sc-text-2);opacity:.45;
+    transition:opacity var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+  }
+  .adm-cat-nombre-b::-webkit-details-marker{display:none}
+  .adm-cat-nombre-b svg{width:15px;height:15px}
+  .adm-cat-bento-cab:hover .adm-cat-nombre-b,
+  .adm-cat-nombre[open] .adm-cat-nombre-b,
+  .adm-cat-nombre-b:focus-visible{opacity:1}
+  .adm-cat-nombre-b:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-cat-nombre-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  @media (pointer:coarse){ .adm-cat-nombre-b{opacity:1} }
+  /* El formulario cuelga de la cabecera, por encima de la lista: es una hoja pequeña, no una
+     seccion mas de la ficha — abrirla no puede empujar los platos hacia abajo. */
+  /* FIJA, no absoluta. La ficha lleva `overflow:hidden` —lo necesita para sus esquinas
+     redondeadas— y una hoja absoluta dentro se recortaba: el ultimo idioma quedaba cortado
+     por el borde de la tarjeta. Fija se sale de cualquier recorte, y el sitio se lo pone el
+     script debajo del lapiz, sin salirse de la pantalla. */
+  /* MEDIDO, y era un fallo de verdad: un <details> CERRADO no oculta a un hijo
+     `position:fixed` — se sale del flujo y se pinta igual. Resultado: 49 formularios con
+     caja, invisibles pero maquetados y alcanzables con el tabulador, en cada carga. Se
+     apagan a mano; abrir el <details> los enciende. */
+  .adm-cat-nombre:not([open]) .adm-cat-nombre-f{display:none}
+  .adm-cat-nombre-f{
+    position:fixed;z-index:40;
+    width:min(320px,calc(100vw - 24px));display:grid;gap:var(--space-3);
+    padding:var(--space-4);
+    background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:var(--radius-card);
+    box-shadow:0 12px 32px color-mix(in srgb, var(--sc-canvas) 55%, transparent);
+    max-height:calc(100vh - 24px);overflow:auto;
+  }
+  .adm-cat-nombre-l{display:grid;gap:4px}
+  .adm-cat-nombre-idioma{font-size:var(--t4);font-weight:600;color:var(--sc-text-2)}
+  .adm-cat-nombre-pie{display:grid;gap:var(--space-2)}
+  .adm-cat-nombre-nota{font-size:var(--t4);line-height:1.35;color:var(--sc-text-2)}
+  /* Sin JavaScript el <details> se abre igual y el formulario se manda igual; ahi si empuja
+     la lista, y esta bien: es la unica forma de verlo. */
+  html:not(.adm-con-js) .adm-cat-nombre-f{position:static;width:auto;box-shadow:none;max-height:none}
+
+  /* ---- mover el plato: dos flechas, como las fotos de portada ----
+     Sustituyen al arrastre. El arrastre funcionaba —costo dos fallos llegar ahi: la captura
+     del puntero se perdia al mover el nodo, y la fila de destino se perdia bajo la cabecera
+     fija— pero el propietario prefiere el control que el panel YA usa para reordenar las
+     fotos de portada, y tiene razon en lo que importa: es el mismo gesto en dos sitios del
+     mismo panel, funciona igual con raton, dedo y teclado, y no hay nada que se pueda soltar
+     a medias. El precio, dicho: mover un plato quince puestos son quince pulsaciones.
+
+     Se dibujan a 20 y se tocan a 44, como el resto de controles compactos del panel. Apagadas
+     en reposo para no encender 624 flechas a la vez, y encendidas en cuanto el puntero entra
+     en la fila o una recibe el foco. Con dedo se ven siempre: ahi no hay hover que revele
+     nada. */
+  /* Dos CIRCULOS separados, no dos galones pegados. Eran 20x28 transparentes y contiguos: el
+     blanco visible no coincidia con el blanco tocable, los dos huecos de 44px se solapaban 10
+     en medio, y se acababa pulsando «bajar» queriendo subir. Ahora cada uno tiene su propio
+     cuerpo dibujado —28 de circulo con fondo— y su hueco tocable no pisa al del vecino:
+     centros a 34px, area de 32, cero solape. Lo que se ve es lo que se toca. */
+  .adm-orden-flechas{display:flex;flex:none;gap:6px;align-items:center}
+  /* Las de la categoria van delante de su nombre, que es donde se busca lo que mueve ese
+     titulo. Algo menores que las de los platos: mueven menos veces y compiten con el nombre. */
+  .adm-cat-orden{flex:none}
+  /* Las de la seccion van dentro del propio chip, delante del nombre. Aun menores: el chip
+     mide 32 de alto y tiene ya un lapiz al otro lado. */
+  .adm-pest-orden{flex:none;display:flex;gap:2px;align-items:center}
+  .adm-pest-orden:empty{display:none}
+  /* 24x24, no 20: es el minimo de WCAG 2.2 para un area tactil, y la variante de categoria
+     de dos lineas mas abajo ya lo cumplia. Lo canto Lighthouse comparando con el control. */
+  .adm-pest-orden .adm-orden-b{width:24px;height:24px;background:transparent}
+  .adm-pest-orden .adm-orden-b svg{width:13px;height:13px}
+  .adm-pest-orden .adm-orden-b:hover:not(:disabled){background:var(--sc-muted-bg)}
+  .adm-pestana:hover .adm-pest-orden .adm-orden-b{opacity:1}
+  .adm-cat-orden:empty{display:none}
+  .adm-cat-orden .adm-orden-b{width:24px;height:24px}
+  .adm-cat-orden .adm-orden-b svg{width:13px;height:13px}
+  .adm-cat-bento-cab:hover .adm-cat-orden .adm-orden-b{opacity:1}
+  .adm-orden-b{
+    flex:none;width:28px;height:28px;min-height:0;padding:0;position:relative;
+    border:0;border-radius:50%;background:var(--sc-muted-bg);color:var(--sc-text-2);
+    display:grid;place-items:center;cursor:pointer;opacity:.6;
+    transition:opacity var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
+               background var(--t-fast) var(--ease-out);
+  }
+  /* El hueco tocable: 32 de ancho para no pisar al de al lado, 44 de alto. */
+  .adm-orden-b::before{
+    content:"";position:absolute;left:50%;top:50%;width:32px;height:44px;
+    transform:translate(-50%,-50%);
+  }
+  .adm-orden-b svg{width:15px;height:15px;pointer-events:none}
+  .adm-orden-b:hover{background:var(--sc-selected-bg);color:var(--sc-selected-text)}
+  .adm-platorow:hover .adm-orden-b,
+  .adm-orden-b:focus-visible{opacity:1}
+  .adm-orden-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-orden-b:disabled{opacity:.25;cursor:default;background:transparent}
+  .adm-platorow:hover .adm-orden-b:disabled{opacity:.25}
+  .adm-orden-b:disabled:hover{background:transparent;color:var(--sc-text-2)}
+  @media (pointer:coarse){ .adm-orden-b{opacity:1} .adm-orden-b:disabled{opacity:.3} }
+  /* Estrecho: circulos algo menores para no comerle ancho al nombre del plato. */
+  @media (max-width:560px){
+    .adm-orden-flechas{gap:4px}
+    .adm-orden-b{width:26px;height:26px}
+    .adm-orden-b::before{width:30px}
+    .adm-orden-b svg{width:14px;height:14px}
+  }
+  /* Filtrando no se reordena: la lista que se ve no es la lista que se guarda. */
+  .esta-filtrando .adm-orden-flechas{display:none}
+
+  /* ---- retirar de la carta ----
+     El boton va apagado y al final del grupo: no es del dia a dia. Se enciende al entrar en la
+     fila, como las flechas, y en rojo solo cuando de verdad se va a pulsar — un cubo rojo en
+     312 filas es una pantalla que da miedo tocar. */
+  .adm-retirar-b{
+    flex:none;width:28px;height:28px;min-height:0;padding:0;
+    border:0;border-radius:var(--radius-md);background:transparent;color:var(--sc-text-2);
+    display:grid;place-items:center;cursor:pointer;opacity:.45;
+    transition:opacity var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+  }
+  .adm-retirar-b svg{width:15px;height:15px;pointer-events:none}
+  .adm-platorow:hover .adm-retirar-b,
+  .adm-retirar-b:focus-visible{opacity:1}
+  .adm-retirar-b:hover{background:var(--sc-bad-bg);color:var(--sc-bad-ink)}
+  .adm-retirar-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  @media (pointer:coarse){ .adm-retirar-b{opacity:1} }
+
+  /* La fila retirada. Se queda a la vista —hay que poder devolverla— pero dice sin lugar a
+     dudas que ya no esta en la carta: apagada, el nombre tachado y su hueco de numero vacio,
+     porque el numero se lo ha quedado otro. Su boton de devolver se ve siempre: si no, para
+     recuperarla habria que adivinar donde esta. */
+  .adm-platorow.es-retirado{opacity:.5}
+  .adm-platorow.es-retirado .adm-orow-nm{text-decoration:line-through}
+  .adm-platorow.es-retirado .adm-retirar-b{opacity:1;color:var(--sc-primary)}
+  .adm-platorow.es-retirado .adm-retirar-b:hover{background:var(--sc-selected-bg);color:var(--sc-selected-text)}
+  /* Las flechas de una fila retirada no pintan nada: no esta en la carta, su sitio da igual. */
+  .adm-platorow.es-retirado .adm-orden-flechas{visibility:hidden}
+
+  /* La fila que se acaba de mover se enciende un momento: con 312 filas iguales, sin esto no
+     se sabe cual se ha movido. Y las vecinas se apartan deslizandose (ver deslizando()). */
+  .adm-platorow.recien-movida{
+    background:var(--sc-selected-bg);border-radius:var(--radius-lg);
+  }
+  .adm-platorow[data-deslizando]{transition:transform 180ms var(--ease-out)}
+  @media (prefers-reduced-motion:reduce){
+    .adm-platorow[data-deslizando]{transition:none}
+    .adm-platorow.recien-movida{transition:none}
   }
 
   /* ---- la fila de precio ----
@@ -6303,6 +8666,9 @@ $CUENTAS = [
      siete bloques naranjas seguidos, que es exactamente el "si todo es naranja nada
      destaca" del punto 7. La pastilla suave es la misma que marca el destino activo
      del sidebar. */
+  /* La hora es una CIFRA: tabular para que las dos listas midan lo mismo elijas lo que
+     elijas, y centrada porque el desplegable ya lleva su chevron a la derecha. */
+  .adm-hora-sel{font-variant-numeric:tabular-nums;text-align:center;min-width:0;flex:1 1 0}
   .adm-dias{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
   .adm-dia{
     flex:none;position:relative;width:36px;height:36px;
@@ -6320,15 +8686,46 @@ $CUENTAS = [
   .adm-dia:hover{background:var(--sc-hover-bg);color:var(--sc-text-medio)}
   .adm-dia:has(input:checked){background:var(--sc-selected-bg);color:var(--sc-selected-text);font-weight:600}
   .adm-dia:has(input:focus-visible){outline:2.5px solid var(--sc-primary);outline-offset:2px}
-  /* "Semanal" es un boton compacto del sistema, no una pastilla aparte. */
+  /* "Semanal" es un BOTON, y en revision no lo parecia: sin filete, del mismo alto, del
+     mismo radio y del mismo cuerpo que un dia, y con el gris que aqui significa "dia sin
+     marcar", se leia como un octavo dia apagado al final de la fila. Ahora lleva las tres
+     cosas que separan un boton de una pastilla de seleccion: un filete propio, su propia
+     linea bajo el rotulo «Frecuencia» —antes era un separador de 1px detras del domingo,
+     retirado al pasar el boton a su fila—, y su propia respuesta al puntero (levanta el
+     filete y el texto, no se rellena como si quedara "elegido"). El grupo de dias no cambia
+     ni de medida ni de estados: sigue siendo 36x36, radio 10.4, gris apagado / naranja
+     suave marcado. */
   .adm-dia-semanal{
-    flex:none;margin-left:var(--space-1);min-height:36px;padding:0 var(--space-3);
-    border:0;border-radius:var(--radius-lg);background:transparent;color:var(--sc-text-2);
-    font-family:inherit;font-size:var(--t3);font-weight:500;cursor:pointer;white-space:nowrap;
-    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
+    flex:none;min-height:36px;padding:0 var(--space-3);
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid var(--sc-border);border-radius:var(--radius-lg);
+    background:var(--sc-surface);color:var(--sc-text-medio);
+    font-family:inherit;font-size:var(--t3);font-weight:600;cursor:pointer;white-space:nowrap;
+    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out),
+               border-color var(--t-press) var(--ease-out);
   }
-  .adm-dia-semanal:hover{background:var(--sc-muted-bg);color:var(--sc-text-medio)}
-  .adm-dia-semanal[aria-pressed="true"]{background:var(--sc-muted-bg);color:var(--sc-text-medio);font-weight:600}
+  .adm-dia-semanal:hover{border-color:var(--sc-text-2);color:var(--sc-text)}
+  .adm-dia-semanal:focus-visible{outline:2.5px solid var(--sc-primary);outline-offset:2px}
+  .adm-dia-semanal-ok{display:none;width:15px;height:15px;flex:none}
+  /* Con los siete ya puestos el boton no hace nada (el listener sale antes de tocar
+     nada): se dice con una marca y bajando el enfasis, no rellenandolo — un boton relleno
+     invita a pulsarlo otra vez. */
+  .adm-dia-semanal[aria-pressed="true"]{
+    border-style:dashed;color:var(--sc-text-2);cursor:default;
+  }
+  .adm-dia-semanal[aria-pressed="true"]:hover{border-color:var(--sc-border);color:var(--sc-text-2)}
+  .adm-dia-semanal[aria-pressed="true"] .adm-dia-semanal-ok{display:block}
+  /* La linea que separa "esto esta configurado" de "esto se ve en la carta". */
+  .adm-dias-nota{
+    margin:var(--space-2) 0 0;font-size:var(--t4);line-height:1.45;color:var(--sc-text-2);
+  }
+  /* Oferta apagada: la configuracion se conserva y se sigue pudiendo tocar, pero deja de
+     pintarse como si estuviera corriendo. Sin esto, siete dias en el naranja de "activo"
+     con la insignia diciendo APAGADA se contradicen a la vista. */
+  .adm-f-ooferta[data-apagada] .adm-dia:has(input:checked){
+    background:var(--sc-muted-bg);color:var(--sc-text-medio);
+    box-shadow:inset 0 0 0 1.5px var(--sc-text-2);
+  }
 
   /* El interruptor "Todos" (categoría entera en la oferta) se quitó de la cabecera de la
      ficha por orden expresa del propietario — "esto nunca va a pasar" en su negocio. Se
@@ -6362,9 +8759,14 @@ $CUENTAS = [
     /* Un solo ritmo de fila en todo el producto. El relleno y el filete ya eran los
        mismos en Platos y en Ofertas; lo que las separaba era el CONTENIDO — la fila de
        Platos la estira su campo de precio de 40 (56 en total) y la de Ofertas se quedaba
-       en 38 con solo un interruptor de 22. Con el minimo, las dos respiran igual. */
-    min-height:56px;
-    padding:var(--space-2) var(--space-4);border-top:1px solid var(--sc-border);
+       en 38 con solo un interruptor de 22. Con el minimo, las dos respiran igual.
+
+       FASE 2, densidad: 56 -> 48. NO se toca el campo de precio, que sigue midiendo 40 y es
+       lo que de verdad marca el suelo de esta fila: lo que baja es el relleno, de 8 a 4. Son
+       ocho pixeles por fila, y hay 312 filas — unos 2.500 de scroll menos en la carta entera,
+       y dos filas mas por pantalla. El blanco tactil se queda en 48, por encima del minimo. */
+    min-height:48px;
+    padding:var(--space-1) var(--space-4);border-top:1px solid var(--sc-border);
     cursor:pointer;
   }
   .adm-orow:first-child{border-top:0}
@@ -6541,23 +8943,88 @@ $CUENTAS = [
      Los cuatro datos en una fila y en el orden en que se dicen: cuanto, cuando (horas),
      cuando (dias) y, al final, encendida o no. Encender es lo ultimo que se hace.
      Los dias se llevan el hueco que sobre; el interruptor se va al borde derecho. */
-  .adm-regla{display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:flex-start;margin-bottom:var(--space-2)}
+  /* La regla de la oferta, a TODO EL ANCHO y en tres bloques.
+     Era una fila flexible en la que «Días» se quedaba con todo el sobrante: los tres controles
+     se apelotonaban a la izquierda y media ficha quedaba vacía en cualquier monitor. Ahora es
+     una rejilla que reparte el ancho entero, con un filete fino separando bloque de bloque —
+     el mismo recurso que ya usa la cabecera de categoría en Platos.
+     El reparto NO es a partes iguales: el descuento son tres cifras, el horario dos listas y
+     los días siete círculos más un botón. Cada bloque pide lo que ocupa.
+     El interruptor maestro NO baja aquí: vive en la cabecera desde SocialCard V4, y por un
+     motivo que sigue vigente — en móvil la configuración se pliega, y encender la oferta es
+     la acción más frecuente de esta pantalla. */
+  .adm-regla{
+    display:grid;grid-template-columns:minmax(150px,.8fr) minmax(250px,1.3fr) minmax(280px,1.7fr);
+    gap:0;align-items:start;margin-bottom:var(--space-2);
+  }
+  .adm-regla > .adm-regla-g{
+    padding:0 var(--space-4);border-left:1px solid var(--sc-border);
+  }
+  .adm-regla > .adm-regla-g:first-child{padding-left:0;border-left:0}
+  .adm-regla > .adm-regla-g:last-child{padding-right:0}
+  /* Estrecho: se apilan y los filetes sobran — un filete vertical entre dos bloques que ya
+     no estan uno al lado del otro no separa nada. */
+  @media (max-width:900px){
+    .adm-regla{grid-template-columns:1fr;gap:var(--space-4)}
+    .adm-regla > .adm-regla-g{padding:0;border-left:0}
+  }
   .adm-regla-g{display:flex;flex-direction:column;min-width:0}
   .adm-regla-g .adm-lbl{margin-top:0}
-  .adm-regla-dias{flex:1 1 auto}
+  /* El rotulo de cada bloque, en versales pequenas con su icono al otro extremo: dice de que
+     es la columna sin competir con el dato, que es lo que de verdad se lee. El icono no
+     informa por si solo -- va decorativo y el rotulo sigue siendo el nombre. */
+  .adm-regla-g > .adm-lbl{
+    display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
+    margin-bottom:var(--space-3);
+    font-size:var(--t4);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--sc-text-2);
+  }
+  .adm-regla-ico{flex:none;width:16px;height:16px;color:var(--sc-text-2);opacity:.7}
+  .adm-regla-ico svg{width:16px;height:16px;display:block}
+  .adm-regla-g > .adm-lbl .opt{text-transform:none;letter-spacing:0;font-weight:400}
+  /* Los atajos del descuento. Son los cuatro que se usan; el campo sigue admitiendo
+     cualquiera del 1 al 90, asi que esto no cierra nada: ahorra teclear lo habitual. */
+  .adm-pct-atajos{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--space-3)}
+  .adm-pct-atajo{
+    flex:1 1 0;min-width:52px;min-height:30px;padding:0 8px;
+    border:1px solid var(--sc-border);border-radius:var(--radius-md);
+    background:var(--sc-surface);color:var(--sc-text-2);
+    font:inherit;font-size:var(--t4);font-weight:600;font-variant-numeric:tabular-nums;
+    cursor:pointer;
+    transition:background var(--t-fast) var(--ease-out),border-color var(--t-fast) var(--ease-out);
+  }
+  .adm-pct-atajo:hover{background:var(--sc-hover-bg);color:var(--sc-text)}
+  .adm-pct-atajo[aria-pressed="true"]{
+    border-color:var(--sc-primary);background:var(--sc-selected-bg);color:var(--sc-selected-text);
+  }
+  .adm-pct-atajo:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  /* «Frecuencia» y su boton, en su propia linea bajo los circulos: el boton iba suelto
+     detras del domingo y se leia como un octavo dia. */
+  .adm-dias-frec{
+    display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
+    margin-top:var(--space-3);font-size:var(--t4);color:var(--sc-text-2);
+  }
   .adm-sw-alto{min-height:40px;padding:0}
   /* SocialCard V4: el interruptor maestro, ya fuera del plegado. Una fila propia
      inmediatamente debajo del titulo: rotulo a la izquierda, interruptor y su palabra a
      la derecha — el mismo patron "etiqueta + switch" que usa la fila de plato del
      prototipo. Sobre el gris apagado para que se lea como el control principal de la
      ficha y no como un ajuste mas. */
-  .adm-oferta-maestro{
-    display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
-    min-height:56px;margin:0 0 var(--space-3);padding:0 var(--space-3);
-    background:var(--sc-muted-bg);border-radius:var(--radius-lg);
+  /* La insignia y el interruptor, juntos y al final de la cabecera: el estado y la unica
+     accion que lo cambia, uno al lado del otro. */
+  .adm-oferta-mando{display:inline-flex;align-items:center;gap:var(--space-3);flex:none}
+  .adm-oferta-mando .adm-sw{flex:none;padding:0}
+  /* La barra de trabajo de «Platos sueltos»: titulo, buscador y filtro en una linea. El
+     buscador se lleva lo que sobra; por debajo de 700 se baja el solo a su renglon, que un
+     campo de busqueda de 90px no sirve para buscar. */
+  .adm-osueltos-barra{margin-bottom:0;flex-wrap:nowrap}
+  .adm-osueltos-barra h2{flex:none}
+  .adm-osueltos-barra .adm-buscar{flex:1 1 auto;min-width:0;margin:0}
+  .adm-osueltos-barra .vp-per{flex:none}
+  @media (max-width:700px){
+    .adm-osueltos-barra{flex-wrap:wrap}
+    .adm-osueltos-barra .adm-buscar{order:3;flex:1 1 100%}
   }
-  .adm-oferta-maestro .adm-lbl{margin:0;flex:none}
-  .adm-oferta-maestro .adm-sw{flex:none;padding:0}
   /* Las dos horas son UN dato. Con la flecha en medio se leen como un rango; separadas por
      el mismo hueco que lo demas parecian dos campos sin relacion. */
   .adm-rango{display:flex;align-items:center;gap:var(--space-2)}
@@ -6647,7 +9114,9 @@ $CUENTAS = [
      la del prototipo (min-h-14, bg-muted, border-b, px-4). El nombre, 14/600. */
   .adm-cat-bento-cab{
     display:flex;align-items:center;gap:var(--space-3);flex:none;
-    min-height:56px;padding:0 var(--space-4);
+    /* FASE 2: 56 -> 44. Es un rotulo con dos botones, no una fila de trabajo; con cuarenta
+       categorias, doce pixeles cada una son casi quinientos de scroll. */
+    min-height:44px;padding:0 var(--space-4);
     background:var(--sc-muted-bg);
     font-size:var(--t2);font-weight:600;color:var(--sc-text);
     border-bottom:1px solid var(--sc-border);
@@ -6684,8 +9153,11 @@ $CUENTAS = [
     background:var(--sc-surface);color:var(--sc-text-2);
     display:inline-grid;place-items:center;
     font-size:var(--t4);font-weight:500;font-variant-numeric:tabular-nums;
-    margin-left:auto;
   }
+  /* Las acciones, al borde derecho: `margin-left:auto` las empuja hasta el final de la
+     cabecera, asi que en las cuarenta fichas caen en la misma columna y se pueden buscar con
+     el raton sin leer. El contador se queda donde estaba, junto al nombre. */
+  .adm-cat-bento-acc{display:inline-flex;align-items:center;gap:2px;flex:none;margin-left:auto}
   /* El precio (.adm-prow-fijo) ya es flex:0 0 auto + white-space:nowrap desde siempre —
      nunca fue él quien se rompía de línea. Lo que rompía la fila era dejar que la fila
      ENTERA hiciera flex-wrap: con eso, a tres columnas (~365px), el conjunto casilla+
@@ -7363,19 +9835,32 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <script>
-    /* Avisos flotantes. Los buenos se van solos a los 4,5 s; los errores se quedan hasta que
-       se cierran, y con role=alert para que el lector de pantalla los anuncie al momento. */
+    /* Avisos flotantes, esquina inferior derecha.
+       Los buenos (y los informativos) se van solos a los 3 s; los errores se quedan hasta
+       que se cierran, y con role=alert para que el lector de pantalla los anuncie al
+       momento — un error que se borra solo es un error que nadie ha leido.
+       Se apilan de tres en tres: el cuarto aviso echa al mas viejo, para no acabar con una
+       columna que llega hasta arriba tras marcar diez platos seguidos. */
+    var TOAST_ICONOS = {
+      ok:   '<path d="M20 6 9 17l-5-5"/>',
+      bad:  '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+      warn: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+      info: '<path d="M12 16v-4"/><path d="M12 8h.01"/><circle cx="12" cy="12" r="10"/>'
+    };
     window.toast = function (texto, tipo) {
       var caja = document.getElementById('toasts');
       if (!caja) return;
-      var mal = tipo === 'bad';
+      var clase = TOAST_ICONOS[tipo] ? tipo : 'ok';
+      var mal = clase === 'bad';
+      /* Tope de tres a la vista. */
+      var vivos = caja.querySelectorAll('.toast');
+      for (var i = 0; i <= vivos.length - 3; i++) { if (vivos[i].parentNode) vivos[i].parentNode.removeChild(vivos[i]); }
       var t = document.createElement('div');
-      t.className = 'toast ' + (mal ? 'bad' : 'ok');
+      t.className = 'toast ' + clase;
       t.setAttribute('role', mal ? 'alert' : 'status');
-      t.innerHTML = '<span class="toast-icon" aria-hidden="true">' + (mal
-        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
-        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>')
-        + '</span><span class="toast-txt"></span>'
+      t.innerHTML = '<span class="toast-icon" aria-hidden="true">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + TOAST_ICONOS[clase] + '</svg></span><span class="toast-txt"></span>'
         + '<button type="button" class="toast-x" aria-label="Cerrar aviso"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>';
       t.querySelector('.toast-txt').textContent = texto;
       caja.appendChild(t);
@@ -7383,10 +9868,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       t.classList.add('is-in');
       var fuera = function () {
         t.classList.remove('is-in');
-        setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 220);
+        setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 200);
       };
       t.querySelector('.toast-x').addEventListener('click', fuera);
-      if (!mal) setTimeout(fuera, 4500);
+      if (!mal) setTimeout(fuera, 3000);
       return t;
     };
     <?php if ($aviso): ?>toast(<?= json_encode($aviso, JSON_UNESCAPED_UNICODE) ?>, 'ok');<?php endif; ?>
@@ -7419,7 +9904,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <form method="post" style="margin-top:8px">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
         <button class="save" name="migrar_estado" value="1" type="submit"
-                onclick="return confirm('¿Migrar el estado a identificadores permanentes? Se guarda copia antes.')">
+                data-confirmar="¿Migrar el estado a identificadores permanentes?"
+                data-confirmar-nota="Se guarda copia antes."
+                data-confirmar-si="Migrar">
           Migrar ahora
         </button>
       </form>
@@ -7446,6 +9933,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
        uniones redondos — el estandar de la biblioteca, no una mezcla. */
     $NAV_ICONOS = [
       'platos'     => '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+      'precios'    => '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>',
       'ofertas'    => '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/>',
       'publicidad' => '<path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/>',
       'juego'      => '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>',
@@ -7458,11 +9946,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       $on = $pestana === $slug;
       $n = $CUENTAS[$slug] ?? 0;
       return '<button type="button" class="adm-nav-item' . ($on ? ' on' : '') . '" data-tab="' . h($slug) . '"'
-        . ' id="navtab-' . h($slug) . '" aria-controls="panel-' . h($slug) . '" aria-selected="' . ($on ? 'true' : 'false') . '"'
-        . ' aria-label="' . h($nombre) . '">'
+        . ' id="navtab-' . h($slug) . '" aria-controls="panel-' . h($slug) . '" aria-current="' . ($on ? 'page' : 'false') . '"'
+        /* El numero va OCULTO para el lector de pantalla y su valor entra en el nombre.
+           Antes el boton ensenaba «Publicidad» + «1» y se llamaba «Publicidad»: el texto
+           visible no estaba dentro del nombre accesible, que es lo que mide
+           label-content-name-mismatch. Ahora el nombre lo contiene y ademas dice el numero,
+           que antes el lector de pantalla no oia. */
+        . ' aria-label="' . h($nombre) . ($n ? ' ' . (int) $n : '') . '" title="' . h($nombre) . '">'
         . '<svg class="adm-nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $NAV_ICONOS[$slug] . '</svg>'
         . '<span class="txt">' . h($nombre) . '</span>'
-        . ($n ? '<span class="n">' . (int) $n . '</span>' : '')
+        . ($n ? ' <span class="n">' . (int) $n . '</span>' : '')
         . '<span class="adm-nav-tooltip" role="tooltip">' . h($nombre) . '</span>'
         . '</button>';
     };
@@ -7473,11 +9966,42 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
      una segunda lista de nombres que mantener. Lo actualiza el mismo JS que cambia de
      panel. */ ?>
   <header class="adm-topbar">
+    <?php /* Un boton para esconder la barra lateral. En pantallas de trabajo largas —una
+             carta de 312 platos en cuarenta fichas— 232px de barra son 232px que no son
+             carta, y quien ya sabe donde esta cada cosa no necesita leer los rotulos. Deja
+             el RIEL de iconos, no la quita: se sigue pudiendo cambiar de pantalla de un
+             clic. Se recuerda la eleccion. */ ?>
+    <button type="button" class="adm-plegar" id="adm-plegar" aria-controls="adm-sidebar"
+            aria-expanded="true" aria-label="Menú en iconos" title="Menú en iconos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+    </button>
     <div class="adm-topbar-txt">
-      <h2 class="adm-topbar-titulo" id="adm-topbar-titulo"><?= h($PESTANAS[$pestana] ?? 'Panel') ?></h2>
-      <p class="adm-topbar-sub"><?= h(CLIENTE_NOMBRE) ?> · <?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
+      <?php /* El rotulo de la pantalla se va de la vista: ya lo dice la barra lateral, con su
+               destino encendido, y repetirlo aqui era decir dos veces lo mismo a dos dedos de
+               distancia. Se queda como titulo del documento —un lector de pantalla necesita
+               saber donde esta— y el JS que cambia de panel lo sigue reescribiendo igual. */ ?>
+      <h2 class="adm-topbar-titulo sr" id="adm-topbar-titulo"><?= h($PESTANAS[$pestana] ?? 'Panel') ?></h2>
+      <p class="adm-topbar-sub"><?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
     </div>
     <div class="adm-topbar-acciones">
+      <?php /* La accion principal de Platos vive en la barra: es la unica que crea algo, y
+               las otras seis pantallas no crean nada, asi que solo sale en Platos. El `+` de
+               cada categoria hace lo mismo con la categoria ya elegida. */ ?>
+      <?php if ($pestana === 'platos' && $lista): ?>
+        <button type="button" class="adm-btn adm-btn-fino adm-alta-abre" data-alta-abre aria-label="Añadir plato">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          <span class="adm-btn-txt">Añadir plato</span>
+        </button>
+      <?php endif; ?>
+      <?php /* «Ver la carta» estaba repetido en las CINCO tiras de accion de abajo, una por
+               pantalla, y en cada una habia que bajar a buscarlo. No es la accion de ninguna
+               pantalla: es la salida a la carta, y es la misma desde todas. Una sola, arriba,
+               siempre en el mismo sitio. */ ?>
+      <a class="adm-btn adm-btn-fino adm-ver-carta" href="../index.html?v=<?= time() ?>"
+         target="_blank" rel="noopener" aria-label="Ver la carta en una pestaña nueva">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        <span class="adm-btn-txt">Ver la carta</span>
+      </a>
       <?php /* Sol, interruptor, luna: la misma pieza del prototipo, con sus medidas
                (40 de alto, radio 12, iconos de 16, interruptor de 32x18). */ ?>
       <div class="adm-tema">
@@ -7500,26 +10024,19 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <p class="adm-sidebar-cliente"><?= h(CLIENTE_NOMBRE) ?></p>
       </div>
     </div>
+    <?php /* UNA LISTA, sin rótulos de grupo. Eran cuatro —OPERACIÓN, MARKETING, NEGOCIO,
+             CONFIGURACIÓN— para siete destinos: mas rotulos que espacio entre ellos, y cada
+             uno en versales apretadas compitiendo en peso con el nombre de la pantalla que
+             hay debajo. Con siete entradas no hace falta taxonomia: hace falta poder leerlas
+             de un vistazo. Se conserva el orden, que es la prioridad operativa, y Platos
+             sigue separado del resto porque es la casa. */ ?>
     <div class="adm-sidebar-grupo"><?= $navBoton('platos') ?></div>
     <div class="adm-sidebar-grupo">
-      <p class="adm-sidebar-rotulo">Operación</p>
+      <?= $navBoton('precios') ?>
       <?= $navBoton('ofertas') ?>
-    </div>
-    <?php if (CLIENTE_PUBLICIDAD || CLIENTE_JUEGO): ?>
-      <div class="adm-sidebar-grupo" data-grupo-marketing>
-        <p class="adm-sidebar-rotulo">Marketing</p>
-        <?php if (CLIENTE_PUBLICIDAD): ?><?= $navBoton('publicidad') ?><?php endif; ?>
-        <?php if (CLIENTE_JUEGO): ?><?= $navBoton('juego') ?><?php endif; ?>
-      </div>
-    <?php endif; ?>
-    <?php if (DATOS_ACTIVO): ?>
-      <div class="adm-sidebar-grupo" data-grupo-negocio>
-        <p class="adm-sidebar-rotulo">Negocio</p>
-        <?= $navBoton('datos') ?>
-      </div>
-    <?php endif; ?>
-    <div class="adm-sidebar-grupo">
-      <p class="adm-sidebar-rotulo">Configuración</p>
+      <?php if (CLIENTE_PUBLICIDAD): ?><?= $navBoton('publicidad') ?><?php endif; ?>
+      <?php if (CLIENTE_JUEGO): ?><?= $navBoton('juego') ?><?php endif; ?>
+      <?php if (DATOS_ACTIVO): ?><?= $navBoton('datos') ?><?php endif; ?>
       <?= $navBoton('marca') ?>
       <?= $navBoton('ajustes') ?>
     </div>
@@ -7531,9 +10048,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                desaparecen, sólo cambian de sitio según haya donde ponerlos. */ ?>
       <p class="adm-sidebar-marca"><?= h(CLIENTE_NOMBRE) ?></p>
       <p class="adm-sidebar-fecha"><?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
-      <p class="adm-sidebar-sesion">
-        Servicio en curso<?php if (!$demo): ?> · se cierra en <?= (int) SESION_MINUTOS ?> min<?php endif; ?>
-      </p>
+      <?php /* La barra y el tiempo que queda, y nada mas. «Servicio en curso» no decia nada
+               que no dijera ya el hecho de estar dentro, y «se cierra en 30 min» era un
+               numero fijo que decia lo mismo al entrar que veintinueve minutos despues. */ ?>
+      <div class="adm-sesion" data-minutos="<?= (int) SESION_MINUTOS ?>"<?= $demo ? ' data-demo' : '' ?>>
+        <?php if ($demo): ?>
+          <p class="adm-sidebar-sesion">Modo demo</p>
+        <?php else: ?>
+          <div class="adm-sesion-barra" role="progressbar" aria-labelledby="adm-sesion-rot"
+               aria-valuemin="0" aria-valuemax="<?= (int) SESION_MINUTOS ?>" aria-valuenow="<?= (int) SESION_MINUTOS ?>">
+            <span class="adm-sesion-relleno"></span>
+          </div>
+          <p class="adm-sesion-queda" id="adm-sesion-rot"><?= (int) SESION_MINUTOS ?> min restantes</p>
+        <?php endif; ?>
+      </div>
       <a class="adm-nav-item" href="?salir=1" aria-label="Salir">
         <svg class="adm-nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
         <span class="txt">Salir</span>
@@ -7617,79 +10145,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <section class="pane" data-pane="platos" role="tabpanel" id="panel-platos" aria-labelledby="navtab-platos"<?= $pestana === 'platos' ? '' : ' hidden' ?>>
     <div class="adm-board">
 
-    <?php if ($previsua): ?>
-      <?php /* ------------------------------------------------------------------ revisar
-       * Lo que antes era la pantalla «Precios, paso 2»: se relocaliza tal cual, sin tocar
-       * ni un campo. Sigue ocupando la pantalla entera mientras está en pantalla —es una
-       * subida que toca de golpe hasta 312 platos, y no se quiere ver Platos detrás como si
-       * ya estuviera publicado. */ ?>
-      <?php
-        $pctTxt = $previsua['pct'] === null
-          ? null
-          : rtrim(rtrim(number_format($previsua['pct'], 2, ',', ''), '0'), ',');
-        $porTab = [];
-        foreach ($previsua['filas'] as $f) $porTab[$f['tab']][] = $f;
-      ?>
-      <form method="post" id="precios-form" class="adm-form-suelto">
-        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-      </form>
-
-      <div class="adm-bento">
-
-        <section class="adm-f adm-f-prev">
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><?php if ($pctTxt === null): ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><?php else: ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg><?php endif; ?></span>
-            <h2><?= $pctTxt === null ? 'Precios a mano' : 'Subida del ' . h($pctTxt) . '%' ?></h2>
-            <span class="der adm-a-prev">
-              <span class="adm-f-nota"><?= count($previsua['filas']) ?> platos</span>
-            </span>
-          </div>
-          <p class="hint" data-adm-ayuda="Todavía no se ha publicado nada" data-adm-ancla=".adm-a-prev">
-            <?php if ($pctTxt === null): ?>
-              Ésta es la lista con los precios que hay puestos ahora mismo. Cambia los que
-              quieras y publica; lo que no toques se queda igual.
-            <?php else: ?>
-              Esto es lo que quedaría con una subida del <?= h($pctTxt) ?>%, ya redondeado a
-              múltiplos de 5 céntimos. Cambia los que no te cuadren y publica.
-            <?php endif; ?>
-            Un precio en blanco devuelve ese plato al precio de la carta. El mismo plato que
-            sale en Sin gluten o en Vegano se cambia una vez y las dos filas se mueven solas.
-          </p>
-          <label class="adm-buscar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
-            <input class="adm-campo" type="search" id="precios-filtro" autocomplete="off"
-                   placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
-          </label>
-          <p class="adm-f-nota adm-filtro-cuenta" id="precios-cuenta" role="status" aria-live="polite" hidden></p>
-        </section>
-
-        <?php foreach ($porTab as $tab => $filas): ?>
-          <section class="adm-f adm-f-ptab" data-tab-precios>
-            <div class="adm-f-cab">
-              <h2><?= h($tab) ?></h2>
-              <span class="der"><span class="adm-f-nota"><?= count($filas) ?></span></span>
-            </div>
-            <div class="adm-precios">
-              <?php foreach ($filas as $f): ?>
-                <div class="adm-prow" data-busca="<?= h(minuscula($f['name']) . ' ' . $f['id']) ?>">
-                  <span class="adm-prow-n"><?= h($f['id']) ?></span>
-                  <span class="adm-prow-nm"><?= h($f['name']) ?></span>
-                  <span class="adm-prow-viejo"><?= h(CLIENTE_MONEDA) ?><?= h($f['actual']) ?></span>
-                  <input class="adm-campo adm-prow-nuevo" type="text" inputmode="decimal"
-                         form="precios-form"
-                         name="precio[<?= h($f['key']) ?>]" value="<?= h($f['nuevo']) ?>"
-                         <?= isset($hermanas[$f['key']]) ? 'data-plato="' . h($f['name'] . ' ' . $f['carta']) . '"' : '' ?>
-                         aria-label="Precio nuevo de <?= h($f['name']) ?>">
-                </div>
-              <?php endforeach; ?>
-            </div>
-          </section>
-        <?php endforeach; ?>
-
-      </div>
-
-    <?php else: ?>
-
       <form method="post" id="agotados-form" class="adm-form-suelto">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
         <input type="hidden" name="guardar_agotados" value="1">
@@ -7704,9 +10159,57 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         foreach ($lista as $p) {
           $cid = (string) ($p['catId'] ?? $p['cat']);
           if (!isset($porCategoria[$cid])) {
-            $porCategoria[$cid] = ['nombre' => $catsEs[$p['cat']] ?? $p['cat'], 'tab' => $p['tab'], 'platos' => []];
+            $porCategoria[$cid] = [
+              'nombre' => $catsEs[$p['cat']] ?? $p['cat'],
+              'tab'    => $p['tab'],
+              /* El rotulo compilado en cada idioma, y si la categoria tiene rotulo propio:
+                 los dos vienen del build (platos.json) y son lo que hace falta para poder
+                 renombrarla sin adivinar que dice hoy cada idioma. */
+              'i18n'   => is_array($p['grupoI18n'] ?? null) ? $p['grupoI18n'] : [],
+              'propio' => !empty($p['grupoPropio']),
+              /* Y la PESTAÑA a la que pertenece. Hace falta para las cuatro categorias que no
+                 tienen rotulo propio: lo que se ve en su cabecera es el de la pestaña, asi que
+                 es la pestaña lo que hay que renombrar. */
+              'tabId'  => (string) ($p['tabId'] ?? ''),
+              'tabI18n' => is_array($p['tabI18n'] ?? null) ? $p['tabI18n'] : [],
+              'platos' => [],
+            ];
           }
           $porCategoria[$cid]['platos'][] = $p;
+        }
+        /* Las secciones creadas desde el panel que todavia no tienen ni un plato. No salen del
+           bucle de arriba —ese recorre PLATOS— y sin esto la seccion recien creada no tendria
+           donde enseñarse ni saldria en el desplegable del alta: se habria creado un sitio al
+           que no se puede llegar. Van al final, que es donde estan. */
+        foreach (secciones_de($estado) as $tidPropia => $secPropia) {
+          $cidPropia = (string) $secPropia['cat'];
+          if (isset($porCategoria[$cidPropia])) continue;
+          $i18nPropia = seccion_i18n($estado, (string) $tidPropia, $secPropia);
+          $porCategoria[$cidPropia] = [
+            'nombre' => $i18nPropia[CLIENTE_IDIOMA_PANEL] ?? '',
+            'tab'    => $i18nPropia[CLIENTE_IDIOMA_PANEL] ?? '',
+            'i18n'   => $i18nPropia,
+            'propio' => false,
+            'tabId'  => (string) $tidPropia,
+            'tabI18n' => $i18nPropia,
+            'platos' => [],
+          ];
+        }
+        /* El orden elegido desde el panel. Una categoria que nadie ha tocado no aparece en
+           estado['orden'] y se queda tal cual la dejo el build. */
+        $retirados = retirados_de($estado);
+        /* Primero se coloca TODO —cada categoria en su orden— y solo despues se numera, de una
+           vez y para la carta entera: el numero es la posicion, y la posicion no se sabe hasta
+           que estan todos colocados. */
+        $tabDeCat = [];
+        foreach ($porCategoria as $cidT => $gT) $tabDeCat[(string) $cidT] = (string) ($gT['tabId'] ?? '');
+        $porCategoria = ordenar_categorias($porCategoria, $tabDeCat, $estado);
+        foreach ($porCategoria as $cid => $g) {
+          $porCategoria[$cid]['platos'] = ordenar_platos($g['platos'], orden_de($estado, (string) $cid));
+        }
+        $numerosCarta = numeros_de_carta(carta_ordenada($lista, $estado), $retirados);
+        foreach ($porCategoria as $cid => $g) {
+          $porCategoria[$cid]['platos'] = aplicar_numeros($g['platos'], $numerosCarta);
         }
       ?>
 
@@ -7741,33 +10244,33 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <button type="button" class="adm-chip adm-kpi" data-filter="todos" aria-pressed="true">
           <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
           <span class="adm-kpi-txt">
-            <span class="adm-chip-n adm-kpi-n"><?= count($lista) ?></span>
             <span class="adm-kpi-t">Todos</span>
-            <span class="adm-kpi-s">Los que hay en la carta</span>
+            <span class="adm-chip-n adm-kpi-n"><?= count($lista) ?></span>
+            <span class="adm-kpi-s">Carta completa</span>
           </span>
         </button>
         <button type="button" class="adm-chip adm-kpi" data-filter="agotados" aria-pressed="false">
           <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>
           <span class="adm-kpi-txt">
-            <span class="adm-chip-n adm-kpi-n" id="n-chip-agotados"><?= count($agotados) ?></span>
             <span class="adm-kpi-t">Agotados</span>
-            <span class="adm-kpi-s">Hoy no se pueden pedir. Se limpian solos a las <?= (int) CORTE_HORA ?>:00</span>
+            <span class="adm-chip-n adm-kpi-n" id="n-chip-agotados"><?= count($agotados) ?></span>
+            <span class="adm-kpi-s">Se restablecen a las <?= (int) CORTE_HORA ?>:00</span>
           </span>
         </button>
         <button type="button" class="adm-chip adm-kpi" data-filter="destacados" aria-pressed="false">
           <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg></span>
           <span class="adm-kpi-txt">
-            <span class="adm-chip-n adm-kpi-n"><?= count($tags) ?></span>
             <span class="adm-kpi-t">Destacados</span>
-            <span class="adm-kpi-s">Llevan etiqueta visible en la carta</span>
+            <span class="adm-chip-n adm-kpi-n"><?= count($tags) ?></span>
+            <span class="adm-kpi-s">Con etiqueta en la carta</span>
           </span>
         </button>
         <button type="button" class="adm-chip adm-kpi" data-filter="oferta" aria-pressed="false">
           <span class="adm-kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></span>
           <span class="adm-kpi-txt">
-            <span class="adm-chip-n adm-kpi-n" id="n-chip-oferta">0</span>
             <span class="adm-kpi-t">Con oferta</span>
-            <span class="adm-kpi-s">La regla se cambia en Ofertas, no aquí</span>
+            <span class="adm-chip-n adm-kpi-n" id="n-chip-oferta">0</span>
+            <span class="adm-kpi-s">Gestionar desde Ofertas</span>
           </span>
         </button>
       </div>
@@ -7808,45 +10311,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                corte, no sólo en la carga. En escritorio/tablet, un guardián de un renglón
                evita que un clic accidental en la cabecera la cierre — se queda exactamente
                como estaba, "sin añadir interacción innecesaria". */ ?>
-      <details class="adm-ajustar-precios-caja" open>
-        <summary class="adm-ajustar-precios-resumen">
-          <span class="adm-ajustar-precios-etq">Ajustar precios</span>
-          <svg class="adm-ajustar-precios-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-        </summary>
-        <div class="adm-ajustar-precios">
-          <form method="post" style="display:contents">
-            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-            <input type="hidden" name="precios_calcular" value="1">
-            <?php foreach ([3, 5, 10, 15] as $n): ?>
-              <button class="adm-pct" name="subir" value="<?= $n ?>" type="submit">+<?= $n ?>%</button>
-            <?php endforeach; ?>
-          </form>
-          <form method="post" class="adm-pct-otro">
-            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-            <span class="adm-pct-mas" aria-hidden="true">+</span>
-            <input class="adm-pct-num" type="text" inputmode="decimal" name="subir" size="4"
-                   placeholder="7,5" required aria-label="Otro porcentaje de subida">
-            <span class="adm-pct-pc" aria-hidden="true">%</span>
-            <button class="adm-pct-ir" name="precios_calcular" value="1" type="submit"
-                    aria-label="Ver cómo quedaría con ese porcentaje"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
-          </form>
-          <form method="post" style="display:contents">
-            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-            <button class="adm-btn adm-btn-fino adm-ajustar-precios-mano" name="precios_manual" value="1" type="submit">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-              Cambiar precio manual
-            </button>
-          </form>
-          <?php if ($precios): ?>
-            <form method="post" class="adm-ajustar-precios-volver"
-                  onsubmit="return confirm('¿Devolver TODOS los precios a los de la carta? Se pierden los <?= count($precios) ?> cambios y no se puede deshacer desde aquí.')">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-              <span class="adm-f-nota"><?= count($precios) ?> distinto<?= count($precios) === 1 ? '' : 's' ?> de la carta</span>
-              <button class="adm-btn adm-btn-fino adm-btn-quitar" name="precios_reset" value="1" type="submit">Volver a los de la carta</button>
-            </form>
-          <?php endif; ?>
-        </div>
-      </details>
       <div class="adm-fila adm-ag-resumen" id="resumen"<?= count($agotados) === 0 ? ' hidden' : '' ?>>
         <span class="adm-fila-que"><span id="n"><?= count($agotados) ?></span> <span id="n-txt"><?= count($agotados) === 1 ? 'plato marcado' : 'platos marcados' ?></span> agotados ahora mismo</span>
         <button type="button" class="adm-btn adm-btn-fino adm-btn-quitar" id="clear-all">Quitar todos</button>
@@ -7868,12 +10332,227 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <button type="button" class="adm-destet-x" id="dest-et-x" aria-label="Cerrar las etiquetas">Cancelar</button>
       </form>
 
+      <?php /* Las SECCIONES de la carta —lo que el comensal ve como pestañas arriba— con su
+               nombre y nada mas. No es una pantalla nueva ni un CRUD: es la lista de los
+               trece rotulos que ya existen, puesta donde se pueden cambiar. Cada una abre la
+               misma hoja de tres idiomas que las categorias, porque es el mismo problema. */ ?>
+      <?php
+        $porTab = [];
+        $tabEspecial = [];
+        foreach ($lista as $p) {
+          $tid = (string) ($p['tabId'] ?? '');
+          if ($tid === '' || isset($porTab[$tid])) continue;
+          $porTab[$tid] = is_array($p['tabI18n'] ?? null) ? $p['tabI18n'] : [];
+          $tabEspecial[$tid] = !empty($p['tabEspecial']);
+        }
+        /* Y las que ha creado el restaurante, detras de las de la carta y marcadas como
+           suyas: son las unicas que se pueden borrar. */
+        $tabsPropias = [];
+        foreach (secciones_de($estado) as $tidPropia => $secPropia) {
+          $porTab[(string) $tidPropia] = seccion_i18n($estado, (string) $tidPropia, $secPropia);
+          $tabsPropias[(string) $tidPropia] = $secPropia;
+          $tabEspecial[(string) $tidPropia] = false;
+        }
+        /* Y en el orden que haya elegido el restaurante. */
+        $porTab = ordenar_pestanas($porTab, $estado);
+      ?>
+      <?php if ($porTab): ?>
+        <div class="adm-secciones">
+          <?php /* Dos manejadores para rodar la tira, como los de la barra de la carta. Sin
+                   JavaScript no hacen nada util —la tira ya rueda con el dedo y con la rueda—
+                   asi que los pone el script y no PHP. */ ?>
+          <div class="adm-secciones-tira">
+          <?php foreach ($porTab as $tid => $tI18n):
+            $tNombre = nombre_pestana($estado, (string) $tid, $tI18n, CLIENTE_IDIOMA_PANEL); ?>
+            <?php /* `data-bloque` es el de la carta o el de las cartas especiales: una seccion
+                     solo se intercambia con otra del suyo. */ ?>
+            <span class="adm-pestana" data-tab-id="<?= h((string) $tid) ?>"
+                  data-bloque="<?= !empty($tabEspecial[$tid]) ? 'especial' : 'carta' ?>">
+              <span class="adm-pest-orden" data-pest-orden></span>
+              <span class="adm-pestana-nm"><?= h($tNombre) ?></span>
+              <details class="adm-cat-nombre">
+                <summary class="adm-cat-nombre-b" title="Cambiar el nombre de la sección"
+                         aria-label="Cambiar el nombre de la sección <?= h($tNombre) ?>">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                </summary>
+                <form method="post" class="adm-cat-nombre-f">
+                  <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                  <input type="hidden" name="pestana_nombre" value="<?= h((string) $tid) ?>">
+                  <?php foreach (idiomas_panel() as $code => $comoSeLlama):
+                    $puesto = (string) ($estado['pestanas'][$tid][$code] ?? '');
+                    $porDefecto = (string) ($tI18n[$code] ?? '');
+                    $esBase = $code === CLIENTE_IDIOMA_PANEL; ?>
+                    <label class="adm-cat-nombre-l">
+                      <span class="adm-cat-nombre-idioma"><?= h($comoSeLlama) ?><?= $esBase ? ' · base' : '' ?></span>
+                      <input class="adm-campo" type="text" name="nombre[<?= h($code) ?>]"
+                             value="<?= h($puesto) ?>" maxlength="60"
+                             placeholder="<?= h($porDefecto) ?>"
+                             <?= $esBase ? 'required' : '' ?>
+                             aria-label="Nombre de la sección en <?= h($comoSeLlama) ?>">
+                    </label>
+                  <?php endforeach; ?>
+                  <div class="adm-cat-nombre-pie">
+                    <span class="adm-cat-nombre-nota">Cambia el rótulo de arriba de la carta y la lista de secciones del móvil.</span>
+                    <button class="adm-btn adm-btn-fino" type="submit">Guardar el nombre</button>
+                  </div>
+                </form>
+                <?php if (isset($tabsPropias[$tid])): ?>
+                  <?php /* Borrar solo lo que nacio aqui, y solo si esta vacio: una seccion de
+                           la carta compilada volveria en la siguiente compilacion, y una con
+                           platos dentro se llevaria los platos de rebote. */ ?>
+                  <form method="post" class="adm-cat-nombre-borrar">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                    <button class="adm-btn adm-btn-fino adm-btn-quitar" name="seccion_borrar" value="<?= h((string) $tid) ?>" type="submit"
+                            data-confirmar="¿Borrar la sección «<?= h($tNombre) ?>»?"
+                            data-confirmar-nota="La creaste tú. Sólo se puede borrar si no tiene ningún plato dentro."
+                            data-confirmar-si="Borrar la sección" data-confirmar-tono="peligro">Borrar la sección</button>
+                  </form>
+                <?php endif; ?>
+              </details>
+            </span>
+          <?php endforeach; ?>
+          </div>
+          <?php /* Crear una seccion. Al final de la tira, que es donde acaban las que hay:
+                   la accion que añade uno mas va detras del ultimo, no delante del primero. */ ?>
+          <button type="button" class="adm-secciones-mas" data-seccion-abre
+                  title="Añadir una categoría principal" aria-label="Añadir una categoría principal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          </button>
+        </div>
+
+        <?php /* La hoja de crear seccion. Mismo patron que la del alta de plato: capa
+                 centrada con JavaScript, ultimo bloque de la pantalla sin el. */ ?>
+        <div class="adm-alta" id="adm-seccion" hidden>
+          <div class="adm-alta-fondo" data-seccion-cierra></div>
+          <form method="post" class="adm-alta-caja" role="dialog" aria-modal="true" aria-labelledby="adm-seccion-t">
+            <h2 class="adm-alta-t" id="adm-seccion-t">Añadir una categoría principal</h2>
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <input type="hidden" name="seccion_nueva" value="1">
+            <div class="adm-alta-g">
+              <span class="adm-alta-et">Nombre</span>
+              <div class="adm-alta-idiomas">
+                <?php foreach (idiomas_panel() as $code => $comoSeLlama): $esBase = $code === CLIENTE_IDIOMA_PANEL; ?>
+                  <div class="adm-alta-idioma">
+                    <span class="adm-alta-cod" aria-hidden="true"><?= h(strtoupper($code)) ?></span>
+                    <input class="adm-campo" type="text" name="nombre[<?= h($code) ?>]" maxlength="60"
+                           <?= $esBase ? 'required' : '' ?>
+                           placeholder="<?= $esBase ? 'Obligatorio' : '' ?>"
+                           aria-label="Nombre de la sección en <?= h($comoSeLlama) ?>">
+                  </div>
+                <?php endforeach; ?>
+              </div>
+              <p class="adm-alta-pista">El de <?= h(CLIENTE_IDIOMAS[CLIENTE_IDIOMA_PANEL] ?? CLIENTE_IDIOMA_PANEL) ?> es obligatorio. Los que dejes vacíos usan ése.</p>
+            </div>
+            <p class="adm-alta-nota">Sale como una pestaña más arriba de la carta y nace vacía:
+               el siguiente paso es darle platos con «Añadir plato».</p>
+            <button type="submit" class="adm-btn adm-alta-si">Añadir la sección</button>
+          </form>
+        </div>
+      <?php endif; ?>
+
       <div class="adm-bento adm-platos-lista">
         <?php foreach ($porCategoria as $cid => $grupo): ?>
-          <section class="adm-f adm-cat-bento" data-cat-bento>
+          <?php /* `data-cat` es la categoria por IDENTIFICADOR: es lo que viaja al servidor
+                   al reordenar, y lo que impide que un plato se cambie de categoria —el
+                   arrastre no sale de su ficha, y ademas el servidor exige la permutacion
+                   exacta de ESTE identificador. `data-ordenable` la marca como lista que se
+                   puede reordenar; sin JavaScript no aparece ningun tirador y la pantalla se
+                   comporta como siempre. */ ?>
+          <?php /* `data-tab-id` es la seccion a la que pertenece: es lo que decide con quien
+                   puede intercambiarse al moverla, y lo que impide que la primera de una
+                   seccion suba y acabe dentro de la anterior. */ ?>
+          <section class="adm-f adm-cat-bento" data-cat-bento data-cat="<?= h((string) $cid) ?>"
+                   data-tab-id="<?= h((string) ($grupo['tabId'] ?? '')) ?>" data-ordenable>
+            <?php
+              /* Que se renombra al pulsar el lapiz de ESTA ficha.
+                 Treinta y seis categorias tienen rotulo propio y se renombran ellas. Las otras
+                 cuatro no lo tienen: lo que se ve en su cabecera es el rotulo de su PESTAÑA
+                 —el mismo que sale arriba en la carta—, asi que lo que hay que renombrar es la
+                 pestaña. Antes esas cuatro simplemente no tenian lapiz, y el propietario
+                 preguntó por que; la respuesta no podia ser «no se puede», porque si se
+                 puede: por otra puerta. Se avisa en la nota de que afecta a la seccion
+                 entera, que es la unica parte que no es obvia. */
+              $catPropio  = !empty($grupo['propio']);
+              $catNombre  = rotulo_categoria($estado, $grupo, (string) $cid);
+              $catCampo   = $catPropio ? 'categoria_nombre' : 'pestana_nombre';
+              $catClave   = $catPropio ? (string) $cid : (string) $grupo['tabId'];
+              $catPorDef  = $catPropio ? (array) $grupo['i18n'] : (array) $grupo['tabI18n'];
+              $catPuestos = $catPropio
+                ? (array) ($estado['categorias'][$cid] ?? [])
+                : (array) ($estado['pestanas'][$grupo['tabId']] ?? []);
+              $catTocada  = (bool) $catPuestos;
+              /* Sin identidad de pestaña no hay nada que renombrar y el lapiz no se pinta: es
+                 una carta compilada con un motor viejo, no un error que haya que disimular. */
+              $catRenombrable = $catPropio || ($catClave !== '' && $catPorDef);
+            ?>
             <div class="adm-cat-bento-cab">
-              <span class="adm-cat-bento-nm"><?= h(etiqueta_categoria($grupo['nombre'], $grupo['tab'])) ?></span>
+              <?php /* Aqui entran las flechas de mover la categoria, y las pone el JavaScript
+                       igual que las de los platos: sin JavaScript no hay tirador que prometa
+                       algo que no se puede hacer. */ ?>
+              <span class="adm-cat-orden" data-cat-orden></span>
+              <span class="adm-cat-bento-nm"><?= h($catNombre) ?></span>
+              <?php /* El contador va PEGADO al nombre —cuenta lo que ese nombre nombra, y en
+                       el borde derecho de una ficha a todo el ancho quedaba a mil pixeles de
+                       el— y los botones al borde derecho, todos en la misma columna en las
+                       cuarenta fichas. Son dos cosas distintas: una es informacion sobre el
+                       titulo, la otra son acciones sobre la categoria, y ponerlas juntas hacia
+                       leer el numero como un boton mas. */ ?>
               <span class="adm-cat-bento-n"><?= count($grupo['platos']) ?></span>
+              <span class="adm-cat-bento-acc">
+                <?php /* Abre la misma hoja que el boton de la barra, con esta categoria ya
+                         puesta: aqui ya se sabe donde va el plato, y volver a elegirla en un
+                         desplegable de cuarenta seria hacer dos veces el mismo trabajo. */ ?>
+                <button type="button" class="adm-cat-nombre-b adm-alta-mas" data-alta-abre
+                        data-alta-cat="<?= h((string) $cid) ?>"
+                        title="Añadir un plato a esta categoría"
+                        aria-label="Añadir un plato a <?= h($catNombre) ?>">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </button>
+                <?php if ($catRenombrable): ?>
+                  <?php /* Un <details> de verdad y no un desplegable de JavaScript: sin JS la
+                           cabecera se abre igual y el formulario se manda igual. Cerrado por
+                           defecto — cuarenta formularios abiertos serían una pantalla ilegible. */ ?>
+                  <details class="adm-cat-nombre">
+                    <summary class="adm-cat-nombre-b"
+                             title="<?= $catPropio ? 'Cambiar el nombre de la categoría' : 'Cambiar el nombre de la sección' ?>"
+                             aria-label="Cambiar el nombre de <?= h($catNombre) ?>">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                    </summary>
+                    <form method="post" class="adm-cat-nombre-f">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <input type="hidden" name="<?= h($catCampo) ?>" value="<?= h($catClave) ?>">
+                      <?php foreach (idiomas_panel() as $code => $comoSeLlama):
+                        $puesto = (string) ($catPuestos[$code] ?? '');
+                        $porDefecto = (string) ($catPorDef[$code] ?? '');
+                        $esBase = $code === CLIENTE_IDIOMA_PANEL; ?>
+                        <label class="adm-cat-nombre-l">
+                          <span class="adm-cat-nombre-idioma"><?= h($comoSeLlama) ?><?= $esBase ? ' · base' : '' ?></span>
+                          <?php /* El placeholder es el nombre COMPILADO: dice qué se está usando
+                                   ahora mismo sin escribir nada, y deja claro que vaciar el campo
+                                   devuelve a eso. Mismo criterio que el rótulo en Marca. */ ?>
+                          <input class="adm-campo" type="text" name="nombre[<?= h($code) ?>]"
+                                 value="<?= h($puesto) ?>" maxlength="60"
+                                 placeholder="<?= h($porDefecto) ?>"
+                                 <?= $esBase ? 'required' : '' ?>
+                                 aria-label="Nombre en <?= h($comoSeLlama) ?>">
+                        </label>
+                      <?php endforeach; ?>
+                      <div class="adm-cat-nombre-pie">
+                        <span class="adm-cat-nombre-nota"><?php
+                          if (!$catPropio) {
+                            echo 'Esta categoría no tiene nombre propio en la carta: usa el de su sección, así que esto cambia la sección entera.';
+                          } elseif ($catTocada) {
+                            echo 'Vacía un idioma para devolverlo al nombre de la carta.';
+                          } else {
+                            echo 'Ahora mismo usa los nombres de la carta.';
+                          }
+                        ?></span>
+                        <button class="adm-btn adm-btn-fino" type="submit">Guardar el nombre</button>
+                      </div>
+                    </form>
+                  </details>
+                <?php endif; ?>
+              </span>
             </div>
             <?php
               /* A todo el ancho, la ficha ya no compite en alto con sus vecinas de fila
@@ -7902,8 +10581,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   || in_array($k, (array) $oferta['keys'], true)
                 );
               ?>
-              <div class="adm-orow adm-platorow<?= $onAg ? ' es-agotado' : '' ?><?= $etiqueta !== null ? ' es-destacado' : '' ?><?= $enOferta ? ' es-oferta' : '' ?>"
+              <?php $retirado = in_array($k, $retirados, true); ?>
+              <div class="adm-orow adm-platorow<?= $onAg ? ' es-agotado' : '' ?><?= $etiqueta !== null ? ' es-destacado' : '' ?><?= $enOferta ? ' es-oferta' : '' ?><?= $retirado ? ' es-retirado' : '' ?>"
+                   data-k="<?= h($k) ?>"<?= $retirado ? ' data-retirado' : '' ?>
                    data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
+                <?php /* El tirador. Lo inserta el JavaScript, no PHP: sin JavaScript no se
+                         puede arrastrar nada y un tirador muerto solo estorbaria. */ ?>
                 <button type="button" class="camara<?= $suFoto !== '' ? ' tiene' : '' ?>"
                         data-k="<?= h($k) ?>" data-foto="<?= h($suFoto) ?>"
                         data-nombre="<?= h($p['name']) ?>"
@@ -7917,6 +10600,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                 </button>
                 <span class="adm-prow-n"><?= h($p['id']) ?></span>
                 <span class="adm-orow-nm" title="<?= h($p['name'] . ($p['sub'] !== '' ? ' — ' . $p['sub'] : '') . ($p['name_en'] !== $p['name'] ? ' · ' . $p['name_en'] : '')) ?>"><?= h($p['name']) ?></span>
+                <?php /* Editar. Apagado hasta que el puntero entra en la fila, como el lapiz
+                         de la cabecera de categoria: 312 lapices encendidos a la vez serian
+                         312 manchas por encima de lo unico que importa aqui, que es el nombre
+                         del plato. Con el dedo se ve siempre — ahi no hay hover que valga. */ ?>
+                <button type="button" class="adm-prow-editar" data-editar="<?= h($k) ?>"
+                        title="Cambiar este plato"
+                        aria-label="Cambiar <?= h($p['name']) ?>">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                </button>
 
                 <?php /* MISE-B, segunda ronda: grupo operativo único al final —
                          precio · oferta · destacado · agotado—, en vez de agotado suelto al
@@ -7931,6 +10623,44 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   <?php else: ?>
                     <span class="adm-prow-fijo adm-plato-incluido">Incluido</span>
                   <?php endif; ?>
+
+                  <?php /* Retirar / devolver. Va el ULTIMO del grupo de acciones, separado de
+                           los tres controles del dia a dia: no es lo que se toca cada mañana y
+                           no debe estar donde cae el pulgar sin querer. Confirmacion al
+                           retirar, ninguna al devolver: una es la que quita algo de la carta y
+                           la otra la deshace. */ ?>
+                  <form method="post" class="adm-retirar-f" style="display:contents">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                    <input type="hidden" name="retirar_on" value="<?= $retirado ? '0' : '1' ?>">
+                    <?php /* La pregunta cuelga del BOTON y no del formulario: es el boton el que
+                             lleva `retirar_plato=<dishId>`, y ese par solo viaja si el envio lo
+                             dispara el. Y solo al retirar: devolver deshace, y deshacer no se
+                             pregunta.
+
+                             Un plato dado de alta AQUI no se retira: se borra. Retirar existe
+                             porque un plato de la carta compilada volveria en la siguiente
+                             compilacion y lo unico que se puede hacer con el es dejar de
+                             servirlo; este no existe en ningun otro sitio, asi que esconderlo
+                             para siempre seria dejar basura en el estado con cara de plato. */ ?>
+                    <?php $esPropio = !empty($p['nuevo']); ?>
+                    <button class="adm-retirar-b" name="<?= $esPropio ? 'plato_borrar' : 'retirar_plato' ?>" value="<?= h($k) ?>" type="submit"
+                            <?= $esPropio
+                              ? 'data-confirmar="¿Borrar «' . h($p['name']) . '»?"'
+                                  . ' data-confirmar-nota="Lo diste de alta tú: se borra del todo, con su foto y su precio. No se puede deshacer."'
+                                  . ' data-confirmar-si="Borrar" data-confirmar-tono="peligro"'
+                              : ($retirado ? '' : 'data-confirmar="¿Retirar «' . h($p['name']) . '» de la carta?"'
+                                  . ' data-confirmar-nota="Deja de verse, pero se conserva y puedes devolverlo cuando quieras."'
+                                  . ' data-confirmar-si="Retirar" data-confirmar-tono="peligro"') ?>
+                            data-retirar="<?= $esPropio ? 'borrar' : ($retirado ? 'devolver' : 'retirar') ?>"
+                            aria-label="<?= $esPropio ? 'Borrar ' . h($p['name']) : ($retirado ? 'Devolver ' . h($p['name']) . ' a la carta' : 'Retirar ' . h($p['name']) . ' de la carta') ?>"
+                            title="<?= $esPropio ? 'Borrar este plato' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?>">
+                      <?php if ($retirado): ?>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                      <?php else: ?>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                      <?php endif; ?>
+                    </button>
+                  </form>
 
                   <?php if ($enOferta): ?>
                     <a class="adm-tag adm-tag-oferta" href="?t=ofertas" title="En oferta — ver la regla de Ofertas"
@@ -7992,7 +10722,243 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </section>
         <?php endforeach; ?>
       </div>
-    <?php endif; ?>
+
+      <?php
+        /* La hoja de alta. UNA para toda la pantalla, no una por categoria: son cuarenta
+           categorias y cuarenta formularios identicos serian cuarenta veces el mismo
+           marcado. La abre el boton de la barra (sin categoria elegida) o el `+` de una
+           ficha (con la suya ya puesta).
+
+           Sin JavaScript no es una hoja: es el ultimo bloque de la pantalla, visible y
+           enviable como cualquier otro formulario del panel. */
+        $altaPorPestana = [];
+        foreach ($porCategoria as $cidSel => $gSel) {
+          $tSel = (string) ($gSel['tabId'] ?? '');
+          if (!isset($altaPorPestana[$tSel])) {
+            $altaPorPestana[$tSel] = [
+              'rotulo' => nombre_pestana($estado, $tSel, (array) ($gSel['tabI18n'] ?? []), CLIENTE_IDIOMA_PANEL),
+              'cats' => [],
+            ];
+          }
+          $altaPorPestana[$tSel]['cats'][(string) $cidSel] = rotulo_categoria($estado, $gSel, (string) $cidSel);
+        }
+      ?>
+      <?php
+        /* La hoja tiene TRES grupos y no ocho campos: dónde va, cómo se llama y qué cuesta.
+           Los idiomas de un mismo campo son UNA decisión, no tres, así que van pegados en un
+           bloque con el código del idioma delante en vez de un rótulo por línea — y la regla
+           de qué pasa si dejas uno vacío se dice UNA vez debajo del bloque, no repetida en
+           tres marcadores de posición. Ocho filas idénticas eran ocho cosas del mismo peso:
+           así lidera el nombre, que es lo único que no se puede dejar en blanco. */
+        $idiomasAlta = idiomas_panel();
+        $baseAlta = CLIENTE_IDIOMAS[CLIENTE_IDIOMA_PANEL] ?? CLIENTE_IDIOMA_PANEL;
+      ?>
+      <div class="adm-alta" id="adm-alta" hidden>
+        <div class="adm-alta-fondo" data-alta-cierra></div>
+        <form method="post" class="adm-alta-caja adm-alta-hoja" role="dialog" aria-modal="true" aria-labelledby="adm-alta-t">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+          <?php /* En modo edicion este campo lleva el plato y el formulario manda
+                   `plato_editar`; en alta va vacio y manda `plato_nuevo` con la categoria. Una
+                   sola hoja para las dos cosas: son los mismos campos y separarlas habria sido
+                   mantener dos veces el mismo formulario. */ ?>
+          <input type="hidden" name="plato_editar" id="adm-alta-editar" value="" disabled>
+
+          <?php /* Cabecera fija. Dice DONDE se esta antes de decir que se hace: la categoria
+                   en versales pequenas encima del titulo, que es el dato que cambia segun por
+                   donde se haya entrado a la hoja. La X esta porque una hoja que solo se
+                   cierra pulsando fuera obliga a adivinarlo. */ ?>
+          <header class="adm-alta-cab">
+            <div class="adm-alta-cab-txt">
+              <p class="adm-alta-ruta">
+                <span>Carta</span><span aria-hidden="true">&middot;</span><span class="adm-alta-ruta-cat" id="adm-alta-ruta-cat"></span>
+              </p>
+              <h2 class="adm-alta-t" id="adm-alta-t">Añadir un plato</h2>
+            </div>
+            <button type="button" class="adm-alta-x" data-alta-cierra aria-label="Cerrar sin guardar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+          </header>
+
+          <div class="adm-alta-cuerpo">
+          <?php /* Dos columnas: lo que se ESCRIBE a la izquierda y lo que se ELIGE a la
+                   derecha. En una sola columna la hoja pasaba del alto del navegador y habia
+                   que desplazarla por dentro para llegar al boton de guardar. */ ?>
+          <div class="adm-alta-cols">
+          <div class="adm-alta-col">
+
+          <div class="adm-alta-g" id="adm-alta-g-cat">
+            <div class="adm-alta-et-fila">
+              <label class="adm-alta-et" for="adm-alta-cat">Categoría <span class="adm-alta-req" aria-hidden="true">*</span></label>
+              <span class="adm-alta-ayuda">Decide dónde sale en la carta</span>
+            </div>
+            <select class="adm-campo" name="plato_nuevo" id="adm-alta-cat" required>
+              <?php foreach ($altaPorPestana as $grupoSel): ?>
+                <optgroup label="<?= h($grupoSel['rotulo']) ?>">
+                  <?php foreach ($grupoSel['cats'] as $cidSel => $rotSel): ?>
+                    <option value="<?= h($cidSel) ?>"><?= h($rotSel) ?></option>
+                  <?php endforeach; ?>
+                </optgroup>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <?php /* Un idioma cada vez. Los tres a la vez eran seis campos de texto seguidos: la
+                   hoja medía más que el navegador y, peor, ponía al mismo nivel el idioma que
+                   hay que rellenar y los dos que se pueden dejar en blanco. Con pestañas se ve
+                   UNO —el obligatorio, primero— y los otros están a un clic. Los campos
+                   escondidos SE MANDAN igual: siguen dentro del formulario. */ ?>
+          <div class="adm-alta-idi-tira" role="tablist" aria-label="Idioma del texto">
+            <?php foreach ($idiomasAlta as $code => $comoSeLlama): $esBase = $code === CLIENTE_IDIOMA_PANEL; ?>
+              <button type="button" class="adm-alta-idi-tab" role="tab" data-idi="<?= h($code) ?>"
+                      id="adm-alta-idi-<?= h($code) ?>" aria-controls="adm-alta-p-<?= h($code) ?>"
+                      aria-selected="<?= $esBase ? 'true' : 'false' ?>" tabindex="<?= $esBase ? '0' : '-1' ?>">
+                <span class="adm-alta-idi-punto" aria-hidden="true"></span>
+                <span class="adm-alta-idi-nom"><?= h($comoSeLlama) ?></span>
+                <?php if ($esBase): ?><span class="adm-alta-idi-ob">(oblig.)</span><?php endif; ?>
+              </button>
+            <?php endforeach; ?>
+          </div>
+
+          <?php foreach ($idiomasAlta as $code => $comoSeLlama): $esBase = $code === CLIENTE_IDIOMA_PANEL; ?>
+            <div class="adm-alta-idi-panel" id="adm-alta-p-<?= h($code) ?>" data-idi="<?= h($code) ?>"
+                 role="tabpanel" aria-labelledby="adm-alta-idi-<?= h($code) ?>"<?= $esBase ? '' : ' hidden' ?>>
+              <div class="adm-alta-g">
+                <?php /* Sin la etiqueta del idioma al lado del rotulo: la pestana de arriba ya
+                         dice cual se esta escribiendo, y repetirlo en cada campo era decir tres
+                         veces lo mismo en una columna. Se queda en el aria-label, que es donde
+                         hace falta cuando no se ve la pestana. */ ?>
+                <div class="adm-alta-et-fila">
+                  <label class="adm-alta-et" for="adm-alta-nombre-<?= h($code) ?>">Nombre del plato</label>
+                  <span class="<?= $esBase ? 'adm-alta-obl' : 'adm-alta-ayuda' ?>"><?= $esBase ? 'Obligatorio' : 'Opcional' ?></span>
+                </div>
+                <input class="adm-campo" type="text" id="adm-alta-nombre-<?= h($code) ?>"
+                       name="nombre[<?= h($code) ?>]" maxlength="80"<?= $esBase ? ' required' : '' ?>
+                       <?php /* El ejemplo va GENERICO. Aqui decia «Ej. Papadum de la casa», que es un plato de
+                         Tinge, y este fichero es el motor que se copia byte a byte a cada cliente
+                         nuevo: una cafeteria y una parrilla habrian visto un papadum de ejemplo en
+                         su panel. Lo cazo el gate multicliente, no la vista. */ ?>
+                       placeholder="<?= $esBase ? 'Ej. Plato de la casa' : 'Si lo dejas vacío, usa el de ' . h($baseAlta) ?>"
+                       aria-label="Nombre en <?= h($comoSeLlama) ?>">
+              </div>
+              <div class="adm-alta-g">
+                <div class="adm-alta-et-fila">
+                  <label class="adm-alta-et" for="adm-alta-desc-<?= h($code) ?>">Descripción</label>
+                  <span class="adm-alta-ayuda">Opcional</span>
+                </div>
+                <textarea class="adm-campo adm-alta-area" id="adm-alta-desc-<?= h($code) ?>" rows="3"
+                          name="desc[<?= h($code) ?>]" maxlength="200"
+                          placeholder="<?= $esBase ? 'Qué lleva, cómo se hace, con qué se acompaña…' : 'Si la dejas vacía, usa la de ' . h($baseAlta) ?>"
+                          aria-label="Descripción en <?= h($comoSeLlama) ?>"></textarea>
+              </div>
+            </div>
+          <?php endforeach; ?>
+
+          <p class="adm-alta-pista">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>El de <?= h($baseAlta) ?> es obligatorio. Los idiomas que dejes vacíos enseñan ése.</span>
+          </p>
+
+          </div>
+          <div class="adm-alta-col">
+
+          <div class="adm-alta-g">
+            <div class="adm-alta-et-fila">
+              <label class="adm-alta-et" for="adm-alta-precio">Precio <span class="adm-alta-req" aria-hidden="true">*</span></label>
+              <span class="adm-alta-ayuda">IVA incluido</span>
+            </div>
+            <div class="adm-alta-precio">
+              <input class="adm-campo" type="text" name="precio" id="adm-alta-precio"
+                     inputmode="decimal" required placeholder="12,95">
+              <span class="adm-alta-euro" aria-hidden="true">&euro;</span>
+            </div>
+          </div>
+
+          <?php /* La foto usa el MISMO recortador que la camara de cada fila —cuadrado de
+                   1000x1000 en WebP por debajo de 500 KB— porque el servidor no acepta otra
+                   cosa, y con razon: una foto de movil de 4 MB sin recortar en una carta son
+                   cuatro megas que carga el comensal. La diferencia es cuando se sube: aqui el
+                   plato todavia no existe, asi que se recorta ahora y se sube en cuanto tiene
+                   identificador. Sin JavaScript no hay recortador y no hay foto: se da de alta
+                   el plato y se le pone luego desde su fila. */ ?>
+          <div class="adm-alta-g adm-alta-g-foto adm-solo-js">
+            <div class="adm-alta-et-fila">
+              <span class="adm-alta-et">Foto del plato</span>
+              <span class="adm-alta-ayuda">Opcional</span>
+            </div>
+            <button type="button" class="camara adm-alta-suelta" id="adm-alta-foto"
+                    data-k="" data-nombre="el plato nuevo" aria-label="Elegir la foto del plato">
+              <img class="adm-alta-foto-vista" id="adm-alta-foto-vista" alt="" hidden width="120" height="120">
+              <span class="adm-alta-suelta-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.6-4.6a2 2 0 0 1 2.8 0L16 16m-2-2 1.6-1.6a2 2 0 0 1 2.8 0L20 14"/><path d="M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/><path d="M14 8h.01"/></svg>
+              </span>
+              <span class="adm-alta-suelta-t" id="adm-alta-foto-txt">Pulsa para elegir, o arrastra la foto aquí</span>
+              <span class="adm-alta-suelta-p">Se recorta cuadrada y se guarda en WebP</span>
+            </button>
+            <button type="button" class="adm-btn adm-btn-fino adm-btn-quitar" id="adm-alta-foto-no" hidden>Quitar la foto</button>
+          </div>
+
+          <?php /* Ya no se pide el numero. El numero es la POSICION del plato en la carta y se
+                   calcula solo: el plato entra al final de su categoria, coge el que le toca
+                   ahi, y los de detras se corren. Si va en otro sitio, se mueve con las flechas
+                   y el numero le sigue. Pedirlo era pedir un dato que el sistema ya sabe, y
+                   encima dejaba elegir uno que chocaba con otro plato. */ ?>
+          </div>
+          </div>
+
+          <?php if (CLIENTE_ALERGENOS): ?>
+            <div class="adm-alta-g adm-alta-g-ale">
+              <div class="adm-alta-et-fila">
+                <span class="adm-alta-et">Alérgenos <span class="adm-alta-ayuda">Reglamento (UE) 1169/2011</span></span>
+                <span class="adm-alta-ayuda">Marca los que lleve</span>
+              </div>
+              <?php /* Las CATORCE del anexo II, todas, siempre y en el mismo orden. Ni un
+                       buscador ni un desplegable: son catorce, caben, y el que cocina las
+                       reconoce de un vistazo — buscar «sulfitos» en una lista es mas trabajo
+                       que verlo. El orden es el del reglamento y no alfabetico: es el que
+                       tienen las cartas y las fichas tecnicas de toda la vida. */ ?>
+              <div class="adm-alergenos">
+                <?php foreach (CLIENTE_ALERGENOS as $ale => $comoSeLlama): ?>
+                  <label class="adm-alergeno">
+                    <input type="checkbox" name="alergeno[]" value="<?= h($ale) ?>">
+                    <?php /* El dibujo OFICIAL, el mismo que sale en la carta. Va decorativo: el
+                             nombre esta al lado y leerlo dos veces no ayuda a nadie. */ ?>
+                    <span class="adm-alergeno-ico" aria-hidden="true"><?= CLIENTE_ALERGENO_ICONO[$ale] ?? '' ?></span>
+                    <span class="adm-alergeno-txt"><?= h($comoSeLlama) ?></span>
+                  </label>
+                <?php endforeach; ?>
+              </div>
+              <?php /* Lo que el TEXTO del plato hace sospechar. Se dice con todas las letras
+                       que es una sugerencia y de donde sale: un resaltado sin explicacion se
+                       acaba marcando a ciegas, y marcar un alergeno es una afirmacion legal
+                       —Reglamento (UE) 1169/2011—, no una casilla mas. */ ?>
+              <p class="adm-ale-sug" id="adm-ale-sug" hidden></p>
+            </div>
+          <?php endif; ?>
+
+          <p class="adm-alta-nota" id="adm-alta-nota-alta">Entra al final de su categoría y coge el número que le toca ahí;
+             los de detrás se corren uno. Después se puede mover, fotografiar, destacar y poner
+             en oferta como cualquier otro.</p>
+          <?php /* Vaciar un campo NO es dejarlo en blanco: es volver al texto de la carta. Es
+                   la misma regla que al renombrar una categoria, y es lo que hace que editar no
+                   pueda destruir nada. Hay que decirlo, porque no se adivina. */ ?>
+          <p class="adm-alta-nota" id="adm-alta-nota-editar" hidden>Vacía un campo para devolverlo
+             al texto de la carta. La categoría y el número no se cambian desde aquí: el número
+             sale de su sitio en la carta y se mueve con las flechas.</p>
+
+          </div>
+
+          <?php /* Pie fijo. El boton de guardar no puede irse debajo del borde cuando el cuerpo
+                   se desplaza, y «Cancelar» esta aqui porque cerrar pulsando fuera es
+                   invisible: quien no lo sabe, no lo descubre. */ ?>
+          <footer class="adm-alta-pie">
+            <p class="adm-alta-tip">Pulsa <kbd>Esc</kbd> para salir</p>
+            <div class="adm-alta-acc">
+              <button type="button" class="adm-btn adm-alta-no" data-alta-cierra>Cancelar</button>
+              <button type="submit" class="adm-btn adm-alta-si">Añadir el plato</button>
+            </div>
+          </footer>
+        </form>
+      </div>
 
     <!-- El recorte de la foto. Una sola capa para los 312 platos: se abre con el plato que se
          haya pulsado y se cierra al terminar. -->
@@ -8029,7 +10995,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     </div>
     <input type="file" id="rec-file" accept="image/*" hidden>
 
-    <?php if (!$previsua): ?>
     <script>
       /* ---------------------------------------------- plegado de "Ajustar precios" en móvil
        * Auditoría UX/UI, hallazgo H1. Sin JavaScript, `<details open>` deja esto exactamente
@@ -8101,20 +11066,615 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            Solo pone/quita un atributo en la <section>; quien enseña o esconde las filas
            es el CSS. Sin peticion, sin tocar el marcado de las filas y sin depender de
            cuantas haya. */
-        /* document y no pane: el mismo boton existe en Platos y en Ofertas, y asi se
-           engancha una sola vez para los dos. */
-        [].slice.call(document.querySelectorAll('[data-vermas]')).forEach(function (boton) {
-          boton.addEventListener('click', function () {
-            var ficha = boton.closest('.adm-cat-bento');
-            if (!ficha) return;
-            var abierta = ficha.hasAttribute('data-abierto');
-            if (abierta) ficha.removeAttribute('data-abierto');
-            else ficha.setAttribute('data-abierto', '');
-            boton.setAttribute('aria-expanded', String(!abierta));
-            var txt = boton.querySelector('.adm-vermas-txt');
-            if (txt) txt.textContent = !abierta ? boton.dataset.menos : boton.dataset.mas;
-          });
+        /* Delegado en document, no una vuelta por boton: este script corre mientras se
+           parsea Platos, y las fichas de Ofertas todavia no existen. Recorrer el DOM aqui
+           solo enganchaba las de Platos y dejaba el boton de Ofertas muerto
+           (ADMIN-E2E-003). Delegando, vale para los dos paneles y para cualquier ficha
+           que llegue despues. */
+        document.addEventListener('click', function (ev) {
+          var boton = ev.target.closest ? ev.target.closest('[data-vermas]') : null;
+          if (!boton) return;
+          var ficha = boton.closest('.adm-cat-bento');
+          if (!ficha) return;
+          var abierta = ficha.hasAttribute('data-abierto');
+          if (abierta) ficha.removeAttribute('data-abierto');
+          else ficha.setAttribute('data-abierto', '');
+          boton.setAttribute('aria-expanded', String(!abierta));
+          var txt = boton.querySelector('.adm-vermas-txt');
+          if (txt) txt.textContent = !abierta ? boton.dataset.menos : boton.dataset.mas;
         });
+
+        /* ---- la tira de secciones: dos manejadores para rodarla ----
+           Los pone el script y no PHP porque sin JavaScript no sirven de nada: la tira ya
+           rueda con el dedo y con la rueda del raton, y dos botones muertos solo estorban.
+           Y solo se ENSEÑAN si de verdad sobra ancho: en una carta de tres secciones no hay
+           nada que rodar y dos flechas apagadas serian ruido. */
+        (function () {
+          var caja = pane.querySelector('.adm-secciones');
+          var tira = caja && caja.querySelector('.adm-secciones-tira');
+          if (!caja || !tira) return;
+
+          var CHEV = {
+            izq: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+            der: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>'
+          };
+          function flecha(dir, rotulo) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'adm-secciones-flecha';
+            b.setAttribute('data-dir', dir);
+            b.setAttribute('aria-label', rotulo);
+            b.innerHTML = CHEV[dir];
+            /* El que pasa de pagina se engancha mas abajo, cuando ya existe el paginador. */
+            return b;
+          }
+          var izq = flecha('izq', 'Ver las secciones anteriores');
+          var der = flecha('der', 'Ver las secciones siguientes');
+          caja.insertBefore(izq, tira);
+          /* Justo detras de la tira, y no al final de la caja: al final esta el boton de crear
+             seccion, y un manejador de pagina despues de la accion de crear rompe la lectura
+             de la fila —los dos manejadores tienen que quedar a los lados de lo que mueven. */
+          caja.insertBefore(der, tira.nextSibling);
+
+          /* El paginador. Se mide cuantas caben ENTERAS desde la primera que toca enseñar, se
+             enseñan esas y se apagan las demas. Nunca hay media seccion a la vista.
+             Las anchuras se miden con todas encendidas —una seccion apagada no mide— y se
+             guardan: solo se vuelven a medir si cambia el ancho de la ventana. */
+          var chips = [].slice.call(tira.querySelectorAll('.adm-pestana'));
+          var desde = 0;
+          var anchos = null;
+          var hueco = 0;
+
+          function medir() {
+            var antes = chips.map(function (c) { return c.hidden; });
+            chips.forEach(function (c) { c.hidden = false; });
+            hueco = parseFloat(getComputedStyle(tira).columnGap) || 0;
+            anchos = chips.map(function (c) { return c.getBoundingClientRect().width; });
+            chips.forEach(function (c, i) { c.hidden = antes[i]; });
+          }
+
+          /* Cuantas caben desde `i`, enteras. Al menos una, aunque no quepa: mejor una
+             cortada que una tira vacia. */
+          function cabenDesde(i) {
+            var libre = tira.clientWidth;
+            var n = 0;
+            for (var j = i; j < chips.length; j++) {
+              var suma = anchos[j] + (n ? hueco : 0);
+              if (n && suma > libre) break;
+              libre -= suma; n++;
+            }
+            return Math.max(1, n);
+          }
+
+          function pintar() {
+            if (!anchos) medir();
+            if (desde > chips.length - 1) desde = chips.length - 1;
+            if (desde < 0) desde = 0;
+            /* Primero se decide SI hacen falta los manejadores, y solo despues se mide cuantas
+               caben. Al reves —que era como estaba— se mide con la tira ancha, sin manejadores,
+               salen ocho, y al encenderlos la tira se estrecha 72px y la ultima se queda
+               cortada por el borde: exactamente el corte que no puede haber. */
+            var total = anchos.reduce(function (a, b) { return a + b; }, 0)
+                      + hueco * Math.max(0, anchos.length - 1);
+            caja.removeAttribute('data-rueda');
+            var cabenTodas = total <= tira.clientWidth + 0.5;
+            if (!cabenTodas) caja.setAttribute('data-rueda', '');
+            if (cabenTodas) desde = 0;
+            var n = cabenTodas ? chips.length : cabenDesde(desde);
+            /* Si al final sobra sitio, se retrocede para no dejar hueco a la derecha. */
+            while (!cabenTodas && desde > 0 && cabenDesde(desde - 1) >= n + 1) { desde--; n = cabenDesde(desde); }
+            chips.forEach(function (c, i) { c.hidden = (i < desde || i >= desde + n); });
+            /* Red de seguridad: si el ultimo que se ha enseñado se sale por el borde —una
+               medida vieja, una fuente que acaba de cargar—, se apaga. La regla de esta tira
+               es que no se ve media seccion, y eso se comprueba con la caja de verdad, no con
+               la cuenta que se hizo antes. */
+            for (var t = desde + n - 1; t > desde; t--) {
+              var rb = chips[t].getBoundingClientRect();
+              if (rb.right <= tira.getBoundingClientRect().right + 0.5) break;
+              chips[t].hidden = true; n--;
+            }
+            var hayMas = desde + n < chips.length;
+            izq.disabled = desde === 0;
+            der.disabled = !hayMas;
+            voz.textContent = 'Secciones ' + (desde + 1) + ' a ' + (desde + n) + ' de ' + chips.length + '.';
+          }
+
+          var voz = document.createElement('span');
+          voz.className = 'sr';
+          voz.setAttribute('role', 'status');
+          voz.setAttribute('aria-live', 'polite');
+          caja.appendChild(voz);
+
+          izq.addEventListener('click', function () { desde = Math.max(0, desde - cabenDesde(desde)); pintar(); });
+          der.addEventListener('click', function () { desde = Math.min(chips.length - 1, desde + cabenDesde(desde)); pintar(); });
+          window.addEventListener('resize', function () { anchos = null; pintar(); });
+          pintar();
+        }());
+
+        /* ---- el nombre de la categoria: colocar la hoja y saber cerrarla ----
+           El <details> abre y cierra solo, y sin JavaScript sigue funcionando tal cual. Lo que
+           falta con JavaScript son las tres cosas que uno espera de una hoja: que no la
+           recorte la tarjeta, que se cierre al pulsar fuera y que se cierre con Escape.
+           Cerrar sin guardar devuelve los campos a lo que habia — un nombre a medio escribir
+           no puede quedarse pintado como si estuviera puesto. */
+        (function () {
+          var hojas = [].slice.call(pane.querySelectorAll('.adm-cat-nombre'));
+          if (!hojas.length) return;
+
+          function colocar(det) {
+            var f = det.querySelector('.adm-cat-nombre-f');
+            var b = det.querySelector('.adm-cat-nombre-b');
+            if (!f || !b) return;
+            var r = b.getBoundingClientRect();
+            f.style.left = '0px'; f.style.top = '0px';      // medir sin arrastrar la posicion de antes
+            var w = f.offsetWidth;
+            var h = f.offsetHeight;
+            var x = Math.min(Math.max(8, r.right - w), innerWidth - w - 8);
+            /* Debajo del lapiz si cabe; encima si no. Y acotada a la pantalla en los dos
+               sentidos: si la ficha esta fuera del pliegue —al abrirla con el teclado, o
+               desde una prueba— sin este tope la hoja se colocaba donde nadie la ve. */
+            var y = r.bottom + 6;
+            if (y + h > innerHeight - 8) y = r.top - h - 6;
+            y = Math.min(Math.max(8, y), Math.max(8, innerHeight - h - 8));
+            f.style.left = Math.round(x) + 'px';
+            f.style.top = Math.round(y) + 'px';
+          }
+
+          function recordar(det) {
+            [].slice.call(det.querySelectorAll('input[name^="nombre["]')).forEach(function (i) {
+              i.dataset.puesto = i.value;
+            });
+          }
+          function devolver(det) {
+            [].slice.call(det.querySelectorAll('input[name^="nombre["]')).forEach(function (i) {
+              if (i.dataset.puesto !== undefined) i.value = i.dataset.puesto;
+            });
+          }
+          function cerrar(det) { if (det.open) { devolver(det); det.open = false; } }
+          function cerrarTodas(salvo) { hojas.forEach(function (d) { if (d !== salvo) cerrar(d); }); }
+
+          hojas.forEach(function (det) {
+            det.addEventListener('toggle', function () {
+              if (!det.open) return;
+              cerrarTodas(det);              // una abierta a la vez
+              recordar(det);
+              colocar(det);
+              var primero = det.querySelector('input[name^="nombre["]');
+              if (primero) primero.focus();
+            });
+          });
+
+          /* Pulsar fuera cierra. Se mira en la fase de captura para no depender de que nadie
+             mas haya parado el evento por el camino. */
+          document.addEventListener('pointerdown', function (ev) {
+            hojas.forEach(function (det) {
+              if (det.open && !det.contains(ev.target)) cerrar(det);
+            });
+          }, true);
+          document.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Escape') return;
+            hojas.forEach(function (det) {
+              if (!det.open) return;
+              cerrar(det);
+              var b = det.querySelector('.adm-cat-nombre-b');
+              if (b) b.focus();
+            });
+          });
+          /* Si la pagina se mueve por debajo, la hoja se recoloca en vez de quedarse flotando
+             en el sitio de antes. */
+          ['scroll', 'resize'].forEach(function (n) {
+            window.addEventListener(n, function () {
+              hojas.forEach(function (det) { if (det.open) colocar(det); });
+            }, true);
+          });
+        }());
+
+        /* ---- reordenar los platos dentro de su categoria ----
+           Dos flechas por fila, el mismo control que el panel ya usa para las fotos de
+           portada. Tres decisiones que conviene dejar escritas:
+
+           1. Se movio del arrastre a las flechas por peticion del propietario. El arrastre
+              llego a funcionar, pero costo dos fallos: la captura del puntero se perdia en
+              cuanto la fila cambiaba de sitio, y la fila de destino se perdia bajo la
+              cabecera fija. Dos flechas no tienen ninguno de esos dos problemas, y son el
+              mismo gesto que ya se hace tres pantallas mas alla.
+           2. Las pulsaciones seguidas se juntan en UN guardado. Bajar un plato cinco puestos
+              son cinco clics; mandar cinco peticiones seria castigar al que usa bien la
+              herramienta. Se espera medio segundo desde la ultima y se manda el orden final.
+           3. La lista es UNA: columna izquierda y luego derecha. Al mover se reparte otra vez
+              mitad y mitad, igual que hace PHP, y se renumera. Nada de esto fabrica marcado:
+              son las mismas filas, movidas. */
+        var ordenFichas = [].slice.call(pane.querySelectorAll('.adm-cat-bento[data-ordenable][data-cat]'));
+        if (ordenFichas.length) (function () {
+          var CHEV_ARRIBA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>';
+          var CHEV_ABAJO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+          function filasDe(ficha) { return [].slice.call(ficha.querySelectorAll('.adm-platorow[data-k]')); }
+          function clavesDe(ficha) { return filasDe(ficha).map(function (f) { return f.dataset.k; }); }
+
+          /* Reparte una lista de claves en las dos columnas, moviendo los nodos que ya
+             existen. appendChild MUEVE, no copia: por eso recorrer la lista en orden y
+             adjuntar a la columna que toca deja exactamente ese orden. */
+          function repartir(ficha, orden) {
+            var cols = [].slice.call(ficha.querySelectorAll('.adm-cat-bento-col'));
+            if (cols.length < 2) return;
+            var porClave = {};
+            filasDe(ficha).forEach(function (f) { porClave[f.dataset.k] = f; });
+            var mitad = Math.ceil(orden.length / 2);
+            orden.forEach(function (k, i) {
+              var f = porClave[k];
+              if (f) cols[i < mitad ? 0 : 1].appendChild(f);
+            });
+            renumerar(ficha);
+            pintarExtremos(ficha);
+          }
+
+          /* Renumerar POR POSICION. El servidor ya lo hace al pintar la pagina, pero sin esto
+             el numero nuevo no aparecia hasta recargar. Es la MISMA baraja de numeros de la
+             categoria, repartida a las filas en el orden en que se ven: ni se inventa uno ni
+             se pierde ninguno. Las filas sin numero se quedan sin numero. Idempotente. */
+          function comparaNumero(a, b) {
+            var na = /^\d/.test(a) ? parseInt(a, 10) : Infinity;
+            var nb = /^\d/.test(b) ? parseInt(b, 10) : Infinity;
+            if (na !== nb) return na - nb;
+            return a < b ? -1 : (a > b ? 1 : 0);      // 24a antes que 24b
+          }
+          function renumerar(ficha) {
+            /* La baraja sale de TODA la categoria; el reparto, solo entre los que se sirven.
+               Asi retirar un plato compacta la lista en vez de dejar un salto donde estaba. */
+            var baraja = [];
+            var huecos = [];
+            filasDe(ficha).forEach(function (f) {
+              var e = f.querySelector('.adm-prow-n');
+              if (!e) return;
+              var t = e.textContent.trim();
+              if (t !== '') baraja.push(t);
+              if (f.hasAttribute('data-retirado')) return;
+              huecos.push(e);
+            });
+            if (baraja.length < 2) return;
+            baraja.sort(comparaNumero);
+            huecos.forEach(function (e, i) {
+              var v = baraja[i] !== undefined ? baraja[i] : '';
+              if (e.textContent.trim() !== v) e.textContent = v;
+            });
+          }
+
+          /* La primera no puede subir y la ultima no puede bajar. Se recalcula tras cada
+             movimiento: si no, se queda apagada la flecha equivocada. */
+          function pintarExtremos(ficha) {
+            var filas = filasDe(ficha);
+            filas.forEach(function (f, i) {
+              var sube = f.querySelector('[data-mover="arriba"]');
+              var baja = f.querySelector('[data-mover="abajo"]');
+              if (sube) sube.disabled = (i === 0);
+              if (baja) baja.disabled = (i === filas.length - 1);
+            });
+          }
+
+          /* Que se vea el cambio: se apunta donde estaba cada fila, se hace el cambio, y se
+             las devuelve a su sitio de antes con una transformacion que acto seguido se quita
+             — el navegador interpola el camino y las filas se apartan deslizandose en vez de
+             saltar. Es la tecnica de siempre (FLIP) y no cuesta ni una libreria. Con «menos
+             movimiento» la CSS apaga la transicion, que es lo que pide esa preferencia. */
+          function deslizando(ficha, cambiar) {
+            var filas = filasDe(ficha);
+            var antes = filas.map(function (f) { return f.getBoundingClientRect(); });
+            cambiar();
+            var mueven = [];
+            filas.forEach(function (f, i) {
+              var b = f.getBoundingClientRect();
+              var dx = antes[i].left - b.left;
+              var dy = antes[i].top - b.top;
+              if (!dx && !dy) return;
+              f.removeAttribute('data-deslizando');
+              f.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+              mueven.push(f);
+            });
+            if (!mueven.length) return;
+            requestAnimationFrame(function () {
+              mueven.forEach(function (f) { f.setAttribute('data-deslizando', ''); f.style.transform = ''; });
+              setTimeout(function () {
+                mueven.forEach(function (f) { f.removeAttribute('data-deslizando'); f.style.transform = ''; });
+              }, 220);
+            });
+          }
+
+          /* El mensaje exacto del servidor viaja ya en la respuesta; no se inventa aqui. */
+          function mensajeMaloOrden(html) {
+            if (typeof html !== 'string') return null;
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var sc = doc.getElementById('toasts');
+            sc = sc ? sc.nextElementSibling : null;
+            if (!sc || sc.tagName !== 'SCRIPT') return null;
+            var m = /toast\(\s*("(?:[^"\\]|\\.)*")\s*,\s*'bad'\s*\)/.exec(sc.textContent);
+            return m ? JSON.parse(m[1]) : null;
+          }
+
+          /* Un guardado por rafaga, no uno por clic. `antes` es el orden de ANTES de la
+             primera pulsacion de la rafaga: si el servidor rechaza, se vuelve ahi, no a
+             medio camino. */
+          var pendientes = {};
+          function programarGuardado(ficha, antesDeLaRafaga) {
+            var cat = ficha.dataset.cat;
+            if (!pendientes[cat]) pendientes[cat] = { antes: antesDeLaRafaga, t: null };
+            clearTimeout(pendientes[cat].t);
+            pendientes[cat].t = setTimeout(function () { guardar(ficha); }, 500);
+          }
+
+          function guardar(ficha) {
+            var cat = ficha.dataset.cat;
+            var p = pendientes[cat];
+            if (!p) return;
+            delete pendientes[cat];
+            var ahora = clavesDe(ficha);
+            if (ahora.join(',') === p.antes.join(',')) return;   // no se movio nada
+            var datos = new URLSearchParams();
+            var campo = document.querySelector('#agotados-form input[name="csrf"]');
+            datos.set('csrf', campo ? campo.value : '');
+            datos.set('orden_guardar', cat);
+            ahora.forEach(function (k) { datos.append('orden[]', k); });
+            ficha.setAttribute('data-guardando', '');
+            fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+              .then(function (r) {
+                return r.text().then(function (texto) {
+                  if (!r.ok) throw new Error(mensajeMaloOrden(texto) || 'No se ha podido guardar el orden.');
+                  return texto;
+                });
+              })
+              .then(function () { if (window.toast) toast('Orden guardado.', 'ok'); })
+              .catch(function (e) {
+                /* Vuelta atras completa: las filas vuelven a donde estaban antes de la
+                   rafaga. Un orden que el servidor no acepto no puede quedarse pintado. */
+                deslizando(ficha, function () { repartir(ficha, p.antes); });
+                if (window.toast) toast(String(e && e.message ? e.message : e), 'bad');
+              })
+              .then(function () { ficha.removeAttribute('data-guardando'); },
+                    function () { ficha.removeAttribute('data-guardando'); });
+          }
+
+          function mover(ficha, fila, paso) {
+            var orden = clavesDe(ficha);
+            var i = orden.indexOf(fila.dataset.k);
+            var j = i + paso;
+            if (i < 0 || j < 0 || j >= orden.length) return;
+            var antes = pendientes[ficha.dataset.cat] ? pendientes[ficha.dataset.cat].antes : orden.slice();
+            orden.splice(j, 0, orden.splice(i, 1)[0]);
+            deslizando(ficha, function () { repartir(ficha, orden); });
+            /* El foco se queda en la flecha que se acaba de pulsar aunque la fila haya
+               cambiado de columna: si no, pulsar cinco veces seguidas es imposible. */
+            var boton = fila.querySelector('[data-mover="' + (paso < 0 ? 'arriba' : 'abajo') + '"]');
+            if (boton && !boton.disabled) boton.focus();
+            else { var otro = fila.querySelector('.adm-orden-b:not(:disabled)'); if (otro) otro.focus(); }
+            fila.classList.add('recien-movida');
+            setTimeout(function () { fila.classList.remove('recien-movida'); }, 700);
+            var voz = vozDe(ficha);
+            voz.textContent = 'Posición ' + (j + 1) + ' de ' + orden.length + '.';
+            programarGuardado(ficha, antes);
+          }
+
+          /* Sin puntero no hay nada que mirar: cada movimiento se dice en voz alta. */
+          function vozDe(ficha) {
+            var v = ficha.querySelector('[data-orden-voz]');
+            if (!v) {
+              v = document.createElement('span');
+              v.className = 'sr';
+              v.setAttribute('role', 'status');
+              v.setAttribute('aria-live', 'polite');
+              v.setAttribute('data-orden-voz', '');
+              ficha.appendChild(v);
+            }
+            return v;
+          }
+
+          ordenFichas.forEach(function (ficha) {
+            filasDe(ficha).forEach(function (fila) {
+              var nm = fila.querySelector('.adm-orow-nm');
+              var quien = nm ? nm.textContent.trim() : 'el plato';
+              var caja = document.createElement('span');
+              caja.className = 'adm-orden-flechas';
+              [['arriba', 'Subir ', CHEV_ARRIBA, -1], ['abajo', 'Bajar ', CHEV_ABAJO, 1]].forEach(function (d) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'adm-orden-b';
+                b.setAttribute('data-mover', d[0]);
+                b.setAttribute('aria-label', d[1] + quien + ' dentro de su categoría');
+                b.innerHTML = d[2];
+                b.addEventListener('click', function () { mover(ficha, fila, d[3]); });
+                caja.appendChild(b);
+              });
+              fila.insertBefore(caja, fila.firstChild);
+            });
+            pintarExtremos(ficha);
+          });
+        }());
+
+        /* ---- mover una SECCION de sitio ----
+           Las mismas dos flechas, tumbadas: la tira es horizontal y subir y bajar no significan
+           nada ahi. Y la misma recarga al guardar, por el mismo motivo que las categorias: el
+           numero de un plato es su posicion en la carta entera. */
+        (function () {
+          var tira = pane.querySelector('.adm-secciones-tira');
+          if (!tira) return;
+          var chips = [].slice.call(tira.querySelectorAll('.adm-pestana[data-tab-id]'));
+          if (chips.length < 2) return;
+          var IZQ = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+          var DER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+          var enVuelo = null;
+
+          function bloqueDe(c) { return chips.filter(function (o) { return o.dataset.bloque === c.dataset.bloque; }); }
+          function pintarTopes() {
+            chips.forEach(function (c) {
+              var h = bloqueDe(c);
+              var i = h.indexOf(c);
+              var caja = c.querySelector('[data-pest-orden]');
+              if (!caja) return;
+              var izq = caja.querySelector('[data-mover-pest="izq"]');
+              var der = caja.querySelector('[data-mover-pest="der"]');
+              if (izq) izq.disabled = i <= 0;
+              if (der) der.disabled = i < 0 || i >= h.length - 1;
+              caja.hidden = h.length < 2;
+            });
+          }
+          function guardar() {
+            var cuerpo = new URLSearchParams();
+            var csrf = document.querySelector('#agotados-form input[name="csrf"]');
+            cuerpo.set('csrf', csrf ? csrf.value : '');
+            cuerpo.set('pestanas_orden', '1');
+            chips.forEach(function (c) { cuerpo.append('pest[]', c.dataset.tabId); });
+            clearTimeout(enVuelo);
+            enVuelo = setTimeout(function () {
+              fetch(location.pathname, {
+                method: 'POST', body: cuerpo, credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
+              }).then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
+                .then(function (j) {
+                  if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar el orden.');
+                  location.reload();
+                })
+                .catch(function (e) { if (window.toast) toast(String(e && e.message ? e.message : e), 'bad'); });
+            }, 500);
+          }
+          function mover(c, paso) {
+            var h = bloqueDe(c);
+            var i = h.indexOf(c);
+            var j = i + paso;
+            if (i < 0 || j < 0 || j >= h.length) return;
+            var otra = h[j];
+            if (paso < 0) tira.insertBefore(c, otra);
+            else tira.insertBefore(otra, c);
+            chips = [].slice.call(tira.querySelectorAll('.adm-pestana[data-tab-id]'));
+            pintarTopes();
+            var b = c.querySelector('[data-mover-pest="' + (paso < 0 ? 'izq' : 'der') + '"]');
+            if (b && !b.disabled) b.focus();
+            if (c.scrollIntoView) c.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            guardar();
+          }
+
+          chips.forEach(function (c) {
+            var caja = c.querySelector('[data-pest-orden]');
+            if (!caja) return;
+            var nm = c.querySelector('.adm-pestana-nm');
+            var quien = nm ? nm.textContent.trim() : 'la sección';
+            caja.className = 'adm-pest-orden adm-orden-flechas';
+            [['izq', 'Mover ', IZQ, -1, ' hacia el principio'], ['der', 'Mover ', DER, 1, ' hacia el final']].forEach(function (d) {
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'adm-orden-b';
+              b.setAttribute('data-mover-pest', d[0]);
+              b.setAttribute('aria-label', d[1] + quien + d[4]);
+              b.innerHTML = d[2];
+              b.addEventListener('click', function () { mover(c, d[3]); });
+              caja.appendChild(b);
+            });
+          });
+          pintarTopes();
+          /* El paginador de la tira ya habia medido los chips —corre antes que esto— y acaba
+             de quedarse con anchos de antes de las flechas: creia que caben trece y ahora no
+             caben. Se le pide que vuelva a medir por donde ya sabe hacerlo. Sin esto los chips
+             sobrantes no se esconden, se salen por el borde derecho de la pagina, y la tira
+             deja una seccion cortada por la mitad. */
+          window.dispatchEvent(new Event('resize'));
+        }());
+
+        /* ---- mover una CATEGORIA de sitio ----
+           Mismo manejador que los platos —dos flechas— porque es el mismo gesto sobre otra
+           lista. Dos diferencias, y las dos tienen motivo:
+
+             · una categoria solo se intercambia con otra de SU seccion. La primera de una
+               seccion no puede subir: subiria dentro de la anterior, y eso no es moverla de
+               sitio, es cambiarla de seccion;
+             · al guardar se RECARGA. El numero de un plato es su posicion en la carta entera,
+               asi que mover una categoria corre los numeros de todo lo que va detras. Los
+               platos se renumeran aqui mismo porque una categoria se lleva su propia baraja;
+               esto no, y repetir la regla en JavaScript seria tener dos verdades. */
+        (function () {
+          var lista = pane.querySelector('.adm-platos-lista');
+          if (!lista) return;
+          /* Los dibujos van aqui dentro: los del bloque de arriba viven dentro de SU funcion y
+             desde aqui no existen. Referenciarlos cortaba el script de la pantalla entera. */
+          var ARRIBA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>';
+          var ABAJO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+          var fichas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-cat][data-tab-id]'));
+          if (fichas.length < 2) return;
+          var enVuelo = null;
+
+          function hermanas(f) {
+            return fichas.filter(function (o) { return o.dataset.tabId === f.dataset.tabId; });
+          }
+          function pintarTopes() {
+            fichas.forEach(function (f) {
+              var h = hermanas(f);
+              var i = h.indexOf(f);
+              var caja = f.querySelector('[data-cat-orden]');
+              if (!caja) return;
+              var arriba = caja.querySelector('[data-mover-cat="arriba"]');
+              var abajo = caja.querySelector('[data-mover-cat="abajo"]');
+              if (arriba) arriba.disabled = i <= 0;
+              if (abajo) abajo.disabled = i < 0 || i >= h.length - 1;
+              /* Una seccion de una sola categoria no tiene donde moverla: sin flechas. */
+              caja.hidden = h.length < 2;
+            });
+          }
+          function guardar(f) {
+            var h = hermanas(f);
+            var cuerpo = new URLSearchParams();
+            var csrf = document.querySelector('#agotados-form input[name="csrf"]');
+            cuerpo.set('csrf', csrf ? csrf.value : '');
+            cuerpo.set('cats_orden', f.dataset.tabId);
+            h.forEach(function (o) { cuerpo.append('cat[]', o.dataset.cat); });
+            clearTimeout(enVuelo);
+            enVuelo = setTimeout(function () {
+              fetch(location.pathname, {
+                method: 'POST', body: cuerpo, credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
+              }).then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
+                .then(function (j) {
+                  if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar el orden.');
+                  /* Recargar es lo que trae los numeros nuevos. */
+                  location.reload();
+                })
+                .catch(function (e) {
+                  if (window.toast) toast(String(e && e.message ? e.message : e), 'bad');
+                });
+            }, 500);
+          }
+          function mover(f, paso) {
+            var h = hermanas(f);
+            var i = h.indexOf(f);
+            var j = i + paso;
+            if (i < 0 || j < 0 || j >= h.length) return;
+            var otra = h[j];
+            if (paso < 0) lista.insertBefore(f, otra);
+            else lista.insertBefore(otra, f);
+            fichas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-cat][data-tab-id]'));
+            pintarTopes();
+            var b = f.querySelector('[data-mover-cat="' + (paso < 0 ? 'arriba' : 'abajo') + '"]');
+            if (b && !b.disabled) b.focus();
+            var nm = f.querySelector('.adm-cat-bento-nm');
+            if (window.toast) toast('«' + (nm ? nm.textContent.trim() : 'La categoría') + '» a la posición ' + (j + 1) + '.', 'ok');
+            guardar(f);
+          }
+
+          fichas.forEach(function (f) {
+            var caja = f.querySelector('[data-cat-orden]');
+            if (!caja) return;
+            var nm = f.querySelector('.adm-cat-bento-nm');
+            var quien = nm ? nm.textContent.trim() : 'la categoría';
+            caja.className = 'adm-cat-orden adm-orden-flechas';
+            [['arriba', 'Subir ', ARRIBA, -1], ['abajo', 'Bajar ', ABAJO, 1]].forEach(function (d) {
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'adm-orden-b';
+              b.setAttribute('data-mover-cat', d[0]);
+              b.setAttribute('aria-label', d[1] + quien + ' dentro de su sección');
+              b.innerHTML = d[2];
+              b.addEventListener('click', function () { mover(f, d[3]); });
+              caja.appendChild(b);
+            });
+          });
+          pintarTopes();
+        }());
 
         pane.querySelectorAll('.adm-chips-estado [data-filter]').forEach(function (b) {
           b.addEventListener('click', function () {
@@ -8186,8 +11746,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           if (!window.fetch) { form.submit(); return; }
           entradaSucia(true);
           var datos = new FormData(form);
-          fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
-            .then(function (r) { if (!r.ok) throw new Error('http'); })
+          /* Respuesta corta, y se LEE. Las dos cosas hacen falta: la cabecera para que el
+             servidor no mande la pagina entera, y leer el cuerpo para que la conexion se
+             cierre. Un fetch cuyo cuerpo no se lee deja al servidor escribiendo. */
+          fetch(location.pathname, {
+            method: 'POST', body: datos, credentials: 'same-origin',
+            headers: { 'X-Sin-Pagina': '1' },
+          })
+            .then(function (r) { return r.text().then(function () { if (!r.ok) throw new Error('http'); }); })
             .then(function () {
               entradaSucia(false);
               if (alGuardarBien) alGuardarBien();
@@ -8247,17 +11813,25 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
              gluten/Vegano) tiene dos casillas marcadas pero es UN plato. Misma cuenta que el
              contador (agotadosDistintos), para no preguntar «¿Quitar los 6?» cuando son 5. */
           var nQuitar = agotadosDistintos();
-          if (!window.confirm('¿Quitar los ' + nQuitar + ' agotados?')) return;
-          marcados.forEach(function (cb) {
-            cb.checked = false;
-            cb.closest('.adm-orow').classList.remove('es-agotado');
+          /* La unica pregunta del panel que no cuelga de un boton con `data-confirmar`: el
+             texto se cuenta aqui (platos, no casillas) y hay trabajo que hacer despues de
+             que digan que si. Por eso `admConfirmar` es una funcion y no solo un atributo. */
+          window.admConfirmar({
+            pregunta: '¿Quitar los ' + nQuitar + ' agotados?',
+            nota: 'Vuelven a estar disponibles ahora mismo.',
+            si: 'Quitar los agotados', tono: 'peligro',
+          }, function () {
+            marcados.forEach(function (cb) {
+              cb.checked = false;
+              cb.closest('.adm-orow').classList.remove('es-agotado');
+            });
+            refrescar();
+            aplicarFiltro();
+            clearTimeout(envioPendiente);
+            enviarFormulario(formAg, function (v) { sucio = v; refrescar(); },
+              function () { agotadosConfirmados = clavesAgotadasActuales(); },
+              function () { restaurarAgotados(agotadosConfirmados); aplicarFiltro(); });
           });
-          refrescar();
-          aplicarFiltro();
-          clearTimeout(envioPendiente);
-          enviarFormulario(formAg, function (v) { sucio = v; refrescar(); },
-            function () { agotadosConfirmados = clavesAgotadasActuales(); },
-            function () { restaurarAgotados(agotadosConfirmados); aplicarFiltro(); });
         });
 
         /* El precio autosubmite al salir del campo (blur / Enter), no en cada tecla: escribir
@@ -8496,12 +12070,22 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           bGuardar.textContent = 'Guardando…';
           actual.classList.add('cargando');
           exportar().then(function (blob) {
+            /* Sin identificador no hay a quien subirsela: es el alta de un plato que todavia
+               no existe. Se entrega el recorte a quien lo pidio y ya lo subira el cuando el
+               plato tenga clave. El recortador no sabe nada de altas, solo de que sin `k` no
+               hay destino. */
+            if (!actual.dataset.k) {
+              document.dispatchEvent(new CustomEvent('adm:recorte', { detail: { blob: blob, para: actual } }));
+              cerrar();
+              return null;
+            }
             var fd = new FormData();
             fd.append('foto_accion', 'subir');
             fd.append('foto_plato', actual.dataset.k);
             fd.append('foto', blob, 'plato.webp');
             return enviar(fd);
           }).then(function (j) {
+            if (!j) return;
             actual.dataset.foto = j.foto;
             actual.classList.add('tiene');
             actual.title = 'Cambiar la foto';
@@ -8545,6 +12129,18 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           if (e.key === 'Escape' && capa.hasAttribute('open')) cerrar();
         });
         file.addEventListener('change', function () { cargar(file.files && file.files[0]); });
+
+        /* Una puerta para entrar al recortador con un archivo que ya se tiene —el que se
+           suelta encima de la zona de la foto del alta— en vez de abrir el selector. Es lo
+           mismo que hace el clic, saltandose el `file.click()`. */
+        window.admRecorteCon = function (b, archivo) {
+          if (!b || !archivo) return;
+          boton = b;
+          ultimoFoco = b;
+          quienEl.textContent = b.dataset.nombre || '';
+          error('');
+          cargar(archivo);
+        };
 
         document.addEventListener('click', function (e) {
           var b = e.target.closest ? e.target.closest('.camara') : null;
@@ -8613,7 +12209,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         });
       })();
     </script>
-    <?php endif; ?>
 
     </div>
   </section>
@@ -8638,6 +12233,143 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     $ofEstado = !$oferta['on'] ? 'APAGADA' : ($oferta_corriendo ? 'CORRIENDO' : 'PROGRAMADA');
     $ofClase  = !$oferta['on'] ? 'adm-e-desactivado' : ($oferta_corriendo ? 'adm-e-activo' : 'adm-e-programado');
   ?>
+  <?php /* --------------------------------------------------------------------- precios
+   * Subir la carta entera de un porcentaje es una accion de vez en cuando —no la tarea
+   * diaria— y vivia empotrada arriba de Platos, empujando la lista hacia abajo en todas las
+   * visitas. Y su paso 2, la revision, SECUESTRABA la pantalla de Platos entera: mientras
+   * habia una propuesta sin publicar no se podia ni mirar un plato.
+   *
+   * Aqui tiene su sitio: los dos pasos, uno debajo del otro, y Platos se queda para lo que
+   * es. Ni un handler, ni un name, ni un formulario cambian — es una mudanza de marcado.
+   */ ?>
+  <section class="pane" data-pane="precios" role="tabpanel" id="panel-precios" aria-labelledby="navtab-precios"<?= $pestana === 'precios' ? '' : ' hidden' ?>>
+    <div class="adm-board">
+      <div class="adm-bento">
+        <section class="adm-f adm-f-precios">
+          <div class="adm-f-cab">
+            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg></span>
+            <h2>Ajustar precios</h2>
+            <?php if ($precios): ?>
+              <span class="der">
+                <span class="adm-estado adm-e-programado"><?= count($precios) ?> distinto<?= count($precios) === 1 ? '' : 's' ?> de la carta</span>
+              </span>
+            <?php endif; ?>
+          </div>
+          <p class="hint">Sube toda la carta un porcentaje y mira cómo quedaría antes de
+             publicar nada. Nada se escribe hasta que pulses «Publicar» en el paso de abajo.</p>
+        <div class="adm-ajustar-precios">
+          <form method="post" style="display:contents">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <input type="hidden" name="precios_calcular" value="1">
+            <?php foreach ([3, 5, 10, 15] as $n): ?>
+              <button class="adm-pct" name="subir" value="<?= $n ?>" type="submit">+<?= $n ?>%</button>
+            <?php endforeach; ?>
+          </form>
+          <form method="post" class="adm-pct-otro">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <span class="adm-pct-mas" aria-hidden="true">+</span>
+            <input class="adm-pct-num" type="text" inputmode="decimal" name="subir" size="4"
+                   placeholder="7,5" required aria-label="Otro porcentaje de subida">
+            <span class="adm-pct-pc" aria-hidden="true">%</span>
+            <button class="adm-pct-ir" name="precios_calcular" value="1" type="submit"
+                    aria-label="Ver cómo quedaría con ese porcentaje"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+          </form>
+          <form method="post" style="display:contents">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <button class="adm-btn adm-btn-fino adm-ajustar-precios-mano" name="precios_manual" value="1" type="submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+              Cambiar precio manual
+            </button>
+          </form>
+          <?php if ($precios): ?>
+            <form method="post" class="adm-ajustar-precios-volver">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+              <span class="adm-f-nota"><?= count($precios) ?> distinto<?= count($precios) === 1 ? '' : 's' ?> de la carta</span>
+              <button class="adm-btn adm-btn-fino adm-btn-quitar" name="precios_reset" value="1" type="submit"
+                      data-confirmar="¿Devolver TODOS los precios a los de la carta?"
+                      data-confirmar-nota="Se pierden los <?= count($precios) ?> cambios y no se puede deshacer desde aquí."
+                      data-confirmar-si="Devolver los precios" data-confirmar-tono="peligro">Volver a los de la carta</button>
+            </form>
+          <?php endif; ?>
+        </div>
+        </section>
+      </div>
+
+      <?php if ($previsua): ?>
+      <?php /* ------------------------------------------------------------------ revisar
+       * Lo que antes era la pantalla «Precios, paso 2»: se relocaliza tal cual, sin tocar
+       * ni un campo. Sigue ocupando la pantalla entera mientras está en pantalla —es una
+       * subida que toca de golpe hasta 312 platos, y no se quiere ver Platos detrás como si
+       * ya estuviera publicado. */ ?>
+      <?php
+        $pctTxt = $previsua['pct'] === null
+          ? null
+          : rtrim(rtrim(number_format($previsua['pct'], 2, ',', ''), '0'), ',');
+        $porTab = [];
+        foreach ($previsua['filas'] as $f) $porTab[$f['tab']][] = $f;
+      ?>
+      <form method="post" id="precios-form" class="adm-form-suelto">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+      </form>
+
+      <div class="adm-bento">
+
+        <section class="adm-f adm-f-prev">
+          <div class="adm-f-cab">
+            <span class="adm-f-ico"><?php if ($pctTxt === null): ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><?php else: ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg><?php endif; ?></span>
+            <h2><?= $pctTxt === null ? 'Precios a mano' : 'Subida del ' . h($pctTxt) . '%' ?></h2>
+            <span class="der adm-a-prev">
+              <span class="adm-f-nota"><?= count($previsua['filas']) ?> platos</span>
+            </span>
+          </div>
+          <p class="hint" data-adm-ayuda="Todavía no se ha publicado nada" data-adm-ancla=".adm-a-prev">
+            <?php if ($pctTxt === null): ?>
+              Ésta es la lista con los precios que hay puestos ahora mismo. Cambia los que
+              quieras y publica; lo que no toques se queda igual.
+            <?php else: ?>
+              Esto es lo que quedaría con una subida del <?= h($pctTxt) ?>%, ya redondeado a
+              múltiplos de 5 céntimos. Cambia los que no te cuadren y publica.
+            <?php endif; ?>
+            Un precio en blanco devuelve ese plato al precio de la carta. El mismo plato que
+            sale en Sin gluten o en Vegano se cambia una vez y las dos filas se mueven solas.
+          </p>
+          <label class="adm-buscar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+            <input class="adm-campo" type="search" id="precios-filtro" autocomplete="off"
+                   placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
+          </label>
+          <p class="adm-f-nota adm-filtro-cuenta" id="precios-cuenta" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <?php foreach ($porTab as $tab => $filas): ?>
+          <section class="adm-f adm-f-ptab" data-tab-precios>
+            <div class="adm-f-cab">
+              <h2><?= h($tab) ?></h2>
+              <span class="der"><span class="adm-f-nota"><?= count($filas) ?></span></span>
+            </div>
+            <div class="adm-precios">
+              <?php foreach ($filas as $f): ?>
+                <div class="adm-prow" data-busca="<?= h(minuscula($f['name']) . ' ' . $f['id']) ?>">
+                  <span class="adm-prow-n"><?= h($f['id']) ?></span>
+                  <span class="adm-prow-nm"><?= h($f['name']) ?></span>
+                  <span class="adm-prow-viejo"><?= h(CLIENTE_MONEDA) ?><?= h($f['actual']) ?></span>
+                  <input class="adm-campo adm-prow-nuevo" type="text" inputmode="decimal"
+                         form="precios-form"
+                         name="precio[<?= h($f['key']) ?>]" value="<?= h($f['nuevo']) ?>"
+                         <?= isset($hermanas[$f['key']]) ? 'data-plato="' . h($f['name'] . ' ' . $f['carta']) . '"' : '' ?>
+                         aria-label="Precio nuevo de <?= h($f['name']) ?>">
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </section>
+        <?php endforeach; ?>
+
+      </div>
+
+      <?php endif; ?>
+    </div>
+  </section>
+
   <section class="pane" data-pane="ofertas" role="tabpanel" id="panel-ofertas" aria-labelledby="tab-ofertas"<?= $pestana === 'ofertas' ? '' : ' hidden' ?>>
     <div class="adm-board">
       <div class="adm-bento">
@@ -8652,12 +12384,32 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
          * saltando entre cajas es leerla a trozos. Los cuatro controles van en una fila con
          * su rótulo encima, así que se lee de izquierda a derecha como se dice.
          */ ?>
-        <section class="adm-f adm-f-ooferta">
+        <?php /* `data-apagada` no apaga ningun control: la configuracion se sigue
+                 pudiendo tocar con la oferta apagada, que es lo normal —se prepara y
+                 luego se enciende. Lo unico que cambia es COMO se lee: con la oferta
+                 apagada, los dias marcados dejan de pintarse con el naranja de "esto
+                 esta corriendo en la carta" y pasan al gris de "esto esta guardado".
+                 Los siete dias en naranja con la oferta apagada era exactamente la
+                 confusion que se detecto en revision. */ ?>
+        <section class="adm-f adm-f-ooferta"<?= $oferta['on'] ? '' : ' data-apagada' ?>>
+          <?php /* El estado se decia TRES veces: la insignia de aqui, el texto del
+                   interruptor («Encendida»/«Apagada») y la frase del pie. Y la insignia es la
+                   unica de las tres que distingue APAGADA de PROGRAMADA de CORRIENDO, que es
+                   lo que de verdad hay que saber. Asi que manda ella, y el interruptor —que
+                   es la accion, no el estado— se sube a su lado y se queda sin rotulo: al
+                   lado de la insignia no hay ninguna duda de que enciende y apaga. Se va con
+                   el la caja gris `.adm-oferta-maestro`, que eran 56px de alto para repetir
+                   una palabra. */ ?>
           <div class="adm-f-cab">
             <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></span>
             <h2>La oferta</h2>
-            <span class="der adm-a-oferta">
+            <span class="der adm-a-oferta adm-oferta-mando">
               <span class="adm-estado <?= $ofClase ?>"><?= $ofEstado ?></span>
+              <label class="adm-sw adm-sw-alto" title="Encender o apagar la oferta">
+                <input type="checkbox" name="oferta_on" value="1" form="ofertas-form" aria-label="Oferta encendida"<?= $oferta['on'] ? ' checked' : '' ?>>
+                <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
+                <span class="sr adm-sw-txt" data-on="Encendida" data-off="Apagada"><?= $oferta['on'] ? 'Encendida' : 'Apagada' ?></span>
+              </label>
             </span>
           </div>
 
@@ -8672,14 +12424,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                    por `input[name="oferta_on"]` y sube con `closest('.adm-sw')`, asi que
                    sigue encontrandolo igual, y repintarEstadoOferta sigue apuntando dentro
                    de .adm-f-ooferta. Cero cambios de contrato. */ ?>
-          <div class="adm-oferta-maestro">
-            <span class="adm-lbl" id="of-rot-on">Estado</span>
-            <label class="adm-sw adm-sw-alto">
-              <input type="checkbox" name="oferta_on" value="1" form="ofertas-form" aria-labelledby="of-rot-on"<?= $oferta['on'] ? ' checked' : '' ?>>
-              <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
-              <span class="adm-sw-txt" data-on="Encendida" data-off="Apagada"><?= $oferta['on'] ? 'Encendida' : 'Apagada' ?></span>
-            </label>
-          </div>
           <p class="hint" data-adm-ayuda="Cómo funciona la oferta" data-adm-ancla=".adm-a-oferta">
             Un descuento que se enciende y se apaga solo a la hora que digas, en hora canaria y
             no en la del móvil del cliente. En la carta sale el precio rebajado arriba, el de
@@ -8717,30 +12461,46 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             </summary>
           <div class="adm-regla">
             <div class="adm-regla-g">
-              <label class="adm-lbl" for="of-pct">Descuento</label>
+              <label class="adm-lbl" for="of-pct">Descuento
+                <span class="adm-regla-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
+              </label>
               <div class="adm-pct-otro adm-dto">
                 <input class="adm-pct-num" id="of-pct" type="number" name="pct" form="ofertas-form"
                        min="1" max="90" step="1" size="3" required
                        value="<?= (int) $oferta['percent'] ?>" aria-label="Descuento en porcentaje">
                 <span class="adm-pct-pc" aria-hidden="true">%</span>
               </div>
+              <?php /* Los cuatro descuentos que se usan de verdad. No sustituyen al campo:
+                       lo RELLENAN, y el guardado sigue siendo el de siempre —el mismo
+                       `change` sobre #of-pct que ya escuchaba el autoguardado—, asi que
+                       esto no anade ni una puerta nueva al servidor. */ ?>
+              <div class="adm-pct-atajos" role="group" aria-label="Descuentos habituales">
+                <?php foreach ([10, 15, 20, 30] as $atajo): ?>
+                  <button type="button" class="adm-pct-atajo" data-pct="<?= $atajo ?>"
+                          aria-pressed="<?= (int) $oferta['percent'] === $atajo ? 'true' : 'false' ?>">-<?= $atajo ?>%</button>
+                <?php endforeach; ?>
+              </div>
             </div>
 
             <div class="adm-regla-g">
-              <span class="adm-lbl" id="of-rot-horas">Horario <span class="opt">(hora de Canarias)</span></span>
+              <span class="adm-lbl" id="of-rot-horas">Horario <span class="opt">(hora de Canarias)</span>
+                <span class="adm-regla-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+              </span>
               <div class="adm-rango" role="group" aria-labelledby="of-rot-horas">
-                <input class="adm-campo" id="of-desde" type="time" name="desde" form="ofertas-form"
-                       value="<?= h(hhmm((int) $oferta['from'])) ?>" required aria-label="Desde">
+                <select class="adm-campo adm-hora-sel" id="of-desde" name="desde" form="ofertas-form"
+                        required aria-label="Desde"><?= horas_de_cuarto((int) $oferta['from'], 0, 1425) ?></select>
                 <span class="adm-rango-f" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/></svg></span>
-                <input class="adm-campo" id="of-hasta" type="time" name="hasta" form="ofertas-form"
-                       value="<?= h(hhmm((int) $oferta['to'])) ?>" required aria-label="Hasta, no incluida">
+                <select class="adm-campo adm-hora-sel" id="of-hasta" name="hasta" form="ofertas-form"
+                        required aria-label="Hasta"><?= horas_de_cuarto((int) $oferta['to'], 15, 1440) ?></select>
               </div>
             </div>
 
             <?php /* Siete círculos con la inicial y, al final, «Semanal»: el atajo de la
                      oferta que corre todos los días, que es la mitad de los casos. */ ?>
             <div class="adm-regla-g adm-regla-dias">
-              <span class="adm-lbl" id="of-rot-dias">Días</span>
+              <span class="adm-lbl" id="of-rot-dias">Días
+                <span class="adm-regla-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+              </span>
               <div class="adm-dias" role="group" aria-labelledby="of-rot-dias">
                 <?php foreach (DIAS as $n => $nombre): ?>
                   <label class="adm-dia">
@@ -8749,22 +12509,40 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     <span class="sr"><?= h($nombre) ?></span>
                   </label>
                 <?php endforeach; ?>
-                <button type="button" class="adm-dia-semanal" id="of-semanal"
-                        aria-pressed="<?= count((array) $oferta['days']) === count(DIAS) ? 'true' : 'false' ?>">Semanal</button>
               </div>
+              <div class="adm-dias-frec">
+                <span>Frecuencia</span>
+                <button type="button" class="adm-dia-semanal" id="of-semanal"
+                        aria-pressed="<?= count((array) $oferta['days']) === count(DIAS) ? 'true' : 'false' ?>">
+                  <svg class="adm-dia-semanal-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span>Semanal</span>
+                </button>
+              </div>
+              <?php /* La nota de los dias decia lo mismo que la frase del pie —si esto se
+                       aplica o no en la carta— y ademas estiraba su columna 21px por encima
+                       de las otras dos, dejando la fila coja. Lo que hay que saber lo dice el
+                       pie, que es donde ya se cuenta lo que esta pasando ahora mismo. Se
+                       queda el elemento, vacio y oculto, porque el repintado del autoguardado
+                       lo busca por su clase. */ ?>
+              <p class="adm-dias-nota" hidden></p>
             </div>
 
           </div>
           </details>
 
+          <?php /* La UNICA frase que dice lo que esta pasando ahora mismo, y la que explica
+                   lo que ningun control puede: que «hasta las 14:00» significa que la ultima
+                   hora con descuento es las 13:59. */ ?>
           <p class="adm-regla-pie">
             <?php if (!$oferta['on']): ?>
-              En la carta no hay ningún descuento.
+              Apagada: en la carta no hay ningún descuento.
             <?php elseif ($oferta_corriendo): ?>
               Corriendo ahora mismo en la carta.
             <?php else: ?>
               Fuera de su horario: ahora no se ve en la carta.
             <?php endif; ?>
+            Hasta las <?= h(hhmm((int) $oferta['to'])) ?> quiere decir que la última hora con
+            descuento es las <?= h(hhmm(max(0, (int) $oferta['to'] - 1))) ?>.
             En Canarias son las <?= h($ahora_canarias->format('H:i')) ?> del
             <?= h(minuscula(dia_semana($ahora_canarias->format('Y-m-d')))) ?>.
           </p>
@@ -8776,22 +12554,24 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                  oferta_cat_toggle, mismo autoguardado: sólo cambia dónde vive. */ ?>
 
         <?php /* --------------------------------------------------------- platos sueltos */ ?>
+        <?php /* Esta ficha no tiene contenido: es la barra de trabajo de la lista que viene
+                 debajo —buscar y filtrar—, y ocupaba tres pisos (124px) para dos controles.
+                 En una linea: el titulo dice de que va la lista, el buscador se lleva el
+                 ancho que sobra, y el filtro cierra por la derecha. */ ?>
         <section class="adm-f adm-f-osueltos">
-          <div class="adm-f-cab">
+          <div class="adm-f-cab adm-osueltos-barra">
             <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></span>
             <h2>Platos sueltos</h2>
-            <span class="der">
-              <span class="vp-per" role="group" aria-label="Filtro">
-                <button type="button" data-ofiltro="todos" aria-pressed="true">Todos</button>
-                <button type="button" data-ofiltro="marcados" aria-pressed="false">Sólo marcados</button>
-              </span>
+            <label class="adm-buscar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+              <input class="adm-campo" type="search" id="qo" autocomplete="off"
+                     placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
+            </label>
+            <span class="vp-per" role="group" aria-label="Filtro">
+              <button type="button" data-ofiltro="todos" aria-pressed="true">Todos</button>
+              <button type="button" data-ofiltro="marcados" aria-pressed="false">Sólo marcados</button>
             </span>
           </div>
-          <label class="adm-buscar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
-            <input class="adm-campo" type="search" id="qo" autocomplete="off"
-                   placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato por nombre o número">
-          </label>
           <p class="adm-vacio" id="ovacio" hidden>Ningún plato coincide con la búsqueda.</p>
         </section>
 
@@ -8821,11 +12601,36 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               $porCategoria[$cid] = [
                 'nombre' => $catsEs[$p['cat']] ?? $p['cat'],
                 'tab'    => $p['tab'],
+                /* Los mismos cuatro campos que en Platos, y por el mismo motivo: el rotulo lo
+                   resuelve rotulo_categoria() y no puede resolverlo distinto segun la
+                   pantalla. */
+                'i18n'   => is_array($p['grupoI18n'] ?? null) ? $p['grupoI18n'] : [],
+                'propio' => !empty($p['grupoPropio']),
+                'tabId'  => (string) ($p['tabId'] ?? ''),
+                'tabI18n' => is_array($p['tabI18n'] ?? null) ? $p['tabI18n'] : [],
                 'platos' => [],
               ];
             }
             $porCategoria[$cid]['platos'][] = $p;
           }
+          /* El MISMO orden que Platos. No es que Ofertas cambie de funcion: es que el
+             restaurante no puede ver la misma categoria en dos ordenes distintos segun la
+             pantalla en la que esté. Aqui la lista es un subconjunto (los platos sin precio
+             no llegan), y ordenar_platos() lo aguanta: coloca los que conoce y deja los
+             demás donde los puso el build. */
+          $retiradosOf = retirados_de($estado);
+          /* Los numeros salen de la carta ENTERA, no de esta lista: aqui faltan los platos sin
+             precio, y numerar sobre lo que queda daria numeros distintos a los de Platos para
+             el mismo plato. El restaurante no puede ver dos numeraciones segun la pantalla. */
+          $numerosOf = numeros_de_carta(carta_ordenada($lista, $estado), $retiradosOf);
+          foreach ($porCategoria as $cid => $g) {
+            /* Un plato retirado no esta en la carta, asi que no puede entrar en una oferta:
+               se cae de esta lista igual que los que no tienen precio. */
+            $vivos = array_values(array_filter($g['platos'], static fn($p) => !in_array((string) $p['key'], $retiradosOf, true)));
+            $ordenados = ordenar_platos($vivos, orden_de($estado, (string) $cid));
+            $porCategoria[$cid]['platos'] = aplicar_numeros($ordenados, $numerosOf);
+          }
+          $porCategoria = array_filter($porCategoria, static fn($g) => count($g['platos']) > 0);
         ?>
         <?php foreach ($porCategoria as $cid => $grupo):
           $catMarcada = in_array($cid, (array) $oferta['cats'], true);
@@ -8839,7 +12644,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           } ?>
           <section class="adm-f adm-cat-bento" data-cat-bento<?= $enOferta > 0 ? ' data-con-marcas' : '' ?>>
             <div class="adm-cat-bento-cab">
-              <span class="adm-cat-bento-nm"><?= h(etiqueta_categoria($grupo['nombre'], $grupo['tab'])) ?></span>
+              <span class="adm-cat-bento-nm"><?= h(rotulo_categoria($estado, $grupo, (string) $cid)) ?></span>
               <?php if ($enOferta > 0): ?>
                 <span class="adm-cat-bento-marca" data-dentro><?= (int) $enOferta ?> en oferta</span>
               <?php endif; ?>
@@ -9075,6 +12880,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           if (pieActual && pieNuevo) {
             pieActual.textContent = pieNuevo.textContent;
           }
+
+          /* Mismo criterio que la insignia y el pie: lo que dice el servidor. Sin esto,
+             apagar la oferta dejaba la insignia en APAGADA con los dias todavia pintados
+             de "corriendo", que es la contradiccion que se vio en revision. */
+          var fichaActual = pane.querySelector('.adm-f-ooferta');
+          var fichaNueva = doc.querySelector('.adm-f-ooferta');
+          if (fichaActual && fichaNueva) {
+            fichaActual.toggleAttribute('data-apagada', fichaNueva.hasAttribute('data-apagada'));
+          }
+          var notaActual = pane.querySelector('.adm-f-ooferta .adm-dias-nota');
+          var notaNueva = doc.querySelector('.adm-f-ooferta .adm-dias-nota');
+          if (notaActual && notaNueva) {
+            notaActual.textContent = notaNueva.textContent;
+          }
         }
 
         /* Auditoría de uso real: Platos e Ofertas viven en el mismo documento pero cada
@@ -9149,7 +12968,26 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             .catch(function () { pctInput.value = pctPersistido; })
             .then(function () { pctInput.disabled = false; }, function () { pctInput.disabled = false; });
         }
+        /* Los atajos escriben en el campo y disparan su `change`: entran por la MISMA puerta
+           que teclear el numero a mano, asi que la validacion, el bloqueo del campo mientras
+           guarda y la vuelta atras si el servidor dice que no valen igual para los dos. */
+        var atajos = [].slice.call(document.querySelectorAll('.adm-pct-atajo'));
+        function pintarAtajos() {
+          var n = parseInt(pctInput ? pctInput.value : '', 10);
+          atajos.forEach(function (b) {
+            b.setAttribute('aria-pressed', String(parseInt(b.dataset.pct, 10) === n));
+          });
+        }
+        atajos.forEach(function (b) {
+          b.addEventListener('click', function () {
+            if (!pctInput || pctInput.disabled) return;
+            pctInput.value = b.dataset.pct;
+            pintarAtajos();
+            guardarPct();
+          });
+        });
         if (pctInput) {
+          pctInput.addEventListener('change', pintarAtajos);
           pctInput.addEventListener('change', guardarPct);
           pctInput.addEventListener('keydown', function (e) {
             if (e.key !== 'Enter') return;
@@ -9426,7 +13264,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                       <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                       <button class="adm-btn adm-btn-fino" name="borrar_nombre" value="<?= (int) $i ?>"
                               type="submit"
-                              onclick="return confirm('¿Quitar el nombre y el país de esta puntuación? La puntuación se queda.')">
+                              data-confirmar="¿Quitar el nombre y el país de esta puntuación?"
+                              data-confirmar-nota="La puntuación se queda."
+                              data-confirmar-si="Quitar el nombre" data-confirmar-tono="peligro">
                         Quitar nombre</button>
                     </form>
                   <?php endif; ?>
@@ -9440,7 +13280,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
               <span class="adm-fila-que">Empieza de cero. No se puede deshacer.</span>
               <button class="adm-btn adm-btn-fino adm-btn-quitar" name="reiniciar_record" value="1" type="submit"
-                      onclick="return confirm('¿Vaciar el marcador entero? Se pierden las tres puntuaciones y no se puede deshacer.')">
+                      data-confirmar="¿Vaciar el marcador entero?"
+                      data-confirmar-nota="Se pierden las tres puntuaciones y no se puede deshacer."
+                      data-confirmar-si="Vaciar el marcador" data-confirmar-tono="peligro">
                 Vaciar el marcador</button>
             </form>
           <?php endif; ?>
@@ -9449,6 +13291,78 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <form method="post" id="juego-form" class="adm-form-suelto">
           <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
         </form>
+
+        <?php /* Autoguardado del interruptor. Esta pantalla tiene UN control y su Guardar
+                 estaba a media pantalla de distancia, en la tira de abajo: se tocaba el
+                 interruptor, se veia moverse, y el cambio no llegaba al disco. Se reutiliza
+                 el MISMO handler de siempre (guardar_juego + juego_on) — no hay endpoint
+                 nuevo, no hay contrato nuevo, y el formulario y su boton siguen ahi para
+                 quien no tenga JavaScript. */ ?>
+        <script>
+          (function () {
+            var pane = document.querySelector('.pane[data-pane="juego"]');
+            var sw = pane ? pane.querySelector('input[name="juego_on"]') : null;
+            var form = document.getElementById('juego-form');
+            if (!pane || !sw || !form) return;
+
+            /* Mismo lector que Ofertas: el mensaje exacto del servidor viaja ya en la
+               respuesta, no se inventa aqui. */
+            function mensajeMalo(html) {
+              if (typeof html !== 'string') return null;
+              var doc = new DOMParser().parseFromString(html, 'text/html');
+              var sc = doc.getElementById('toasts');
+              sc = sc ? sc.nextElementSibling : null;
+              if (!sc || sc.tagName !== 'SCRIPT') return null;
+              var m = /toast\(\s*("(?:[^"\\]|\\.)*")\s*,\s*'bad'\s*\)/.exec(sc.textContent);
+              return m ? JSON.parse(m[1]) : null;
+            }
+
+            /* Lo que dice la pantalla sobre el estado lo pinta PHP; tras guardar se copia de
+               la respuesta en vez de recalcularlo aqui. */
+            function repintar(html) {
+              var doc = new DOMParser().parseFromString(html, 'text/html');
+              var pares = [
+                ['.pane[data-pane="juego"] .adm-juego-sw .adm-fila-dato', null],
+                ['.adm-acciones-fuera[data-para="juego"] .adm-acciones-estado', null]
+              ];
+              pares.forEach(function (par) {
+                var aqui = document.querySelector(par[0]);
+                var alla = doc.querySelector(par[0]);
+                if (aqui && alla) aqui.textContent = alla.textContent;
+              });
+            }
+
+            var enVuelo = null;
+            sw.addEventListener('change', function () {
+              var marcar = sw.checked;
+              var caja = sw.closest('.adm-sw');
+              var txt = caja ? caja.querySelector('.adm-sw-txt') : null;
+              var datos = new URLSearchParams();
+              datos.set('csrf', (form.querySelector('input[name="csrf"]') || {}).value || '');
+              datos.set('guardar_juego', '1');
+              if (marcar) datos.set('juego_on', '1');   // sin marcar no se manda: es como lo manda el <form>
+              sw.disabled = true;
+              enVuelo = fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+                .then(function (r) {
+                  return r.text().then(function (texto) {
+                    if (!r.ok) { throw new Error(mensajeMalo(texto) || 'No se ha podido guardar. Comprueba la conexión.'); }
+                    return texto;
+                  });
+                })
+                .then(function (html) {
+                  repintar(html);
+                  if (window.toast) toast(marcar ? 'El juego sale en la carta.' : 'El juego no sale en la carta.', 'ok');
+                })
+                .catch(function (e) {
+                  /* Vuelta atras completa: la casilla, su rotulo y las dos frases. */
+                  sw.checked = !marcar;
+                  if (txt && txt.dataset.on) txt.textContent = sw.checked ? txt.dataset.on : txt.dataset.off;
+                  if (window.toast) toast(String(e && e.message ? e.message : e) || 'No se ha podido guardar.', 'bad');
+                })
+                .then(function () { sw.disabled = false; }, function () { sw.disabled = false; });
+            });
+          }());
+        </script>
 
       </div>
     </div>
@@ -9557,10 +13471,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <?php /* Borrar la creatividad borra el fichero del servidor y no se deshace.
                        El panel ya pregunta antes de quitar una foto de portada; aqui no
                        preguntaba nada. Mismo patron que el resto de la casa. */ ?>
-              <form method="post" class="adm-quitar" id="pub-form-del"
-                    onsubmit="return confirm('¿Quitar la imagen del banner? Se borra del servidor y no se puede deshacer.')">
+              <form method="post" class="adm-quitar" id="pub-form-del">
                 <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <button class="adm-btn adm-btn-quitar" name="eliminar_banner" value="1" type="submit">
+                <button class="adm-btn adm-btn-quitar" name="eliminar_banner" value="1" type="submit"
+                        data-confirmar="¿Quitar la imagen del banner?"
+                        data-confirmar-nota="Se borra del servidor y no se puede deshacer."
+                        data-confirmar-si="Quitar la imagen" data-confirmar-tono="peligro">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                   Quitar imagen
                 </button>
@@ -9993,10 +13909,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                               data-mover="abajo"
                               aria-label="Bajar la foto <?= $i + 1 ?>"<?= $i === count($fotos) - 1 ? ' disabled' : '' ?>><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
                     </form>
-                    <form method="post" style="display:contents"
-                          onsubmit="return confirm('¿Quitar esta foto de la carta? Se borra del servidor y no se puede deshacer.')">
+                    <form method="post" style="display:contents">
                       <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                       <button class="adm-foto-b adm-foto-b-quitar" name="quitar_foto" value="<?= h($f) ?>" type="submit"
+                              data-confirmar="¿Quitar esta foto de la carta?"
+                              data-confirmar-nota="Se borra del servidor y no se puede deshacer."
+                              data-confirmar-si="Quitar la foto" data-confirmar-tono="peligro"
                               aria-label="Quitar la foto <?= $i + 1 ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
                     </form>
                   </div>
@@ -10202,7 +14120,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                     <button class="adm-btn adm-btn-fino" name="restaurar_copia" value="<?= h($c['nombre']) ?>"
                             type="submit"
-                            onclick="return confirm('<?= h($confirmar) ?>')">Restaurar</button>
+                            data-confirmar="<?= h($confirmar) ?>"
+                            data-confirmar-si="Restaurar" data-confirmar-tono="peligro">Restaurar</button>
                   </form>
                 </div>
               <?php endforeach; ?>
@@ -10211,7 +14130,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
               <span class="adm-fila-que">Empezar de cero. No se puede deshacer.</span>
               <button class="adm-btn adm-btn-fino adm-btn-quitar" name="vaciar_copias" value="1" type="submit"
-                      onclick="return confirm('¿Borrar todas las copias de precios? No se puede deshacer.')">Borrar todas</button>
+                      data-confirmar="¿Borrar todas las copias de precios?"
+                      data-confirmar-nota="No se puede deshacer."
+                      data-confirmar-si="Borrar todas" data-confirmar-tono="peligro">Borrar todas</button>
             </form>
           <?php endif; ?>
         </section>
@@ -10590,7 +14511,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php if (CLIENTE_PUBLICIDAD): ?>
     <div class="adm-acciones-fuera" data-para="publicidad">
       <span class="adm-acciones-estado"><?= h($pubEstado ?? '') ?></span>
-      <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
       <button class="adm-btn adm-btn-guardar" form="pub-form" name="guardar_publicidad" value="1" type="submit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Guardar cambios
@@ -10603,10 +14523,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            cada uno enganchado a su propio formulario/handler de siempre. Destacado sigue sin
            tira: cada etiqueta se añade y se quita con su propio botón, al momento, igual que
            antes. */ ?>
-  <?php if (!$previsua): $nAgotados = count($agotados); ?>
+  <?php /* Ya no depende de que haya o no propuesta de precios: la revision se mudo a su
+           propia pantalla y Platos deja de ser secuestrada por ella. */ ?>
+  <?php $nAgotados = count($agotados); ?>
   <div class="adm-acciones-fuera" data-para="platos">
     <span class="adm-acciones-estado"><?= $nAgotados === 1 ? '1 plato agotado' : $nAgotados . ' platos agotados' ?></span>
-    <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
     <button class="adm-btn adm-btn-guardar" form="agotados-form" type="submit">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
       Guardar agotados
@@ -10616,12 +14537,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       Guardar precios
     </button>
   </div>
-  <?php endif; ?>
 
   <?php $ofSueltos = count((array) $oferta['keys']); ?>
   <div class="adm-acciones-fuera" data-para="ofertas">
     <span class="adm-acciones-estado"><?= $ofSueltos === 1 ? '1 plato suelto en oferta' : $ofSueltos . ' platos sueltos en oferta' ?></span>
-    <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
     <button class="adm-btn adm-btn-guardar" form="ofertas-form" name="guardar_oferta" value="1" type="submit">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
       Guardar cambios
@@ -10631,9 +14550,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php if ($previsua): ?>
     <?php /* Sólo mientras hay propuesta en pantalla: en la otra pantalla de Precios no hay
              nada que guardar, se elige de dónde sale el cambio y ya. */ ?>
-    <div class="adm-acciones-fuera" data-para="platos-revisar">
+    <div class="adm-acciones-fuera" data-para="precios">
       <span class="adm-acciones-estado">Todavía no se ha publicado nada</span>
-      <a class="adm-btn adm-btn-ver" href="?t=platos">Cancelar</a>
+      <a class="adm-btn adm-btn-ver" href="?t=precios">Cancelar</a>
       <button class="adm-btn adm-btn-guardar" form="precios-form" name="precios_publicar" value="1" type="submit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Publicar precios
@@ -10644,7 +14563,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php if (CLIENTE_JUEGO): ?>
     <div class="adm-acciones-fuera" data-para="juego">
       <span class="adm-acciones-estado"><?= !empty($juego['on']) ? 'El juego sale en la carta' : 'El juego no sale en la carta' ?></span>
-      <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
       <button class="adm-btn adm-btn-guardar" form="juego-form" name="guardar_juego" value="1" type="submit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         Guardar cambios
@@ -10655,7 +14573,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php $marcaNombre = $marca['nombreVisible'] !== '' ? $marca['nombreVisible'] : CLIENTE_NOMBRE; ?>
   <div class="adm-acciones-fuera" data-para="marca">
     <span class="adm-acciones-estado">En la carta: <?= h($marcaNombre) ?></span>
-    <a class="adm-btn adm-btn-ver" href="../index.html?v=<?= time() ?>" target="_blank" rel="noopener">Ver la carta</a>
     <button class="adm-btn adm-btn-guardar" form="marca-form" name="guardar_marca" value="1" type="submit">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
       Guardar cambios
@@ -10681,18 +14598,22 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   $cartaBuild = is_array($cartaJ) ? (string) ($cartaJ['build'] ?? '') : '';
   $cuadra = BUILD_ID !== '' && $cartaBuild !== '' && BUILD_ID === $cartaBuild;
  ?>
+<?php /* Un pie de version de una sola linea. El <br> de antes la partia siempre en dos,
+         tambien en 1512, donde sobraba ancho de sobra. Ahora son dos trozos sueltos en una
+         caja flexible: caben en una linea mientras quepan, y cuando de verdad no caben —un
+         movil estrecho— bajan ENTEROS, nunca partidos por la mitad. */ ?>
 <p class="chapa">
-  <?php if (BUILD_FECHA !== ''): ?>
-    Versión <strong><?= h(BUILD_FECHA) ?></strong>
-  <?php else: ?>
-    Versión <strong>desconocida</strong> (este panel es anterior a la chapa)
-  <?php endif; ?>
-  <?php if (BUILD_ID !== '' && $cartaBuild !== '' && !$cuadra): ?>
-    <span class="chapa-mal">· la carta de al lado es de otra compilación:
-    la subida se quedó a medias</span>
-  <?php endif; ?>
-  <br>
+  <span class="chapa-t">
+    <?php if (BUILD_FECHA !== ''): ?>
+      Versión <strong><?= h(BUILD_FECHA) ?></strong>
+    <?php else: ?>
+      Versión <strong>desconocida</strong> (este panel es anterior a la chapa)
+    <?php endif; ?>
+  </span>
   <span class="chapa-id">panel <?= h(BUILD_ID !== '' ? BUILD_ID : '?') ?> · carta <?= h($cartaBuild !== '' ? $cartaBuild : '?') ?></span>
+  <?php if (BUILD_ID !== '' && $cartaBuild !== '' && !$cuadra): ?>
+    <span class="chapa-mal">la carta de al lado es de otra compilación: la subida se quedó a medias</span>
+  <?php endif; ?>
 </p>
 
   <?php if (DATOS_ACTIVO): ?>
@@ -11318,7 +15239,582 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   window.addEventListener('resize', cerrar);
   window.addEventListener('scroll', cerrar, true);
 })();
+
+/* ------------------------------------------------------------------ plegar la barra
+ * Un boton, una clase en el <html> y la eleccion recordada. La clase se pone ANTES de que se
+ * pinte nada —el bloque de arriba del documento, junto al tema— para que la barra no
+ * aparezca y desaparezca en cada carga.
+ */
+(function () {
+  var b = document.getElementById('adm-plegar');
+  if (!b) return;
+  var CLAVE = 'socialcard-barra-plegada';
+  function pintar() {
+    var enRiel = document.documentElement.classList.contains('adm-riel');
+    b.setAttribute('aria-expanded', enRiel ? 'false' : 'true');
+    var rotulo = enRiel ? 'Menú con nombres' : 'Menú en iconos';
+    b.setAttribute('aria-label', rotulo);
+    b.setAttribute('title', rotulo);
+  }
+  pintar();
+  b.addEventListener('click', function () {
+    var enRiel = document.documentElement.classList.toggle('adm-riel');
+    try { localStorage.setItem(CLAVE, enRiel ? '1' : '0'); } catch (e) {}
+    pintar();
+  });
+})();
+
+/* ------------------------------------------------------------------ la sesion, en cuenta atras
+ * El servidor cierra la sesion tras SESION_MINUTOS SIN ACTIVIDAD, asi que la cuenta arranca en
+ * cada carga y se reinicia con cada peticion que sale de esta pagina. Lo segundo importa: sin
+ * ello, la barra bajaria a cero mientras el restaurante trabaja con los autoguardados —que van
+ * por fetch y no recargan— y estaria diciendo una mentira. Se envuelve fetch una vez para
+ * enterarse; nada mas.
+ */
+(function () {
+  var caja = document.querySelector('.adm-sesion');
+  if (!caja || caja.hasAttribute('data-demo')) return;
+  var barra = caja.querySelector('.adm-sesion-barra');
+  var relleno = caja.querySelector('.adm-sesion-relleno');
+  var texto = caja.querySelector('.adm-sesion-queda');
+  var total = parseInt(caja.getAttribute('data-minutos'), 10);
+  if (!barra || !relleno || !(total > 0)) return;
+  var TOTAL = total * 60;          // en segundos
+  var desde = Date.now();
+
+  function dos(n) { return n < 10 ? '0' + n : String(n); }
+  /* Al llegar a cero NO se avisa y se sigue: se sale. Hasta ahora el contador escribia
+     «sesion caducada» y la pantalla se quedaba ahi, viva en apariencia — se podia escribir un
+     plato entero y descubrir que no habia sesion al intentar guardarlo.
+
+     Se RECARGA, y quien decide es el servidor. No se pregunta antes ni se comprueba con una
+     peticion: cualquier peticion cuenta como actividad y le renovaria los treinta minutos,
+     asi que un sondeo mantendria viva para siempre la sesion que viene a cerrar. El navegador
+     solo elige CUANDO preguntar; si el servidor ya la cerro, contesta con el login y su
+     motivo, y si por lo que sea sigue viva, esto es una recarga y no pasa nada.
+
+     `replace` y no `href`: la pantalla muerta no se queda en el historial, para que el boton
+     de atras no la devuelva como si nada. */
+  var yaFuera = false;
+  function pintar() {
+    var quedan = Math.max(0, TOTAL - Math.round((Date.now() - desde) / 1000));
+    if (quedan === 0 && !yaFuera) {
+      yaFuera = true;
+      location.replace(location.pathname + location.search);
+      return;
+    }
+    relleno.style.width = (quedan / TOTAL * 100).toFixed(2) + '%';
+    var min = Math.ceil(quedan / 60);
+    barra.setAttribute('aria-valuenow', String(min));
+    if (texto) {
+      /* Media hora no se ve bajar mirandola: lo que se nota es la CIFRA. Por minutos casi
+         todo el rato, y por minuto:segundo en los ultimos cinco —ahi es cuando saber cuanto
+         queda deja de ser un dato y pasa a ser un aviso, y un numero que se mueve cada
+         segundo lo dice sin decirlo. */
+      texto.textContent = quedan === 0 ? 'sesión caducada'
+        : (quedan <= 300 ? Math.floor(quedan / 60) + ':' + dos(quedan % 60) + ' restantes'
+                         : min + ' min restantes');
+    }
+    if (quedan <= 300) caja.setAttribute('data-poco', ''); else caja.removeAttribute('data-poco');
+    if (quedan > 300 && quedan <= TOTAL / 4) caja.setAttribute('data-medio', ''); else caja.removeAttribute('data-medio');
+  }
+  function reiniciar() { desde = Date.now(); pintar(); }
+
+  pintar();
+  setInterval(pintar, 1000);
+
+  /* Cualquier peticion que salga de esta pagina es actividad para el servidor. */
+  if (typeof window.fetch === 'function') {
+    var original = window.fetch;
+    window.fetch = function () {
+      var r = original.apply(this, arguments);
+      if (r && typeof r.then === 'function') r.then(function (resp) { if (resp && resp.ok) reiniciar(); }, function () {});
+      return r;
+    };
+  }
+})();
+
+/* ------------------------------------------------------------------ la hoja de alta
+ * Abrir, cerrar, y llegar con la categoria puesta cuando se entra por el `+` de una ficha.
+ * Nada mas: el formulario se manda como cualquier otro del panel, y quien contesta es PHP.
+ */
+(function () {
+  var hoja = null, caja, cat;
+  var devolverFoco = null;
+
+  function montar() {
+    if (hoja) return true;
+    hoja = document.getElementById('adm-alta');
+    if (!hoja) return false;
+    caja = hoja.querySelector('.adm-alta-caja');
+    cat = document.getElementById('adm-alta-cat');
+    hoja.addEventListener('click', function (e) {
+      if (e.target.closest('[data-alta-cierra]')) { e.preventDefault(); cerrar(); }
+    });
+
+    /* Las pestanas de idioma. Cambian que se VE, nunca que se manda: los paneles escondidos
+       siguen dentro del formulario con sus valores. */
+    caja.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('.adm-alta-idi-tab') : null;
+      if (!t) return;
+      e.preventDefault();
+      verIdioma(t.getAttribute('data-idi'), true);
+    });
+    /* Flechas entre pestanas, que es lo que espera quien las usa con el teclado. */
+    caja.addEventListener('keydown', function (e) {
+      var t = e.target.closest ? e.target.closest('.adm-alta-idi-tab') : null;
+      if (!t || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+      e.preventDefault();
+      var todas = [].slice.call(caja.querySelectorAll('.adm-alta-idi-tab'));
+      var i = todas.indexOf(t) + (e.key === 'ArrowRight' ? 1 : -1);
+      var otra = todas[(i + todas.length) % todas.length];
+      if (otra) verIdioma(otra.getAttribute('data-idi'), true);
+    });
+    /* Un campo obligatorio dentro de un panel escondido no se puede enfocar, y el navegador
+       se queda callado sin enviar el formulario. Cuando el propio navegador dice que ese
+       campo esta mal, se abre su idioma para que se vea lo que falta. */
+    caja.addEventListener('invalid', function (e) {
+      var p = e.target.closest ? e.target.closest('.adm-alta-idi-panel') : null;
+      if (p && p.hidden) verIdioma(p.getAttribute('data-idi'), false);
+    }, true);
+
+    /* La categoria elegida se lee en la cabecera, no solo dentro del desplegable. */
+    if (cat) cat.addEventListener('change', pintarRuta);
+    /* Escribir el plato repasa los alergenos sospechosos; marcar uno lo saca de la lista. */
+    caja.addEventListener('input', pintarSugeridos);
+    caja.addEventListener('change', pintarSugeridos);
+    return true;
+  }
+
+  /* ---- alergenos que el texto hace sospechar ----
+     Un diccionario de palabras, no un analisis: encuentra lo que el texto NOMBRA, no lo que
+     la receta lleva. Si la descripcion no menciona el anacardo de la base del curry, esto no
+     lo puede adivinar. Por eso RESALTA y no marca: declarar un alergeno es una afirmacion
+     legal, un falso negativo puede mandar a alguien al hospital y un falso positivo es mentir
+     sobre el plato. El sistema senala; el restaurante decide. */
+  var PISTAS = <?= defined('CLIENTE_ALERGENO_PISTAS') ? CLIENTE_ALERGENO_PISTAS : '{}' ?>;
+  var NOMBRE_ALE = <?= json_encode(defined('CLIENTE_ALERGENOS') ? CLIENTE_ALERGENOS : [], JSON_UNESCAPED_UNICODE) ?>;
+  function sinTildes(t) {
+    return String(t == null ? '' : t).normalize
+      ? String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      : String(t).toLowerCase();
+  }
+  function pintarSugeridos() {
+    var aviso = document.getElementById('adm-ale-sug');
+    var casillas = caja ? caja.querySelectorAll('input[name="alergeno[]"]') : [];
+    if (!casillas.length) return;
+    var texto = [];
+    caja.querySelectorAll('[name^="nombre["], [name^="desc["]').forEach(function (i) { texto.push(i.value); });
+    /* Palabra a palabra, no por trozos: buscando «pan» dentro de la cadena, «panceta» tambien
+       casaba. Se admite el plural —dos letras de mas como mucho— y nada mas. */
+    var palabras = sinTildes(texto.join(' ')).split(/[^a-z0-9]+/).filter(Boolean);
+    var pendientes = [];
+    casillas.forEach(function (c) {
+      var lista = PISTAS[c.value] || [];
+      var suena = lista.some(function (p) {
+        return palabras.some(function (w) {
+          return w === p || (w.indexOf(p) === 0 && w.length - p.length <= 2);
+        });
+      });
+      var etiqueta = c.closest('.adm-alergeno');
+      if (etiqueta) {
+        if (suena) etiqueta.setAttribute('data-sugerido', '');
+        else etiqueta.removeAttribute('data-sugerido');
+      }
+      if (suena && !c.checked) pendientes.push(NOMBRE_ALE[c.value] || c.value);
+    });
+    if (!aviso) return;
+    if (!pendientes.length) { aviso.hidden = true; aviso.textContent = ''; return; }
+    aviso.hidden = false;
+    aviso.innerHTML = 'Por lo que dice el plato podría llevar <b>' + pendientes.join(', ')
+      + '</b>. Repásalo y marca los que lleve: esto sale de las palabras del texto, no de la receta.';
+  }
+
+  /* ---- que idioma se esta escribiendo ---- */
+  function verIdioma(code, moverFoco) {
+    if (!caja || !code) return;
+    caja.querySelectorAll('.adm-alta-idi-tab').forEach(function (t) {
+      var suyo = t.getAttribute('data-idi') === code;
+      t.setAttribute('aria-selected', suyo ? 'true' : 'false');
+      t.tabIndex = suyo ? 0 : -1;
+      if (suyo && moverFoco) t.focus();
+    });
+    caja.querySelectorAll('.adm-alta-idi-panel').forEach(function (p) {
+      p.hidden = p.getAttribute('data-idi') !== code;
+    });
+  }
+  function idiomaBase() {
+    var t = caja && caja.querySelector('.adm-alta-idi-tab');
+    return t ? t.getAttribute('data-idi') : null;
+  }
+
+  /* ---- la ruta de la cabecera ---- */
+  var rutaCat = null;
+  function pintarRuta() {
+    if (!rutaCat) rutaCat = document.getElementById('adm-alta-ruta-cat');
+    if (!rutaCat || !cat) return;
+    var op = cat.options[cat.selectedIndex];
+    rutaCat.textContent = op ? op.textContent.trim() : '';
+  }
+
+  function cerrar() {
+    if (!hoja) return;
+    hoja.hidden = true;
+    if (devolverFoco && document.contains(devolverFoco)) devolverFoco.focus();
+    devolverFoco = null;
+  }
+
+  function abrir(desde) {
+    if (!montar()) return;
+    devolverFoco = desde || document.activeElement;
+    var cual = desde && desde.getAttribute('data-alta-cat');
+    if (cual && cat) cat.value = cual;
+    pintarRuta();
+    hoja.hidden = false;
+    /* El foco al primer campo que hay que escribir, no al desplegable: si se ha entrado por
+       el `+` de una ficha, la categoria ya esta elegida y volver a ella es un paso de mas. */
+    var visible = caja.querySelector('.adm-alta-idi-panel:not([hidden]) input[type="text"]');
+    var primero = cual || (cat && cat.disabled) ? visible : (cat || visible);
+    if (primero) primero.focus();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-alta-abre]') : null;
+    if (!b) return;
+    e.preventDefault();
+    modoAlta();
+    abrir(b);
+  });
+
+  /* ---- la misma hoja, en modo edicion ----
+     Cambian tres cosas: el titulo, por donde manda, y de donde salen los valores. Todo lo
+     demas —los campos, los alergenos, la foto— es identico, porque editar un plato y crearlo
+     preguntan exactamente lo mismo. */
+  var campoEditar = document.getElementById('adm-alta-editar');
+  var grupoCat = document.getElementById('adm-alta-g-cat');
+  var titulo = document.getElementById('adm-alta-t');
+  var notaAlta = document.getElementById('adm-alta-nota-alta');
+  var notaEditar = document.getElementById('adm-alta-nota-editar');
+
+  function modoAlta() {
+    if (!montar()) return;
+    if (campoEditar) { campoEditar.value = ''; campoEditar.disabled = true; }
+    if (cat) cat.disabled = false;
+    if (grupoCat) grupoCat.hidden = false;
+    if (titulo) titulo.textContent = 'Añadir un plato';
+    if (notaAlta) notaAlta.hidden = false;
+    if (notaEditar) notaEditar.hidden = true;
+    var si = caja.querySelector('.adm-alta-si');
+    if (si) si.textContent = 'Añadir el plato';
+    caja.querySelectorAll('input[type="text"], textarea').forEach(function (i) { i.value = ''; });
+    caja.querySelectorAll('input[name="alergeno[]"]').forEach(function (i) { i.checked = false; });
+    verIdioma(idiomaBase(), false);
+    pintarRuta();
+    pintarSugeridos();
+    fotoPendiente = null; pintarFoto();
+  }
+
+  function modoEditar(d) {
+    if (!montar()) return;
+    /* La categoria se ENSEÑA pero no se manda: mover un plato de categoria lo saca de un grupo
+       y lo mete en otro en la carta, y toca el orden de dos categorias y la numeracion entera.
+       Es otra decision, y hasta que se tome el desplegable se queda quieto. */
+    if (cat) { cat.value = d.cat; cat.disabled = true; }
+    if (campoEditar) { campoEditar.value = d.key; campoEditar.disabled = false; }
+    if (titulo) titulo.textContent = 'Cambiar el plato';
+    if (notaAlta) notaAlta.hidden = true;
+    if (notaEditar) notaEditar.hidden = false;
+    var si = caja.querySelector('.adm-alta-si');
+    if (si) si.textContent = 'Guardar los cambios';
+    Object.keys(d.nombre || {}).forEach(function (c) {
+      var i = caja.querySelector('input[name="nombre[' + c + ']"]');
+      if (i) i.value = d.nombre[c] || '';
+    });
+    Object.keys(d.desc || {}).forEach(function (c) {
+      var i = caja.querySelector('[name="desc[' + c + ']"]');
+      if (i) i.value = d.desc[c] || '';
+    });
+    var precio = caja.querySelector('input[name="precio"]');
+    if (precio) precio.value = (d.precio || '').replace('.', ',');
+    caja.querySelectorAll('input[name="alergeno[]"]').forEach(function (i) {
+      i.checked = (d.alergenos || []).indexOf(i.value) !== -1;
+    });
+    verIdioma(idiomaBase(), false);
+    pintarRuta();
+    pintarSugeridos();
+    fotoPendiente = null; pintarFoto();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-editar]') : null;
+    if (!b) return;
+    e.preventDefault();
+    var form = document.getElementById('adm-alta') && document.getElementById('adm-alta').querySelector('form');
+    var csrf = form ? form.querySelector('input[name="csrf"]').value : '';
+    var d = new URLSearchParams();
+    d.set('csrf', csrf);
+    d.set('plato_datos', b.getAttribute('data-editar'));
+    b.disabled = true;
+    fetch(location.pathname, {
+      method: 'POST', body: d, credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.error) || 'No he podido leer ese plato.');
+      modoEditar(j);
+      abrir(b);
+    }).catch(function (err) {
+      alert(err && err.message ? err.message : 'No he podido leer ese plato.');
+    }).then(function () { b.disabled = false; });
+  });
+
+  /* ---- la foto del plato que todavia no existe ----
+     El recortador entrega el WebP ya cuadrado y comprimido; se guarda aqui y se sube en
+     cuanto el alta devuelve el identificador. Es el unico orden posible: el endpoint de
+     fotos exige que el plato este en la carta, y hasta que no se guarda no lo esta. */
+  var fotoPendiente = null;
+  var vista = document.getElementById('adm-alta-foto-vista');
+  var rotulo = document.getElementById('adm-alta-foto-txt');
+  var quitar = document.getElementById('adm-alta-foto-no');
+  var camara = document.getElementById('adm-alta-foto');
+
+  function pintarFoto() {
+    if (!rotulo) return;
+    if (fotoPendiente) {
+      if (vista) {
+        if (vista.src && vista.src.indexOf('blob:') === 0) URL.revokeObjectURL(vista.src);
+        vista.src = URL.createObjectURL(fotoPendiente);
+        vista.hidden = false;
+      }
+      /* La zona NO se esconde: se queda, con la foto dentro, y sigue siendo el sitio donde
+         se pulsa para cambiarla. Esconderla dejaba un hueco y obligaba a buscar por donde
+         se vuelve a elegir. */
+      if (camara) camara.setAttribute('data-con-foto', '');
+      rotulo.textContent = 'Foto lista, se sube al guardar';
+      if (quitar) quitar.hidden = false;
+    } else {
+      if (vista) { if (vista.src && vista.src.indexOf('blob:') === 0) URL.revokeObjectURL(vista.src); vista.removeAttribute('src'); vista.hidden = true; }
+      if (camara) camara.removeAttribute('data-con-foto');
+      rotulo.textContent = 'Pulsa para elegir, o arrastra la foto aquí';
+      if (quitar) quitar.hidden = true;
+    }
+  }
+
+  /* Soltar el archivo encima. Va al MISMO recortador que el clic —cuadrado de 1000x1000 en
+     WebP— porque el servidor no acepta otra cosa; lo unico que cambia es de donde sale el
+     archivo. Si el recortador todavia no esta montado, no se promete nada: no se pinta la
+     zona como activa y el archivo se ignora. */
+  if (camara) {
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      camara.addEventListener(ev, function (e) {
+        if (!window.admRecorteCon) return;
+        e.preventDefault();
+        camara.setAttribute('data-encima', '');
+      });
+    });
+    ['dragleave', 'dragend', 'drop'].forEach(function (ev) {
+      camara.addEventListener(ev, function () { camara.removeAttribute('data-encima'); });
+    });
+    camara.addEventListener('drop', function (e) {
+      if (!window.admRecorteCon) return;
+      e.preventDefault();
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) window.admRecorteCon(camara, f);
+    });
+  }
+  document.addEventListener('adm:recorte', function (e) {
+    if (!e.detail || e.detail.para !== camara) return;
+    fotoPendiente = e.detail.blob;
+    pintarFoto();
+  });
+  if (quitar) quitar.addEventListener('click', function () { fotoPendiente = null; pintarFoto(); });
+
+  /* El alta con foto va por fetch para poder encadenar las dos peticiones. Sin foto se manda
+     como siempre, con una navegacion normal: no hay motivo para meter JavaScript por medio. */
+  document.addEventListener('submit', function (e) {
+    if (!hoja || hoja.hidden) return;
+    var form = e.target;
+    if (!form.querySelector || !form.querySelector('#adm-alta-cat')) return;
+    if (!fotoPendiente) return;
+    e.preventDefault();
+    var boton = form.querySelector('.adm-alta-si');
+    var antes = boton ? boton.textContent : '';
+    if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
+    var datos = new URLSearchParams(new FormData(form));
+    fetch(location.pathname, {
+      method: 'POST', body: datos, credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar.');
+      var fd = new FormData();
+      fd.append('csrf', datos.get('csrf'));
+      fd.append('foto_accion', 'subir');
+      /* Al crear, la clave la devuelve el servidor; al editar ya la teniamos puesta. */
+      fd.append('foto_plato', j.key || datos.get('plato_editar'));
+      fd.append('foto', fotoPendiente, 'plato.webp');
+      return fetch(location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); });
+    }).then(function () {
+      /* Se recarga y ya: el plato nuevo hay que verlo en su ficha, con su numero y su sitio,
+         y eso lo pinta el servidor. */
+      location.href = location.pathname + '?t=platos';
+    }).catch(function (err) {
+      if (boton) { boton.disabled = false; boton.textContent = antes; }
+      alert(err && err.message ? err.message : 'No se ha podido guardar.');
+    });
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && hoja && !hoja.hidden) { e.preventDefault(); cerrar(); }
+  });
+})();
+
+/* La hoja de crear una categoria principal. Misma mecanica que la del alta de plato, con su
+   propia capa: son dos preguntas distintas y mezclarlas en un formulario con un desplegable
+   de «que quieres crear» habria sido un paso mas para las dos. */
+(function () {
+  var hoja = null;
+  var devolverFoco = null;
+  function cerrar() {
+    if (!hoja) return;
+    hoja.hidden = true;
+    if (devolverFoco && document.contains(devolverFoco)) devolverFoco.focus();
+    devolverFoco = null;
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    if (e.target.closest('[data-seccion-cierra]')) { e.preventDefault(); cerrar(); return; }
+    var b = e.target.closest('[data-seccion-abre]');
+    if (!b) return;
+    e.preventDefault();
+    hoja = hoja || document.getElementById('adm-seccion');
+    if (!hoja) return;
+    devolverFoco = b;
+    hoja.hidden = false;
+    var primero = hoja.querySelector('input[type="text"]');
+    if (primero) primero.focus();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && hoja && !hoja.hidden) { e.preventDefault(); cerrar(); }
+  });
+})();
+
+/* ------------------------------------------------------------------ confirmar, en el panel
+ * Se engancha al CLIC del boton y no al `submit` del formulario, y eso no es un detalle: el
+ * boton que retira un plato lleva su `name` y su `value` («retirar_plato=d_...»), y ese par
+ * SOLO viaja si el envio lo dispara ese boton. Reenviar el formulario a mano lo perderia.
+ * Asi que se para el clic, se pregunta, y si dicen que si se vuelve a pulsar el mismo boton
+ * con un pestillo puesto para dejarlo pasar.
+ *
+ * De respaldo se vigila tambien el `submit`, por si alguien manda el formulario con Enter
+ * desde un campo sin tocar el boton.
+ */
+(function () {
+  /* La capa vive al FINAL del documento, despues de este script, asi que aqui todavia no
+     existe: buscarla ahora devolvia null y el modulo se rendia sin enganchar nada — el boton
+     de retirar mandaba el formulario sin preguntar. Se busca la primera vez que hace falta,
+     que es cuando ya esta el documento entero. */
+  var capa = null, titulo, texto, si, noes;
+  var devolverFoco = null;
+  var alSi = null;
+
+  function montar() {
+    if (capa) return true;
+    capa = document.getElementById('adm-modal');
+    if (!capa) return false;
+    titulo = document.getElementById('adm-modal-t');
+    texto = document.getElementById('adm-modal-txt');
+    si = capa.querySelector('[data-modal-si]');
+    noes = [].slice.call(capa.querySelectorAll('[data-modal-no]'));
+    si.addEventListener('click', function () { var f = alSi; cerrar(); if (f) f(); });
+    noes.forEach(function (b) { b.addEventListener('click', cerrar); });
+    return true;
+  }
+
+  function cerrar() {
+    if (capa) capa.hidden = true;
+    alSi = null;
+    if (devolverFoco && document.contains(devolverFoco)) devolverFoco.focus();
+    devolverFoco = null;
+  }
+
+  /* Publico: lo usa el que quita todos los agotados, que pregunta desde JavaScript y no
+     tiene un boton con `data-confirmar` que pulsar dos veces. */
+  function preguntar(op, alAceptar) {
+    if (!montar()) { if (alAceptar) alAceptar(); return; }
+    devolverFoco = document.activeElement;
+    titulo.textContent = op.pregunta || '¿Seguro?';
+    texto.textContent = op.nota || '';
+    si.textContent = op.si || 'Aceptar';
+    if (op.tono) capa.setAttribute('data-tono', op.tono); else capa.removeAttribute('data-tono');
+    alSi = alAceptar;
+    capa.hidden = false;
+    /* El foco arranca en Cancelar cuando lo que se pregunta quita algo: un Enter de mas no
+       puede ser lo que retire un plato. */
+    (op.tono === 'peligro' ? noes[noes.length - 1] : si).focus();
+  }
+  window.admConfirmar = preguntar;
+
+  document.addEventListener('keydown', function (e) {
+    if (!capa || capa.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); cerrar(); return; }
+    if (e.key !== 'Tab') return;
+    /* Mientras esta abierto, el tabulador no se sale de la caja. */
+    var dentro = [].slice.call(capa.querySelectorAll('button'));
+    var i = dentro.indexOf(document.activeElement);
+    var j = e.shiftKey ? i - 1 : i + 1;
+    if (j < 0) j = dentro.length - 1;
+    if (j >= dentro.length) j = 0;
+    e.preventDefault(); dentro[j].focus();
+  });
+
+  function deElemento(b) {
+    return {
+      pregunta: b.getAttribute('data-confirmar'),
+      nota: b.getAttribute('data-confirmar-nota') || '',
+      si: b.getAttribute('data-confirmar-si') || 'Aceptar',
+      tono: b.getAttribute('data-confirmar-tono') || '',
+    };
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-confirmar]') : null;
+    if (!b) return;
+    if (b.dataset.confirmado === '1') {
+      /* El pestillo se quita DESPUES, no aqui. El `submit` que provoca este mismo clic se
+         dispara dentro de esta misma tanda, y el vigilante de abajo lo mira: quitarlo ahora
+         hacia que ese vigilante no lo viera, volviera a preguntar, y el formulario no se
+         mandara nunca — la pregunta salia dos veces y no pasaba nada. */
+      setTimeout(function () { delete b.dataset.confirmado; }, 0);
+      return;
+    }
+    e.preventDefault(); e.stopPropagation();
+    preguntar(deElemento(b), function () { b.dataset.confirmado = '1'; b.click(); });
+  }, true);
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    var b = form.querySelector ? form.querySelector('[data-confirmar]') : null;
+    if (!b || b.dataset.confirmado === '1') return;
+    e.preventDefault();
+    preguntar(deElemento(b), function () { b.dataset.confirmado = '1'; b.click(); });
+  }, true);
+})();
 </script>
 <?php endif; ?>
+
+<?php /* Una sola capa de confirmacion para todo el panel: la pregunta la trae quien la lanza.
+         Sin JavaScript esto no aparece nunca y las acciones se mandan directas — que es
+         exactamente lo que pasaba antes, porque `onsubmit="return confirm(...)"` tambien era
+         JavaScript. No hay regresion sin JS: no habia nada que perder. */ ?>
+<div class="adm-modal" id="adm-modal" hidden>
+  <div class="adm-modal-fondo" data-modal-no></div>
+  <div class="adm-modal-caja" role="dialog" aria-modal="true" aria-labelledby="adm-modal-t">
+    <h2 class="adm-modal-t" id="adm-modal-t"></h2>
+    <p class="adm-modal-txt" id="adm-modal-txt"></p>
+    <div class="adm-modal-pie">
+      <button type="button" class="adm-btn adm-btn-fino adm-modal-no" data-modal-no>Cancelar</button>
+      <button type="button" class="adm-btn adm-btn-fino adm-modal-si" data-modal-si>Aceptar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

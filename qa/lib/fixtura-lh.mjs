@@ -199,7 +199,9 @@ export async function montarFixtura(salida) {
     ficherosDocroot: docHuella.ficheros,
     ficherosFixtura: docHuella.fixtura.ficheros,
     hashCarta: sha(readFileSync(carta)),
-    hashEstado: sha(readFileSync(estado)),
+    /* Mismo criterio que el hash por fichero: si no, `LHC-FIX-01` diria que la fixtura cuadra
+       y `LHC-FIX-02` diria que no, sobre el mismo fichero y en la misma pasada. */
+    hashEstado: sha(Buffer.from(normalizaEstadoParaHuella(readFileSync(estado, 'utf8')), 'utf8')),
     hashBuildSinSellos: hashBuildSinSellos(salida),
     bytesCarta: statSync(carta).size,
     podio: PODIO.map((p) => `${p.nombre}/${p.pais}`),
@@ -364,6 +366,64 @@ function ficherosDelProducto() {
   }
 }
 
+/* ------------------------------------------------------------ normalizacion semantica del estado
+ *
+ * El problema, con nombre y apellidos. El release que anade reordenar, retirar, dar de alta y
+ * editar desde el panel mete SIETE colecciones nuevas en la plantilla del estado por defecto. En
+ * la fixtura de Lighthouse las siete estan VACIAS: nadie ha reordenado nada, nadie ha retirado
+ * nada. El arbol de control es anterior y no las escribe. Resultado: dos `estado.json` con
+ * distinto numero de bytes que siembran EXACTAMENTE el mismo escenario —la misma portada, el
+ * mismo banner, el mismo juego, el mismo podio—, y la guarda bloqueaba la comparacion que existe
+ * justo para medir ese release.
+ *
+ * Lo que se corrige es CONCEPTUAL, no el rigor: la guarda comparaba la REPRESENTACION DEL
+ * ESQUEMA cuando lo que tiene que comparar es la FIXTURA FUNCIONAL QUE LIGHTHOUSE MIDE. Una clave
+ * ausente y la misma clave presente y vacia describen el mismo escenario; nada de lo que el
+ * navegador carga cambia entre las dos.
+ *
+ * Y lo que NO es, porque la diferencia es todo:
+ *
+ *   - NO es «ignorar arrays vacios». Es esta lista de siete nombres y ninguno mas.
+ *   - NO es «ignorar claves nuevas». Una octava clave nueva, aunque venga vacia, rompe.
+ *   - NO es «ignorar diferencias de esquema». Cualquier otra diferencia de esquema rompe.
+ *   - NO tolera contenido: `"orden": ["algo"]` frente a `orden` ausente rompe. La equivalencia
+ *     es con el valor EXACTAMENTE `[]`, no con «vacio» en sentido amplio: ni `{}`, ni `null`,
+ *     ni `""`, ni `[]` anidado en otra clave.
+ *   - NO toca portada, banner, juego, podio, marca ni ningun otro dato sembrado.
+ *
+ * Esta lista es un registro de una evolucion de esquema CONOCIDA y fechada. No se amplia sin
+ * decidirlo: anadir un nombre aqui es aceptar que esa clave puede faltar en un lado de una
+ * comparacion, y eso se decide mirando, no de pasada. */
+export const CLAVES_ESQUEMA_TOLERADAS = [
+  'orden', 'retirados', 'categorias', 'pestanas', 'nuevos', 'editados', 'secciones',
+];
+
+/* Devuelve el texto del estado sin las claves autorizadas QUE ESTEN VACIAS. Si el fichero no es
+   JSON valido no se toca: un estado ilegible es un fallo de la fixtura y tiene que verse como
+   tal, no convertirse en «equivalente» por la puerta de atras. */
+export function normalizaEstadoParaHuella(texto) {
+  let obj;
+  try { obj = JSON.parse(texto); } catch { return texto; }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return texto;
+  for (const k of CLAVES_ESQUEMA_TOLERADAS) {
+    if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+    const v = obj[k];
+    /* EXACTAMENTE []: array, y sin un solo elemento. Un objeto vacio no vale, y con datos
+       dentro tampoco: ahi la diferencia es funcional y tiene que romper. */
+    if (Array.isArray(v) && v.length === 0) delete obj[k];
+  }
+  /* Se vuelve a serializar SIEMPRE, se haya quitado algo o no.
+     La primera version devolvia el texto original cuando no tocaba nada y `JSON.stringify`
+     cuando si, y con eso el lado antiguo (sin las siete claves) salia con el sangrado del
+     fichero y el nuevo compacto: la normalizacion metia una diferencia suya en vez de quitar
+     una. El gate lo canto en la primera comparativa, que es justo para lo que esta.
+     Lo que esto anade, dicho sin rodeos: el sangrado del JSON deja de contar para la huella de
+     ESTE fichero. El orden de las claves NO —`JSON.stringify` lo conserva—, los valores tampoco,
+     y el contrato de formato del estado (pretty, UTF-8 sin escapar) lo sigue guardando
+     `E2E-FI-02`, que es su sitio. */
+  return JSON.stringify(obj);
+}
+
 /* La huella del docroot, separada en dos.
  *
  * Por que separada (fase 17.4): exigir que el control y el candidato tuvieran docroots identicos
@@ -380,7 +440,11 @@ export function huellaDocroot(raiz) {
   const partes = [];
   for (const f of ficherosDe(raiz)) {
     if (fuera.has(f.rel)) continue;
-    const h = sha(readFileSync(f.abs));
+    /* Solo `estado.json` pasa por la normalizacion semantica, y solo por la de arriba. Todo lo
+       demas —fotos, marcador, registros, producto— sigue hasheandose byte a byte. */
+    const h = f.rel === 'estado.json'
+      ? sha(Buffer.from(normalizaEstadoParaHuella(readFileSync(f.abs, 'utf8')), 'utf8'))
+      : sha(readFileSync(f.abs));
     porFichero[f.rel] = h;
     (delProducto.has(f.rel) ? producto : fixtura)[f.rel] = h;
     partes.push(f.rel + ':' + h);

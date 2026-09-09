@@ -65,11 +65,17 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
   if (!c.gen.ok) return informe;
 
   const docroot = docrootDesde(clon.salida, 'tinge_qa');
+  /* CADA servidor PHP con su carpeta de sesiones. Sin esto usan la del sistema y la comparten:
+     el recolector de sesiones de uno borra las del otro, y el panel devuelve al login a mitad
+     de una prueba. El sintoma no se parecia en nada a la causa —«las ocho pantallas» decia
+     cero pestañas— y fallaba dos veces de cada tres, que es lo peor que puede pasar. Las
+     suites de e2e ya lo hacian asi; aqui faltaba. */
+  const sesionesDe = (nombre) => path.join(carpetaTemporal('totm-sess-' + nombre + '-'), 's');
   const navegador = await abrirNavegador();
 
   try {
     /* ---------- entorno completo: GD + mbstring ---------- */
-    const srv = await abrir(docroot, { gd: true, mbstring: true, subidaMax: '8M', postMax: '10M' });
+    const srv = await abrir(docroot, { gd: true, mbstring: true, subidaMax: '8M', postMax: '10M', sesionesDir: sesionesDe('principal') });
     const pagina = await nuevaPagina(navegador);
     const ctx = { pagina, servidor: srv, docroot, fixtures };
     await entrarAlPanel(pagina, srv.url);
@@ -88,7 +94,7 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
     srv.parar();
 
     /* ---------- el mismo docroot con el tope de subida del hosting mas pequeno ---------- */
-    const srvTope = await abrir(docroot, { gd: true, mbstring: true, subidaMax: '2M', postMax: '2M' });
+    const srvTope = await abrir(docroot, { gd: true, mbstring: true, subidaMax: '2M', postMax: '2M', sesionesDir: sesionesDe('tope') });
     const pagTope = await nuevaPagina(navegador);
     await entrarAlPanel(pagTope, srvTope.url);
     await lotes.lote4(informe, { pagina: pagTope, servidor: srvTope, docroot, fixtures });
@@ -97,16 +103,16 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
 
     /* ---------- sin mbstring: mismo contenido, otro interprete ---------- */
     if (caps.sinMbstring) {
-      const srvSinMb = await abrir(docroot, { gd: true, mbstring: false });
+      const srvSinMb = await abrir(docroot, { gd: true, mbstring: false, sesionesDir: sesionesDe('sinmb') });
       const pagSinMb = await nuevaPagina(navegador);
       const pest = await entrarAlPanel(pagSinMb, srvSinMb.url);
       informe.seccion('sin mbstring');
-      informe.comprueba('E2-01', 'sin mbstring siguen estando las siete pantallas',
-        pest.length === 7, pest.join(','));
-      informe.comprueba('E2-02', 'sin mbstring siguen renderizandose los siete paneles',
-        await pagSinMb.evaluate(() => document.querySelectorAll('section.pane').length) === 7);
+      informe.comprueba('E2-01', 'sin mbstring siguen estando las ocho pantallas',
+        pest.length === 8, pest.join(','));
+      informe.comprueba('E2-02', 'sin mbstring siguen renderizandose los ocho paneles',
+        await pagSinMb.evaluate(() => document.querySelectorAll('section.pane').length) === 8);
       const dias = await pagSinMb.evaluate(async () => {
-        await fetch('/admin/?t=ofertas');
+        await fetch('/admin/?t=ofertas').then((x) => x.text());
         return null;
       }).then(async () => {
         await pagSinMb.goto(srvSinMb.url + '/admin/?t=ofertas', { waitUntil: 'domcontentloaded' });
@@ -127,7 +133,7 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
     }
 
     /* ---------- sin GD: la portada tiene que rechazarse sin tocar el estado ---------- */
-    const srvSinGd = await abrir(docroot, { gd: false, mbstring: true });
+    const srvSinGd = await abrir(docroot, { gd: false, mbstring: true, sesionesDir: sesionesDe('singd') });
     const pagSinGd = await nuevaPagina(navegador);
     await entrarAlPanel(pagSinGd, srvSinGd.url);
     await lotes.lote1(informe, { pagina: pagSinGd, servidor: srvSinGd, docroot, fixtures });
@@ -138,7 +144,7 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
     const docSuper = docrootDesde(clon.salida, 'tinge_super');
     const claveSuper = 'clave-super-qa-4321';
     const hashSuper = correr(PHP, ['-r', `echo password_hash(${JSON.stringify(claveSuper)}, PASSWORD_DEFAULT);`]).salida.trim();
-    const srvSuper = await abrir(docSuper, { gd: true, mbstring: true });
+    const srvSuper = await abrir(docSuper, { gd: true, mbstring: true, sesionesDir: sesionesDe('super') });
     const { writeFileSync } = await import('node:fs');
     const pagSuper = await nuevaPagina(navegador);
     /* El orden importa: PRIMERO la contrasena del restaurante y DESPUES el superadministrador. Con
@@ -163,7 +169,7 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
     const cfg = path.join(docDemo, 'admin', 'config.php');
     const { readFileSync } = await import('node:fs');
     writeFileSync(cfg, readFileSync(cfg, 'utf8').replace("define('DEMO_SIN_CLAVE', false);", "define('DEMO_SIN_CLAVE', true);"));
-    const srvDemo = await abrir(docDemo, { gd: true, mbstring: true });
+    const srvDemo = await abrir(docDemo, { gd: true, mbstring: true, sesionesDir: sesionesDe('demo') });
     const pagDemo = await nuevaPagina(navegador);
     informe.seccion('modo demo');
     await pagDemo.goto(srvDemo.url + '/admin/', { waitUntil: 'domcontentloaded' });
@@ -184,7 +190,7 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
         const csrf = document.querySelector('input[name="csrf"]').value;
         const fd = new URLSearchParams();
         fd.set('csrf', csrf); fd.set('salir_demo', '1'); fd.set('clave_nueva', clave);
-        await fetch('/admin/index.php', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        await fetch('/admin/index.php', { method: 'POST', body: fd, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }).then((x) => x.text());
       }, CLAVE_QA);
       await pagDemo.goto(srvDemo.url + '/admin/', { waitUntil: 'domcontentloaded' });
       await pagDemo.waitForTimeout(400);
@@ -226,8 +232,15 @@ export async function full(informe = new Informe('QA completa (full)'), opciones
   } else {
     const despuesSalida = hashesDe(SALIDA);
     const ds = comparaHashes(antesSalida, despuesSalida);
+    /* `hashesDe` devuelve un Map: `Object.keys` sobre un Map siempre da cero, asi que el
+       detalle decia «0 ficheros» pasara lo que pasara, y ademas solo nombraba los CAMBIADOS
+       — cuando lo que suele pasar aqui es que APAREZCAN ficheros (los de ejecucion que deja
+       el panel: clave.php, accesos.log, intentos.json, estado.json). El fallo era real y el
+       mensaje lo tapaba: cinco pasadas seguidas achacandolo a un artefacto. */
     informe.comprueba('FULL-93', 'el 2-subir publicado no ha cambiado', ds.iguales,
-      `${Object.keys(despuesSalida).length} ficheros | cambiados: ${ds.cambiados.join(', ') || '(ninguno)'}`);
+      `${despuesSalida.size} ficheros | cambiados: ${ds.cambiados.join(', ') || '(ninguno)'}`
+      + ` | nuevos: ${ds.nuevos.join(', ') || '(ninguno)'}`
+      + ` | perdidos: ${ds.perdidos.join(', ') || '(ninguno)'}`);
   }
   const dc = correr('git', ['diff', '--check'], { cwd: CLIENTE });
   informe.comprueba('FULL-94', 'git diff --check sigue limpio', dc.ok && !dc.salida.trim(), dc.texto.trim());

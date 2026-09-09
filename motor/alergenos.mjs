@@ -48,6 +48,107 @@ export const CANONICAS = [
 /* Claves heredadas -> canonica legal. Cubre las 8 claves inglesas de gen.mjs (las 5 que
  * ya coincidian no necesitan entrada) y las 11 claves espanolas de importar.mjs. No se
  * anaden mas: un cliente nuevo usa las canonicas directamente, sin alias. */
+
+/* ---------------------------------------------------------------- pistas por el texto
+ * Palabras que, si aparecen en el nombre o en la descripcion de un plato, hacen SOSPECHAR
+ * que lleva ese alergeno. Es un diccionario, no un analisis: encuentra lo que el texto
+ * NOMBRA, no lo que la receta lleva. Si la descripcion no menciona el anacardo de la base
+ * del curry, esto no lo puede adivinar, y por eso el panel las usa para SUGERIR —resaltar la
+ * casilla— y jamas para marcarla.
+ *
+ * Por que eso no es timidez: declarar un alergeno es una afirmacion legal (Reglamento UE
+ * 1169/2011). Un falso negativo puede mandar a alguien al hospital y un falso positivo es
+ * mentir sobre el plato. El sistema senala; el restaurante decide.
+ *
+ * Van en el motor y no en el cliente porque son datos de IDIOMA, no de restaurante: las
+ * mismas palabras sirven a los tres clientes y a los que vengan.
+ */
+export const PISTAS = {
+  cereals_gluten: {
+    es: ['harina', 'trigo', 'pan', 'panes', 'naan', 'chapati', 'roti', 'paratha', 'puri', 'samosa',
+      'pakora', 'rebozado', 'rebozada', 'empanado', 'empanada', 'cebada', 'centeno', 'espelta',
+      'avena', 'cuscus', 'semola', 'pasta', 'galleta', 'masa', 'hojaldre', 'bulgur', 'seitan'],
+    en: ['flour', 'wheat', 'bread', 'naan', 'chapati', 'roti', 'paratha', 'puri', 'samosa',
+      'pakora', 'batter', 'battered', 'breaded', 'barley', 'rye', 'spelt', 'oats', 'couscous',
+      'semolina', 'pasta', 'biscuit', 'dough', 'pastry', 'bulgur', 'seitan'],
+    de: ['mehl', 'weizen', 'brot', 'gerste', 'roggen', 'dinkel', 'hafer', 'griess', 'nudeln',
+      'teig', 'paniert', 'panierte', 'couscous', 'seitan'],
+  },
+  crustaceans: {
+    es: ['gamba', 'gambas', 'langostino', 'camaron', 'cangrejo', 'langosta', 'cigala',
+      'bogavante', 'necora', 'marisco'],
+    en: ['prawn', 'prawns', 'shrimp', 'crab', 'lobster', 'langoustine', 'crayfish'],
+    de: ['garnele', 'garnelen', 'krabbe', 'hummer', 'languste', 'krebs'],
+  },
+  eggs: {
+    es: ['huevo', 'huevos', 'mayonesa', 'merengue', 'tortilla', 'alioli'],
+    en: ['egg', 'eggs', 'mayonnaise', 'meringue', 'omelette', 'aioli'],
+    de: ['ei', 'eier', 'mayonnaise', 'baiser', 'omelett'],
+  },
+  fish: {
+    es: ['pescado', 'atun', 'salmon', 'bacalao', 'anchoa', 'boqueron', 'merluza', 'lubina',
+      'dorada', 'sardina', 'anguila', 'tilapia', 'rape'],
+    en: ['fish', 'tuna', 'salmon', 'cod', 'anchovy', 'anchovies', 'hake', 'bass', 'sardine',
+      'eel', 'tilapia', 'monkfish'],
+    de: ['fisch', 'thunfisch', 'lachs', 'kabeljau', 'sardelle', 'seehecht', 'sardine', 'aal'],
+  },
+  peanuts: {
+    es: ['cacahuete', 'cacahuetes', 'cacahuate', 'mani'],
+    en: ['peanut', 'peanuts', 'groundnut'],
+    de: ['erdnuss', 'erdnuesse'],
+  },
+  soybeans: {
+    es: ['soja', 'tofu', 'edamame', 'miso', 'tamari'],
+    en: ['soy', 'soya', 'soybean', 'tofu', 'edamame', 'miso', 'tamari'],
+    de: ['soja', 'tofu', 'edamame', 'miso'],
+  },
+  milk: {
+    es: ['leche', 'nata', 'queso', 'mantequilla', 'yogur', 'yogurt', 'crema', 'ghee', 'paneer',
+      'kefir', 'requeson', 'cuajada', 'mozzarella', 'parmesano', 'lassi', 'raita', 'kulfi',
+      'malai', 'mantequilla'],
+    en: ['milk', 'cream', 'cheese', 'butter', 'yogurt', 'yoghurt', 'ghee', 'paneer', 'kefir',
+      'curd', 'mozzarella', 'parmesan', 'lassi', 'raita', 'kulfi', 'malai'],
+    de: ['milch', 'sahne', 'kaese', 'butter', 'joghurt', 'ghee', 'paneer', 'quark', 'rahm'],
+  },
+  nuts: {
+    es: ['almendra', 'almendras', 'avellana', 'nuez', 'nueces', 'anacardo', 'anacardos',
+      'pistacho', 'macadamia', 'pecana', 'pinon', 'pinones'],
+    en: ['almond', 'almonds', 'hazelnut', 'walnut', 'cashew', 'cashews', 'pistachio',
+      'macadamia', 'pecan', 'pine'],
+    de: ['mandel', 'mandeln', 'haselnuss', 'walnuss', 'cashew', 'pistazie', 'macadamia',
+      'pekannuss', 'pinienkern'],
+  },
+  celery: { es: ['apio', 'apionabo'], en: ['celery', 'celeriac'], de: ['sellerie'] },
+  mustard: { es: ['mostaza'], en: ['mustard'], de: ['senf'] },
+  sesame: { es: ['sesamo', 'ajonjoli', 'tahini', 'tahina'], en: ['sesame', 'tahini'], de: ['sesam', 'tahini'] },
+  sulphites: {
+    es: ['sulfito', 'sulfitos', 'vino', 'vinagre', 'jerez', 'mosto', 'orejones'],
+    en: ['sulphite', 'sulphites', 'sulfite', 'wine', 'vinegar', 'sherry'],
+    de: ['sulfit', 'sulfite', 'wein', 'essig'],
+  },
+  lupin: { es: ['altramuz', 'altramuces', 'lupino'], en: ['lupin', 'lupine'], de: ['lupine'] },
+  molluscs: {
+    es: ['mejillon', 'mejillones', 'almeja', 'calamar', 'chipiron', 'pulpo', 'sepia', 'ostra',
+      'vieira', 'berberecho', 'caracol'],
+    en: ['mussel', 'mussels', 'clam', 'squid', 'calamari', 'octopus', 'cuttlefish', 'oyster',
+      'scallop', 'cockle', 'snail'],
+    de: ['muschel', 'muscheln', 'tintenfisch', 'krake', 'auster', 'jakobsmuschel', 'schnecke'],
+  },
+};
+
+/* Las palabras de esas 14 en los idiomas que pida quien llame, sin repetir y sin acentos:
+   el panel compara contra texto ya normalizado. */
+export function pistasDe(idiomas) {
+  const fuera = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const out = {};
+  for (const clave of CANONICAS) {
+    const vistas = new Set();
+    for (const code of idiomas) for (const w of (PISTAS[clave] || {})[code] || []) vistas.add(fuera(w));
+    out[clave] = [...vistas];
+  }
+  return out;
+}
+
 export const ALIAS = {
   wheat: 'cereals_gluten',
   nut: 'nuts',
@@ -118,6 +219,21 @@ export const ETIQUETA = {
   peanuts: 'Peanuts', lupin: 'Lupin', molluscs: 'Molluscs',
 };
 
+/* Las mismas catorce en espanol, con el nombre del anexo II del reglamento europeo y no una
+ * traduccion libre: «frutos de cascara» y no «nueces», «altramuces» y no «lupino». Vive aqui
+ * y no en el cliente porque las catorce son las mismas para todos: lo que cada restaurante
+ * elige es cuales declara, no como se llaman.
+ *
+ * Hace falta porque el PANEL trabaja en el idioma de quien lleva el restaurante, no en el
+ * idioma base de la carta: ofrecerle catorce casillas rotuladas en ingles a quien escribe la
+ * carta en espanol es pedirle que traduzca para poder marcar una casilla. */
+export const ETIQUETA_ES = {
+  cereals_gluten: 'Gluten', milk: 'Lácteos', nuts: 'Frutos de cáscara', fish: 'Pescado',
+  eggs: 'Huevos', sesame: 'Sésamo', mustard: 'Mostaza', sulphites: 'Sulfitos',
+  crustaceans: 'Crustáceos', soybeans: 'Soja', celery: 'Apio',
+  peanuts: 'Cacahuetes', lupin: 'Altramuces', molluscs: 'Moluscos',
+};
+
 /* Resuelve una clave heredada o canonica a su canonica. Clave desconocida -> undefined:
  * quien llama decide si eso es un error (importar.mjs, clave que no es ninguna de las 14
  * ni un alias suyo). */
@@ -147,3 +263,4 @@ function vistaPlana(mapaCanonico) {
 
 export const ICONO_POR_CLAVE = vistaPlana(ICONO);
 export const ETIQUETA_POR_CLAVE = vistaPlana(ETIQUETA);
+export const ETIQUETA_ES_POR_CLAVE = vistaPlana(ETIQUETA_ES);

@@ -52,7 +52,7 @@ export function capacidadesPhp() {
  * pasada y en ninguno de los siete anteriores. Si el segundo intento tambien falla, se lanza con
  * los dos errores: un arranque que no sale dos veces seguidas es un problema de verdad. */
 export async function servidorPhp(docroot, opciones = {}) {
-  const { intentos = 2 } = opciones;
+  const { intentos = 4 } = opciones;
   let ultimo = null;
   for (let i = 1; i <= intentos; i++) {
     try {
@@ -102,6 +102,32 @@ async function arrancaUnaVez(docroot, opciones = {}) {
   if (!arrancado) {
     proc.parar();
     throw new Error(`el servidor PHP no arrancó en ${url}: ${proc.registro.error.slice(0, 300)}`);
+  }
+  /* Que ese puerto conteste NO significa que conteste el servidor que acabamos de lanzar. Si el
+     puerto ya estaba cogido —un servidor de una pasada anterior que se quedo colgado, o el de
+     revision— `php -S` muere con «Address already in use» y quien contesta es el de antes, con
+     OTRO docroot. La bateria entonces prueba contra una carpeta que no es la suya: se veia como
+     «contraseña incorrecta» al entrar al panel, y detras venian ocho comprobaciones en rojo que
+     no tenian nada que ver. Se comprueba que el proceso sigue vivo y, si no, se reintenta en
+     otro puerto. */
+  if (!proc.vivo) {
+    proc.parar();
+    throw new Error(`el puerto ${puerto} ya estaba ocupado: ${proc.registro.error.slice(0, 200).trim()}`);
+  }
+  /* Y en Windows ni siquiera muere: `php -S` vuelve a coger un puerto ocupado y quien contesta
+     sigue siendo el de antes. Asi que no se pregunta por el proceso, se pregunta por el
+     CONTENIDO: version.json esta en todos los builds y trae el sello de este. Si lo que llega
+     por HTTP no es lo que hay en el disco de ESTE docroot, se esta hablando con otro servidor.
+     Es la comprobacion que faltaba, y su ausencia costo dos pasadas enteras en rojo. */
+  const sello = path.join(docroot, 'version.json');
+  if (existsSync(sello)) {
+    let servido = null;
+    try { servido = await (await fetch(url + '/version.json', { cache: 'no-store' })).text(); } catch { servido = null; }
+    const enDisco = readFileSync(sello, 'utf8');
+    if (servido === null || servido.trim() !== enDisco.trim()) {
+      proc.parar();
+      throw new Error(`en ${url} contesta OTRO servidor (version.json no cuadra con ${docroot})`);
+    }
   }
   return {
     url,

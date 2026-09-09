@@ -8,7 +8,7 @@
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
-import { NODE, carpetaTemporal } from '../lib/entorno.mjs';
+import { NODE, CLIENTE, MOTOR, carpetaTemporal } from '../lib/entorno.mjs';
 import { correr } from '../lib/proc.mjs';
 import {
   altaCliente, detectar, buildLocal, compilar, verificarBuild, lock, docrootDesde,
@@ -279,6 +279,139 @@ export async function pruebasMulticliente(informe, { proyectoSemilla, navegador,
 
   informe.comprueba('MC-31', 'el arbol del cliente sigue teniendo los mismos ficheros que antes de las pruebas de fallo',
     comparaHashes(arbolAntes, hashesDe(completo.proyecto, (rel) => !rel.startsWith('.git/'))).perdidos.length === 0);
+
+  /* ================================================================= GATE MULTICLIENTE
+   * Tinge es el MODELO BASE del que se replican los demas restaurantes, y `MC-07` ya comprueba
+   * que el motor se copia byte a byte. Las dos cosas juntas tienen una consecuencia que hay que
+   * vigilar: cualquier rastro de Tinge dentro de `motor/**` viaja a TODOS los clientes.
+   *
+   * Y nadie lo miraba. `buscaTerminos` salta la carpeta `motor` —mira los ficheros DEL cliente—,
+   * `MC-09` filtra ademas `server/**`, y `--detectar` tampoco entra ahi: eso ultimo es el
+   * defecto conocido `E4`. Este bloque cierra el hueco desde el otro lado.
+   *
+   * Encontro algo la primera vez que corrio: la hoja de alta de este mismo release traia
+   * `placeholder="Ej. Papadum de la casa"`. Un plato de Tinge, en texto visible, dentro del
+   * motor. Una cafeteria habria visto un papadum de ejemplo en su panel. */
+  informe.seccion('gate multicliente: el motor no puede ser de Tinge');
+  {
+    /* Solo CODIGO servido. La prosa de los comentarios nombra a Tinge a menudo, y hace bien:
+       explica de donde viene cada decision. Lo que no puede haber es un dato del restaurante
+       semilla en lo que se ejecuta o se ve. Asi que se quitan los comentarios antes de buscar. */
+    const sinComentarios = (t) => t
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+      .replace(/<!--[\s\S]*?-->/g, ' ');
+
+    const ficherosDelMotor = [];
+    const recMotor = (dir) => {
+      if (!existsSync(dir)) return;
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { recMotor(p); continue; }
+        if (/\.(mjs|php|html|css|js)$/.test(e.name)) ficherosDelMotor.push(p);
+      }
+    };
+    recMotor(MOTOR);
+    const codigo = new Map();
+    for (const p of ficherosDelMotor) {
+      try { codigo.set(path.relative(MOTOR, p), sinComentarios(readFileSync(p, 'utf8'))); } catch { /* ilegible */ }
+    }
+    const buscaEnCodigo = (terminos) => {
+      const out = [];
+      for (const [rel, t] of codigo) for (const re of terminos) if (re.test(t)) out.push(`${rel} :: ${re.source}`);
+      return out;
+    };
+
+    /* 1. Ni el nombre del restaurante semilla, ni sus platos, ni su dominio. */
+    const rastros = buscaEnCodigo(TERMINOS_TINGE);
+    informe.comprueba('MC-40', 'el motor no lleva el nombre, los platos ni el dominio del restaurante semilla en codigo servido',
+      rastros.length === 0, rastros.slice(0, 5).join(' | ') || `${codigo.size} ficheros del motor revisados`);
+
+    /* 2. Ni los nombres de SUS categorias y secciones: la estructura viene de carta.json, no del
+          motor, asi que el panel no puede reconocer ninguna por su nombre. */
+    let nombresCarta = [];
+    try {
+      const carta = JSON.parse(readFileSync(path.join(CLIENTE, 'carta.json'), 'utf8'));
+      const vistos = new Set();
+      const recCarta = (o) => {
+        if (Array.isArray(o)) { o.forEach(recCarta); return; }
+        if (!o || typeof o !== 'object') return;
+        for (const [k, v] of Object.entries(o)) {
+          if (typeof v === 'string' && v.length >= 6
+              && /^(tab|tabName|pestana|seccion|category|categoria|cat|catName)$/.test(k)) vistos.add(v);
+          recCarta(v);
+        }
+      };
+      recCarta(carta);
+      nombresCarta = [...vistos];
+    } catch { nombresCarta = []; }
+    const conNombres = [];
+    for (const [rel, t] of codigo) for (const n of nombresCarta) if (t.includes(n)) conNombres.push(`${rel} :: «${n}»`);
+    informe.comprueba('MC-41', 'el motor no reconoce ninguna categoria ni seccion concreta de la carta semilla',
+      conNombres.length === 0,
+      conNombres.slice(0, 5).join(' | ') || `${nombresCarta.length} nombres de la carta buscados en ${codigo.size} ficheros`);
+
+    /* 3. Ni sus cantidades: 312 platos, 13 secciones y 40 categorias son de ESTA carta. Si el
+          motor las diera por supuestas, otro restaurante se romperia en silencio. */
+    const cifras = buscaEnCodigo([/\b312\b/, /\b13\s*(pestanas|secciones)\b/i, /\b40\s*categorias\b/i]);
+    informe.comprueba('MC-42', 'el motor no da por supuestas las cantidades de la carta semilla (312 platos, 13 secciones, 40 categorias)',
+      cifras.length === 0, cifras.slice(0, 5).join(' | ') || 'ninguna cifra de la carta semilla en codigo servido');
+
+    /* 4. Las siete colecciones nuevas del estado son del ESQUEMA, no de este cliente: un cliente
+          recien creado nace con la misma plantilla. Se mira el panel DEL CLIENTE NUEVO. */
+    const panelNuevo = path.join(completo.proyecto, 'motor', 'server', 'admin', 'index.php');
+    const SIETE = ['orden', 'retirados', 'categorias', 'pestanas', 'nuevos', 'editados', 'secciones'];
+    let plantilla = [];
+    if (existsSync(panelNuevo)) {
+      const t = readFileSync(panelNuevo, 'utf8');
+      plantilla = SIETE.filter((k) => new RegExp("'" + k + "'\\s*=>").test(t));
+    }
+    informe.comprueba('MC-43', 'las siete colecciones nuevas del estado son del esquema generico: un cliente recien creado nace con las mismas',
+      plantilla.length === SIETE.length, plantilla.join(', ') || 'no se encontro la plantilla del estado en el cliente nuevo');
+
+    /* 5. `pestanaId` no es de Tinge: `importar.mjs` lo acuña para cualquier carta. Se comprueba
+          sobre la del cliente COMPLETO, que es otra carta, otros idiomas y otra cocina. */
+    const ids = { pestanas: 0, conId: 0, formato: true };
+    try {
+      const c = JSON.parse(readFileSync(path.join(completo.proyecto, 'carta.json'), 'utf8'));
+      const lista = Array.isArray(c.tabs) ? c.tabs : (Array.isArray(c.pestanas) ? c.pestanas : []);
+      ids.pestanas = lista.length;
+      for (const p of lista) {
+        const v = p && (p.pestanaId || p.tabId);
+        if (v) { ids.conId++; if (!/^t_[0-9a-f]{32}$/.test(v)) ids.formato = false; }
+      }
+    } catch { /* se ve en el detalle */ }
+    informe.comprueba('MC-44', 'pestanaId se acuña igual en la carta de otro cliente, con el mismo formato',
+      ids.pestanas > 0 && ids.conId === ids.pestanas && ids.formato, JSON.stringify(ids));
+
+    /* 6. Los alergenos los decide la CONFIGURACION del cliente: el vacio declara 'no' y el
+          completo 'si'. Que los del completo se pinten ya lo comprueba `MC-23`. */
+    const leyendas = {};
+    for (const [etq, cli] of [['vacio', vacio], ['completo', completo]]) {
+      try {
+        const t = readFileSync(path.join(cli.proyecto, 'cliente.mjs'), 'utf8');
+        /* El alta escribe la linea con `JSON.stringify`, o sea con comillas DOBLES:
+           `alergenos: { leyenda: [], enOrigen: "si" },`. La semilla las lleva simples. Se
+           admiten las dos, que es lo unico que cambia entre un fichero escrito a mano y uno
+           generado. */
+        const m = /alergenos:\s*\{[\s\S]*?enOrigen:\s*["'](si|no)["']/.exec(t);
+        leyendas[etq] = m ? m[1] : '?';
+      } catch { leyendas[etq] = '?'; }
+    }
+    informe.comprueba('MC-45', 'los alergenos los decide la configuracion de cada cliente, no el motor',
+      leyendas.vacio === 'no' && leyendas.completo === 'si', JSON.stringify(leyendas));
+
+    /* 7. Y que el panel del cliente nuevo es EXACTAMENTE el del motor: sin esto, todo lo
+          anterior valdria solo para Tinge. `MC-07` lo dice del conjunto; aqui se nombra el
+          fichero donde aparecio el papadum. */
+    let mismoPanel = false;
+    try {
+      mismoPanel = readFileSync(panelNuevo, 'utf8')
+        === readFileSync(path.join(MOTOR, 'server', 'admin', 'index.php'), 'utf8');
+    } catch { mismoPanel = false; }
+    informe.comprueba('MC-46', 'el panel del cliente nuevo es exactamente el del motor: lo que se arregle aqui llega a todos',
+      mismoPanel, mismoPanel ? 'identico' : 'el panel del cliente nuevo NO coincide con el del motor');
+  }
 
   informe.blocked('MC-32', '--publicar-github y --cerrar-activacion',
     'efecto remoto inevitable: la fase 17 prohibe cualquier operacion remota');

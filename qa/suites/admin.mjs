@@ -18,9 +18,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { CLAVE_QA } from '../lib/clientes.mjs';
 
-/* Las siete pantallas del panel, en el orden del catálogo de destinos ($PESTANAS). Juego,
+/* Las ocho pantallas del panel, en el orden del catálogo de destinos ($PESTANAS). Juego,
    Publicidad y Analítica dependen de la capacidad del cliente; Tinge las tiene todas. */
-export const PANTALLAS = ['platos', 'ofertas', 'juego', 'publicidad', 'datos', 'marca', 'ajustes'];
+export const PANTALLAS = ['platos', 'precios', 'ofertas', 'juego', 'publicidad', 'datos', 'marca', 'ajustes'];
 
 /* Entra al panel. Devuelve las pantallas que ofrece la navegación (sin repetir: el mismo destino
    está en la barra lateral, en la barra inferior y en la hoja «Más»). */
@@ -100,20 +100,55 @@ export async function textoAvisoPanel(pagina) {
   return pagina.evaluate(() => {
     const t = document.querySelector('#toasts');
     if (t && t.innerText.trim()) return t.innerText.trim().split('\n').filter(Boolean).slice(0, 3).join(' | ');
-    const m = document.querySelector('.msg');
-    if (m && m.innerText.trim()) return m.innerText.trim().slice(0, 240);
     /* El servidor deja el mensaje escrito en el <script> que sigue a #toasts. */
     const s = t ? t.nextElementSibling : null;
     if (s && s.tagName === 'SCRIPT') {
       const x = /toast\(\s*("(?:[^"\\]|\\.)*")/.exec(s.textContent);
       if (x) { try { return JSON.parse(x[1]); } catch { /* sigue */ } }
     }
+    /* `.msg` va la ULTIMA. No es un aviso de guardado: es cualquier bloque de estado de
+       la pagina, y llegaba a devolver el «todavia no hay ningun dato» de Analitica como si
+       fuera la respuesta a un guardado. El <script> de arriba si es lo que mando el
+       servidor para ESTA pagina, y ademas no caduca: el aviso flotante se va solo a los
+       tres segundos y ese texto se queda. */
+    const m = document.querySelector('.msg');
+    if (m && m.innerText.trim()) return m.innerText.trim().slice(0, 240);
     return '';
   });
 }
 
 /* POST directo desde la propia página, con su cookie de sesión. Se usa sólo para lo que la
    interfaz no permite montar. Devuelve estado HTTP y el mensaje que trae la respuesta. */
+/* La confirmación del panel, que sustituyó a los diez confirm() del navegador.
+ *
+ * Antes esto se leía de `pagina.registro.dialogos`, que es donde Playwright apunta los
+ * cuadros nativos. Ya no hay ninguno: la pregunta es marcado del propio panel, así que se
+ * espera a que la capa esté abierta, se lee lo que dice y se pulsa. Devuelve el texto entero
+ * —título y nota— para que la prueba siga comprobando QUÉ se preguntó y no sólo que se
+ * preguntó algo. */
+export async function confirmarEnPanel(pagina, aceptar = true, tope = 3000) {
+  const hasta = Date.now() + tope;
+  let txt = null;
+  for (;;) {
+    txt = await pagina.evaluate(() => {
+      const c = document.getElementById('adm-modal');
+      if (!c || c.hidden) return null;
+      const t = document.getElementById('adm-modal-t');
+      const n = document.getElementById('adm-modal-txt');
+      return ((t ? t.textContent : '') + ' ' + (n ? n.textContent : '')).trim();
+    }).catch(() => null);
+    if (txt || Date.now() > hasta) break;
+    await new Promise((r) => setTimeout(r, 80));
+  }
+  if (!txt) return '';
+  await pagina.evaluate((si) => {
+    const c = document.getElementById('adm-modal');
+    const b = c.querySelector(si ? '[data-modal-si]' : '[data-modal-no]');
+    if (b) b.click();
+  }, aceptar).catch(() => {});
+  return txt;
+}
+
 export async function postCrudo(pagina, ruta, pares, { csrfValido = true, cabeceras = {} } = {}) {
   return pagina.evaluate(async ({ ruta, pares, csrfValido, cabeceras }) => {
     const c = document.querySelector('input[name="csrf"]');
@@ -143,10 +178,10 @@ export async function pruebasAdmin(informe, ctx) {
 
   informe.seccion('panel: acceso y sesion' + suf);
   const pestanas = await entrarAlPanel(pagina, url);
-  informe.comprueba('ADM-01', 'se entra al panel y estan las siete pantallas en la navegacion' + suf,
-    pestanas.length === 7 && PANTALLAS.every((p) => pestanas.includes(p)), pestanas.join(','));
-  informe.comprueba('ADM-02', 'los siete paneles existen en el HTML' + suf,
-    await pagina.evaluate(() => document.querySelectorAll('section.pane').length) === 7);
+  informe.comprueba('ADM-01', 'se entra al panel y estan las ocho pantallas en la navegacion' + suf,
+    pestanas.length === 8 && PANTALLAS.every((p) => pestanas.includes(p)), pestanas.join(','));
+  informe.comprueba('ADM-02', 'los ocho paneles existen en el HTML' + suf,
+    await pagina.evaluate(() => document.querySelectorAll('section.pane').length) === 8);
   await pagina.reload({ waitUntil: 'domcontentloaded' });
   informe.comprueba('ADM-03', 'la sesion sobrevive a una recarga' + suf,
     await pagina.evaluate(() => !document.querySelector('#clave')));
@@ -240,7 +275,8 @@ export async function pruebasAdmin(informe, ctx) {
   }
 
   informe.seccion('panel: precios' + suf);
-  await irA(pagina, url, 'platos');
+  /* Ajustar precios ya no vive arriba de Platos: tiene pantalla propia. */
+  await irA(pagina, url, 'precios');
   await pagina.click('button.adm-pct[name="subir"][value="5"]');
   await pagina.waitForLoadState('networkidle').catch(() => {});
   await pagina.waitForTimeout(400);
@@ -251,7 +287,7 @@ export async function pruebasAdmin(informe, ctx) {
   informe.comprueba('ADM-12', 'publicar precios persiste' + suf,
     Object.keys(precios).length > 0, `${avisoPrecios} | ${Object.keys(precios).length} claves`);
 
-  await irA(pagina, url, 'platos');
+  await irA(pagina, url, 'precios');
   const manual = await pagina.$('button[name="precios_manual"]');
   if (manual) {
     await manual.click();
