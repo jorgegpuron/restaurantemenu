@@ -5,8 +5,8 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **10 sep 2026** · **El movimiento del panel está en producción y la
-> batería vuelve a estar en verde. Nada pendiente de confirmar.**
+> Última actualización: **10 sep 2026, tarde** · **Cuatro cambios del panel en producción en un
+> día, la batería `full` limpia por primera vez, y nada pendiente de confirmar.**
 
 ---
 
@@ -14,70 +14,71 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 
 **Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`)
 
-- **`main` = `origin/main` = `991fc9f`** («fix(qa): tres pruebas del panel medían con supuestos
-  que el movimiento nuevo invalida», más este RELEVO), sobre **`8466389`** («refactor(admin): el
-  movimiento del panel, ocho ajustes»), todo integrado con avance rápido sobre `444d4df` (PR #3,
-  tema y flechas). **Producción sirve `8466389`**: build `1789032685309`, desplegado hoy con
-  `workflow_dispatch` (run 34461090323, FTPS real, «Replacing 1.62 MB», datos del panel
-  excluidos) y verificado desde fuera (`version.json`, carta, juego, panel con login, 404).
-  `991fc9f` sólo toca QA y este fichero: no cambia el producto, no hay nada que desplegar.
+- **`main` = `origin/main` = el commit que lleva este RELEVO**, encima de **`3800774`**, que es lo
+  que **sirve producción** (build `1789050596131`, run 34489435584, FTPS real, «Deleting 0 B»,
+  verificado desde fuera: `version.json`, carta, juego, panel con login, 404). Ese commit
+  y el RELEVO son la única diferencia con producción, y el RELEVO no se sirve.
   `DESPLIEGUE_REAL` está en `false`.
-- La corrección de QA (`qa/suites/admin-e2e.mjs`) arregla las tres pruebas que `full` dio en
-  rojo tras el refactor —no era el producto, era la medida—: `E2E-RH-NAV-320-ir` y `-390-ir`
-  esperaban 220 ms fijos y la hoja «Más» ahora entra en 340 (se espera a
-  `getAnimations().finished`); `E2E-UX-SESION-01` leía `style.width` y la barra se mueve ya con
-  `transform` (se lee el objetivo del `translateX`, con `width` de respaldo).
-- Ramas locales ya integradas, pendientes sólo de borrarse con OK: `refactor/movimiento-panel`
-  (= `8466389`) y `fix/qa-medidas-movimiento` (= `991fc9f`).
-- Última `full` completa sobre `8466389`: **709 PASS · 3 FAIL (los tres de arriba) · 2 BLOCKED
-  aprobados (MC-32, MC-33) · 0 UNEXPECTED**, 19 min. Tras el arreglo, `npm --prefix qa run e2e`:
-  **506 PASS · 0 FAIL · 0 BLOCKED · 1 NO APLICA · 1 KNOWN OPEN**, con las tres en verde.
-- `motor.lock` cuadra (v1.1.8). `2-subir` es el build de `8466389` (`991fc9f` no lo cambia).
+- Lo que entró hoy, en orden, cada paso con orden expresa del propietario:
+  `8466389` el movimiento del panel (ocho ajustes) · `2389f41` la fila de plato entre 404 y
+  460 px y diez áreas táctiles · `7e1ab56` la fila de Platos en columnas fijas con menú «⋯» con
+  dedo · `3800774` dos pruebas de QA que esperaban 600 ms fijos.
+- Última `full` completa, sobre ese mismo contenido: **722 PASS · 0 FAIL · 2 BLOCKED aprobados
+  (MC-32, MC-33) · 3 NO APLICA · 4 KNOWN OPEN · 0 UNEXPECTED**. `e2e`: 516 PASS · 0 FAIL.
+- Árbol limpio. Ramas de hoy borradas (todas integradas). Quedan las once ramas antiguas
+  (`feature/*`, `fix/*`), todas sin commits que `main` no tenga; se borran sólo con OK.
+- `motor.lock` cuadra. `2-subir` es el build de `3800774`.
 
 ## Qué se hizo, y qué falta
 
-Todo está en **`motor/server/admin/SPEC.md`**, sección «El movimiento del panel, ocho
-ajustes». En una línea: barra de sesión con `transform`; «menos movimiento» sin comodín;
-hoja «Más» con `--ease-drawer` 340/240; salida animada de hoja de alta, sección y modal
-(`--t-modal-in` 220, `--t-modal-out` 140); FLIP en la pila de avisos; FLIP de reordenar que
-aguanta la ráfaga; plegado instantáneo y tooltip del riel sólo con puntero fino; pulsación con
-transición en todos los controles y literales al token.
+Todo con sus medidas en **`motor/server/admin/SPEC.md`**, últimas cuatro secciones: «El movimiento
+del panel, ocho ajustes», «Responsive R1 y R2», «La fila de Platos como rejilla» y la nota de QA.
+Los planes de movimiento, su auditoría y la herramienta que los aplica sobre una copia viven en
+**`tinge_of_turmeric/plans/`**, fuera del repo (`README.md` de esa carpeta).
 
-Los planes, la auditoría y la herramienta que los aplica sobre una copia de `2-subir` viven en
-**`tinge_of_turmeric/plans/`**, fuera del repo a propósito (`README.md` de esa carpeta).
-Allí quedan también los hallazgos LOW sin plan y el CSS muerto detectado (`.tabs*`, `.switch*`,
-`.foto-btn`, `.combo*`, `.marca`): retirarlo es tarea aparte, con prueba.
+**Falta (nada bloquea; cada cosa pide su orden):**
 
-**Falta:** nada pendiente de confirmar. Sólo borrar las dos ramas locales, con OK.
+- Responsive R3/R4: medir contra la fila nueva (rejilla), no contra la de antes; controles a
+  44×44 de verdad, flechas fuera del recorte de la tira de secciones, nombre del plato a 30 px
+  en escritorio con viewport 1000 (anotado en SPEC, sin tocar).
+- Seis esperas fijas más en `qa/suites/admin-e2e.mjs` (`E2E-JU-01`, `E2E-RH-OFF-04`, líneas
+  ~815, 2890, 2917, 3293): hoy pasan; misma familia que el fix de hoy, cambio a `esperarA()`.
+- CSS sin marcado en el panel (`.tabs*`, `.switch*`, `.foto-btn`, `.combo*`, `.marca`): retirar
+  con prueba, no con sospecha. Y los hallazgos LOW de movimiento sin plan, en `plans/README.md`.
 
-## Trampas pagadas en esta sesión
+## Trampas pagadas hoy
 
-1. **El panel «Browser» de la app congela animaciones y `requestAnimationFrame` cuando está
-   oculto** (`document.visibilityState === 'hidden'`): cualquier lectura de tiempos sale
-   falseada. Lo que dependa de un fotograma se comprueba con Playwright (página visible).
-2. **`php -S` de la vista previa muere si se borra su carpeta raíz** y también tras horas de
-   pausa: antes de medir, `preview_logs`/reiniciar.
-3. **El build quita los comentarios CSS de `index.php`**: los anclajes de texto para editar la
-   copia compilada han de ser líneas de código, nunca comentarios. Los planes citan código.
-4. **Una prueba con espera fija es una prueba con fecha de caducidad**: al alargar una
-   animación, medir «cuando termina» (`getAnimations().finished`), no «a los N ms».
-5. **`git switch` revierte ficheros en disco aunque el contenido acabe igual**: con `full`
-   corriendo, integrar moviendo la referencia (`git fetch . rama:main`) y cambiar de rama al
-   terminar. La batería marca como fallo cualquier fichero editado mientras corre.
+1. **Tres sesiones de Claude sobre UN solo árbol de trabajo.** Se pisan si dos tocan `git` o
+   ficheros a la vez. Lo que funcionó: una implementa, las otras sólo leen; integrar moviendo la
+   referencia (`git fetch . rama:main`) cuando hay una batería corriendo; y cada sesión exige la
+   orden del propietario **en su propio chat** —un aviso transmitido por otra sesión no vale como
+   autorización, y está bien que no valga.
+2. **Una prueba con espera fija caduca sola.** Al alargar la hoja «Más» a 340 ms y mover la
+   barra de sesión con `transform`, tres pruebas dejaron de medir lo que creían. Medir cuando
+   pasa algo (`esperarA()`, `getAnimations().finished`), nunca a los N ms.
+3. **El panel «Browser» de la app congela animaciones y `requestAnimationFrame` si está oculto**
+   (`visibilityState === 'hidden'`). Lo que dependa de un fotograma se comprueba con Playwright.
+4. **`php -S` de la vista previa muere si se borra su carpeta raíz** y tras horas de pausa.
+5. **El build quita los comentarios CSS de `index.php`**: para editar la copia compilada, anclar
+   por líneas de código, nunca por comentarios.
+6. **Un `RELEVO` que se describe a sí mismo se queda viejo al confirmarse.** Hablar de «el
+   commit que lleva este RELEVO», no de un hash que aún no existe.
 
 ## Servidor de revisión
 
-Sigue sin vivir en el repositorio. La forma de hoy: copiar `2-subir` al temporal, poner
-`define('DEMO_SIN_CLAVE', true)` en `admin/config.php` **de la copia** (entra sin contraseña y
-sin escribir `clave.php`) y servir con `php -S 127.0.0.1:<puerto> -t <copia> -d extension=gd
--d extension=mbstring` (más `-d extension_dir=<ext de PHP>` con el PHP de winget). En demo la
-cuenta atrás de sesión no arranca; para verla, «Poner contraseña» desde el aviso rojo de la
-copia. **Nunca servir `2-subir` directamente.** Receta completa en `plans/README.md`.
+No vive en el repositorio. Copiar `2-subir` al temporal, poner `define('DEMO_SIN_CLAVE', true)`
+en `admin/config.php` **de la copia** (entra sin contraseña y sin escribir `clave.php`) y servir
+con `php -S 127.0.0.1:<puerto> -t <copia> -d extension=gd -d extension=mbstring` (más
+`-d extension_dir=<ext de PHP>` con el PHP de winget). En demo la cuenta atrás de sesión no
+arranca; para verla, «Poner contraseña» desde el aviso rojo de la copia. **Nunca servir `2-subir`
+directamente.** Receta completa en `plans/README.md`.
 
 ## Herramientas
 
 `stitch` (MCP de Google, HTTP) en ámbito local de este workspace, en `C:\Users\sopor\.claude.json`
 (no viaja por OneDrive: en la otra máquina hay que volver a añadirlo; la clave conviene rotarla).
 `gh` conectado como `jorgegpuron`. `.claude/launch.json` del workspace lleva, además de
-`carta-tinge`, dos entradas (`tinge-admin-base`, `tinge-admin-planes`) que apuntan a copias
-temporales de una sesión concreta: si no existen, se recrean o se borran.
+`carta-tinge`, entradas de vista previa (`tinge-admin-base`, `tinge-admin-planes`,
+`tinge-admin-tablet`) que apuntan a copias temporales de sesiones concretas: si no existen, se
+recrean o se borran. Aviso por voz para esperas largas: `SAPI.SpVoice` con la voz «Microsoft
+Helena Desktop» (`System.Speech` falla a veces con el dispositivo de audio; SAPI por COM no).
