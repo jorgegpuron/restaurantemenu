@@ -5,8 +5,8 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **10 sep 2026** · **El movimiento del panel está en producción. Queda
-> por confirmar una rama pequeña de QA (tres pruebas que medían con supuestos viejos).**
+> Última actualización: **10 sep 2026** · **El movimiento del panel está en producción y la
+> batería vuelve a estar en verde. Nada pendiente de confirmar.**
 
 ---
 
@@ -14,21 +14,25 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 
 **Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`)
 
-- **`main` = `origin/main` = `8466389`** («refactor(admin): el movimiento del panel, ocho
-  ajustes»), integrado con avance rápido sobre `444d4df` (PR #3, tema y flechas). **Producción
-  sirve ese commit**: build `1789032685309`, desplegado hoy con `workflow_dispatch` (run
-  34461090323, FTPS real, «Replacing 1.62 MB», datos del panel excluidos) y verificado desde
-  fuera (`version.json`, carta, juego, panel con login, 404). `DESPLIEGUE_REAL` está en `false`.
-- Rama **`fix/qa-medidas-movimiento`** (desde `8466389`), **sin confirmar**: sólo
-  `qa/suites/admin-e2e.mjs`. Corrige las tres pruebas que `full` dio en rojo tras el
-  refactor —no era el producto, era la medida—: `E2E-RH-NAV-320-ir` y `-390-ir` esperaban
-  220 ms fijos y la hoja «Más» ahora entra en 340 (se espera a `getAnimations().finished`);
-  `E2E-UX-SESION-01` leía `style.width` y la barra se mueve ya con `transform` (se lee el
-  objetivo del `translateX`, con `width` de respaldo). Este RELEVO va en esa misma rama.
-- Rama local `refactor/movimiento-panel` (= `8466389`): ya integrada, se borra sólo con OK.
+- **`main` = `origin/main` = `991fc9f`** («fix(qa): tres pruebas del panel medían con supuestos
+  que el movimiento nuevo invalida», más este RELEVO), sobre **`8466389`** («refactor(admin): el
+  movimiento del panel, ocho ajustes»), todo integrado con avance rápido sobre `444d4df` (PR #3,
+  tema y flechas). **Producción sirve `8466389`**: build `1789032685309`, desplegado hoy con
+  `workflow_dispatch` (run 34461090323, FTPS real, «Replacing 1.62 MB», datos del panel
+  excluidos) y verificado desde fuera (`version.json`, carta, juego, panel con login, 404).
+  `991fc9f` sólo toca QA y este fichero: no cambia el producto, no hay nada que desplegar.
+  `DESPLIEGUE_REAL` está en `false`.
+- La corrección de QA (`qa/suites/admin-e2e.mjs`) arregla las tres pruebas que `full` dio en
+  rojo tras el refactor —no era el producto, era la medida—: `E2E-RH-NAV-320-ir` y `-390-ir`
+  esperaban 220 ms fijos y la hoja «Más» ahora entra en 340 (se espera a
+  `getAnimations().finished`); `E2E-UX-SESION-01` leía `style.width` y la barra se mueve ya con
+  `transform` (se lee el objetivo del `translateX`, con `width` de respaldo).
+- Ramas locales ya integradas, pendientes sólo de borrarse con OK: `refactor/movimiento-panel`
+  (= `8466389`) y `fix/qa-medidas-movimiento` (= `991fc9f`).
 - Última `full` completa sobre `8466389`: **709 PASS · 3 FAIL (los tres de arriba) · 2 BLOCKED
-  aprobados (MC-32, MC-33) · 0 UNEXPECTED**, 19 min. Tras el arreglo, `npm --prefix qa run e2e` sobre esta rama: **506 PASS · 0 FAIL · 0 BLOCKED · 1 NO APLICA · 1 KNOWN OPEN**, con las tres en verde.
-- `motor.lock` cuadra (v1.1.8). `2-subir` es el build de `8466389`.
+  aprobados (MC-32, MC-33) · 0 UNEXPECTED**, 19 min. Tras el arreglo, `npm --prefix qa run e2e`:
+  **506 PASS · 0 FAIL · 0 BLOCKED · 1 NO APLICA · 1 KNOWN OPEN**, con las tres en verde.
+- `motor.lock` cuadra (v1.1.8). `2-subir` es el build de `8466389` (`991fc9f` no lo cambia).
 
 ## Qué se hizo, y qué falta
 
@@ -44,8 +48,7 @@ Los planes, la auditoría y la herramienta que los aplica sobre una copia de `2-
 Allí quedan también los hallazgos LOW sin plan y el CSS muerto detectado (`.tabs*`, `.switch*`,
 `.foto-btn`, `.combo*`, `.marca`): retirarlo es tarea aparte, con prueba.
 
-**Falta:** confirmar e integrar `fix/qa-medidas-movimiento` (orden expresa) y borrar las dos
-ramas locales.
+**Falta:** nada pendiente de confirmar. Sólo borrar las dos ramas locales, con OK.
 
 ## Trampas pagadas en esta sesión
 
