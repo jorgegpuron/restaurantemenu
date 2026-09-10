@@ -3056,7 +3056,14 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--accent);
   color:var(--badge-ink);
   font-family:var(--title-font);
-  font-size:11px;
+  /* 12 y no 11. Era el ultimo texto de la carta por debajo del suelo de legibilidad, y el
+     unico que quedaba tras subir la nota fiscal. Subirlo NO mueve la maqueta, medido en
+     produccion a 320, 390 y 1280: alto de pagina +0, desborde 0, filas y nombre identicos.
+     La razon esta aqui mismo: el alto de la etiqueta lo fija su line-height de 16px —la caja
+     sigue midiendo 18— y en movil el ritmo vertical lo fija el token --tags-line, que es
+     independiente del tamaño de letra. Lo unico que crece es el ancho: la etiqueta mas larga
+     de los datos, «Hay que probarlo», pasa de 138,9 a 150,3. */
+  font-size:12px;
   font-weight:600;
   line-height:16px;
   letter-spacing:.1em;
@@ -3096,7 +3103,12 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--chip);
   color:var(--muted);
   font-family:var(--title-font);
-  font-size:11px;
+  /* 12, por lo mismo que .item-tag y ademas por coherencia: esta marca es una COPIA de la
+     etiqueta —mismo relleno, radio, familia, peso, line-height, tracking y mayusculas—, y
+     solo cambian fondo y color. Dejarla en 11 con la etiqueta en 12 pondria dos pastillas
+     identicas a distinto tamaño en la misma linea. Medido con un plato agotado a 320, 390 y
+     1280: fila y alto de pagina identicos, desborde 0; solo crece el ancho, 119,9 a 129,5. */
+  font-size:12px;
   font-weight:600;
   line-height:16px;
   letter-spacing:.1em;

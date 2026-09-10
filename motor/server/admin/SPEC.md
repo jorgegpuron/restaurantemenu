@@ -4909,9 +4909,10 @@ esos: quedan 1-3 px reales. Por la derecha no hay vecino, pero ahí el techo lo 
 recorte de la ficha — por eso la regla declara 39 y entrega 37. De alto entrega 44-45. No
 se toca.
 
-**4. La nota fiscal de la carta, de 11 a 12 px.** Era el único texto de toda la carta por
-debajo de 12, y la razón escrita que lo sostenía —«el tamaño mínimo que el proyecto se
-permite»— se caía sola en cuanto nada más lo necesitaba.
+**4. La nota fiscal de la carta, de 11 a 12 px.** El registro de esta decisión **se ha
+movido al `SPEC.md` de la raíz**, que es donde van las de la carta: éste es el del panel.
+Se quedó aquí por venir en la misma ronda que las otras cuatro, y era el sitio equivocado.
+Ver «El suelo tipográfico de la carta» en el SPEC de la raíz.
 
 **5. Los KPI, a cuatro columnas desde tablet.** El corte estaba en 1280 de ventana porque
 una ronda anterior midió que a 1024 las cuatro tarjetas salían de 161 px «con el rótulo

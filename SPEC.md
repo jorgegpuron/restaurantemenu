@@ -7079,3 +7079,65 @@ restaurado a `#FF7517` desde el botón, confirmado de vuelta en panel y carta; u
 sin contraste suficiente, rechazado con mensaje claro y sin persistir nada. Consola
 limpia en carta y juego. Motor re-lockeado, build limpio, `verificar-build.mjs` en
 verde, `git diff --check` limpio, Guaza sin tocar.
+
+## El suelo tipográfico de la carta: 12 px, y ninguna excepción (10 Sep 2026)
+
+Dos textos de la carta pública vivían por debajo de 12 px. Ahora ninguno, y el suelo pasa
+a estar escrito y protegido por una prueba.
+
+**La nota fiscal, de 11 a 12.** *(Este registro venía del `SPEC.md` del panel, donde se
+escribió por venir en la misma ronda que cuatro cambios del administrador. Es un cambio de
+la carta y le tocaba aquí; allí queda el puntero.)* La razón que sostenía los 11 —«el
+tamaño mínimo que el proyecto se permite»— se caía sola en cuanto nada más lo necesitaba.
+
+**La marca de agotado, también.** `.is-sold-out .sold-out-flag` es una **copia** de la
+etiqueta —mismo relleno, radio, familia, peso, `line-height`, tracking y mayúsculas—, y sólo
+cambian fondo y color. Estaba en 11 igual, y no salió en ninguno de mis barridos porque
+producción no tenía ningún plato agotado en ese momento: lo encontró la prueba nueva, que sí
+lo tenía. Dejarla en 11 con la etiqueta en 12 habría puesto dos pastillas idénticas a
+distinto tamaño en la misma línea. Medida con un plato agotado a 320, 390 y 1280: fila y
+alto de página idénticos, desborde 0, sólo crece el ancho (119,9 a 129,5).
+
+**Las etiquetas de plato, de 11 a 12.** `.item-tag` —«Nuevo», «El favorito», «20% dto.»,
+«Hay que probarlo»— eran el último texto por debajo del suelo, y **no lo vi cuando dije que
+la nota fiscal era el único caso**. La medición corría sobre el clon de QA, que no tiene
+ningún plato con etiqueta puesta: allí no había nada que medir y la afirmación salió falsa.
+Apareció verificando producción, que sí las tiene. Es el mismo error que ya costó R1 —medir
+donde el defecto no está—, esta vez pagado por la afirmación y no por el código.
+
+**Subirlo no mueve la maqueta**, y eso está medido en producción, no supuesto:
+
+| ancho | alto de página | desborde | filas | ancho del nombre |
+|-------|----------------|----------|-------|------------------|
+|  320  |      +0        |    0     | idénticas | idéntico (186,3) |
+|  390  |      +0        |    0     | idénticas | idéntico (256,3) |
+| 1280  |      +0        |    0     | idénticas | idéntico |
+
+La razón está en el propio CSS: el alto de la etiqueta lo fija su `line-height:16px` —la
+caja sigue midiendo 18— y en móvil el ritmo vertical lo fija `--tags-line`, un token de
+22 px independiente del tamaño de letra, por el que además se desplaza el precio. Lo único
+que crece es el ancho: la etiqueta más larga de los datos, «Hay que probarlo», pasa de
+138,9 a 150,3.
+
+**Lo que NO se toca, y conviene que conste.** `.item-tag` lleva `white-space:nowrap`, así
+que una etiqueta lo bastante larga se sale por el lado a 320 px. Eso ya pasaba a 11: el
+margen baja de unos 21 caracteres a unos 19-20, un carácter menos. No es un problema nuevo
+y no entra en esta ronda, pero para un cliente con etiquetas más largas que las de Tinge
+—cuyo máximo son 16 caracteres— es un borde real.
+
+**La prueba, y por qué no puede pasar en vacío.** `CAR-23` barre todo el texto visible de
+la carta y exige que ninguno baje de 12. Con el clon tal cual, esa comprobación pasaría sin
+mirar nada —no hay etiquetas con texto—, que es exactamente cómo se me escapó el defecto.
+Así que la prueba **fabrica** el caso: enciende una `.item-tag` de las que el runtime deja
+ocultas, le pone texto, y sólo entonces mide. Si no encontrara ninguna etiqueta que
+encender, falla en vez de pasar: una comprobación que no ha mirado nada no es un PASS.
+
+Dos trampas de esa prueba, pagadas las dos antes de darla por buena. **CAR-15 ya existía**
+—es la de la página de error— y elegí el número sin mirar el fichero entero; lo cazó
+`POL-03`, que es exactamente para lo que está. Y la comprobación **dependía del estado de
+una página compartida**: a ancho de móvil `.item-tags` es `display:none`, así que destapar
+el span no lo hace visible y la muestra salía vacía. Ahora la prueba fija su propio
+viewport, recarga la carta limpia, lo devuelve todo como estaba, y mide la etiqueta leyendo
+su `font-size` en vez de como hoja del barrido —el runtime de idiomas envuelve el texto en
+un `span.i18n` y la etiqueta dejaba de ser hoja—. Si algo baja de 12, el informe dice qué
+elemento y dónde vive, en vez de obligar a adivinarlo.

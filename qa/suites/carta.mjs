@@ -47,6 +47,68 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
     informe.fail('CAR-04', 'la carta declara un icono de pestana' + suf, 'no hay <link rel="icon">');
   }
 
+  /* Suelo tipografico de la carta: 12 px, sin excepciones.
+     Esta comprobacion tiene dos trampas y las dos se han pagado ya.
+
+     La primera: puede pasar SIN MIRAR NADA. El clon de QA no trae ningun plato con etiqueta
+     puesta, asi que un barrido a secas no encuentra `.item-tag` con texto y da verde con el
+     defecto dentro — fue exactamente asi como se colo que las etiquetas iban a 11. Por eso
+     aqui se FABRICA el caso: se enciende una de las etiquetas que el runtime deja ocultas.
+     Si no se pudiera encender ninguna, esto FALLA: una comprobacion que no ha mirado nada
+     no es un PASS.
+
+     La segunda: depende del ESTADO de la pagina, y esta pagina se comparte con las suites
+     que corren antes. A ancho de movil `.item-tags` es `display:none`, asi que destapar el
+     span no lo hace visible y la muestra sale vacia. De ahi que aqui se fije el viewport y
+     se recargue la carta limpia, y que al terminar se devuelva como estaba.
+
+     Y la etiqueta se mide leyendo SU font-size, no como hoja del barrido: el runtime de
+     idiomas envuelve el texto en un `span.i18n`, con lo que la etiqueta deja de ser hoja y
+     no se mediria nunca. */
+  const vpPrevio = pagina.viewportSize();
+  await pagina.setViewportSize({ width: 1280, height: 900 });
+  await pagina.goto(url + '/', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForLoadState('networkidle').catch(() => {});
+  await pagina.waitForTimeout(900);
+  const suelo = await pagina.evaluate(() => {
+    const cadena = (el) => {
+      const t = [];
+      for (let a = el; a && a !== document.body && t.length < 4; a = a.parentElement) {
+        t.push(a.tagName.toLowerCase() + (a.className ? '.' + String(a.className).trim().split(/\s+/).join('.') : ''));
+      }
+      return t.join(' < ');
+    };
+    /* la primera etiqueta que de verdad se vea al destaparla, no la primera a secas */
+    let muestra = null;
+    for (const t of document.querySelectorAll('.item-tag[hidden]')) {
+      t.removeAttribute('hidden');
+      t.textContent = 'Hay que probarlo';
+      if (t.getBoundingClientRect().width > 1) { muestra = t; break; }
+      t.setAttribute('hidden', '');
+      t.textContent = '';
+    }
+    if (!muestra) return { sinMuestra: true };
+    const etiqueta = parseFloat(getComputedStyle(muestra).fontSize);
+    const offenders = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.children.length || !el.textContent.trim()) continue;
+      const b = el.getBoundingClientRect();
+      if (b.width < 1 || b.height < 1) continue;
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      if (!(fs > 0 && fs < 12)) continue;
+      offenders.push(`${fs}px «${el.textContent.trim().slice(0, 20)}» ${cadena(el)}`);
+    }
+    muestra.setAttribute('hidden', '');
+    muestra.textContent = '';
+    return { etiqueta, bajo12: [...new Set(offenders)] };
+  });
+  if (vpPrevio) await pagina.setViewportSize(vpPrevio);
+  informe.comprueba('CAR-23', 'ningun texto visible de la carta baja de 12 px, etiqueta de plato incluida' + suf,
+    !suelo.sinMuestra && suelo.etiqueta >= 12 && suelo.bajo12.length === 0,
+    suelo.sinMuestra
+      ? 'ninguna .item-tag se hace visible al destaparla: la comprobacion no ha podido mirar nada'
+      : JSON.stringify({ etiqueta: suelo.etiqueta, bajo12: suelo.bajo12.slice(0, 4) }));
+
   informe.seccion('idiomas, buscador y ficha' + suf);
   const { idiomas, actual } = await pagina.evaluate(() => ({
     idiomas: [...document.querySelectorAll('[data-lang]')].map((e) => e.dataset.lang),
