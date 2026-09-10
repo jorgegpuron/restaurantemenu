@@ -4720,3 +4720,156 @@ Fuera de alcance y sin tocar, anotado midiendo: en escritorio el nombre del plat
 en 30 px a viewport 1000 y en 34 a 1180, porque por encima de 420 de columna la etiqueta de
 destacado pierde su tope y se come el hueco. No recorta nada —por eso no es R1— pero es el
 mismo nombre ilegible, y merece su propia medición.
+
+# La fila de Platos como rejilla (10 Sep 2026)
+
+El propietario, con cuatro mockups de Stitch (claro y oscuro, vertical y horizontal): al poner
+etiquetas, ofertas y agotados «los datos no tienen orden, la alineación de izquierda a derecha
+hace que se vean rotos». Medido antes de tocar nada, con un agotado, dos etiquetas y cuatro
+ofertas sembrados:
+
+| Fila (768, columna de 586) | x del precio | Ancho del nombre |
+|---|---|---|
+| Sin nada | 526 | 202 |
+| Con oferta | 500 | 176 |
+| Oferta + etiqueta «Popular» | 436 | 111 |
+| Etiqueta «Favorito veggie» | 411 | 86 |
+| Etiqueta «Hay que probarlo» | 395 | 71 |
+
+Y a 1024 (columna de 678, por encima del corte compacto de 620) entraba la fila «ancha» —precio
+de 84, «Destacar» con texto, guión «—»— que ya no cabía: el nombre se partía en dos y tres
+líneas y las filas medían 48, 51, 71, 72 y 93. Con flex y un grupo de acciones pegado a la
+derecha, cada control mide lo suyo y nada cae en la misma x dos veces. Sólo el interruptor de
+agotado se quedaba quieto.
+
+## La rejilla
+
+Desde **520 px de columna** (`@container adm-cat-bento-col (min-width:520px)`) la fila es una
+rejilla de columnas fijas con áreas con nombre:
+
+```text
+orden 62 · foto 32 · num 24 · nombre 1fr · precio 52 · oferta 24 · etiqueta 84 · agotado 40 · mas 28
+hueco 6 · relleno 4 16 · alto mínimo 48
+```
+
+Cada dato tiene su columna aunque esté vacío: sin oferta, el hueco lleva un punto de 6 px en
+vez del guión; sin etiqueta, una pastilla fantasma con la estrella y un «+» del ancho del
+hueco. Con áreas con nombre y no autocolocación, si falta un elemento (las flechas se quitan
+al filtrar, la fila retirada las esconde) su hueco queda vacío y nada se corre. El grupo de
+acciones pasa a `display:contents`: sus hijos son celdas de la fila.
+
+**La columna de orden mide 62 y no 56**, que era lo que decía el mockup: son las dos flechas de
+28 con su hueco de 6 de siempre, y R2 acaba de ajustar el halo de cada una (26, y 28 en ≤560)
+a ese hueco exacto para que las dos zonas se toquen sin solaparse. Estrecharlas o quitar el
+hueco desharía esa medida. Presupuesto fijo: 346 + 48 de huecos + 32 de relleno = **426** con
+dedo; **454** con ratón, que lleva lápiz y papelera en línea (26 + 2 + 28) en la columna `mas`.
+
+Medido en la copia local tras el cambio, con el mismo estado sembrado. La x es la del precio,
+igual en todas las filas de cada columna:
+
+| Ventana | Puntero | Columnas | Ancho de columna | x del precio | Nombre mínimo |
+|---|---|---|---|---|---|
+| 768 | dedo | 1 | 586 | 443 | 160 |
+| 1024 | dedo | 1 | 678 | 699 | 252 |
+| 1024 | ratón | 1 | 678 | 671 | 224 |
+| 1280 | ratón | 1 | 934 | 927 | 480 |
+| 1366 | ratón | 1 | 1020 | 1013 | 566 |
+| 1440 | ratón | 2 | 533 | 526 · 1087 | 79 |
+| 1512 | ratón | 2 | 569 | 562 · 1159 | 115 |
+| 1920 | ratón | 2 | 773 | 766 · 1567 | 319 |
+
+Alto de fila 48 en todas, cero desborde, consola limpia. La columna más justa es la de 1440:
+79 px de nombre con ratón. Es lo que da el presupuesto con dos columnas de 533; si algún día
+molesta, el corte de dos columnas (abajo) puede subir a 1180 y esa ventana pasa a una columna.
+
+**Las dos columnas de escritorio: 820 → 1099.** Con 426-454 de presupuesto, una columna de
+395-519 no da nombre (a 453 quedaban 33 px). Sólo hay dos columnas cuando cada una llega a 522
+(2 × 522 + 56 de huecos). Medido: de 1180 a 1366 de ventana la ficha pasa a UNA columna de
+834-1020 con nombre de 480-566; desde 1440 (ficha de 1124) vuelven las dos, ya con rejilla.
+
+**El bloque compacto de `max-width:620px` pasa a `max-width:519px`.** Era la composición de
+toda columna de hasta 620; ahora es la de móvil y columnas estrechas. Cambio de rango, no de
+reglas.
+
+## Qué conserva y qué sustituye de R1 y R2
+
+- **R1**, la envoltura con dedo (`@media (pointer:coarse)` + `@container adm-cat-bento-col
+  (max-width:400px)`) y la regla de 300: **intactas**. La rejilla entra desde 520; por debajo
+  la fila es la de antes. `E2E-RS-RECORTE` (404-460) no se toca.
+- **R2**, los halos `::before`: **todos se conservan**. Los del lápiz y la papelera valen donde
+  van en línea (ratón); dentro del menú «⋯» (dedo) **se sustituyen** por filas de 44 px a
+  todo el ancho del menú (`::before{content:none}` allí, porque el del lápiz sube 18 px y
+  pisaría a la otra fila). El de `.adm-plato-destbtn` se conserva: en la rejilla sus vecinos
+  están a 6 px y no se solapa.
+- Nuevo halo, con la regla de R2: el «⋯» de la fila, 28×28 → 39×44 (3 px por la izquierda,
+  que es lo que deja el interruptor a 6; 8 por la derecha, que sólo tiene relleno; 8 arriba y
+  abajo, y dos halos de 44 en filas de 48 no se tocan).
+
+## El menú «⋯», sólo con dedo
+
+Con puntero grueso el lápiz y la papelera se recogen en un «⋯» al final de la fila, con dos
+filas de 44 con rótulo: «Cambiar» y «Retirar de la carta» (o «Devolver a la carta» / «Borrar»).
+Con ratón siguen en línea y revelados al pasar por la fila, como siempre: el «⋯» nació para el
+dedo, que los tenía encendidos siempre y eran 54 px de ruido por fila; el ratón nunca tuvo ese
+problema. Mismos botones, mismos `name`, `data-editar`, `data-confirmar` y `data-retirar`; los
+manejadores son delegados y siguen colgando de la fila.
+
+**Consecuencia en móvil, dicha:** lápiz y papelera dejan de ir tras el nombre y tras el precio
+y pasan al final de la fila (dentro del «⋯» con dedo). Medido con dedo de 320 a 640 contra el
+build anterior: 320, 390, 404 y 412 idénticos (filas de 105-106, la envoltura de R1); a 428 y
+440 la fila corta pasa de tres líneas a dos en algunas filas (67-68); a 560 la fila ya no se
+sale 33 px de su tarjeta; a 640 entra la rejilla y el nombre pasa de 40 a 114. Ninguna peor.
+
+**Popover nativo** (`popover` + `popovertarget`): va a la capa superior y no lo recorta el
+`overflow:hidden` de la ficha, que es la trampa que R2 documentó con los halos. Los estilos de
+fábrica del popover (inset:0, margin:auto, borde y fondo del sistema) se anulan y el JS lo
+coloca bajo su botón alineado a su borde derecho, hacia arriba si no cabe (`data-arriba`).
+Suelo: Safari 17, Chrome 114, Firefox 125. Por debajo, `html.sin-popover` y la misma caja
+absoluta dentro de la ficha, por clase. Sin JavaScript, con ratón todo va en línea y con dedo
+el popover abre igual, centrado por el navegador.
+
+**Cómo entra y cómo sale**, con el vocabulario de «El movimiento del panel, ocho ajustes»:
+entra en `--t-fast` (180 ms) con `--ease-out` desde `opacity:0; transform:scale(.97)`, con
+`transform-origin` en la esquina del botón (arriba-derecha; abajo-derecha si abre hacia
+arriba). Sale como hojas y modal: el JS pone `data-cerrando`, la CSS anima a `--t-modal-out`
+(140 ms) con la misma curva y `forwards`, y `hidePopover()` llega con `animationend` —sólo el
+de SU animación de salida: el de la entrada podía llegar justo después de pedir el cierre y
+cerraba en seco, medido— o con el respaldo de 300 ms. Aplica a los cierres propios: pulsar una
+de sus filas (antes de que salga el cuadro de confirmar) y el scroll. El cierre por *light
+dismiss* del navegador (toque fuera, Escape, volver a pulsar «⋯») es instantáneo: su
+`beforetoggle` no se puede cancelar y no se va a fingir. Con «menos movimiento», sólo opacidad,
+reutilizando `adm-modal-fondo` y `adm-modal-fondo-fuera` en el bloque por componente. Medido:
+por scroll, `adm-mas-fuera` corre y cierra a los 168 ms; pulsando «Cambiar», a los 179 y la
+hoja de edición se abre.
+
+Sombra nueva para lo que flota: `--sc-sombra-menu` (claro `0 8px 24px -8px rgba(26,22,20,.28)`,
+oscuro `rgba(0,0,0,.7)`), junto a las dos que ya había.
+
+## Dos errores míos, encontrados midiendo
+
+1. La etiqueta recortada salía a cuchillo («FAVORITC») en vez de con «…»: el botón de la
+   pastilla es `inline-flex`, y sobre un contenedor flex el texto vive en una caja anónima
+   donde `text-overflow` no actúa. Dentro de la rejilla pasa a `display:block` con
+   `line-height:22px`. Era latente en el modo compacto de antes (tope de 84 en columnas de
+   menos de 420) y nadie lo vio porque la etiqueta cabía.
+2. La primera salida del menú cerraba en seco a los 20 ms: `animationend` de la ENTRADA
+   llegaba justo después de pedir el cierre y disparaba el `hidePopover()`. Ahora sólo se
+   atiende al de la animación de salida.
+
+## Pruebas
+
+`E2E-RS-TACTIL-44` cambia de contrato en dos entradas: el lápiz y la papelera ya no van en
+línea con dedo; se contrata el «⋯» (39×44) y, con el menú abierto, sus dos filas. Nuevas:
+`E2E-REJ-01` (768 y 1024 con dedo: misma x de precio, oferta, etiqueta e interruptor en todas
+las filas, alto 48, sin recorte), `E2E-REJ-02` (1440 y 1512 con ratón: dos columnas, cada una
+alineada, lápiz y papelera en línea), `E2E-REJ-03` (el «⋯» abre junto a su botón, entra con
+`adm-mas-dentro`, lleva Cambiar y Retirar de 44, cierra animado con `adm-mas-fuera` por scroll
+y en seco al tocar fuera, y «Cambiar» abre la hoja), `E2E-REJ-04` (1280 con ratón: una columna
+y nombre ≥ 200). Las esperas son a `getAnimations().finished`, nunca a N ms.
+
+Fuera de alcance y anotado: de 520 a 560 de ventana con dedo (columna de 460-500) la fila
+sigue en el modo compacto de una línea con el nombre a 30-34 px, como antes. No recorta (a 560
+antes se salía 33 px y ahora no), pero es el mismo nombre ilegible que R2 dejó apuntado en
+escritorio; merece su propia medición.
+
+Sin commit, sin push, sin deploy, sin FTP. Producción intacta.

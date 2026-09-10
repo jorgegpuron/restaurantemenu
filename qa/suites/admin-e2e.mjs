@@ -2277,7 +2277,11 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
      tope escrito al lado de cada regla en el CSS. Son un suelo, no un objetivo: si alguien
      encoge un halo o mete un vecino que recorte, esta prueba lo dice; si alguien separa los
      grupos y el area crece, pasa igual —y entonces toca subir el suelo a mano. */
-  const MINIMOS = { '.adm-prow-editar': [38, 44], '.adm-retirar-b': [33, 35], '.adm-cat-nombre-b': [24, 30],
+  /* Rejilla (10 Sep 2026): con dedo el lapiz y la papelera ya no van en linea —viven en el
+     menu «⋯» de la fila—, asi que aqui se contrata el «⋯» (37x44 medido: 1 px por la
+     izquierda, que es lo que deja el halo del interruptor con el hueco de 4; 8 por la derecha,
+     que solo tiene relleno) y, mas abajo con el menu abierto, sus dos filas. */
+  const MINIMOS = { '.adm-mas-b': [37, 44], '.adm-cat-nombre-b': [24, 30],
     '.adm-plato-destbtn': [32, 44], '.adm-tema-op': [44, 33], '.adm-pct-atajo': [67, 44],
     '.adm-dia-semanal': [81, 44], '.adm-nav-item': [43, 40], '.adm-btn': [44, 44],
     '.adm-orden-b': [26, 30], '.camara': [44, 44], '.adm-sw': [44, 40] };
@@ -2363,6 +2367,31 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
   }
   informe.comprueba('E2E-RS-TACTIL-44', 'con dedo, cada control mantiene el area tactil medida que el layout le deja y ninguna zona le quita el toque a otra',
     tactil.fallos.length === 0 && tactil.solapes.length === 0, [...tactil.fallos, ...tactil.solapes].slice(0, 4).join(' | '));
+
+  /* Las dos filas del menu «⋯», con el menu abierto en la primera fila de Platos. Solo se
+     miden sus tamaños: el menu va en la capa superior y tapa a proposito lo que tiene debajo,
+     asi que la busqueda de solapes de arriba no vale aqui. */
+  await irA(dedo, url, 'platos', 300);
+  await abrirTodo(dedo);
+  const masCaja = await dedo.evaluate(() => {
+    const b = document.querySelector('.adm-cat-bento-lista .adm-platorow .adm-mas-b'); if (!b) return null;
+    b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  let menuTactil = { fallos: ['sin boton «⋯» en la fila'] };
+  if (masCaja) {
+    await dedo.touchscreen.tap(masCaja.x, masCaja.y);
+    await dedo.evaluate(async () => { const p = document.querySelector('.adm-mas-panel:popover-open'); if (p) await Promise.all(p.getAnimations().map((a) => a.finished.catch(() => {}))); });
+    const abierto = await dedo.evaluate(() => !!document.querySelector('.adm-mas-panel:popover-open'));
+    menuTactil = abierto
+      /* 81 y no 188: es el TOPE de la sonda (40 px a cada lado del centro), no el ancho de la
+         fila del menu. Lo que se contrata es que la fila entera responde hasta donde la sonda
+         llega y mide 44 de alto. */
+      ? await dedo.evaluate(sonda44, { '.adm-mas-panel:popover-open .adm-prow-editar': [81, 44], '.adm-mas-panel:popover-open .adm-retirar-b': [81, 44] })
+      : { fallos: ['el menu «⋯» no ha abierto'] };
+  }
+  informe.comprueba('E2E-RS-TACTIL-MENU', 'con dedo, las dos filas del menu «⋯» miden 44 de alto a todo el ancho del menu',
+    menuTactil.fallos.length === 0, menuTactil.fallos.slice(0, 4).join(' | '));
 
   await dedo.contextoQa.close().catch(() => {});
 }
@@ -3771,6 +3800,189 @@ export async function e2eUxPlatos(informe, { navegador, servidor }) {
           !m.fija && !m.tapaBarra && m.trozosEnteros && m.desborde <= 1 && (w >= 768 ? m.unaLinea : true), JSON.stringify(m));
       }
     } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+}
+
+/* ================================================================== 22b. la fila como rejilla
+ * Rejilla de columnas fijas (10 Sep 2026): desde 520 px de columna, precio, oferta, etiqueta e
+ * interruptor caen en la misma x en todas las filas, lleve la fila lo que lleve; con dedo el
+ * lapiz y la papelera viven en un menu «⋯» y con raton siguen en linea. Se siembra un estado
+ * con agotado, etiqueta y oferta —si todas las filas fueran iguales, alinearlas no probaria
+ * nada— y se restaura al salir, pase lo que pase.
+ */
+export async function e2eRejilla(informe, { navegador, servidor, docroot }) {
+  const url = servidor.url;
+  informe.seccion('E2E rejilla: la fila de Platos en columnas fijas, con dedo y con ratón');
+  const ruta = path.join(docroot, 'estado.json');
+  const estadoAntes = readFileSync(ruta, 'utf8');
+
+  /* Todo lo que se mide de una pantalla de Platos, columna a columna. */
+  const medir = () => {
+    const rectDe = (e) => (e ? e.getBoundingClientRect() : null);
+    /* Los platos de una ficha vienen repartidos en DOS contenedores desde PHP (columnasPlatos)
+       aunque la ficha se pinte en una sola columna: entonces los dos se apilan y forman una
+       unica columna visual. Se agrupa por columna visual —la posicion del contenedor dentro de
+       su ficha cuando hay dos, todo junto cuando hay una— y sobre las dos primeras fichas. */
+    const fichas = [...document.querySelectorAll('.pane[data-pane="platos"] .adm-cat-bento')].filter((f) => f.getBoundingClientRect().width > 0).slice(0, 2);
+    const cols = fichas.length ? [...fichas[0].querySelectorAll('.adm-cat-bento-col')] : [];
+    const nColumnas = cols.length ? getComputedStyle(cols[0].parentElement).gridTemplateColumns.split(' ').length : 0;
+    const grupos = [[], []];
+    for (const f of fichas) [...f.querySelectorAll('.adm-cat-bento-col')].forEach((c, i) => {
+      const filas = [...c.querySelectorAll('.adm-platorow')].filter((r) => r.getBoundingClientRect().width > 0);
+      grupos[nColumnas === 2 ? i : 0].push(...filas);
+    });
+    const porCol = grupos.filter((g) => g.length).map((filas) => {
+      const x = (sel) => [...new Set(filas.map((r) => { const b = rectDe(r.querySelector(sel)); return b && b.width ? Math.round(b.left) : null; }).filter((v) => v !== null))];
+      let fuera = 0;
+      for (const r of filas) {
+        const t = r.closest('.adm-f').getBoundingClientRect();
+        for (const el of r.querySelectorAll('*')) { const b = el.getBoundingClientRect(); if (b.width && b.right > t.right + 1) fuera++; }
+      }
+      const anchoNombre = filas.map((r) => Math.round(rectDe(r.querySelector('.adm-orow-nm')).width));
+      return {
+        n: filas.length, display: filas.length ? getComputedStyle(filas[0]).display : null,
+        altos: [...new Set(filas.map((r) => Math.round(r.getBoundingClientRect().height)))],
+        precio: x('.adm-prow-nuevo, .adm-prow-fijo'), oferta: x('.adm-tag-oferta, .adm-plato-sinoferta'),
+        etiqueta: x('.adm-tag-destacado, .adm-plato-destbtn'), agotado: x('.adm-sw-agotado'), mas: x('.adm-mas'),
+        nombreMin: anchoNombre.length ? Math.min(...anchoNombre) : null, fuera,
+        conEtiqueta: filas.filter((r) => r.querySelector('.adm-tag-destacado')).length,
+        conOferta: filas.filter((r) => r.querySelector('.adm-tag-oferta')).length,
+        agotados: filas.filter((r) => r.classList.contains('es-agotado')).length,
+      };
+    });
+    const primera = document.querySelector('.adm-cat-bento-lista .adm-platorow');
+    const ancho = (sel) => { const b = rectDe(primera && primera.querySelector(sel)); return b ? Math.round(b.width) : null; };
+    return {
+      columnas: nColumnas,
+      porCol, grueso: matchMedia('(pointer:coarse)').matches,
+      desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      lapiz: ancho('.adm-prow-editar'), papelera: ancho('.adm-retirar-b'), masb: ancho('.adm-mas-b'),
+    };
+  };
+  const alineada = (c) => c && c.display === 'grid' && c.n >= 3 && c.precio.length === 1 && c.oferta.length === 1
+    && c.etiqueta.length === 1 && c.agotado.length === 1 && c.mas.length === 1 && c.altos.length === 1 && c.altos[0] === 48 && c.fuera === 0;
+  /* Si todas las filas fueran iguales, alinearlas no probaria nada: entre lo medido tiene que
+     haber etiquetas, ofertas y un agotado (los que se siembran arriba). */
+  const variadas = (m) => m.porCol.reduce((s, c) => s + c.conEtiqueta, 0) >= 2 && m.porCol.reduce((s, c) => s + c.conOferta, 0) >= 2 && m.porCol.reduce((s, c) => s + c.agotados, 0) >= 1;
+
+  try {
+    /* Sembrar: la 1ª fila agotada, la 2ª con etiqueta, la 3ª con etiqueta y oferta, la 4ª con oferta. */
+    const sonda = await nuevaPagina(navegador, { viewport: { width: 1280, height: 900 } });
+    await entrarAlPanel(sonda, url);
+    await irA(sonda, url, 'platos', 300);
+    const claves = await sonda.evaluate(() => [...document.querySelectorAll('.adm-cat-bento-lista .adm-platorow[data-k]')].slice(0, 4).map((f) => f.dataset.k));
+    const etiqueta = await sonda.evaluate(() => { const b = document.querySelector('#dest-et .adm-destet-b'); return b ? b.value : null; }) || 'Bestseller';
+    await sonda.contextoQa.close().catch(() => {});
+    const e = JSON.parse(readFileSync(ruta, 'utf8'));
+    e.soldOut = { ...(e.soldOut || {}), [claves[0]]: fechaServicio() };
+    e.tags = { ...(e.tags || {}), [claves[1]]: etiqueta, [claves[2]]: etiqueta };
+    e.offer = { ...(e.offer || {}), on: true, keys: [...new Set([...((e.offer && e.offer.keys) || []), claves[2], claves[3]])] };
+    writeFileSync(ruta, JSON.stringify(e, null, 1));
+
+    /* ---- REJ-01: tablet con dedo, vertical y horizontal ---- */
+    for (const [w, h] of [[768, 1024], [1024, 768]]) {
+      const p = await nuevaPagina(navegador, { viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        await abrirTodo(p);
+        const m = await p.evaluate(medir);
+        const c = m.porCol[0];
+        informe.comprueba(`E2E-REJ-01-${w}`, `${w}×${h} con dedo: una columna en rejilla, precio, oferta, etiqueta e interruptor en la misma x en todas las filas, alto 48, sin recorte, y el «⋯» en vez del lápiz`,
+          m.grueso && m.columnas === 1 && alineada(c) && variadas(m)
+            && m.desborde <= 1 && m.masb === 28 && !m.lapiz && !m.papelera, JSON.stringify(m));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+
+    /* ---- REJ-02: escritorio con raton, dos columnas ---- */
+    for (const [w, h] of [[1440, 900], [1512, 982]]) {
+      const p = await nuevaPagina(navegador, { viewport: { width: w, height: h } });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        await abrirTodo(p);
+        const m = await p.evaluate(medir);
+        informe.comprueba(`E2E-REJ-02-${w}`, `${w}×${h} con ratón: dos columnas y cada una en rejilla, alto 48, sin recorte, lápiz y papelera en línea y sin «⋯»`,
+          !m.grueso && m.columnas === 2 && alineada(m.porCol[0]) && alineada(m.porCol[1]) && variadas(m) && m.desborde <= 1
+            && m.lapiz === 26 && m.papelera === 28 && !m.masb, JSON.stringify(m));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+
+    /* ---- REJ-03: el menu «⋯» ---- */
+    {
+      const p = await nuevaPagina(navegador, { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        const caja = await p.evaluate(() => {
+          const b = document.querySelector('.adm-cat-bento-lista .adm-platorow .adm-mas-b'); if (!b) return null;
+          b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: b.getAttribute('popovertarget') };
+        });
+        let abre = null, cierraScroll = null, cierraFuera = null, cambiar = null;
+        if (caja) {
+          await p.touchscreen.tap(caja.x, caja.y);
+          abre = await p.evaluate(async (id) => {
+            const panel = document.getElementById(id); const b = document.querySelector(`[popovertarget="${id}"]`);
+            const entrada = panel.getAnimations().map((a) => a.animationName);
+            await Promise.all(panel.getAnimations().map((a) => a.finished.catch(() => {})));
+            const r = panel.getBoundingClientRect(); const rb = b.getBoundingClientRect();
+            const filas = [...panel.querySelectorAll('button')].map((x) => ({ txt: x.textContent.trim(), h: Math.round(x.getBoundingClientRect().height) }));
+            return { abierto: panel.matches(':popover-open'), entrada, debajo: r.top >= rb.bottom + 2, alineado: Math.abs(r.right - rb.right) <= 2, fijo: getComputedStyle(panel).position === 'fixed', filas };
+          }, caja.id);
+          /* cierre propio por scroll: salida animada, y se espera a que ACABE, no N ms */
+          cierraScroll = await p.evaluate(async (id) => {
+            const panel = document.getElementById(id);
+            window.scrollBy(0, 12);
+            await new Promise((r) => setTimeout(r, 40));
+            const cerrando = panel.hasAttribute('data-cerrando');
+            const salida = panel.getAnimations().map((a) => a.animationName);
+            await Promise.all(panel.getAnimations().map((a) => a.finished.catch(() => {})));
+            await new Promise((r) => setTimeout(r, 30));
+            return { cerrando, salida, cerrado: !panel.matches(':popover-open') };
+          }, caja.id);
+          /* light dismiss: tocar fuera cierra en seco */
+          await p.touchscreen.tap(caja.x, caja.y);
+          await p.evaluate(async (id) => { const panel = document.getElementById(id); await Promise.all(panel.getAnimations().map((a) => a.finished.catch(() => {}))); }, caja.id);
+          /* «fuera» = el centro de la barra superior, que solo tiene la fecha: a la izquierda esta
+             el riel de navegacion y un toque ahi cambiaria de pantalla. */
+          await p.touchscreen.tap(400, 30);
+          await esperar(80);
+          cierraFuera = await p.evaluate((id) => !document.getElementById(id).matches(':popover-open'), caja.id);
+          /* «Cambiar»: el menu se cierra y la hoja de edicion se abre */
+          await p.touchscreen.tap(caja.x, caja.y);
+          const item = await p.evaluate(async (id) => {
+            const panel = document.getElementById(id); await Promise.all(panel.getAnimations().map((a) => a.finished.catch(() => {})));
+            const b = panel.querySelector('.adm-prow-editar'); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+          }, caja.id);
+          await p.touchscreen.tap(item.x, item.y);
+          await reposo(p, 500);
+          cambiar = await p.evaluate((id) => ({ cerrado: !document.getElementById(id).matches(':popover-open'), hoja: !!document.getElementById('adm-alta') && !document.getElementById('adm-alta').hidden }), caja.id);
+        }
+        const ok = !!abre && abre.abierto && abre.entrada.includes('adm-mas-dentro') && abre.debajo && abre.alineado && abre.fijo
+          && abre.filas.length === 2 && abre.filas[0].txt === 'Cambiar' && /Retirar|Devolver|Borrar/.test(abre.filas[1].txt) && abre.filas.every((f) => f.h >= 44)
+          && cierraScroll && cierraScroll.cerrando && cierraScroll.salida.includes('adm-mas-fuera') && cierraScroll.cerrado
+          && cierraFuera === true && cambiar && cambiar.cerrado && cambiar.hoja;
+        informe.comprueba('E2E-REJ-03', 'con dedo, el «⋯» abre un menú fijo bajo su botón y alineado a su borde derecho, entra con adm-mas-dentro, lleva Cambiar y Retirar de 44, cierra animado con adm-mas-fuera por scroll y en seco al tocar fuera, y Cambiar abre la hoja',
+          ok, JSON.stringify({ abre, cierraScroll, cierraFuera, cambiar }));
+        informe.comprueba('E2E-REJ-03-red', 'consola y red limpias con el menú «⋯»', erroresConsola(p).length === 0 && p.registro.fallidas.length === 0, [...erroresConsola(p), ...p.registro.fallidas].slice(0, 2).join(' | '));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+
+    /* ---- REJ-04: 1280 con raton, una sola columna y nombre ancho ---- */
+    {
+      const p = await nuevaPagina(navegador, { viewport: { width: 1280, height: 800 } });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        await abrirTodo(p);
+        const m = await p.evaluate(medir);
+        informe.comprueba('E2E-REJ-04', '1280×800 con ratón: la ficha va a una sola columna en rejilla y el nombre tiene al menos 200 px',
+          m.columnas === 1 && alineada(m.porCol[0]) && m.porCol[0].nombreMin >= 200 && m.desborde <= 1, JSON.stringify(m));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+  } finally {
+    writeFileSync(ruta, estadoAntes);
   }
 }
 
@@ -5533,6 +5745,7 @@ export async function bateriaE2E(informe, { clon, fixtures, navegador }) {
   await correrBloque(informe, 'revision-humana', () => e2eRevisionHumana(informe, { navegador, servidor: srv, docroot: docPrincipal }));
   await correrBloque(informe, 'navegacion', () => e2eNavegacion(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'ux-platos', () => e2eUxPlatos(informe, { navegador, servidor: srv }));
+  await correrBloque(informe, 'rejilla', () => e2eRejilla(informe, { navegador, servidor: srv, docroot: docPrincipal }));
   await correrBloque(informe, 'orden-platos', () => e2eOrdenPlatos(informe, { navegador, servidor: srv, docroot: docPrincipal }));
 
   const docFich = docrootDesde(clon.salida, 'e2e_fich');

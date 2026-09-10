@@ -4880,6 +4880,7 @@ $CUENTAS = [
     --sc-scrim:rgba(26,22,20,.45);
     --sc-sombra-hoja:0 -12px 32px -12px rgba(26,22,20,.22);
     --sc-sombra-card:0 2px 5px #1a161408;
+    --sc-sombra-menu:0 8px 24px -8px rgba(26,22,20,.28);
 
     /* El rojo es el MISMO que usa la carta para las ofertas (#C62828): un panel y una carta
        que hablan del mismo restaurante no pueden tener dos rojos distintos. */
@@ -4912,6 +4913,7 @@ $CUENTAS = [
     --sc-scrim:rgba(10,8,7,.62);
     --sc-sombra-hoja:0 -12px 32px -12px rgba(0,0,0,.6);
     --sc-sombra-card:0 2px 5px #00000014;
+    --sc-sombra-menu:0 8px 24px -8px rgba(0,0,0,.7);
 
     --sc-ok-bg:#1B3A2C;   --sc-ok-ink:#6FD3A6;
     --sc-warn-bg:#3A3020; --sc-warn-ink:#EFC578;
@@ -6097,7 +6099,10 @@ $CUENTAS = [
      icono de "%", y el precio se estrecha a lo que pide un importe con coma. La etiqueta ya
      puesta (Bestseller, Veggie favourite…) es información real, no decoración — se queda en
      texto, sólo con un tope y "…" si no le cupiera entera. */
-  @container adm-cat-bento-col (max-width:620px){
+  /* Rejilla (10 Sep 2026): este bloque compacto era la composicion de toda columna de hasta
+     620; desde 520 manda la rejilla de columnas fijas de mas abajo, asi que aqui se acota a lo
+     que queda por debajo —movil y columnas estrechas—. Cambio de rango, no de reglas. */
+  @container adm-cat-bento-col (max-width:519px){
     .adm-cat-bento-lista .adm-platorow{flex-wrap:nowrap;gap:8px}
     .adm-cat-bento-lista .adm-platorow .adm-orow-nm{
       flex:1 1 auto;min-width:30px;display:block;
@@ -6196,6 +6201,149 @@ $CUENTAS = [
       .adm-cat-bento-lista .adm-platorow .adm-orow-nm{flex:1 1 100%;order:-1}
       .adm-cat-bento-lista .adm-plato-acciones{margin-left:auto}
     }
+  }
+
+  /* ==================================================== la fila como rejilla (10 Sep 2026) ==
+     El propietario, con los cuatro mockups de Stitch: al poner etiquetas, ofertas y agotados
+     «los datos no tienen orden». Medido a 768 (columna de 586): la x del precio bailaba 131 px
+     segun lo que llevara la fila, y a 1024 (678, por encima del corte compacto de 620) la fila
+     ancha partia el nombre en dos y tres lineas. Con flex y un grupo pegado a la derecha cada
+     control mide lo suyo y nada cae en la misma x dos veces.
+
+     Desde 520 px de columna la fila es una REJILLA de columnas fijas con areas con nombre: cada
+     dato tiene su columna aunque este vacio —el hueco de oferta lleva un punto, el de etiqueta
+     una pastilla fantasma— y la unica elastica es el nombre, en una linea con «…». Con areas con
+     nombre y no autocolocacion, si falta un elemento (flechas quitadas al filtrar, fila retirada)
+     su hueco queda vacio y nada se corre. Por debajo de 520 sigue la composicion de siempre, con
+     la envoltura con dedo (R1) y sus halos (R2) intactos.
+
+       orden 62 (dos flechas de 28 con hueco de 6, las mismas de siempre) · foto 32 · num 24 ·
+       nombre 1fr · precio 52 · oferta 24 · etiqueta 84 · agotado 40 · mas 28 (56 con raton,
+       que lleva lapiz y papelera en linea) · hueco 6 · relleno 4 16 · alto minimo 48.
+
+     Presupuesto fijo: 346 + 48 de huecos + 32 de relleno = 426 con dedo (454 con raton). Nombre
+     resultante: 160 a 768, 252 a 1024, 107 a 1440, 143 a 1512. */
+  .adm-platorow{--adm-mas-w:56px}
+  @media (pointer:coarse){ .adm-platorow{--adm-mas-w:28px} }
+  @container adm-cat-bento-col (min-width:520px){
+    .adm-cat-bento-lista .adm-platorow{
+      display:grid;
+      grid-template-columns:62px 32px 24px minmax(0,1fr) 52px 24px 84px 40px var(--adm-mas-w);
+      grid-template-areas:"orden foto num nombre precio oferta etiqueta agotado mas";
+      column-gap:6px;row-gap:0;align-items:center;
+      min-height:48px;padding:var(--space-1) var(--space-4);
+    }
+    .adm-cat-bento-lista .adm-platorow > .adm-orden-flechas{grid-area:orden}
+    .adm-cat-bento-lista .adm-platorow > .camara{grid-area:foto}
+    .adm-cat-bento-lista .adm-platorow > .adm-prow-n{grid-area:num;min-width:0;text-align:right}
+    .adm-cat-bento-lista .adm-platorow > .adm-orow-nm{
+      grid-area:nombre;flex:none;min-width:0;display:block;
+      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+    }
+    /* El grupo de acciones deja de ser una caja: sus hijos son celdas de la fila. */
+    .adm-cat-bento-lista .adm-platorow .adm-plato-acciones{display:contents}
+    .adm-cat-bento-lista .adm-plato-acciones input.adm-prow-nuevo{
+      grid-area:precio;flex:none;width:52px;padding:0 6px;text-align:right;font-size:var(--t3,13px);
+    }
+    .adm-cat-bento-lista .adm-plato-acciones .adm-prow-fijo{
+      grid-area:precio;flex:none;width:52px;font-size:var(--t4);text-align:right;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .adm-cat-bento-lista .adm-tag-oferta{
+      grid-area:oferta;width:24px;height:24px;padding:0;
+      display:inline-flex;align-items:center;justify-content:center;
+    }
+    .adm-cat-bento-lista .adm-tag-oferta svg{width:14px;height:14px}
+    /* Sin oferta: el hueco se reserva igual, y lo dice un punto, no un guion. */
+    .adm-cat-bento-lista .adm-plato-sinoferta{
+      grid-area:oferta;display:block;width:24px;height:24px;font-size:0;opacity:1;position:relative;
+    }
+    .adm-cat-bento-lista .adm-plato-sinoferta::before{
+      content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;
+      border-radius:50%;background:var(--sc-border);
+    }
+    .adm-cat-bento-lista .adm-tag-destacado{grid-area:etiqueta;max-width:100%;min-width:0;justify-self:start}
+    /* 84 del hueco menos los 20 de la «x»: la etiqueta cede con «…» y conserva su title.
+       En bloque y no en flex: sobre un contenedor flex el texto vive en una caja anonima y
+       text-overflow no recorta con puntos, recorta a cuchillo («FAVORITC»). */
+    .adm-cat-bento-lista .adm-tag-destacado .adm-tag-destacado-cambiar{max-width:64px;display:block;line-height:22px}
+    /* Sin etiqueta: pastilla fantasma con la estrella y un «+», del ancho del hueco. */
+    .adm-cat-bento-lista .adm-plato-destbtn{
+      grid-area:etiqueta;width:84px;height:26px;min-height:0;padding:0;
+      justify-content:center;gap:4px;border-style:dashed;border-radius:var(--radius-md);
+      color:var(--sc-text-2);opacity:.75;
+    }
+    .adm-cat-bento-lista .adm-plato-destbtn:hover{opacity:1}
+    .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
+    .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
+    .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:1}
+    .adm-cat-bento-lista .adm-sw-agotado{grid-area:agotado}
+    .adm-cat-bento-lista .adm-mas{grid-area:mas;justify-self:end}
+  }
+
+  /* ---- el menu «⋯» ----
+     Con raton, .adm-mas es una cajita con el lapiz y la papelera en linea (el panel no es
+     panel: display:contents). Con dedo, el boton «⋯» y un popover nativo con las dos filas. */
+  .adm-mas{display:inline-flex;align-items:center;gap:2px;flex:none;position:relative}
+  .adm-mas-b{display:none}
+  .adm-mas-panel{display:contents}
+  .adm-mas-txt{display:none}
+  @keyframes adm-mas-dentro{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+  @keyframes adm-mas-fuera{to{opacity:0;transform:scale(.97)}}
+  @media (pointer:coarse){
+    .adm-mas-b{
+      display:grid;place-items:center;width:28px;height:28px;min-height:0;padding:0;
+      border:0;border-radius:var(--radius-md);background:transparent;color:var(--sc-text-2);
+      cursor:pointer;position:relative;
+      transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
+    }
+    .adm-mas-b svg{width:16px;height:16px;pointer-events:none}
+    .adm-mas-b:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+    .adm-mas-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+    /* Cerrado: nada. Abierto: capa superior, colocado por el JS junto a su boton. Los estilos
+       de fabrica del popover (inset:0, margin:auto, borde y fondo del sistema) se anulan. */
+    .adm-mas-panel{display:none}
+    .adm-mas-panel:popover-open{
+      display:flex;flex-direction:column;gap:2px;
+      position:fixed;inset:auto;margin:0;padding:6px;min-width:208px;
+      border:1px solid var(--sc-border);border-radius:var(--radius-lg);
+      background:var(--sc-surface);color:var(--sc-text);box-shadow:var(--sc-sombra-menu);
+      overflow:visible;
+      animation:adm-mas-dentro var(--t-fast) var(--ease-out);transform-origin:top right;
+    }
+    /* Respaldo sin Popover API (Safari < 17, Chrome < 114, Firefox < 125): la misma caja,
+       absoluta dentro de la ficha. Cerca del borde inferior la ficha la recorta: abre arriba. */
+    html.sin-popover .adm-mas-panel.abierto{
+      display:flex;flex-direction:column;gap:2px;
+      position:absolute;right:0;top:calc(100% + 4px);z-index:5;margin:0;padding:6px;min-width:208px;
+      border:1px solid var(--sc-border);border-radius:var(--radius-lg);
+      background:var(--sc-surface);color:var(--sc-text);box-shadow:var(--sc-sombra-menu);
+      animation:adm-mas-dentro var(--t-fast) var(--ease-out);transform-origin:top right;
+    }
+    html.sin-popover .adm-mas-panel.abierto[data-arriba]{top:auto;bottom:calc(100% + 4px)}
+    .adm-mas-panel[data-arriba]{transform-origin:bottom right}
+    /* Sale como entra, al reves y mas deprisa: el mismo idioma que hojas y modal. El JS pone
+       data-cerrando, la CSS anima, y hidePopover() llega con animationend (o a los 300 ms). */
+    .adm-mas-panel[data-cerrando]{animation:adm-mas-fuera var(--t-modal-out) var(--ease-out) forwards;pointer-events:none}
+    @media (prefers-reduced-motion:reduce){
+      /* solo opacidad, con los dos keyframes de opacidad pura del modal */
+      .adm-mas-panel:popover-open,html.sin-popover .adm-mas-panel.abierto{animation-name:adm-modal-fondo}
+      .adm-mas-panel[data-cerrando]{animation-name:adm-modal-fondo-fuera}
+    }
+    /* Las dos filas del menu: 44 de alto a todo el ancho, con su rotulo. Aqui el halo de R2
+       sobra —la fila entera es el objetivo— y el del lapiz (-18 por arriba) pisaria a la otra. */
+    .adm-mas-panel .adm-prow-editar,
+    .adm-mas-panel .adm-retirar-b{
+      width:auto;height:44px;min-height:44px;display:flex;align-items:center;justify-content:flex-start;
+      gap:10px;padding:0 12px;opacity:1;border-radius:var(--radius-md);
+      font-family:inherit;font-size:var(--t2);font-weight:500;color:var(--sc-text);
+    }
+    .adm-mas-panel .adm-prow-editar::before,
+    .adm-mas-panel .adm-retirar-b::before{content:none}
+    .adm-mas-panel .adm-prow-editar svg,
+    .adm-mas-panel .adm-retirar-b svg{width:16px;height:16px;flex:none}
+    .adm-mas-panel .adm-mas-txt{display:inline;white-space:nowrap}
+    .adm-mas-panel .adm-retirar-f{display:contents}
   }
 
   /* ==================================================================== MISE-B: Platos ==
@@ -9326,7 +9474,11 @@ $CUENTAS = [
   .adm-vermas:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
   .adm-vermas-chev{width:16px;height:16px;flex:none;transition:transform var(--t-fast) var(--ease-out)}
   .adm-vermas[aria-expanded="true"] .adm-vermas-chev{transform:rotate(180deg)}
-  @container adm-cat-bento (max-width:820px){
+  /* Rejilla (10 Sep 2026): 820 -> 1099. Con la rejilla de columnas fijas una columna de
+     395-519 no da nombre (a 453, 33 px), asi que solo hay dos columnas cuando cada una llega a
+     522 (2 x 522 + 56 de huecos). Medido: de 1180 a 1366 de ventana la ficha pasa a UNA
+     columna de 834-1020; desde 1440 (ficha de 1124) vuelven las dos, ya con rejilla. */
+  @container adm-cat-bento (max-width:1099px){
     .adm-cat-bento-lista{grid-template-columns:1fr}
   }
   /* Contenedor de tamaño para lo de aquí abajo: cuánto le cabe a CADA columna de platos,
@@ -9825,6 +9977,13 @@ $CUENTAS = [
 
     /* El único que llega a 44x44: tiene 8 px libres por los cuatro lados. */
     .adm-btn::before{top:-3px;bottom:-3px;left:-4px;right:-4px}
+
+    /* Rejilla (10 Sep 2026): el «⋯» de la fila, 28x28 -> 37x44. A la izquierda esta el
+       interruptor, que ya lleva su halo de 44 sobre 40 de dibujo (2 px por cada lado): con el
+       hueco de 4 de la fila compacta solo queda 1 px para este —medido: con 3 el interruptor
+       bajaba a 43 de ancho efectivo—. A la derecha solo esta el relleno de la fila, y sobran 8.
+       Filas de 48: dos halos de 44 no se tocan. */
+    .adm-mas-b::before{content:"";position:absolute;top:-8px;bottom:-8px;left:-1px;right:-8px}
   }
 </style>
 </head>
@@ -10844,16 +11003,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                 </button>
                 <span class="adm-prow-n"><?= h($p['id']) ?></span>
                 <span class="adm-orow-nm" title="<?= h($p['name'] . ($p['sub'] !== '' ? ' — ' . $p['sub'] : '') . ($p['name_en'] !== $p['name'] ? ' · ' . $p['name_en'] : '')) ?>"><?= h($p['name']) ?></span>
-                <?php /* Editar. Apagado hasta que el puntero entra en la fila, como el lapiz
-                         de la cabecera de categoria: 312 lapices encendidos a la vez serian
-                         312 manchas por encima de lo unico que importa aqui, que es el nombre
-                         del plato. Con el dedo se ve siempre — ahi no hay hover que valga. */ ?>
-                <button type="button" class="adm-prow-editar" data-editar="<?= h($k) ?>"
-                        title="Cambiar este plato"
-                        aria-label="Cambiar <?= h($p['name']) ?>">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-                </button>
-
                 <?php /* MISE-B, segunda ronda: grupo operativo único al final —
                          precio · oferta · destacado · agotado—, en vez de agotado suelto al
                          principio. Mismo input, mismo form, mismo handler: sólo cambia dónde
@@ -10867,44 +11016,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   <?php else: ?>
                     <span class="adm-prow-fijo adm-plato-incluido">Incluido</span>
                   <?php endif; ?>
-
-                  <?php /* Retirar / devolver. Va el ULTIMO del grupo de acciones, separado de
-                           los tres controles del dia a dia: no es lo que se toca cada mañana y
-                           no debe estar donde cae el pulgar sin querer. Confirmacion al
-                           retirar, ninguna al devolver: una es la que quita algo de la carta y
-                           la otra la deshace. */ ?>
-                  <form method="post" class="adm-retirar-f" style="display:contents">
-                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                    <input type="hidden" name="retirar_on" value="<?= $retirado ? '0' : '1' ?>">
-                    <?php /* La pregunta cuelga del BOTON y no del formulario: es el boton el que
-                             lleva `retirar_plato=<dishId>`, y ese par solo viaja si el envio lo
-                             dispara el. Y solo al retirar: devolver deshace, y deshacer no se
-                             pregunta.
-
-                             Un plato dado de alta AQUI no se retira: se borra. Retirar existe
-                             porque un plato de la carta compilada volveria en la siguiente
-                             compilacion y lo unico que se puede hacer con el es dejar de
-                             servirlo; este no existe en ningun otro sitio, asi que esconderlo
-                             para siempre seria dejar basura en el estado con cara de plato. */ ?>
-                    <?php $esPropio = !empty($p['nuevo']); ?>
-                    <button class="adm-retirar-b" name="<?= $esPropio ? 'plato_borrar' : 'retirar_plato' ?>" value="<?= h($k) ?>" type="submit"
-                            <?= $esPropio
-                              ? 'data-confirmar="¿Borrar «' . h($p['name']) . '»?"'
-                                  . ' data-confirmar-nota="Lo diste de alta tú: se borra del todo, con su foto y su precio. No se puede deshacer."'
-                                  . ' data-confirmar-si="Borrar" data-confirmar-tono="peligro"'
-                              : ($retirado ? '' : 'data-confirmar="¿Retirar «' . h($p['name']) . '» de la carta?"'
-                                  . ' data-confirmar-nota="Deja de verse, pero se conserva y puedes devolverlo cuando quieras."'
-                                  . ' data-confirmar-si="Retirar" data-confirmar-tono="peligro"') ?>
-                            data-retirar="<?= $esPropio ? 'borrar' : ($retirado ? 'devolver' : 'retirar') ?>"
-                            aria-label="<?= $esPropio ? 'Borrar ' . h($p['name']) : ($retirado ? 'Devolver ' . h($p['name']) . ' a la carta' : 'Retirar ' . h($p['name']) . ' de la carta') ?>"
-                            title="<?= $esPropio ? 'Borrar este plato' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?>">
-                      <?php if ($retirado): ?>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
-                      <?php else: ?>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                      <?php endif; ?>
-                    </button>
-                  </form>
 
                   <?php if ($enOferta): ?>
                     <a class="adm-tag adm-tag-oferta" href="?t=ofertas" title="En oferta — ver la regla de Ofertas"
@@ -10946,6 +11057,70 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
                     <span class="sr">Agotado hoy: <?= h($p['name']) ?></span>
                   </label>
+
+                  <?php /* Cambiar y Retirar, juntos y al final. Con raton van en linea y
+                           revelados al pasar por la fila, como siempre; con el dedo se recogen
+                           en un menu «⋯» (popover nativo: capa superior, no lo recorta el
+                           overflow:hidden de la ficha), porque encendidos siempre eran 54 px de
+                           ruido por fila y empujaban al resto. Mismos botones, mismos name,
+                           data-editar, data-confirmar y data-retirar: los manejadores son
+                           delegados y siguen colgando de la fila. Sin JavaScript, con raton
+                           todo sigue en linea y con dedo el popover abre igual. */ ?>
+                  <span class="adm-mas">
+                    <button type="button" class="adm-mas-b" popovertarget="mas-<?= h($k) ?>"
+                            title="Más opciones" aria-label="Más opciones de <?= h($p['name']) ?>">
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                    </button>
+                    <div class="adm-mas-panel" id="mas-<?= h($k) ?>" popover>
+                    <?php /* Editar. Apagado hasta que el puntero entra en la fila, como el lapiz
+                             de la cabecera de categoria: 312 lapices encendidos a la vez serian
+                             312 manchas por encima de lo unico que importa aqui, que es el nombre
+                             del plato. Con el dedo vive en el menu, con su rotulo. */ ?>
+                    <button type="button" class="adm-prow-editar" data-editar="<?= h($k) ?>"
+                            title="Cambiar este plato"
+                            aria-label="Cambiar <?= h($p['name']) ?>">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                      <span class="adm-mas-txt">Cambiar</span>
+                    </button>
+                    <?php /* Retirar / devolver. El ultimo del menu, lejos de los tres controles
+                             del dia a dia: no es lo que se toca cada mañana y no debe estar donde
+                             cae el pulgar sin querer. Confirmacion al retirar, ninguna al
+                             devolver: una es la que quita algo de la carta y la otra la deshace. */ ?>
+                    <form method="post" class="adm-retirar-f" style="display:contents">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <input type="hidden" name="retirar_on" value="<?= $retirado ? '0' : '1' ?>">
+                      <?php /* La pregunta cuelga del BOTON y no del formulario: es el boton el que
+                               lleva `retirar_plato=<dishId>`, y ese par solo viaja si el envio lo
+                               dispara el. Y solo al retirar: devolver deshace, y deshacer no se
+                               pregunta.
+
+                               Un plato dado de alta AQUI no se retira: se borra. Retirar existe
+                               porque un plato de la carta compilada volveria en la siguiente
+                               compilacion y lo unico que se puede hacer con el es dejar de
+                               servirlo; este no existe en ningun otro sitio, asi que esconderlo
+                               para siempre seria dejar basura en el estado con cara de plato. */ ?>
+                      <?php $esPropio = !empty($p['nuevo']); ?>
+                      <button class="adm-retirar-b" name="<?= $esPropio ? 'plato_borrar' : 'retirar_plato' ?>" value="<?= h($k) ?>" type="submit"
+                              <?= $esPropio
+                                ? 'data-confirmar="¿Borrar «' . h($p['name']) . '»?"'
+                                    . ' data-confirmar-nota="Lo diste de alta tú: se borra del todo, con su foto y su precio. No se puede deshacer."'
+                                    . ' data-confirmar-si="Borrar" data-confirmar-tono="peligro"'
+                                : ($retirado ? '' : 'data-confirmar="¿Retirar «' . h($p['name']) . '» de la carta?"'
+                                    . ' data-confirmar-nota="Deja de verse, pero se conserva y puedes devolverlo cuando quieras."'
+                                    . ' data-confirmar-si="Retirar" data-confirmar-tono="peligro"') ?>
+                              data-retirar="<?= $esPropio ? 'borrar' : ($retirado ? 'devolver' : 'retirar') ?>"
+                              aria-label="<?= $esPropio ? 'Borrar ' . h($p['name']) : ($retirado ? 'Devolver ' . h($p['name']) . ' a la carta' : 'Retirar ' . h($p['name']) . ' de la carta') ?>"
+                              title="<?= $esPropio ? 'Borrar este plato' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?>">
+                        <?php if ($retirado): ?>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                        <?php else: ?>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        <?php endif; ?>
+                        <span class="adm-mas-txt"><?= $esPropio ? 'Borrar' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?></span>
+                      </button>
+                    </form>
+                    </div>
+                  </span>
                 </span>
               </div>
               <?php endforeach; ?>
@@ -16128,6 +16303,97 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     preguntar(deElemento(b), function () { b.dataset.confirmado = '1'; b.click(); });
   }, true);
 })();
+
+/* ---- el menu «⋯» de la fila de Platos ----
+   Popover nativo: el navegador lo abre y lo cierra (popovertarget, light dismiss, Escape); aqui
+   solo se coloca junto a su boton y se le da salida animada a los cierres propios —pulsar una de
+   sus filas o hacer scroll—, con el mismo idioma que hojas y modal (data-cerrando, animationend,
+   respaldo de 300 ms). El cierre por light dismiss es instantaneo: su beforetoggle no se puede
+   cancelar y no se va a fingir. Sin Popover API, la misma caja abre por clase dentro de la ficha. */
+(function () {
+  var soporta = typeof HTMLElement !== 'undefined' && 'popover' in HTMLElement.prototype;
+  if (!soporta) document.documentElement.classList.add('sin-popover');
+  var cerrando = new WeakMap();
+
+  function abierto(panel) { return soporta ? panel.matches(':popover-open') : panel.classList.contains('abierto'); }
+  function botonDe(panel) { return document.querySelector('[popovertarget="' + panel.id + '"]'); }
+
+  function colocar(panel) {
+    var b = botonDe(panel); if (!b) return;
+    var r = b.getBoundingClientRect();
+    var alto = panel.offsetHeight || 0, ancho = panel.offsetWidth || 0;
+    var cabeAbajo = r.bottom + 4 + alto <= window.innerHeight - 8;
+    if (cabeAbajo) panel.removeAttribute('data-arriba'); else panel.setAttribute('data-arriba', '');
+    if (!soporta) return;
+    panel.style.top = (cabeAbajo ? r.bottom + 4 : Math.max(8, r.top - 4 - alto)) + 'px';
+    panel.style.left = Math.max(8, Math.min(r.right, window.innerWidth - 8) - ancho) + 'px';
+  }
+
+  function cancelarCierre(panel) {
+    var t = cerrando.get(panel);
+    if (t) { clearTimeout(t.temporizador); panel.removeEventListener('animationend', t.fin); cerrando.delete(panel); }
+    panel.removeAttribute('data-cerrando');
+  }
+
+  function cerrar(panel) {
+    if (!panel || !abierto(panel) || cerrando.has(panel)) return;
+    /* Solo el final de SU salida: el animationend de la entrada puede llegar justo despues
+       de pedir el cierre (medido: cerraba en seco a los 20 ms) y no es el que se espera. */
+    var fin = function (e) {
+      if (e && e.animationName && e.animationName.indexOf('fuera') === -1) return;
+      cancelarCierre(panel);
+      if (soporta) { try { panel.hidePopover(); } catch (err) { /* ya cerrado */ } }
+      else panel.classList.remove('abierto');
+    };
+    cerrando.set(panel, { fin: fin, temporizador: setTimeout(fin, 300) });
+    panel.addEventListener('animationend', fin);
+    panel.setAttribute('data-cerrando', '');
+  }
+
+  function cerrarTodos() {
+    var abiertos = document.querySelectorAll(soporta ? '.adm-mas-panel:popover-open' : '.adm-mas-panel.abierto');
+    for (var i = 0; i < abiertos.length; i++) cerrar(abiertos[i]);
+  }
+
+  if (soporta) {
+    /* toggle no burbujea: se escucha en captura. Abrir a mitad de salida cancela el cierre. */
+    document.addEventListener('beforetoggle', function (e) {
+      var panel = e.target;
+      if (!panel.classList || !panel.classList.contains('adm-mas-panel')) return;
+      cancelarCierre(panel);
+      if (e.newState === 'open') cerrarTodos();
+    }, true);
+    document.addEventListener('toggle', function (e) {
+      var panel = e.target;
+      if (!panel.classList || !panel.classList.contains('adm-mas-panel')) return;
+      if (e.newState === 'open') colocar(panel);
+      else { panel.style.top = ''; panel.style.left = ''; }
+    }, true);
+  } else {
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.adm-mas-b') : null;
+      if (b) {
+        var panel = document.getElementById(b.getAttribute('popovertarget'));
+        if (!panel) return;
+        if (abierto(panel) && !cerrando.has(panel)) { cerrar(panel); return; }
+        cancelarCierre(panel); cerrarTodos();
+        panel.classList.add('abierto'); colocar(panel);
+        return;
+      }
+      if (!(e.target.closest && e.target.closest('.adm-mas-panel'))) cerrarTodos();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarTodos(); });
+  }
+
+  /* Pulsar una de sus filas lo cierra —antes de que salga el cuadro de confirmar—, y el scroll
+     tambien: un menu que se queda flotando lejos de su fila no es de nadie. En captura, porque
+     el vigilante de data-confirmar para la propagacion en esa misma fase. */
+  document.addEventListener('click', function (e) {
+    var dentro = e.target.closest ? e.target.closest('.adm-mas-panel') : null;
+    if (dentro) cerrar(dentro);
+  }, true);
+  document.addEventListener('scroll', function () { cerrarTodos(); }, true);
+}());
 </script>
 <?php endif; ?>
 
