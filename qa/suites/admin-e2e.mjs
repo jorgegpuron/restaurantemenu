@@ -1952,14 +1952,41 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
   informe.seccion('E2E claro/oscuro: persistencia y flujos funcionales en los dos temas');
   const url = servidor.url;
   await irA(pagina, url, 'platos');
-  const t0 = await pagina.evaluate(() => ({ dark: document.documentElement.classList.contains('dark'), light: document.documentElement.classList.contains('light'), sw: !!document.getElementById('adm-tema-sw'), aria: document.getElementById('adm-tema-sw')?.getAttribute('aria-checked'), guardado: localStorage.getItem('socialcard-color-mode') }));
-  informe.comprueba('E2E-TE-01', 'sin preferencia guardada el panel arranca en claro con el interruptor de tema en OFF',
-    t0.light && !t0.dark && t0.sw && t0.aria === 'false' && t0.guardado === null, JSON.stringify(t0));
+  /* El selector dejo de ser un interruptor: son dos botones con nombre —Claro y Oscuro—,
+     al pie de la barra lateral y repetidos en la hoja «Mas». Lo que se afirma es lo mismo de
+     antes y una cosa mas: que las DOS copias dicen lo mismo. Un `aria-pressed` que se
+     contradijera entre ellas seria peor que no tenerlo. */
+  const leerTema = () => pagina.evaluate(() => {
+    const ops = [...document.querySelectorAll('.adm-tema-op')];
+    return {
+      dark: document.documentElement.classList.contains('dark'),
+      light: document.documentElement.classList.contains('light'),
+      copias: document.querySelectorAll('.adm-tema-seg').length,
+      botones: ops.length,
+      pulsados: ops.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.tema),
+      grupo: (document.querySelector('.adm-tema-seg') || {}).getAttribute
+        ? document.querySelector('.adm-tema-seg').getAttribute('role') : null,
+      guardado: localStorage.getItem('socialcard-color-mode'),
+    };
+  });
+  const pulsaTema = async (modo) => {
+    await pagina.evaluate((m) => {
+      const b = document.querySelector(`.adm-tema-seg[data-tema-seg="barra"] .adm-tema-op[data-tema="${m}"]`);
+      if (b) b.click();
+    }, modo);
+    await esperar(150);
+  };
+  const t0 = await leerTema();
+  informe.comprueba('E2E-TE-01', 'sin preferencia guardada el panel arranca en claro, con «Claro» marcado en las dos copias del selector',
+    t0.light && !t0.dark && t0.copias === 2 && t0.botones === 4 && t0.grupo === 'group'
+      && t0.pulsados.length === 2 && t0.pulsados.every((x) => x === 'light') && t0.guardado === null,
+    JSON.stringify(t0));
   pagina.limpiarRegistro();
-  await pagina.click('#adm-tema-sw');
-  await esperar(120);
-  const t1 = await pagina.evaluate(() => ({ dark: document.documentElement.classList.contains('dark'), aria: document.getElementById('adm-tema-sw').getAttribute('aria-checked'), guardado: localStorage.getItem('socialcard-color-mode') }));
-  informe.comprueba('E2E-TE-02', 'el interruptor pasa a oscuro, lo anuncia (aria-checked) y lo recuerda en localStorage', t1.dark && t1.aria === 'true' && t1.guardado === 'dark', JSON.stringify(t1));
+  await pulsaTema('dark');
+  const t1 = await leerTema();
+  informe.comprueba('E2E-TE-02', 'pulsar «Oscuro» cambia el tema, lo anuncia con aria-pressed en las dos copias y lo recuerda en localStorage',
+    t1.dark && t1.pulsados.length === 2 && t1.pulsados.every((x) => x === 'dark') && t1.guardado === 'dark',
+    JSON.stringify(t1));
   await pagina.click('#adm-sidebar [data-tab="marca"]');
   await esperar(100);
   const t2 = await pagina.evaluate(() => document.documentElement.classList.contains('dark'));
@@ -1972,8 +1999,8 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
      que el toggle no lo CAMBIA y no dispara ningún POST. */
   const themeAntes = (leerEstado(docroot) || {}).theme;
   const postsTema = pagina.registro.peticiones.filter((p) => p.metodo === 'POST').length;
-  await pagina.click('#adm-tema-sw'); await esperar(120);
-  await pagina.click('#adm-tema-sw'); await esperar(120);
+  await pulsaTema('light');
+  await pulsaTema('dark');
   const themeDespues = (leerEstado(docroot) || {}).theme;
   informe.comprueba('E2E-TE-04', 'el toggle de tema no cambia estado.theme (campo legado) ni dispara ningún POST al panel',
     themeAntes === themeDespues && postsTema === 0, `theme ${themeAntes} -> ${themeDespues}, postsPanel=${postsTema}`);
@@ -2014,10 +2041,10 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
   informe.comprueba('E2E-TE-09', 'en oscuro el aviso de error (422) se ve como error y contrasta', !!error && /bad/.test(error.clase) && error.ratio >= 4.5, JSON.stringify(error));
 
   await irA(pagina, url, 'platos', 200);
-  await pagina.click('#adm-tema-sw');
-  await esperar(120);
-  const t4 = await pagina.evaluate(() => ({ light: document.documentElement.classList.contains('light'), guardado: localStorage.getItem('socialcard-color-mode') }));
-  informe.comprueba('E2E-TE-10', 'el interruptor vuelve a claro y lo recuerda', t4.light && t4.guardado === 'light', JSON.stringify(t4));
+  await pulsaTema('light');
+  const t4 = await leerTema();
+  informe.comprueba('E2E-TE-10', 'pulsar «Claro» vuelve al tema claro y lo recuerda',
+    t4.light && t4.guardado === 'light' && t4.pulsados.every((x) => x === 'light'), JSON.stringify(t4));
   const otra = await nuevaPagina(navegador, { colorScheme: 'dark' });
   await otra.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
   const recepcion = await otra.evaluate(() => ({ clase: document.documentElement.className, fondo: getComputedStyle(document.body).backgroundColor }));
@@ -2128,7 +2155,13 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
     const rt = tira ? tira.getBoundingClientRect() : null;
     /* Sólo se exige que Guardar no se salga por el LADO: la tira es estática y puede quedar
        por debajo del pliegue (se llega con scroll), que es correcto. */
-    return { desborde: de.scrollWidth - vw, visible: (document.querySelector('section.pane:not([hidden])') || { dataset: {} }).dataset.pane, fuera, ejemplo, lateral: vis('#adm-sidebar'), movil: vis('.adm-navmovil'), tema: vis('#adm-tema-sw'), tiraLado: rt ? (rt.right <= vw + 1 && rt.width > 0) : null };
+    /* El tema ya no vive en la cabecera: esta al pie de la barra lateral, y la barra no
+       existe por debajo de 768px. Asi que lo que hay que exigir no es «se ve siempre» sino
+       «se puede llegar siempre»: visible en la barra cuando la hay, y presente en la hoja
+       «Mas» cuando no. Exigir lo primero seria exigir que el diseño fuera otro. */
+    const temaEnBarra = vis('.adm-tema-seg[data-tema-seg="barra"]');
+    const temaEnHoja = !!document.querySelector('.adm-tema-seg[data-tema-seg="hoja"] .adm-tema-op');
+    return { desborde: de.scrollWidth - vw, visible: (document.querySelector('section.pane:not([hidden])') || { dataset: {} }).dataset.pane, fuera, ejemplo, lateral: vis('#adm-sidebar'), movil: vis('.adm-navmovil'), tema: temaEnBarra || temaEnHoja, temaEnBarra, temaEnHoja, tiraLado: rt ? (rt.right <= vw + 1 && rt.width > 0) : null };
   }, slug);
 
   /* La preferencia de tema vive en localStorage y no viaja al servidor (E2E-TE-04), asi que se
@@ -2159,7 +2192,11 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
       if (r.fuera) problemas.push(`${t}: ${r.fuera} fuera (${r.ejemplo})`);
       if (!(w < 700 ? r.movil && !r.lateral : r.lateral && !r.movil)) problemas.push(`${t}: navegación ${w < 700 ? 'móvil' : 'lateral'} mal`);
       if (r.tiraLado === false) problemas.push(`${t}: Guardar se sale por el lado`);
-      if (!r.tema) problemas.push(`${t}: sin interruptor de tema`);
+      if (!r.tema) problemas.push(`${t}: no se puede llegar al selector de tema`);
+      /* Y la mitad que de verdad se rompe si alguien mueve el selector: con barra lateral
+         tiene que estar EN la barra; sin ella, en la hoja. */
+      if (r.lateral && !r.temaEnBarra) problemas.push(`${t}: hay barra lateral pero el selector no está en ella`);
+      if (!r.lateral && !r.temaEnHoja) problemas.push(`${t}: sin barra lateral y sin selector en la hoja «Más»`);
     }
     await pagina.goto(url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
     const login = await pagina.evaluate(() => ({ desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth, boton: document.querySelector('.login button').getBoundingClientRect().right <= innerWidth }));
@@ -2243,10 +2280,22 @@ export async function e2eA11y(informe, { pagina, servidor }) {
     const sinEtiqueta = [...document.querySelectorAll('section.pane:not([hidden]) input:not([type="hidden"]), section.pane:not([hidden]) select, section.pane:not([hidden]) textarea')].filter((i) => i.getBoundingClientRect().width > 0 || i.closest('label')).filter((i) => !(i.closest('label') || i.getAttribute('aria-label') || i.getAttribute('aria-labelledby') || (i.id && document.querySelector(`label[for="${i.id}"]`)))).map((i) => i.name || i.id).slice(0, 5);
     const botonesSinNombre = [...document.querySelectorAll('button')].filter((b) => !(b.textContent.trim() || b.getAttribute('aria-label') || b.getAttribute('title'))).length;
     const imgSinAlt = [...document.querySelectorAll('img')].filter((i) => !i.hasAttribute('alt')).length;
-    return { sinEtiqueta, botonesSinNombre, imgSinAlt, tema: document.getElementById('adm-tema-sw').getAttribute('role'), live: !!document.querySelector('#toasts[aria-live]'), dialogo: document.getElementById('recorte').getAttribute('aria-modal'), hoja: document.getElementById('sheet-mas').getAttribute('aria-modal') };
+    /* El tema paso de un `role="switch"` con aria-checked a un grupo con dos botones y
+       aria-pressed. Se exige la semantica NUEVA con el mismo detalle: grupo con nombre, dos
+       botones, y exactamente uno marcado — dos marcados o ninguno serian mentira. */
+    const seg = document.querySelector('.adm-tema-seg');
+    const ops = seg ? [...seg.querySelectorAll('.adm-tema-op')] : [];
+    return { sinEtiqueta, botonesSinNombre, imgSinAlt,
+      tema: seg ? seg.getAttribute('role') : null,
+      temaNombre: seg ? !!seg.getAttribute('aria-label') : false,
+      temaBotones: ops.length,
+      temaMarcados: ops.filter((b) => b.getAttribute('aria-pressed') === 'true').length,
+      live: !!document.querySelector('#toasts[aria-live]'), dialogo: document.getElementById('recorte').getAttribute('aria-modal'), hoja: document.getElementById('sheet-mas').getAttribute('aria-modal') };
   });
   informe.comprueba('E2E-A11Y-04', 'todos los campos con etiqueta, botones con nombre, imágenes con alt, diálogos con aria-modal',
-    aria.sinEtiqueta.length === 0 && aria.botonesSinNombre === 0 && aria.imgSinAlt === 0 && aria.tema === 'switch' && aria.live && aria.dialogo === 'true' && aria.hoja === 'true', JSON.stringify(aria));
+    aria.sinEtiqueta.length === 0 && aria.botonesSinNombre === 0 && aria.imgSinAlt === 0
+      && aria.tema === 'group' && aria.temaNombre && aria.temaBotones === 2 && aria.temaMarcados === 1
+      && aria.live && aria.dialogo === 'true' && aria.hoja === 'true', JSON.stringify(aria));
   const escapes = await pagina.evaluate(async () => { const r = {}; const capa = document.getElementById('recorte'); capa.setAttribute('open', ''); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); r.recorte = !capa.hasAttribute('open'); const b = [...document.querySelectorAll('.adm-plato-destbtn')].find((x) => x.getBoundingClientRect().width > 0); if (b) { b.click(); await new Promise((s) => setTimeout(s, 80)); const abierto = !document.getElementById('dest-et').hidden; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); r.etiquetas = abierto && document.getElementById('dest-et').hidden; } else r.etiquetas = true; return r; });
   informe.comprueba('E2E-A11Y-05', 'Escape cierra la hoja de recorte y el selector de etiquetas', escapes.recorte && escapes.etiquetas, JSON.stringify(escapes));
   const focoVisible = await pagina.evaluate(async () => { const b = document.querySelector('#adm-sidebar [data-tab="marca"]'); b.focus(); await new Promise((s) => setTimeout(s, 300)); const cs = getComputedStyle(b); return { sombra: cs.boxShadow, contorno: cs.outlineStyle + ' ' + cs.outlineWidth, activo: document.activeElement === b }; });
@@ -3551,12 +3600,12 @@ export async function e2eUxPlatos(informe, { navegador, servidor }) {
       const claro = await contraste(p);
       informe.comprueba('E2E-UX-CHAPA-CLARO', 'tema claro: la chapa de versión y el número de compilación pasan de 4,5:1 sobre el fondo que tienen detrás',
         claro.cuerpo >= 4.5 && claro.dato >= 4.5, `cuerpo=${claro.cuerpo}:1 dato=${claro.dato}:1`);
-      await p.evaluate(() => { const b = document.getElementById('adm-tema-sw'); if (b) b.click(); });
+      await p.evaluate(() => { const b = document.querySelector('.adm-tema-op[data-tema="dark"]'); if (b) b.click(); });
       await esperar(400);
       const oscuro = await contraste(p);
       informe.comprueba('E2E-UX-CHAPA-OSCURO', 'tema oscuro: los dos siguen pasando de 4,5:1',
         oscuro.cuerpo >= 4.5 && oscuro.dato >= 4.5, `cuerpo=${oscuro.cuerpo}:1 dato=${oscuro.dato}:1`);
-      await p.evaluate(() => { const b = document.getElementById('adm-tema-sw'); if (b) b.click(); });
+      await p.evaluate(() => { const b = document.querySelector('.adm-tema-op[data-tema="light"]'); if (b) b.click(); });
       await esperar(300);
       for (const [w, h] of [[1512, 982], [768, 1024], [390, 844], [320, 568]]) {
         await p.setViewportSize({ width: w, height: h });
@@ -4944,12 +4993,46 @@ export async function e2eOrdenPlatos(informe, { navegador, servidor, docroot }) 
           /* La primera de cada bloque no puede subir: subiría dentro del bloque anterior. */
           primeraCatTopada: cats.length ? cats[0].querySelector('[data-mover-cat="arriba"]').disabled : null,
           primeraPestTopada: pest.length ? pest[0].querySelector('[data-mover-pest="izq"]').disabled : null,
+          /* Y lo que de verdad decide si el control existe PARA QUIEN MIRA: su opacidad en
+             reposo, sin ratón encima. Estaban a .6 la encendida y .25 la apagada, y a .25
+             sobre el crema no se ven: el propietario leyó cuatro fichas como «no tiene
+             manejadores». Medir presencia en el DOM no lo habría cazado nunca. */
+          opacidades: (() => {
+            const bs = [...document.querySelectorAll('.adm-cat-orden .adm-orden-b, .adm-pest-orden .adm-orden-b')];
+            const de = (f) => bs.filter(f).map((b) => Number(getComputedStyle(b).opacity));
+            const min = (a) => (a.length ? Math.min(...a) : null);
+            return { encendidas: min(de((b) => !b.disabled)), apagadas: min(de((b) => b.disabled)), n: bs.length };
+          })(),
+          /* Las secciones de UNA categoría: sus flechas se quedan a la vista, apagadas, y
+             dicen por qué en vez de desaparecer sin explicación. */
+          solas: (() => {
+            const porTab = {};
+            cats.forEach((c) => { porTab[c.dataset.tabId] = (porTab[c.dataset.tabId] || 0) + 1; });
+            const unicas = cats.filter((c) => porTab[c.dataset.tabId] === 1);
+            return {
+              cuantas: unicas.length,
+              conFlechasALaVista: unicas.filter((c) => [...c.querySelectorAll('.adm-cat-orden .adm-orden-b')]
+                .every((b) => b.getBoundingClientRect().width > 0)).length,
+              explicadas: unicas.filter((c) => [...c.querySelectorAll('.adm-cat-orden .adm-orden-b')]
+                .every((b) => /única categoría/i.test(b.title || ''))).length,
+            };
+          })(),
         };
       });
       informe.comprueba('E2E-ORD-40', 'cada categoría y cada sección llevan su par de flechas, y la primera de cada lista no puede subir más',
         hay.cats > 1 && hay.catsConFlechas === hay.cats && hay.pest > 1
           && hay.pestConFlechas === hay.pest && hay.primeraCatTopada === true && hay.primeraPestTopada === true,
-        JSON.stringify(hay));
+        JSON.stringify({ cats: hay.cats, pest: hay.pest, primeraCatTopada: hay.primeraCatTopada }));
+      /* Presencia no es visibilidad. La apagada tiene que VERSE —o el usuario cree que no hay
+         control— pero sin llegar a la encendida, o el borde de la lista deja de leerse. */
+      informe.comprueba('E2E-ORD-40b', 'las flechas de categoría y de sección se ven en reposo, y la apagada se distingue de la encendida sin llegar a ella',
+        hay.opacidades.n > 0 && hay.opacidades.encendidas === 1
+          && hay.opacidades.apagadas >= 0.4 && hay.opacidades.apagadas < hay.opacidades.encendidas,
+        JSON.stringify(hay.opacidades));
+      informe.comprueba('E2E-ORD-40c', 'una sección de una sola categoría conserva sus flechas apagadas y explica por qué no se puede mover',
+        hay.solas.cuantas > 0 && hay.solas.conFlechasALaVista === hay.solas.cuantas
+          && hay.solas.explicadas === hay.solas.cuantas,
+        JSON.stringify(hay.solas));
 
       /* --- una categoría --- */
       const dosPrimeras = await p.evaluate(() => {

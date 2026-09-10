@@ -4462,3 +4462,63 @@ cambie nada**, porque si cambiara sería que la tira no se arregla sola.
 
 Demostrado en rojo sobre `4d22d1a`, que es lo que estaba en producción: 3 FAIL, con
 `sin resize 1/13 · con resize 6/13`.
+
+---
+
+# Las flechas que no se veían, y el tema en dos botones (10 Sep 2026)
+
+## Un control que no se ve no es un control
+
+El propietario miró la pantalla y dijo «no tiene manejadores». Tenía razón como usuario y el
+código decía otra cosa: las cuarenta fichas llevaban sus dos flechas. Lo que fallaba era la
+**visibilidad**, medida en el panel real:
+
+    .adm-orden-b            opacity .6     en reposo
+    .adm-orden-b:disabled   opacity .25    invisible sobre el crema
+    :hover / :focus-visible opacity 1      solo entonces
+    @media (pointer:coarse) opacity 1/.3   EN TÁCTIL YA ESTABA RESUELTO
+
+Alguien ya había visto el problema y lo había arreglado **para el dedo**. El ratón se quedó
+atrás. Ahora la apagada sube a `.45` —se ve, pero sigue leyéndose como apagada— y en las
+cabeceras de categoría y en la tira de secciones el reposo pasa a opacidad plena: son 40 + 13
+controles, no 312, así que ahí no aplica el argumento de las «312 manchas» que justificó el
+reposo bajo en las filas de plato.
+
+`:not(:disabled)` es la parte que importa y costó una corrección: sin él la regla pisaba a la
+de `:disabled` por igual especificidad y orden posterior, y **los extremos de cada lista
+parecían pulsables**. La flecha apagada es el borde de la lista y tiene que leerse como tal.
+
+Es la misma decisión que este panel ya tomó una vez con el asa de arrastre: *«un asa que no se
+ve no es un asa clara»*.
+
+**Y las cuatro secciones de una sola categoría** —Ensaladas, A la plancha, Especialidades y
+Niños— dejan de callarse. Antes se escondía la caja entera y el hueco no explicaba nada:
+cuatro fichas de cuarenta parecían rotas. Ahora las flechas se quedan, apagadas, y dicen por
+qué: «Única categoría de su sección: no hay dónde moverla».
+
+`E2E-ORD-40b` mide **opacidad en reposo**, no presencia en el DOM. Medir presencia no habría
+cazado esto nunca: los controles estaban ahí, sólo que no se veían.
+
+## El tema, en dos botones con nombre
+
+El interruptor de la cabecera —sol, bola, luna— pasa a **dos botones segmentados** al pie de la
+barra lateral, encima de Salir. Es lo aprobado del mockup de Stitch, y sólo eso: la paleta
+templada de ese mockup se descartó, porque compite con «Crema & Carbón» sin aportar idea nueva.
+
+Dos botones y no un interruptor porque **los dos estados tienen nombre**. Un interruptor obliga
+a deducir cuál es cuál por la posición de la bola; dos botones lo dicen.
+
+**Hay dos copias, y no es un descuido.** `.adm-sidebar{display:none}` por debajo de 768 px: la
+barra lateral no existe en móvil. Con una sola copia, en móvil no habría forma de cambiar de
+tema. La segunda vive dentro de la hoja «Más», y el mismo guion mantiene las dos en sintonía —
+una copia que dijera lo contrario que la otra sería peor que no tenerla.
+
+**La semántica cambia y se rehace, no se afloja.** De `role="switch"` con `aria-checked` a un
+`role="group"` con dos `aria-pressed`. Diecisiete afirmaciones en tres suites referenciaban
+`#adm-tema-sw`; ninguna se ha relajado. La de responsive es la que más cambia, y a propósito:
+antes exigía que el selector **se viera** en los ocho anchos, y eso ahora sería exigir que el
+diseño fuera otro. Ahora exige poder **llegar** a él —en la barra cuando la hay, en la hoja
+cuando no—, que es lo que de verdad importa, y además comprueba las dos mitades por separado.
+
+Lo que no se toca: `localStorage['socialcard-color-mode']`, el guion del `<head>` que decide el
+tema antes de pintar, y que cambiar de tema **no dispara ni una petición**.

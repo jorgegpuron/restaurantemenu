@@ -35,7 +35,9 @@ export async function pruebasResponsive(informe, { pagina, servidor, etiqueta = 
         paneles: document.querySelectorAll('section.pane').length,
         visible: (document.querySelector('section.pane:not([hidden])') || { dataset: {} }).dataset.pane,
         navegacion: document.querySelectorAll('#adm-sidebar [data-tab]').length,
-        tema: !!document.getElementById('adm-tema-sw'),
+        /* El selector de tema esta al pie de la barra lateral y repetido en la hoja «Mas»:
+       se exige poder LLEGAR a el, que es lo que importa, no que este en un sitio concreto. */
+    tema: !!document.querySelector('.adm-tema-seg .adm-tema-op'),
       }));
       if (r.scroll > r.cliente + 1) problemas.push(`${t}: desborda ${r.scroll}>${r.cliente}`);
       if (r.paneles !== 8) problemas.push(`${t}: ${r.paneles} paneles`);
