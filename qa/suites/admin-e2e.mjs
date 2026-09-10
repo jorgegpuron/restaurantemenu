@@ -2980,6 +2980,119 @@ export async function e2eRevisionHumana(informe, { navegador, servidor, docroot 
  * de la cabecera, el de la barra lateral y el de la barra superior, separados 6 px.
  * Todo se mide en el navegador: aquí no se comprueba que exista una regla CSS, se comprueba
  * dónde acaba cada caja. */
+/* ================================================================== 20bis. navegar sin recargar
+ *
+ * El panel lo pinta PHP de una vez y luego se navega en el cliente: `abrir(slug)` enseña un
+ * `.pane` y esconde los otros. Lo que se rompio en el release del 9 de septiembre es lo que
+ * queda ENTRE esas dos cosas — piezas que el servidor decidia al cargar y el cliente cambiaba
+ * despues sin avisarlas:
+ *
+ *   · «Añadir plato» salia de `if ($pestana === 'platos')`. Entrando por Ofertas y pulsando
+ *     Platos no se habia impreso nunca: la UNICA accion del panel que crea algo, inalcanzable.
+ *     Y entrando por Platos se quedaba visible en las otras siete, donde no hace nada.
+ *   · La tira de secciones se mide una vez. Con Platos oculto medía todo a cero —tira 0, cada
+ *     chip 0— y dejaba UNA seccion de trece a la vista. Al hacerse visible nadie volvia a
+ *     medir: solo un `resize` de ventana lo arreglaba.
+ *
+ * Las 706 comprobaciones de aquel release no lo vieron porque TODAS entraban por `?t=<pantalla>`
+ * con carga completa, que es justo el unico camino por el que el fallo no aparece. Por eso esto
+ * recorre los OCHO puntos de entrada: el fallo se veia desde siete de los ocho. */
+export async function e2eNavegacion(informe, { navegador, servidor }) {
+  informe.seccion('E2E navegación de cliente: lo que el servidor decide al cargar y el cliente cambia después');
+  const url = servidor.url;
+
+  const foto = (pagina) => pagina.evaluate(() => {
+    const visible = (el) => !!el && el.getBoundingClientRect().width > 0;
+    const chips = [...document.querySelectorAll('.adm-secciones-tira .adm-pestana')];
+    return {
+      pane: (document.querySelector('section.pane:not([hidden])') || { dataset: {} }).dataset.pane,
+      botonEnDom: !!document.querySelector('.adm-topbar-acciones [data-alta-abre]'),
+      botonSeVe: visible(document.querySelector('.adm-topbar-acciones [data-alta-abre]')),
+      chips: chips.length,
+      chipsVisibles: chips.filter((c) => !c.hidden).length,
+    };
+  });
+
+  /* ---- 01. Llegar a Platos desde cada uno de los ocho puntos de entrada ---- */
+  {
+    const p = await nuevaPagina(navegador, { viewport: { width: 1512, height: 982 } });
+    const fallos = [];
+    let referencia = null;
+    try {
+      await entrarAlPanel(p, url);
+      for (const desde of PANTALLAS) {
+        await irA(p, url, desde, 500);
+        if (desde !== 'platos') {
+          await p.evaluate(() => {
+            const b = document.querySelector('#adm-sidebar [data-tab="platos"]');
+            if (b) b.click();
+          });
+          await esperar(700);
+        }
+        const r = await foto(p);
+        /* Entrando directo a Platos se establece la referencia: lo que la tira DEBE enseñar.
+           Los otros siete tienen que dar exactamente lo mismo — no «algo», lo mismo. */
+        if (desde === 'platos') referencia = r.chipsVisibles;
+        if (r.pane !== 'platos') fallos.push(`${desde}: abre ${r.pane}`);
+        else if (!r.botonSeVe) fallos.push(`${desde}: sin «Añadir plato»`);
+        else if (r.chips > 1 && r.chipsVisibles !== referencia) {
+          fallos.push(`${desde}: la tira enseña ${r.chipsVisibles} y entrando directo enseña ${referencia}`);
+        }
+      }
+      informe.comprueba('E2E-NAV-01', 'se llegue a Platos desde donde se llegue, están «Añadir plato» y la tira entera de secciones',
+        fallos.length === 0, fallos.length ? fallos.join(' | ') : `${PANTALLAS.length} puntos de entrada · tira ${referencia} secciones a la vista`);
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+
+  /* ---- 02. Y no está donde no pinta nada ---- */
+  {
+    const p = await nuevaPagina(navegador, { viewport: { width: 1512, height: 982 } });
+    const colados = [];
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'platos', 500);
+      for (const destino of PANTALLAS.filter((x) => x !== 'platos')) {
+        const fue = await p.evaluate((slug) => {
+          const b = document.querySelector(`#adm-sidebar [data-tab="${slug}"]`);
+          if (!b) return false;
+          b.click();
+          return true;
+        }, destino);
+        if (!fue) continue;                       // esa pantalla no existe en este cliente
+        await esperar(500);
+        const r = await foto(p);
+        if (r.pane === destino && r.botonSeVe) colados.push(destino);
+      }
+      informe.comprueba('E2E-NAV-02', '«Añadir plato» no se queda a la vista en las pantallas que no crean platos',
+        colados.length === 0, colados.length ? 'se ve en: ' + colados.join(', ') : 'sólo en Platos');
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+
+  /* ---- 03. La tira se repinta SOLA, sin que nadie toque la ventana ---- */
+  {
+    const p = await nuevaPagina(navegador, { viewport: { width: 1512, height: 982 } });
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'ofertas', 500);
+      await p.evaluate(() => document.querySelector('#adm-sidebar [data-tab="platos"]').click());
+      await esperar(800);
+      const sola = await foto(p);
+      /* Y ahora se provoca el `resize` que ANTES hacia falta. Si la tira ya estaba bien, este
+         numero no cambia; si hiciera falta el resize para arreglarla, cambiaria — y eso es
+         exactamente el fallo. */
+      await p.evaluate(() => window.dispatchEvent(new Event('resize')));
+      await esperar(600);
+      const tras = await foto(p);
+      informe.comprueba('E2E-NAV-03', 'la tira de secciones se repinta sola al hacerse visible: un resize a mano no cambia nada',
+        sola.chips > 1 && sola.chipsVisibles > 1 && sola.chipsVisibles === tras.chipsVisibles,
+        `sin resize ${sola.chipsVisibles}/${sola.chips} · con resize ${tras.chipsVisibles}/${tras.chips}`);
+      informe.comprueba('E2E-NAV-red', 'consola y red limpias navegando entre pantallas',
+        erroresConsola(p).length === 0 && p.registro.fallidas.length === 0,
+        [...erroresConsola(p), ...p.registro.fallidas].slice(0, 2).join(' | '));
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+}
+
 export async function e2eUxPlatos(informe, { navegador, servidor }) {
   const url = servidor.url;
 
@@ -5196,6 +5309,7 @@ export async function bateriaE2E(informe, { clon, fixtures, navegador }) {
 
   await correrBloque(informe, 'responsive', () => e2eResponsive(informe, { navegador, servidor: srv, docroot: docPrincipal }));
   await correrBloque(informe, 'revision-humana', () => e2eRevisionHumana(informe, { navegador, servidor: srv, docroot: docPrincipal }));
+  await correrBloque(informe, 'navegacion', () => e2eNavegacion(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'ux-platos', () => e2eUxPlatos(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'orden-platos', () => e2eOrdenPlatos(informe, { navegador, servidor: srv, docroot: docPrincipal }));
 

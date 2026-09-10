@@ -4419,3 +4419,46 @@ una vez y lo guarda. Las flechas las añade el JavaScript *después*, así que e
 creyendo que caben trece chips estrechos; los sobrantes no se escondían, se salían por el borde
 derecho de la página —20 elementos fuera a 1512— y la tira dejaba una sección cortada por la
 mitad. Se le pide volver a medir por donde ya sabe hacerlo, que es el `resize`.
+
+---
+
+# El servidor decide al cargar, el cliente navega después (10 Sep 2026)
+
+Un fallo del release del 9 de septiembre, **encontrado por el propietario en producción** y no
+por las 706 comprobaciones que aquel release pasó en verde.
+
+El panel lo pinta PHP de una vez y luego se navega en el cliente: `abrir(slug)` enseña un
+`.pane` y esconde los otros. Dos piezas se habían quedado en medio, decididas por el servidor
+al cargar y nunca revisadas después.
+
+**«Añadir plato» salía de `if ($pestana === 'platos')`**, con `$pestana = $_GET['t'] ?? 'platos'`.
+Entrando por Ofertas y pulsando Platos no se había impreso nunca: **la única acción del panel que
+crea algo, inalcanzable**. Y al revés, entrando por Platos se quedaba visible en las otras siete
+pantallas, donde no hace nada. Desde fuera parecía intermitente; dependía de por dónde entraras.
+
+Ahora se imprime siempre —con la carta cargada— y nace `hidden` si la pantalla inicial no es
+Platos; quien lo enciende y lo apaga es `abrir()`, por `data-solo-en`. Se busca por atributo y no
+por identificador para que añadir mañana otra pieza así no obligue a tocar el interruptor. **Sin
+JavaScript no cambia nada**: allí se navega con `?t=` y carga completa, así que el `hidden` que
+pone PHP es exactamente el correcto en cada página.
+
+**La tira de secciones medía una vez.** Con Platos oculto medía todo a cero —`tira.clientWidth` 0,
+cada chip 0— y el reparto dejaba **una sección de trece** a la vista, con el paginador encendido.
+Al hacerse visible la tira pasaba a medir 1062 px, pero nadie volvía a preguntar: `medir()` sólo
+se rehacía con el `resize` de ventana, y ahí no hay ninguno. La tira se quedaba coja hasta que
+alguien tocaba el borde de la ventana.
+
+Se le pone un `ResizeObserver` sobre la propia tira. Coge el caso por donde toca: no le importa
+QUIÉN la hizo visible —cambiar de pantalla, plegar la barra lateral, una fuente que termina de
+cargar—, sólo que su caja ya no mide lo que medía. Guarda el último ancho pintado para no entrar
+en bucle.
+
+**Por qué la batería no lo vio, que es la lección.** Las 706 comprobaciones entraban TODAS por
+`?t=<pantalla>` con carga completa, que es el único camino por el que el fallo no aparece.
+`E2E-NAV-01` recorre ahora los **ocho** puntos de entrada y exige que la tira enseñe exactamente
+lo mismo que entrando directo —no «algo», lo mismo—; `E2E-NAV-02` exige que el botón no se cuele
+donde no pinta nada; y `E2E-NAV-03` provoca el `resize` que antes hacía falta y exige que **no
+cambie nada**, porque si cambiara sería que la tira no se arregla sola.
+
+Demostrado en rojo sobre `4d22d1a`, que es lo que estaba en producción: 3 FAIL, con
+`sin resize 1/13 · con resize 6/13`.

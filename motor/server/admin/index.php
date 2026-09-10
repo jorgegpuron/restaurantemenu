@@ -9986,9 +9986,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <div class="adm-topbar-acciones">
       <?php /* La accion principal de Platos vive en la barra: es la unica que crea algo, y
                las otras seis pantallas no crean nada, asi que solo sale en Platos. El `+` de
-               cada categoria hace lo mismo con la categoria ya elegida. */ ?>
-      <?php if ($pestana === 'platos' && $lista): ?>
-        <button type="button" class="adm-btn adm-btn-fino adm-alta-abre" data-alta-abre aria-label="Añadir plato">
+               cada categoria hace lo mismo con la categoria ya elegida.
+
+               Se IMPRIME siempre y sale escondido si la pantalla con la que se carga no es
+               Platos; quien lo enciende y lo apaga al navegar es `abrir()`, ahi abajo.
+               Antes la condicion entera vivia aqui, en PHP, y eso era decidir en el
+               servidor algo que el cliente cambia despues: entrando por Ofertas y pulsando
+               Platos el boton no se habia impreso nunca —la unica accion del panel que CREA
+               algo, inalcanzable—, y entrando por Platos se quedaba visible en las otras
+               siete pantallas, donde no pinta nada.
+
+               Sin JavaScript no cambia nada: alli se navega con ?t= y carga completa, asi
+               que el `hidden` que pone PHP es exactamente el correcto en cada pagina. */ ?>
+      <?php if ($lista): ?>
+        <button type="button" class="adm-btn adm-btn-fino adm-alta-abre" data-alta-abre data-solo-en="platos"<?= $pestana === 'platos' ? '' : ' hidden' ?> aria-label="Añadir plato">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           <span class="adm-btn-txt">Añadir plato</span>
         </button>
@@ -11131,6 +11142,29 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             hueco = parseFloat(getComputedStyle(tira).columnGap) || 0;
             anchos = chips.map(function (c) { return c.getBoundingClientRect().width; });
             chips.forEach(function (c, i) { c.hidden = antes[i]; });
+          }
+
+          /* Y se vuelve a medir cuando la tira DE VERDAD tiene tamano.
+             El fallo: si el panel se carga en otra pantalla, Platos nace `hidden` y aqui se
+             mide con todo a cero —tira.clientWidth 0, cada chip 0—. Con eso el reparto deja
+             una sola seccion a la vista y enciende el paginador. Al pulsar Platos la tira
+             pasa a medir 1062, pero nadie volvia a preguntar: `medir()` solo se rehacia con
+             `resize` de ventana, y ahi no hay ninguno. La tira se quedaba con trece secciones
+             y una visible hasta que alguien tocaba el borde de la ventana.
+
+             Un ResizeObserver sobre la tira lo coge por donde toca: no le importa QUIEN la
+             hizo visible —cambiar de pantalla, plegar la barra lateral, una fuente que
+             termina de cargar—, solo que su caja ya no mide lo que media. Se guarda el ultimo
+             ancho pintado para no entrar en bucle: si el ancho no ha cambiado, no se repinta. */
+          var anchoPintado = -1;
+          if (typeof ResizeObserver === 'function') {
+            new ResizeObserver(function () {
+              var w = tira.clientWidth;
+              if (w === anchoPintado) return;
+              anchoPintado = w;
+              anchos = null;           // las medidas viejas se tiran: se vuelve a medir
+              pintar();
+            }).observe(tira);
           }
 
           /* Cuantas caben desde `i`, enteras. Al menos una, aunque no quepa: mejor una
@@ -14264,8 +14298,13 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
       var tituloCabecera = document.getElementById('adm-topbar-titulo');
 
+      /* Lo que solo pinta en UNA pantalla. Hoy es el boton de anadir plato; se busca por
+         atributo y no por identificador para que anadir otro manana no pida tocar esto. */
+      var soloEn = [].slice.call(document.querySelectorAll('[data-solo-en]'));
+
       function abrir(slug) {
         paneles.forEach(function (p) { p.hidden = p.dataset.pane !== slug; });
+        soloEn.forEach(function (el) { el.hidden = el.dataset.soloEn !== slug; });
         botones.forEach(function (b) {
           var on = b.dataset.tab === slug;
           b.classList.toggle('on', on);
