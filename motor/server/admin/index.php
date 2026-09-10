@@ -5624,7 +5624,43 @@ $CUENTAS = [
     .adm-topbar-acciones .adm-btn{padding:0 10px;gap:0}
   }
 
-  /* ---- selector de tema ---- */
+  /* ---- selector de tema: dos botones segmentados ----
+     Sustituye al interruptor de la cabecera. Vive al PIE de la barra lateral, encima de
+     Salir, y una segunda copia dentro de la hoja «Mas»: la barra no existe por debajo de
+     768px y sin la copia el tema seria inalcanzable en movil.
+     Dos botones y no un interruptor porque los dos estados TIENEN NOMBRE —claro y oscuro—
+     y un interruptor obliga a deducir cual es cual por la posicion de la bola. */
+  .adm-tema-seg{
+    display:flex;align-items:center;gap:3px;
+    margin:var(--space-2) 0;padding:3px;
+    border-radius:var(--radius-lg);background:var(--sc-muted-bg);
+  }
+  .adm-tema-op{
+    flex:1 1 0;min-width:0;min-height:32px;padding:0 8px;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:0;border-radius:var(--radius-md);background:transparent;
+    color:var(--sc-text-2);font-family:inherit;font-size:var(--t4);font-weight:600;
+    cursor:pointer;white-space:nowrap;
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  }
+  .adm-tema-op svg{width:14px;height:14px;flex:none}
+  /* El elegido se LEVANTA sobre su propia superficie. Es lo unico que distingue los dos
+     estados, asi que no puede depender solo del color del texto. */
+  .adm-tema-op[aria-pressed="true"]{
+    background:var(--sc-surface);color:var(--sc-text);
+    box-shadow:0 1px 2px rgba(0,0,0,.10);
+  }
+  .adm-tema-op:hover[aria-pressed="false"]{color:var(--sc-text)}
+  .adm-tema-op:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  /* En riel —la barra estrecha, por debajo de 1024— no cabe el texto: quedan los iconos,
+     uno encima del otro, y el nombre lo sigue diciendo el aria-label del boton. */
+  @media (max-width:1023px){
+    .adm-tema-seg{flex-direction:column}
+    .adm-tema-op span{
+      position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
+    }
+  }
+  /* ---- selector de tema (pieza anterior, oculta) ---- */
   .adm-tema{
     display:flex;align-items:center;gap:var(--space-2);
     height:40px;padding:0 10px;
@@ -8552,8 +8588,22 @@ $CUENTAS = [
   .adm-platorow:hover .adm-orden-b,
   .adm-orden-b:focus-visible{opacity:1}
   .adm-orden-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
-  .adm-orden-b:disabled{opacity:.25;cursor:default;background:transparent}
-  .adm-platorow:hover .adm-orden-b:disabled{opacity:.25}
+  /* .45 y no .25. A .25 sobre el crema la flecha apagada no se ve, y el propietario leyo
+     la pantalla como «no tiene manejadores»: se creia que ahi no habia control ninguno.
+     Sigue leyendose apagada —la mitad de la encendida— pero se ve que existe. */
+  .adm-orden-b:disabled{opacity:.45;cursor:default;background:transparent}
+  .adm-platorow:hover .adm-orden-b:disabled{opacity:.45}
+  /* Y en las cabeceras de categoria y en la tira de secciones, opacidad plena en reposo.
+     Son 40 + 13 controles, no 312: aqui no aplica el argumento de las «312 manchas» que
+     justifico el reposo bajo en las filas de plato, y esto es lo mismo que ya decidio este
+     panel una vez con el asa de arrastre — «un asa que no se ve no es un asa clara».
+     `:not(:disabled)` es la parte que importa: sin el, la regla pisaria a la de arriba por
+     igual especificidad y orden, y los extremos de cada lista pareceria que se pueden
+     pulsar. La flecha apagada es el borde de la lista y tiene que leerse como tal.
+     En tactil ya estaban a 1 desde antes (@media pointer:coarse, mas abajo): esto es
+     ponerle al raton lo que el dedo ya tenia. */
+  .adm-cat-orden .adm-orden-b:not(:disabled),
+  .adm-pest-orden .adm-orden-b:not(:disabled){opacity:1}
   .adm-orden-b:disabled:hover{background:transparent;color:var(--sc-text-2)}
   @media (pointer:coarse){ .adm-orden-b{opacity:1} .adm-orden-b:disabled{opacity:.3} }
   /* Estrecho: circulos algo menores para no comerle ancho al nombre del plato. */
@@ -10013,9 +10063,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
         <span class="adm-btn-txt">Ver la carta</span>
       </a>
-      <?php /* Sol, interruptor, luna: la misma pieza del prototipo, con sus medidas
-               (40 de alto, radio 12, iconos de 16, interruptor de 32x18). */ ?>
-      <div class="adm-tema">
+      <?php /* El selector de tema ya NO vive aqui: bajo al pie de la barra lateral y a la
+               hoja «Mas», como dos botones segmentados. Ver `.adm-tema-seg` mas abajo y la
+               entrada de SPEC.md del 10 de septiembre. Esta pieza —sol, interruptor, luna—
+               se queda escrita y oculta un ciclo por si hubiera que volver atras deprisa;
+               no la pinta nadie y no la lee ninguna prueba. */ ?>
+      <div class="adm-tema" hidden>
         <svg class="adm-tema-ico adm-tema-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <button type="button" class="adm-tema-sw" id="adm-tema-sw" role="switch" aria-checked="false" aria-label="Modo oscuro" title="Cambiar a modo oscuro"><span class="adm-tema-bola"></span></button>
         <svg class="adm-tema-ico adm-tema-luna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
@@ -10072,6 +10125,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </div>
           <p class="adm-sesion-queda" id="adm-sesion-rot"><?= (int) SESION_MINUTOS ?> min restantes</p>
         <?php endif; ?>
+      </div>
+      <div class="adm-tema-seg" role="group" aria-label="Tema" data-tema-seg="barra">
+        <button type="button" class="adm-tema-op" data-tema="light" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span>Claro</span></button>
+        <button type="button" class="adm-tema-op" data-tema="dark" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg><span>Oscuro</span></button>
       </div>
       <a class="adm-nav-item" href="?salir=1" aria-label="Salir">
         <svg class="adm-nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
@@ -10130,6 +10187,13 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
         Marca
       </button>
+      <?php /* La MISMA pieza, porque la barra lateral no existe por debajo de 768px: sin
+               esto, en movil no habria forma de cambiar de tema. Las dos copias las mantiene
+               en sintonia el mismo guion. */ ?>
+      <div class="adm-tema-seg" role="group" aria-label="Tema" data-tema-seg="hoja">
+        <button type="button" class="adm-tema-op" data-tema="light" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span>Claro</span></button>
+        <button type="button" class="adm-tema-op" data-tema="dark" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg><span>Oscuro</span></button>
+      </div>
       <button type="button" class="adm-sheet-item" data-tab="ajustes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
         Ajustes
@@ -11646,8 +11710,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               var abajo = caja.querySelector('[data-mover-cat="abajo"]');
               if (arriba) arriba.disabled = i <= 0;
               if (abajo) abajo.disabled = i < 0 || i >= h.length - 1;
-              /* Una seccion de una sola categoria no tiene donde moverla: sin flechas. */
-              caja.hidden = h.length < 2;
+              /* Una seccion de una sola categoria no tiene donde moverla. Antes se escondia
+                 la caja entera y el hueco no explicaba nada: cuatro fichas de cuarenta
+                 —Ensaladas, A la plancha, Especialidades y Niños— parecian rotas. Ahora las
+                 flechas se quedan, apagadas, y dicen por que. */
+              var sola = h.length < 2;
+              caja.hidden = false;
+              if (sola) {
+                [arriba, abajo].forEach(function (b) {
+                  if (!b) return;
+                  b.disabled = true;
+                  b.title = 'Única categoría de su sección: no hay dónde moverla';
+                  b.setAttribute('aria-label', b.title);
+                });
+              }
             });
           }
           function guardar(f) {
@@ -14338,25 +14414,35 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
          cambia y la recuerda. Preferencia puramente visual: no viaja al servidor, no
          toca estado.json y no anade ninguna peticion. */
       (function () {
-        var sw = document.getElementById('adm-tema-sw');
-        if (!sw) return;
+        var ops = [].slice.call(document.querySelectorAll('.adm-tema-op'));
+        if (!ops.length) return;
         var raiz = document.documentElement;
 
+        /* Hay DOS copias del selector —el pie de la barra y la hoja «Mas»— porque la barra
+           no existe por debajo de 768px. Las dos se pintan SIEMPRE, se vea la que se vea:
+           una copia que dijera lo contrario que la otra seria peor que no tenerla. */
         function pintar(modo) {
           var oscuro = modo === 'dark';
           raiz.classList.toggle('dark', oscuro);
           raiz.classList.toggle('light', !oscuro);
-          sw.setAttribute('aria-checked', String(oscuro));
-          sw.title = oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
-          sw.setAttribute('aria-label', oscuro ? 'Modo oscuro activado' : 'Modo oscuro');
+          ops.forEach(function (b) {
+            var suyo = (b.dataset.tema === 'dark') === oscuro;
+            b.setAttribute('aria-pressed', String(suyo));
+            /* En riel el texto va oculto y el nombre lo dice el boton. */
+            b.setAttribute('aria-label', b.dataset.tema === 'dark' ? 'Modo oscuro' : 'Modo claro');
+          });
         }
 
         pintar(raiz.classList.contains('dark') ? 'dark' : 'light');
 
-        sw.addEventListener('click', function () {
-          var nuevo = raiz.classList.contains('dark') ? 'light' : 'dark';
-          pintar(nuevo);
-          try { localStorage.setItem('socialcard-color-mode', nuevo); } catch (e) {}
+        ops.forEach(function (b) {
+          b.addEventListener('click', function () {
+            var nuevo = b.dataset.tema;
+            /* Pulsar el que YA esta puesto no hace nada: es un selector, no un interruptor. */
+            if ((raiz.classList.contains('dark') ? 'dark' : 'light') === nuevo) return;
+            pintar(nuevo);
+            try { localStorage.setItem('socialcard-color-mode', nuevo); } catch (e) {}
+          });
         });
       })();
 
