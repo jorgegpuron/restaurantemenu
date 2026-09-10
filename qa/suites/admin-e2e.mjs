@@ -2552,6 +2552,11 @@ export async function e2eRevisionHumana(informe, { navegador, servidor, docroot 
         r.activos = [...document.querySelectorAll('.adm-navmovil-item[data-tab]')].filter((b) => b.classList.contains('on')).map((b) => b.dataset.tab);
         await pulsa('#btn-mas-movil');
         const hoja = document.getElementById('sheet-mas');
+        /* La hoja entra con la curva de cajón (340 ms, la misma que la hoja de la carta): se
+           mide cuando ha terminado de subir, no a los 220 ms fijos de `pulsa`, que la pillaban
+           todavía asomando por debajo del borde y la daban por «tapada». Sin animación en
+           curso (menos movimiento, o una CSS que la quite) la lista viene vacía y no se espera. */
+        await Promise.all(hoja.getAnimations().map((a) => a.finished.catch(() => {})));
         r.masAbre = hoja.getAttribute('aria-hidden') === 'false' && !hoja.inert;
         r.masTapada = (() => { const c = hoja.getBoundingClientRect(); return c.bottom > innerHeight + 1; })();
         r.secundarias = [...hoja.querySelectorAll('[data-tab]')].map((x) => x.dataset.tab);
@@ -3245,7 +3250,15 @@ export async function e2eUxPlatos(informe, { navegador, servidor }) {
         if (!caja || caja.hasAttribute('data-demo')) return { hay: false };
         const rel = caja.querySelector('.adm-sesion-relleno');
         const barra = caja.querySelector('.adm-sesion-barra');
-        const ancho = () => parseFloat(rel.style.width) || 100;
+        /* Lo que el reloj escribe cada segundo es el objetivo, no el fotograma: el relleno se
+           mueve con `transform:translateX(-N%)` (antes con `width`, que se sigue leyendo por si
+           un panel viejo lo trae así). Leer la caja dibujada daría el punto intermedio de la
+           transición de 1 s y, tras la petición, aún no habría vuelto al principio. */
+        const ancho = () => {
+          const m = /translateX\(-?([\d.]+)%\)/.exec(rel.style.transform || '');
+          if (m) return 100 - parseFloat(m[1]);
+          return parseFloat(rel.style.width) || 100;
+        };
         const a = ancho();
         await new Promise((r) => setTimeout(r, 2200));
         const b = ancho();
