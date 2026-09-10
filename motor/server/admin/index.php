@@ -6171,6 +6171,33 @@ $CUENTAS = [
   /* El parche táctil condicionado a dedo+ficha estrecha también se retira: el ::before
      de 44x44 de .camara es incondicional desde V3 y cubre este caso y todos los demás. */
 
+  /* El mismo agujero, un escalón más arriba — y esta vez sin mover el umbral.
+     El umbral de 300 curó 390, pero dejó roto de 404 a 460 de pantalla. Medido columna a
+     columna: a 332 el interruptor sale 58 px fuera de la tarjeta, a 388 sale 2, y sólo a
+     partir de 392 la composición de una línea cabe entera. La razón es que
+     `.adm-plato-acciones` es `flex:none` y el nombre está atado a `min-width:30px`: la
+     fila no encoge por debajo de lo que cuesta, se sale y la tarjeta la recorta.
+
+     Subir el umbral por tercera vez (260 → 300 → …) no vale, y la medida dice por qué: la
+     columna más estrecha de ESCRITORIO es 395 (viewport 1000, bento de 6). Entre "roto
+     hasta 388" y "escritorio empieza en 395" quedan 7 px — cualquier número que tape el
+     agujero deja el escritorio pegado al mismo fallo, y con otro cliente de etiquetas más
+     largas lo cruza.
+
+     Así que la vuelta a envolver se condiciona al DEDO, no al ancho a secas. Con puntero
+     grueso la fila envuelve en cuanto la columna no paga la línea entera; con puntero fino
+     esta regla ni se evalúa y la composición de una sola línea que aprobó el propietario
+     queda exactamente como estaba (verificado: recorte 0 en los once anchos de escritorio
+     de 700 a 1920). Mismo reparto que ya hace la regla de 300: nombre a su propia línea,
+     acciones a la suya. */
+  @media (pointer:coarse){
+    @container adm-cat-bento-col (max-width:400px){
+      .adm-cat-bento-lista .adm-platorow{flex-wrap:wrap;row-gap:6px}
+      .adm-cat-bento-lista .adm-platorow .adm-orow-nm{flex:1 1 100%;order:-1}
+      .adm-cat-bento-lista .adm-plato-acciones{margin-left:auto}
+    }
+  }
+
   /* ==================================================================== MISE-B: Platos ==
    * Corrección de paridad con el prototipo v2.1: sin ficha exterior, sin acordeón. Cabecera
    * compacta y filtros arriba; la lista de abajo pasó de ser un separador+fuelle por
@@ -8618,9 +8645,17 @@ $CUENTAS = [
     transition:opacity var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
                background var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
-  /* El hueco tocable: 32 de ancho para no pisar al de al lado, 44 de alto. */
+  /* El hueco tocable: 44 de alto, y de ancho lo que haya sin pisar al de al lado.
+     La intención de esta regla siempre fue no pisar a la flecha gemela, pero los 32 no
+     lo cumplían: medido sobre las 60 flechas de las ocho pantallas, el hueco entre
+     gemelas baja a 2 px, así que un halo de 32 sobre un botón de 24 se metía 4 px por
+     lado y las dos zonas se solapaban 6 px. Un toque en esa banda lo cogía la flecha
+     pintada después —la contraria a la que se apuntaba—, que en un control de "subir /
+     bajar" es exactamente el peor fallo posible. A 26 las dos zonas se tocan en la
+     mitad del hueco y no se solapan: el hueco queda cubierto entero y cada mitad va a
+     su flecha. */
   .adm-orden-b::before{
-    content:"";position:absolute;left:50%;top:50%;width:32px;height:44px;
+    content:"";position:absolute;left:50%;top:50%;width:26px;height:44px;
     transform:translate(-50%,-50%);
   }
   .adm-orden-b svg{width:15px;height:15px;pointer-events:none}
@@ -8650,7 +8685,9 @@ $CUENTAS = [
   @media (max-width:560px){
     .adm-orden-flechas{gap:4px}
     .adm-orden-b{width:26px;height:26px}
-    .adm-orden-b::before{width:30px}
+    /* Mismo criterio que arriba, con el botón a 26 y el hueco a 4: 28 llega hasta la
+       mitad del hueco. Los 30 de antes se solapaban 2. */
+    .adm-orden-b::before{width:28px}
     .adm-orden-b svg{width:14px;height:14px}
   }
   /* Filtrando no se reordena: la lista que se ve no es la lista que se guarda. */
@@ -9728,6 +9765,66 @@ $CUENTAS = [
     .adm-pod .adm-btn-fino{flex:0 0 auto}
     .adm-podio > li:not(:has(button))::after{display:none}
     .adm-pod-pts{margin-left:0}
+  }
+
+  /* ============================================================ Objetivo táctil ==
+   * Diez controles del panel se dibujan por debajo de 44 px y no tenían halo. Con el
+   * ratón dan igual —el puntero es un píxel—; con el dedo, no. Se aplica el mismo
+   * patrón que ya llevan `.camara` y `.adm-sw-pista` desde V3: un `::before` absoluto
+   * e invisible que agranda SOLO la zona que responde al toque. Ni el dibujo ni el
+   * layout se mueven un píxel, y con puntero fino la media query ni se evalúa.
+   *
+   * Cada halo está dimensionado al hueco libre REAL hasta el vecino tocable más cercano
+   * —botón, enlace, campo, etiqueta o interruptor—, tomando el MÍNIMO sobre las 271
+   * instancias de las ocho pantallas, no sobre una muestra, y dejando 1 px de margen.
+   * Esa es la regla que ya fijó SPEC:602: 44 es objetivo ergonómico y se aplica donde el
+   * layout lo permite SIN arriesgar solapamiento. Un halo que invade al vecino manda el
+   * toque al control equivocado, y eso es peor que un objetivo pequeño.
+   *
+   * Medido, el layout actual sólo deja llegar a 44x44 en `.adm-btn`. En el resto el
+   * hueco pone el techo, y queda escrito al lado de cada uno. Subir de ahí exige separar
+   * los grupos —cambio de densidad, no de área táctil—, que es decisión del propietario
+   * y tarea aparte. `.adm-sw` y `.camara` ya son 44x44 por su propio `::before`. */
+  @media (pointer:coarse){
+    .adm-prow-editar,.adm-retirar-b,.adm-cat-nombre-b,.adm-plato-destbtn,
+    .adm-tema-op,.adm-pct-atajo,.adm-dia-semanal,.adm-vermas,.adm-btn{position:relative}
+    .adm-prow-editar::before,.adm-retirar-b::before,.adm-cat-nombre-b::before,
+    .adm-plato-destbtn::before,.adm-tema-op::before,.adm-pct-atajo::before,
+    .adm-dia-semanal::before,.adm-vermas::before,.adm-nav-item::before,
+    .adm-btn::before{content:"";position:absolute}
+
+    /* 26x26 -> 38x44. El ancho lo topan 6 px por la izquierda y 8 por la derecha; el
+       alto entero se gana por ARRIBA, porque debajo esta `.adm-retirar-b` y el hueco de
+       9 px que los separa hay que dejarselo a el. */
+    .adm-prow-editar::before{top:-18px;bottom:0;left:-5px;right:-7px}
+
+    /* 28x28 -> 34x35, y es el más apretado de todos: 4 px a cada lado y 1 px por
+       debajo en la instancia peor. Este botón RETIRA un plato de la carta — con un
+       vecino a 4 px, un halo de 44 convertiría un fallo de puntería en una retirada
+       accidental. Y por arriba solo puede coger la mitad del hueco que comparte con
+       `.adm-prow-editar`. 34x35: se queda corto A PROPÓSITO y con la cifra escrita. */
+    .adm-retirar-b::before{top:-7px;bottom:0;left:-3px;right:-3px}
+
+    /* 24x24 -> 28x44. Sitio de sobra por arriba, 2 px por la derecha. */
+    .adm-cat-nombre-b::before{top:-12px;bottom:-8px;left:-3px;right:-1px}
+
+    /* 28x32 -> 32x44: 4 px por cada lado ponen el techo del ancho. */
+    .adm-plato-destbtn::before{top:-8px;bottom:-6px;left:-3px;right:-3px}
+
+    /* 30x32 -> 44x33. Ancho de sobra al pie de la barra; el alto lo topa el borde de
+       la propia barra, a 0 px por arriba y 2 por abajo. */
+    .adm-tema-op::before{top:0;bottom:-1px;left:-7px;right:-7px}
+
+    /* A estos sólo les falta alto, y lo tienen. */
+    .adm-pct-atajo::before{top:-8px;bottom:-8px;left:0;right:0}
+    .adm-dia-semanal::before{top:-5px;bottom:-5px;left:0;right:0}
+    .adm-vermas::before{top:-2px;bottom:-6px;left:0;right:0}
+
+    /* 43x40 -> 43x42: entre dos destinos de la barra sólo hay 2 px. */
+    .adm-nav-item::before{top:-1px;bottom:-1px;left:0;right:0}
+
+    /* El único que llega a 44x44: tiene 8 px libres por los cuatro lados. */
+    .adm-btn::before{top:-3px;bottom:-3px;left:-4px;right:-4px}
   }
 </style>
 </head>

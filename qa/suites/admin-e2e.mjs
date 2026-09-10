@@ -2238,6 +2238,132 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
   const hoja = await dedo.evaluate(async () => { document.getElementById('btn-mas-movil').click(); await new Promise((r) => setTimeout(r, 150)); const s = document.getElementById('sheet-mas'); const abierta = s.getAttribute('aria-hidden') === 'false' && !s.inert; s.querySelector('[data-tab="marca"]').click(); await new Promise((r) => setTimeout(r, 150)); return { abierta, cerrada: s.getAttribute('aria-hidden') === 'true', pane: document.querySelector('section.pane:not([hidden])').dataset.pane, titulo: document.getElementById('adm-topbar-titulo').textContent.trim() }; });
   informe.comprueba('E2E-RS-HOJA', 'la hoja «Más» abre, lleva a Marca, cambia el título y se cierra sola', hoja.abierta && hoja.cerrada && hoja.pane === 'marca' && hoja.titulo === 'Marca', JSON.stringify(hoja));
   informe.comprueba('E2E-RS-TACTIL-red', 'consola y red limpias en la sesión táctil', erroresConsola(dedo).length === 0 && dedo.registro.fallidas.length === 0, [...erroresConsola(dedo), ...dedo.registro.fallidas].slice(0, 2).join(' | '));
+
+  /* El agujero de 404 a 460, que ninguna pasada anterior veía porque el documento NO saca
+     barra horizontal: la fila se sale de SU TARJETA y la tarjeta la recorta con
+     `overflow:hidden`. Medido antes del arreglo: a 404 el interruptor de agotado salía 58 px
+     fuera; a 460, 2. Los anchos son los de verdad —412 es un Pixel y 428 un iPhone Pro Max—,
+     que además es el hueco exacto que dejaba el barrido de arriba entre 390 y 560. */
+  const recortes = [];
+  for (const w of [404, 412, 428, 440, 460]) {
+    await dedo.setViewportSize({ width: w, height: 844 });
+    await irA(dedo, url, 'platos', 260);
+    const r = await dedo.evaluate(() => {
+      let peor = 0; let quien = '';
+      for (const fila of document.querySelectorAll('.adm-cat-bento-lista .adm-platorow')) {
+        const tarjeta = fila.closest('.adm-f');
+        const sw = fila.querySelector('.adm-sw');
+        const nm = fila.querySelector('.adm-orow-nm');
+        if (!tarjeta || !sw) continue;
+        const fuera = Math.round(sw.getBoundingClientRect().right - tarjeta.getBoundingClientRect().right);
+        if (fuera > peor) { peor = fuera; quien = (nm ? nm.textContent.trim().slice(0, 18) : '?'); }
+      }
+      /* Y el nombre no puede quedarse en el minimo tecnico de 30: eso no es un nombre. */
+      const nm0 = document.querySelector('.adm-cat-bento-lista .adm-orow-nm');
+      return { peor, quien, nombre: nm0 ? Math.round(nm0.getBoundingClientRect().width) : null };
+    });
+    if (r.peor > 1) recortes.push(`${w}px: ${r.peor}px fuera de la tarjeta («${r.quien}»)`);
+    if (r.nombre !== null && r.nombre < 60) recortes.push(`${w}px: el nombre queda en ${r.nombre}px`);
+  }
+  await dedo.setViewportSize({ width: 390, height: 844 });
+  informe.comprueba('E2E-RS-RECORTE', 'con dedo, de 404 a 460 px la fila de plato no se sale de su tarjeta y el nombre sigue siendo legible',
+    recortes.length === 0, recortes.slice(0, 3).join(' | '));
+
+  /* Area tactil por CLASE de control. Lo que se contrata NO es 44x44 por decreto: es el
+     tamaño que el layout deja alcanzar sin que una zona pise a la de al lado, medido sobre
+     todas las instancias. Un halo que invade al vecino manda el toque al control
+     equivocado, y con `.adm-retirar-b` —que retira un plato de la carta— eso es peor que un
+     objetivo pequeño. Las cifras de aqui son las MEDIDAS sobre la peor instancia, con su
+     tope escrito al lado de cada regla en el CSS. Son un suelo, no un objetivo: si alguien
+     encoge un halo o mete un vecino que recorte, esta prueba lo dice; si alguien separa los
+     grupos y el area crece, pasa igual —y entonces toca subir el suelo a mano. */
+  const MINIMOS = { '.adm-prow-editar': [38, 44], '.adm-retirar-b': [33, 35], '.adm-cat-nombre-b': [24, 30],
+    '.adm-plato-destbtn': [32, 44], '.adm-tema-op': [44, 33], '.adm-pct-atajo': [67, 44],
+    '.adm-dia-semanal': [81, 44], '.adm-nav-item': [43, 40], '.adm-btn': [44, 44],
+    '.adm-orden-b': [26, 30], '.camara': [44, 44], '.adm-sw': [44, 40] };
+  const sonda44 = (MIN) => {
+    /* El area tactil se mide PREGUNTANDO al navegador quien recibe el toque en cada punto,
+       no deduciendola del `::before`. Los halos son asimetricos —cada uno crece hacia donde
+       tiene hueco— y darlos por centrados da medidas falsas; y asi entra en la cuenta lo
+       que de verdad manda: quien queda encima y, sobre todo, el RECORTE de un ancestro.
+       Eso ultimo salio midiendo: un halo no puede salir de un `overflow:hidden`, asi que
+       las flechas de la tira de secciones entregan 30 de alto aunque su regla diga 44, y lo
+       mismo le pasa al interruptor dentro de su tarjeta. Por eso las cifras de abajo son
+       las MEDIDAS sobre la peor instancia de cada clase, no las que dice el CSS. */
+    const suyo = (el, x, y) => {
+      const t = document.elementFromPoint(x, y);
+      return !!t && (t === el || el.contains(t));
+    };
+    const efectiva = (el) => {
+      const b = el.getBoundingClientRect();
+      const cx = Math.round(b.left + b.width / 2), cy = Math.round(b.top + b.height / 2);
+      if (!suyo(el, cx, cy)) return null;
+      const borde = (dx, dy) => {
+        let n = 0;
+        while (n < 40 && suyo(el, cx + dx * (n + 1), cy + dy * (n + 1))) n++;
+        return n;
+      };
+      return { w: borde(-1, 0) + borde(1, 0) + 1, h: borde(0, -1) + borde(0, 1) + 1 };
+    };
+    /* La barra inferior fija tapa lo que le queda debajo. Eso no es un halo invadiendo a
+       nadie: es contenido al que se llega rodando la pagina. Se deja fuera de la cuenta. */
+    const barra = document.querySelector('.adm-navmovil');
+    const rb = barra && barra.getBoundingClientRect().height > 0 ? barra.getBoundingClientRect() : null;
+    const sondeable = (b) => b.width > 5 && b.height > 5 && b.top > 4 && b.left > 4
+      && b.bottom < innerHeight - 4 && b.right < innerWidth - 4 && !(rb && b.bottom > rb.top - 24);
+
+    const fallos = [];
+    for (const [sel, [minW, minH]] of Object.entries(MIN)) {
+      let peorW = null, peorH = null;
+      for (const el of document.querySelectorAll(sel)) {
+        const b = el.getBoundingClientRect();
+        if (!sondeable(b)) continue;
+        const e = efectiva(el);
+        if (!e) continue;
+        peorW = peorW === null ? e.w : Math.min(peorW, e.w);
+        peorH = peorH === null ? e.h : Math.min(peorH, e.h);
+      }
+      if (peorW === null) continue;
+      if (peorW < minW || peorH < minH) fallos.push(`${sel}: ${peorW}x${peorH}, se contrato ${minW}x${minH}`);
+    }
+
+    /* Y lo que de verdad protege al usuario: que ampliar un area tactil no le robe el toque
+       a otro control. Se comprueba lo unico que importa —que cada control siga recibiendo
+       el toque DENTRO DE SU PROPIO DIBUJO, en el centro y en las cuatro esquinas—, contra
+       todo lo tocable, campos incluidos: un halo tapando medio campo de precio es igual de
+       malo que uno tapando un boton. */
+    const solapes = [];
+    for (const el of document.querySelectorAll('button, a[href], input, select, textarea, [role="switch"], [role="tab"]')) {
+      if (solapes.length >= 4) break;
+      const b = el.getBoundingClientRect();
+      if (!sondeable(b)) continue;
+      const puntos = [[b.left + b.width / 2, b.top + b.height / 2],
+        [b.left + 2, b.top + 2], [b.right - 2, b.top + 2],
+        [b.left + 2, b.bottom - 2], [b.right - 2, b.bottom - 2]];
+      for (const [x, y] of puntos) {
+        const t = document.elementFromPoint(Math.round(x), Math.round(y));
+        if (!t || t === el || el.contains(t) || t.contains(el)) continue;
+        solapes.push(`${t.tagName}.${String(t.className).split(' ')[0]} le quita el toque a ${el.tagName}.${String(el.className).split(' ')[0]}`);
+        break;
+      }
+    }
+    return { fallos, solapes: [...new Set(solapes)] };
+  };
+  const tactil = { fallos: [], solapes: [] };
+  for (const t of ['platos', 'ofertas', 'ajustes']) {
+    await irA(dedo, url, t, 300);
+    /* Sin destapar lo plegado se mide humo: en Ofertas los atajos de porcentaje y los dias
+       viven dentro de un <details> que en movil viene cerrado, y sus cajas quedan donde no
+       se pinta nada. La primera version de esta prueba los daba por tapados por la cabecera
+       de la ficha; no lo estaban, estaban plegados. */
+    await abrirTodo(dedo);
+    const r = await dedo.evaluate(sonda44, MINIMOS);
+    tactil.fallos.push(...r.fallos.map((x) => `${t}/${x}`));
+    tactil.solapes.push(...r.solapes.map((x) => `${t}/${x}`));
+  }
+  informe.comprueba('E2E-RS-TACTIL-44', 'con dedo, cada control mantiene el area tactil medida que el layout le deja y ninguna zona le quita el toque a otra',
+    tactil.fallos.length === 0 && tactil.solapes.length === 0, [...tactil.fallos, ...tactil.solapes].slice(0, 4).join(' | '));
+
   await dedo.contextoQa.close().catch(() => {});
 }
 

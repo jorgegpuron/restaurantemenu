@@ -4623,3 +4623,100 @@ Lo que se ha visto y NO se toca: CSS sin marcado en el panel (`.tabs*`, `.switch
 `.foto-btn`, `.combo*`, `.marca`), que se retirará aparte y con prueba; el asa de la hoja «Más»,
 que se dibuja y no arrastra; y el globo de ayuda, que entra siempre desde abajo aunque se
 coloque encima de su botón.
+
+## Responsive R1 y R2: el hueco de 404-460 y el área táctil real (10 Sep 2026)
+
+Dos defectos que salieron de la auditoría responsive, los dos medidos caja por caja.
+
+**R1 — la fila de plato se salía de su tarjeta entre 404 y 460 px de pantalla.** No sacaba
+barra horizontal en el documento, por eso ninguna ronda anterior lo vio: se salía de
+`.adm-f`, que recorta con `overflow:hidden`. A 404 el interruptor de agotado quedaba 58 px
+fuera y el nombre del plato se aplastaba a los 30 px de su `min-width`; a 460 aún salía 2.
+El rango incluye 412 (Pixel) y 428 (iPhone Pro Max).
+
+La causa es la de siempre en esta fila: `.adm-plato-acciones` es `flex:none` y el nombre es
+lo único elástico, así que por debajo de lo que cuesta la composición de una línea la fila
+no encoge — se sale. El escape ya existía (`@container adm-cat-bento-col (max-width:300px)`
+devuelve la fila a `flex-wrap:wrap`), pero su umbral estaba por debajo del coste real. Es la
+segunda vez: V7 ya lo subió de 260 a 300 por este mismo fallo un escalón más abajo.
+
+**Y no se ha subido por tercera vez, porque la medida dice que no se puede.** La composición
+de una línea no cabe hasta los 392 de columna, y la columna más estrecha de ESCRITORIO es
+395 (viewport 1000, bento de 6). Entre lo roto y el escritorio quedan 7 px: cualquier número
+que tape el agujero deja el escritorio pegado al mismo fallo, y con un cliente de etiquetas
+más largas lo cruza. Así que la vuelta a envolver se condiciona al DEDO, no al ancho a
+secas: `@media (pointer:coarse)` + `@container (max-width:400px)`. Con puntero fino la regla
+ni se evalúa. Verificado: recorte 0 de 320 a 560 con dedo, y en escritorio (700 a 1920) el
+mismo `nowrap`, los mismos anchos de nombre y el mismo alto de fila de 48 que antes.
+
+**R2 — diez controles se dibujaban por debajo de 44 px sin halo táctil.** Se les pone el
+mismo `::before` invisible que ya llevaban `.camara` y `.adm-sw-pista`: crece la zona que
+responde al toque, no el dibujo ni el layout.
+
+Lo que cambia respecto a cómo se venía haciendo es de dónde salen los números. Cada halo se
+dimensiona al hueco libre real hasta el vecino tocable más cercano —botón, enlace, campo o
+etiqueta—, tomando el **mínimo sobre las 271 instancias de las ocho pantallas** y dejando
+1 px de margen. Midiendo una instancia salían 44x44 por todas partes; midiendo todas, no.
+
+Y hay una segunda lección, más importante, que sólo apareció al verificar: **una cosa es el
+área que el CSS declara y otra la que el layout entrega**. Un `::before` no puede salir de un
+ancestro con `overflow:hidden`. Preguntando con `elementFromPoint` quién recibe de verdad el
+toque en cada punto —que es lo único que le pasa al usuario— sale esto, sobre la peor
+instancia de cada clase:
+
+| control | dibujo | declarado | ENTREGADO (peor) | qué pone el techo |
+|---|---|---|---|---|
+| `.adm-btn` | 38x40 | 44x44 | **44x44** | nada: 8 px libres por los cuatro lados |
+| `.adm-pct-atajo` | 67x30 | 67x44 | **67x44** | — |
+| `.adm-dia-semanal` | 100x36 | 100x44 | **81x44** | — |
+| `.adm-plato-destbtn` | 28x32 | 32x44 | **32x44** | 4 px por cada lado |
+| `.adm-prow-editar` | 26x26 | 38x44 | **38x44** | 6 y 8 px de hueco lateral |
+| `.adm-retirar-b` | 28x28 | 34x35 | **33x35** | encajonado por los cuatro lados |
+| `.adm-tema-op` | 30x32 | 44x33 | **44x33** | el borde de la propia barra |
+| `.adm-nav-item` | 43x40 | 43x42 | **43x40** | 2 px entre destinos |
+| `.adm-cat-nombre-b` | 24x24 | 28x44 | **24x30** | la tira de secciones lo recorta |
+| `.adm-orden-b` | 24x24 | 26x44 | **26x30** | la tira de secciones lo recorta |
+
+Los dos últimos merecen su párrafo. `.adm-secciones-tira` es un carrusel horizontal con
+`overflow:hidden`, así que **los halos de los controles que viven dentro se cortan en el
+borde de la tira**: las mismas flechas entregan 45 de alto en la cabecera de una categoría
+y 30 dentro de la tira. Y no es culpa de esta ronda: la regla de 44 de alto de
+`.adm-orden-b` es anterior, y dentro de la tira nunca entregó 44. Sacarlas de ahí pide más
+alto en la tira, que es cambio de composición y va aparte. Al interruptor le pasa algo
+parecido dentro de su tarjeta: 45 en el mejor sitio, 40 en el peor.
+
+**`.adm-retirar-b` se queda corto a propósito, y conviene que conste por qué.** Retira un
+plato de la carta y tiene vecinos a 4 px por los dos lados: un halo de 44 los pisaría, y un
+halo solapado sobre un control destructivo convierte un fallo de puntería en una retirada
+accidental. Eso es peor que un objetivo pequeño. Llevarlo a 44 exige separar el grupo, que
+es cambio de densidad y no de área táctil — decisión aparte.
+
+Con esto se ratifica la regla de SPEC:602 en vez de contradecirla: 44 es objetivo
+ergonómico y se aplica **donde el layout lo permite sin arriesgar solapamiento**. Lo nuevo
+es que ahora hay una cifra medida para cada caso, y una prueba que la sostiene.
+
+**Un defecto anterior, encontrado al verificar.** `.adm-orden-b::before` medía 32 de ancho
+sobre un botón de 24 «para no pisar al de al lado» — pero el hueco entre flechas gemelas
+baja a 2 px, así que se metía 4 px por lado y las dos zonas se solapaban 6. Un toque en esa
+banda lo cogía la flecha pintada después, la contraria a la que se apuntaba, en un control
+de «subir / bajar». Pasa a 26 (28 en <=560, donde el botón mide 26 y el hueco 4): las dos
+zonas se tocan en la mitad del hueco, lo cubren entero y cada mitad va a su flecha.
+
+**Dos pruebas nuevas, y dos errores míos por el camino que conviene dejar escritos.**
+`E2E-RS-RECORTE` barre 404, 412, 428, 440 y 460 con dedo y exige que ninguna fila se salga de
+su tarjeta y que el nombre siga siendo legible. `E2E-RS-TACTIL-44` contrata el área efectiva
+de cada control y comprueba que ninguna zona le quita el toque a otra.
+
+La primera versión de esa segunda prueba deducía el área del tamaño del `::before` dándolo
+por centrado; como estos halos son asimétricos, denunciaba solapes que no existían. Y la
+segunda medía con `elementFromPoint` pero **sin destapar lo plegado**: en Ofertas los atajos
+de porcentaje y los días viven dentro de un `<details>` que en móvil viene cerrado, sus cajas
+quedan donde no se pinta nada, y la prueba los daba por tapados por la cabecera de la ficha.
+No lo estaban. Con lo plegado abierto y descontando la barra inferior fija —que tapa lo que
+le queda debajo, y eso no es un halo invadiendo a nadie— no queda ni un control cuyo toque se
+lleve otro.
+
+Fuera de alcance y sin tocar, anotado midiendo: en escritorio el nombre del plato se queda
+en 30 px a viewport 1000 y en 34 a 1180, porque por encima de 420 de columna la etiqueta de
+destacado pierde su tope y se come el hueco. No recorta nada —por eso no es R1— pero es el
+mismo nombre ilegible, y merece su propia medición.
