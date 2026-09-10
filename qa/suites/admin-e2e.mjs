@@ -1389,8 +1389,12 @@ export async function e2eJuego(informe, { pagina, servidor, docroot }) {
     /no sale en la carta/.test(g1) && leerEstado(docroot).game.on === false && off.status === 204 && !existsSync(recordJson), `${g1} · HTTP ${off.status}`);
   await limpiarToasts(pagina);
   await conmutar(pagina, '.pane[data-pane="juego"] input[name="juego_on"]', true);
-  await reposo(pagina, 600);
-  const g2 = await textoAvisoPanel(pagina);
+  /* Esperar al aviso y al estado en disco, no al reloj: con la máquina cargada el autoguardado
+     llegaba a los ~600 ms y la prueba contaba un estado que aún no había llegado. */
+  const g2 = await esperarA(async () => {
+    const t = await textoAvisoPanel(pagina);
+    return /sale en la carta/.test(t) && leerEstado(docroot).game.on === true ? t : '';
+  }, 4000) || await textoAvisoPanel(pagina);
   const getRec = await pagina.evaluate(async () => { const r = await fetch('/admin/record.php'); return { status: r.status, texto: await r.text() }; });
   informe.comprueba('E2E-JU-02', 'ON: se guarda y record.php por GET devuelve el podio vacío',
     /sale en la carta/.test(g2) && leerEstado(docroot).game.on === true && getRec.status === 200 && /"top":\[\]/.test(getRec.texto), `${g2} · ${getRec.texto.slice(0, 40)}`);
@@ -3138,8 +3142,9 @@ export async function e2eRevisionHumana(informe, { navegador, servidor, docroot 
       informe.comprueba('E2E-RH-OFF-04', 'al encenderla, sin recargar, la insignia pasa a contar que sí se aplica',
         on.apagada === false && /^(PROGRAMADA|CORRIENDO)$/.test(on.badge || ''), JSON.stringify(on));
       await conmutar(p, 'input[name="oferta_on"]', false);
-      await reposo(p, 600);
-      const vuelta = await p.evaluate(() => document.querySelector('.adm-f-ooferta').hasAttribute('data-apagada'));
+      /* Esperar a que la ficha se lea apagada, no al reloj: el autoguardado y su repintado
+         llegaban a los ~600 ms con la máquina cargada. */
+      const vuelta = await esperarA(() => p.evaluate(() => document.querySelector('.adm-f-ooferta').hasAttribute('data-apagada')), 4000);
       informe.comprueba('E2E-RH-OFF-05', 'al apagarla otra vez vuelve a leerse como apagada, también sin recargar', vuelta === true, `apagada=${vuelta}`);
       /* «Semanal» se ve como un botón, no como un octavo día. */
       const sem = await p.evaluate(() => {
