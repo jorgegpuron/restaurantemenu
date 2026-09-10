@@ -6108,45 +6108,152 @@ $CUENTAS = [
      icono de "%", y el precio se estrecha a lo que pide un importe con coma. La etiqueta ya
      puesta (Bestseller, Veggie favourite…) es información real, no decoración — se queda en
      texto, sólo con un tope y "…" si no le cupiera entera. */
-  /* Rejilla (10 Sep 2026): este bloque compacto era la composicion de toda columna de hasta
-     620; desde 520 manda la rejilla de columnas fijas de mas abajo, asi que aqui se acota a lo
-     que queda por debajo —movil y columnas estrechas—. Cambio de rango, no de reglas. */
+  /* ======================================== la fila en móvil: dos líneas (10 Sep 2026) ==
+     El propietario, con el panel abierto en su teléfono: «mira este desastre». Medido a
+     320/360/390 sobre lo que había: la fila se partía en TRES pisos de 105 px, el precio caía
+     en dos x distintas según lo que llevara la fila, la etiqueta se cortaba a cuchillo
+     («NUEVC», «EL FAV») y la cabecera de la categoría ocupaba 110 px en tres líneas.
+
+     Por debajo de 520 px de columna una sola línea no cabe —lo fijo pide 340 y la columna de
+     un móvil de 390 mide 290—, así que la fila pasa a DOS líneas y cada línea es una rejilla
+     de columnas fijas: precio, oferta, etiqueta e interruptor caen en la misma x en todas las
+     filas, y el interruptor y el «⋯» comparten borde derecho.
+
+       línea 1:  cámara 32 · nº 24 · NOMBRE (elástico, hasta dos líneas) · ⋯ 28
+       línea 2:  flechas (56, ocupan las dos primeras) · precio 56 · oferta 24 · etiqueta · agotado 40
+
+     **Las flechas miden 56 y no los 62 de la rejilla de tablet**, y no es un descuido: por
+     debajo de 560 px de ventana ya se dibujan a 26 con hueco de 4 (26+4+26), medida que R2
+     fijó junto con su halo de 28. Las dos cifras salen de lo mismo: lo que ocupan las flechas
+     de verdad en cada tamaño.
+
+     **El nombre, hasta dos líneas**, por decisión del propietario y con la medida delante: de
+     los 312 nombres reales caben enteros el 82 % en una línea a 390 y el 99 % en dos; a 360,
+     64 % contra 95 %; a 320, 28 % contra 78 %. La fila mide 82 px con el nombre en una línea y
+     92 con dos, contra los 105 de antes, y nunca tres pisos.
+
+     **El precio se dibuja a 16 px** (--tb) y su columna mide 56: medido en Arimo, «12,95»
+     ocupa 41 px de texto y .adm-campo suma 14 de relleno y borde, y el precio más largo de la
+     carta real es «21,95». Por debajo de 16 px Safari en iOS amplía la página al enfocar el
+     campo y no la devuelve; con 16 no hace falta tocar el viewport, que debe seguir dejando
+     al usuario ampliar (WCAG 1.4.4).
+
+     Esto **SUSTITUYE a R1** —la envoltura con puntero grueso por debajo de 400 px de columna y
+     la regla de 300—: una rejilla no envuelve, así que no hay nada que parchear. Su garantía,
+     que nada se salga de la tarjeta entre 404 y 460, la hereda esta composición y la comprueba
+     E2E-RS-RECORTE, reescrita para la fila nueva. Los halos de R2/R3/R4 se conservan todos.
+
+     Relleno lateral 12 y hueco 4 (en vez de 16 y 6): son 12 px de nombre y 12 de etiqueta en
+     una columna de 290, y ahí eso es la diferencia entre que la etiqueta se lea o no. */
   @container adm-cat-bento-col (max-width:519px){
-    .adm-cat-bento-lista .adm-platorow{flex-wrap:nowrap;gap:8px}
-    .adm-cat-bento-lista .adm-platorow .adm-orow-nm{
-      flex:1 1 auto;min-width:30px;display:block;
-      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+    .adm-cat-bento-lista .adm-platorow{
+      display:grid;
+      grid-template-columns:32px 24px minmax(0,1fr) 28px;
+      grid-template-areas:
+        "foto  num   nombre mas"
+        "orden orden ops    ops";
+      /* 12 de hueco entre líneas y no 6, y es aritmética de área táctil, no estética: cada
+         línea mide 32 y los controles de las dos quieren 44 de alto de zona tocable, o sea 88
+         entre las dos. Con 6 el halo de la cámara (44) se metía 6 px en el de las flechas y el
+         del «⋯» en el del interruptor, y quien pierde es el de abajo —medido por
+         E2E-RS-TACTIL-44: entregaban 38 donde se contratan 44—. Con 12 cada uno tiene los
+         suyos justos: 0-44 la línea 1, 44-88 la línea 2. Cuesta 6 px por fila. */
+      column-gap:4px;row-gap:12px;align-items:center;
+      padding:6px var(--space-3);
     }
-    /* El número del plato pide 2.6em (~34px) en la fila de siempre, con sitio de sobra —
-       aquí se le recorta a lo justo para dos-tres cifras. */
-    .adm-cat-bento-lista .adm-platorow .adm-prow-n{min-width:1.8em}
-    /* Ya no hace falta encoger la cámara aquí: desde V3 mide 32 en todo el panel, que
-       es la medida del botón de icono del prototipo, y su área táctil de 44 la garantiza
-       el ::before de su propia regla. Esta excepción se retira por vacía. */
-    .adm-cat-bento-lista .adm-plato-acciones{flex:none;gap:4px}
-    .adm-cat-bento-lista .adm-plato-acciones input.adm-prow-nuevo{flex:0 0 46px;width:46px;padding:0 6px;font-size:var(--t3,13px)}
-    /* Los 19 platos sin precio propio ("Incluido") ocupaban 52 donde el resto ocupa 46: el
-       borde derecho cuadraba, pero el izquierdo de la columna de precios salia dentado en
-       esas filas — medido, 714 contra 720. Mismo hueco que el campo, y el rotulo baja al
-       cuerpo pequeño, que es lo que le toca: no es una cifra, es una nota. */
+    .adm-cat-bento-lista .adm-platorow > .camara{grid-area:foto}
+    /* El numero no es un control, pero es un <span> con texto y el navegador le entrega el
+       toque: pegado a la camara a 4 px, le comia 2 px de su halo de 44 —medido con
+       elementFromPoint: 42 entregados donde se contratan 44—. `pointer-events:none` lo saca
+       del reparto de impactos, que es donde nunca debio estar; el toque pasa a la fila, que
+       en Platos no hace nada. En la rejilla de tablet no hace falta: alli el hueco es de 6 y
+       el halo de la camara llega justo hasta el borde del numero sin pisarlo. */
+    .adm-cat-bento-lista .adm-platorow > .adm-prow-n{grid-area:num;min-width:0;text-align:right;pointer-events:none}
+    /* Dos líneas y las que sobren con «…». `white-space:normal` porque la regla de una sola
+       línea que había aquí antes lo dejaba en `nowrap`. El `title` con el nombre completo, el
+       subtítulo y el inglés sigue donde estaba. */
+    .adm-cat-bento-lista .adm-platorow > .adm-orow-nm{
+      grid-area:nombre;flex:none;min-width:0;
+      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
+      overflow:hidden;white-space:normal;
+    }
+    .adm-cat-bento-lista .adm-platorow > .adm-orden-flechas{grid-area:orden}
+    .adm-cat-bento-lista .adm-platorow > .adm-mas{grid-area:mas;justify-self:end}
+    /* El grupo de acciones deja de ser `display:contents` (lo que es de 520 para arriba) y
+       pasa a ser la rejilla de la línea 2, con sus cuatro columnas propias. */
+    .adm-cat-bento-lista .adm-platorow > .adm-plato-acciones{
+      grid-area:ops;display:grid;
+      grid-template-columns:56px 24px minmax(0,1fr) 40px;
+      column-gap:4px;align-items:center;min-width:0;margin-left:0;
+    }
+    .adm-cat-bento-lista .adm-plato-acciones > *{min-width:0}
+    .adm-cat-bento-lista .adm-plato-acciones input.adm-prow-nuevo{
+      grid-column:1;position:static;opacity:1;flex:none;width:100%;height:auto;min-height:32px;
+      padding:0 6px;text-align:right;font-size:var(--tb);
+    }
     .adm-cat-bento-lista .adm-plato-acciones .adm-prow-fijo{
-      flex:0 0 46px;width:46px;font-size:var(--t4);
+      grid-column:1;flex:none;width:100%;font-size:var(--t4);text-align:right;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     }
-    .adm-cat-bento-lista .adm-plato-sinoferta{display:none}
+    /* Oferta: el chip de «%» cuando la hay y un punto cuando no. El hueco se reserva siempre,
+       que es lo que hace que la etiqueta de todas las filas empiece en la misma x. */
     .adm-cat-bento-lista .adm-tag-oferta{
-      width:24px;height:24px;padding:0;
+      grid-column:2;width:24px;height:24px;padding:0;
       display:inline-flex;align-items:center;justify-content:center;
     }
     .adm-cat-bento-lista .adm-tag-oferta svg{width:14px;height:14px}
-    .adm-cat-bento-lista .adm-plato-destbtn{width:28px;height:28px;padding:0;justify-content:center}
+    .adm-cat-bento-lista .adm-plato-sinoferta{
+      grid-column:2;display:block;width:24px;height:24px;font-size:0;opacity:1;position:relative;
+    }
+    .adm-cat-bento-lista .adm-plato-sinoferta::before{
+      content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;
+      border-radius:50%;background:var(--sc-border);
+    }
+    /* Etiqueta puesta: cede con «…» de verdad —en bloque, porque sobre un contenedor flex el
+       texto vive en una caja anónima y text-overflow recorta a cuchillo—. */
+    .adm-cat-bento-lista .adm-tag-destacado{
+      grid-column:3;justify-self:start;min-width:0;max-width:100%;overflow:hidden;
+    }
+    .adm-cat-bento-lista .adm-tag-destacado .adm-tag-destacado-cambiar{
+      max-width:100%;display:block;line-height:22px;
+    }
+    /* Sin etiqueta: pastilla fantasma con la estrella y un «+», del ancho de su celda. */
+    .adm-cat-bento-lista .adm-plato-destbtn{
+      grid-column:3;justify-self:start;width:100%;max-width:84px;height:26px;min-height:0;
+      padding:0;justify-content:center;gap:4px;border-style:dashed;border-radius:var(--radius-md);
+      color:var(--sc-text-2);opacity:.75;
+    }
     .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
     .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
-    .adm-cat-bento-lista .adm-tag-destacado-cambiar{
-      /* 84 y no 60: el tope viejo se calculo para una etiqueta de 13/700 con tracking.
-         A 12/600 y sin tracking cabe mas texto en menos sitio. */
-      max-width:84px;
-    }
+    .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:1}
+    .adm-cat-bento-lista .adm-sw-agotado{grid-column:4;justify-self:end}
+    /* El interruptor lleva halo de 48 de alto desde R3, calculado para la fila de UNA línea de
+       tablet, donde encima y debajo sólo está el borde de la fila. Aquí encima tiene el «⋯» de
+       la línea 1: 48 se sale 2 px por arriba y otros 2 por abajo del reparto de 44+44, y esos
+       dos se los quita al vecino. Vuelve a 44, que es justo lo que esta composición le deja y
+       lo que de verdad entrega. */
+    .adm-cat-bento-lista .adm-sw-agotado .adm-sw-pista::before{height:44px}
+  }
+  /* El móvil más estrecho (320 y 330): ahí la etiqueta NO se dibuja en la fila, y no es una
+     preferencia. La columna elástica la comparten el nombre (línea 1) y la etiqueta (línea 2),
+     y en 220 px de columna, después de las flechas (56), el precio (56), la oferta (24) y el
+     interruptor (40), a la etiqueta le quedan 0. Con esos 0 la pastilla no desaparecía sola:
+     su «×» de quitar es `flex:none` de 20 px, no encoge, se salía de su celda y **se ponía
+     encima del interruptor de agotado** —lo cazó E2E-DS-06, y un control encima del que marca
+     un plato agotado es exactamente lo que R1 y R2 estuvieron persiguiendo—.
+
+     El umbral es 239 y está medido, no elegido: a la celda le tocan `columna − 220` px, así que
+     los 20 de la «×» entran justo a partir de 240 de columna, que es una pantalla de 340. De
+     ahí para arriba la pastilla se dibuja y cede con «…» como en cualquier otro sitio.
+
+     Se ha preferido darle esos píxeles al nombre —100 px a 320, el 78 % de los 312 nombres
+     enteros en dos líneas— antes que a una pastilla que no cabe. Consecuencia asumida y dicha:
+     en un teléfono de 320 px no se pone ni se quita una etiqueta desde la fila. Las dos salidas
+     medidas, si algún día molesta: subir la etiqueta a la línea 1, que deja el nombre en 40; o
+     llevar «Destacar» al menú «⋯», que es funcionalidad nueva. */
+  @container adm-cat-bento-col (max-width:239px){
+    .adm-cat-bento-lista .adm-tag-destacado,
+    .adm-cat-bento-lista .adm-plato-destbtn{display:none}
   }
   /* V6, tras revisión: en columna ancha —en un portátil la columna de una categoría pasa
      de 500 px— el tope de 84 recortaba la etiqueta con puntos suspensivos habiendo sitio
@@ -6155,62 +6262,13 @@ $CUENTAS = [
   @container adm-cat-bento-col (min-width:420px){
     .adm-cat-bento-lista .adm-tag-destacado-cambiar{max-width:none}
   }
-  /* Columna MUY estrecha (movil de 320): el grupo de acciones de la fila —precio,
-     etiqueta e interruptor— no encoge, asi que con el tope de 84 sumaba 198px dentro de
-     una fila de 220 y sacaba scroll horizontal. Aqui la etiqueta cede: es lo unico
-     recortable del grupo sin perder un control. */
-  /* SocialCard V7, agujero encontrado midiendo Platos a 390 pantalla a pantalla: el tope de
-     260 lo cerraba en móvil pequeño pero dejaba un hueco entre 260 y ~340 de columna. A 390
-     de pantalla la columna mide 290 —por encima de 260, así que esta regla no entraba— y el
-     grupo de acciones sumaba 224 dentro de una fila de 290: el interruptor salía 9 px FUERA
-     de su tarjeta y la tarjeta lo recortaba (`overflow:hidden`). El documento no sacaba
-     scroll, por eso ninguna ronda anterior lo vio: sólo aparece comprobando caja por caja.
-
-     El umbral sube a 300 — medido, no estimado: a 290 de columna el grupo se salía 9 px y a
-     322 (portátil de 1024) cabe sin desbordar. Lo que pide una línea entera es:
-     46 del precio + 22 del indicador + 104 de la etiqueta + 40 del interruptor + la cámara y
-     el número + un mínimo legible de nombre. Por debajo, la etiqueta cede a 48 y la fila
-     envuelve, exactamente igual que ya hacía a 320. */
-  @container adm-cat-bento-col (max-width:300px){
-    .adm-cat-bento-lista .adm-tag-destacado-cambiar{max-width:48px}
-    /* Y la fila vuelve a envolver. La regla de 480 la fuerza a UNA linea, que es lo
-       correcto mientras quepa; a 320 el grupo de acciones —precio, etiqueta, destacar e
-       interruptor— mide 162 dentro de una fila de 220 y se salia de la tarjeta, que
-       recorta (overflow:hidden). Envolviendo, las acciones bajan a su propia linea en vez
-       de quedarse cortadas. */
-    .adm-cat-bento-lista .adm-platorow{flex-wrap:wrap;row-gap:6px}
-    .adm-cat-bento-lista .adm-platorow .adm-orow-nm{flex:1 1 100%;order:-1}
-    .adm-cat-bento-lista .adm-plato-acciones{margin-left:auto}
-  }
+  /* El bloque de 300 y el de 400 con puntero grueso (R1) vivían aquí: los dos devolvían la
+     fila a `flex-wrap:wrap` cuando el grupo de acciones no cabía. La rejilla de dos líneas de
+     arriba hace lo mismo por construcción y en todos los anchos, así que se retiran los dos.
+     El halo de las flechas, el del interruptor y el de «Destacar» (R2, R3 y R4) se quedan. */
   /* El parche táctil condicionado a dedo+ficha estrecha también se retira: el ::before
      de 44x44 de .camara es incondicional desde V3 y cubre este caso y todos los demás. */
 
-  /* El mismo agujero, un escalón más arriba — y esta vez sin mover el umbral.
-     El umbral de 300 curó 390, pero dejó roto de 404 a 460 de pantalla. Medido columna a
-     columna: a 332 el interruptor sale 58 px fuera de la tarjeta, a 388 sale 2, y sólo a
-     partir de 392 la composición de una línea cabe entera. La razón es que
-     `.adm-plato-acciones` es `flex:none` y el nombre está atado a `min-width:30px`: la
-     fila no encoge por debajo de lo que cuesta, se sale y la tarjeta la recorta.
-
-     Subir el umbral por tercera vez (260 → 300 → …) no vale, y la medida dice por qué: la
-     columna más estrecha de ESCRITORIO es 395 (viewport 1000, bento de 6). Entre "roto
-     hasta 388" y "escritorio empieza en 395" quedan 7 px — cualquier número que tape el
-     agujero deja el escritorio pegado al mismo fallo, y con otro cliente de etiquetas más
-     largas lo cruza.
-
-     Así que la vuelta a envolver se condiciona al DEDO, no al ancho a secas. Con puntero
-     grueso la fila envuelve en cuanto la columna no paga la línea entera; con puntero fino
-     esta regla ni se evalúa y la composición de una sola línea que aprobó el propietario
-     queda exactamente como estaba (verificado: recorte 0 en los once anchos de escritorio
-     de 700 a 1920). Mismo reparto que ya hace la regla de 300: nombre a su propia línea,
-     acciones a la suya. */
-  @media (pointer:coarse){
-    @container adm-cat-bento-col (max-width:400px){
-      .adm-cat-bento-lista .adm-platorow{flex-wrap:wrap;row-gap:6px}
-      .adm-cat-bento-lista .adm-platorow .adm-orow-nm{flex:1 1 100%;order:-1}
-      .adm-cat-bento-lista .adm-plato-acciones{margin-left:auto}
-    }
-  }
 
   /* ==================================================== la fila como rejilla (10 Sep 2026) ==
      El propietario, con los cuatro mockups de Stitch: al poner etiquetas, ofertas y agotados
@@ -9511,10 +9569,25 @@ $CUENTAS = [
     .adm-cat-bento-lista .adm-orow-nm{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
     .adm-cat-bento-lista .adm-orow-nm small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   }
+  /* Móvil (10 Sep 2026): la cabecera pasa de envolver en TRES líneas de 110 px a una sola de
+     44, y se queda pegada bajo la cabecera del panel mientras se recorre su categoría. La
+     página de Platos mide 28.400 px a 390: sin esto, a media categoría ya no se sabe de qué
+     categoría son las filas que se están mirando.
+
+     El `overflow` de la ficha pasa de `hidden` a `clip` y ese es el detalle que lo hace
+     posible: `hidden` crea un puerto de desplazamiento y la cabecera se pega A LA FICHA, que
+     no se desplaza —medido: al recorrer 260 px la cabecera bajaba de 68 a −191, o sea, no se
+     pegaba—; `clip` recorta exactamente igual las esquinas redondeadas pero no crea puerto, y
+     con él la cabecera se queda clavada en 68. Es la misma lección que R3 acaba de pagar con
+     la tira de secciones. */
   @media (max-width:699px){
-    .adm-cat-bento-cab{flex-wrap:wrap;row-gap:7px;padding:11px 14px}
-    .adm-cat-bento-nm{flex:1 1 calc(100% - 2.4em)}
-    .adm-cat-bento-marca{margin-left:auto}
+    .adm-cat-bento{overflow:clip}
+    .adm-cat-bento-cab{
+      flex-wrap:nowrap;row-gap:0;padding:0 var(--space-3);min-height:44px;
+      position:sticky;top:var(--sc-header-h);z-index:2;
+    }
+    .adm-cat-bento-nm{flex:0 1 auto;min-width:0}
+    .adm-cat-bento-marca{margin-left:0}
   }
   /* En estrecho no caben las cuatro cosas en una linea: el nombre del plato se quedaba en
      42 px y «Salsa o encurtido a elegir» salia como «Sal…». La fila se parte en dos, con el
@@ -11084,70 +11157,76 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
                     <span class="sr">Agotado hoy: <?= h($p['name']) ?></span>
                   </label>
+                </span>
 
-                  <?php /* Cambiar y Retirar, juntos y al final. Con raton van en linea y
-                           revelados al pasar por la fila, como siempre; con el dedo se recogen
-                           en un menu «⋯» (popover nativo: capa superior, no lo recorta el
-                           overflow:hidden de la ficha), porque encendidos siempre eran 54 px de
-                           ruido por fila y empujaban al resto. Mismos botones, mismos name,
-                           data-editar, data-confirmar y data-retirar: los manejadores son
-                           delegados y siguen colgando de la fila. Sin JavaScript, con raton
-                           todo sigue en linea y con dedo el popover abre igual. */ ?>
-                  <span class="adm-mas">
-                    <button type="button" class="adm-mas-b" popovertarget="mas-<?= h($k) ?>"
-                            title="Más opciones" aria-label="Más opciones de <?= h($p['name']) ?>">
-                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-                    </button>
-                    <div class="adm-mas-panel" id="mas-<?= h($k) ?>" popover>
-                    <?php /* Editar. Apagado hasta que el puntero entra en la fila, como el lapiz
-                             de la cabecera de categoria: 312 lapices encendidos a la vez serian
-                             312 manchas por encima de lo unico que importa aqui, que es el nombre
-                             del plato. Con el dedo vive en el menu, con su rotulo. */ ?>
-                    <button type="button" class="adm-prow-editar" data-editar="<?= h($k) ?>"
-                            title="Cambiar este plato"
-                            aria-label="Cambiar <?= h($p['name']) ?>">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-                      <span class="adm-mas-txt">Cambiar</span>
-                    </button>
-                    <?php /* Retirar / devolver. El ultimo del menu, lejos de los tres controles
-                             del dia a dia: no es lo que se toca cada mañana y no debe estar donde
-                             cae el pulgar sin querer. Confirmacion al retirar, ninguna al
-                             devolver: una es la que quita algo de la carta y la otra la deshace. */ ?>
-                    <form method="post" class="adm-retirar-f" style="display:contents">
-                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                      <input type="hidden" name="retirar_on" value="<?= $retirado ? '0' : '1' ?>">
-                      <?php /* La pregunta cuelga del BOTON y no del formulario: es el boton el que
-                               lleva `retirar_plato=<dishId>`, y ese par solo viaja si el envio lo
-                               dispara el. Y solo al retirar: devolver deshace, y deshacer no se
-                               pregunta.
+                <?php /* Cambiar y Retirar, juntos y al final. Van FUERA del grupo de acciones
+                         —hermanos de él dentro de la fila— porque en móvil el grupo es una
+                         rejilla propia (la línea 2) y el «⋯» vive en la línea 1: un hijo no
+                         puede salirse de la rejilla de su padre. En tablet y escritorio es
+                         neutro: el grupo es `display:contents` y sus hijos ya eran, como el
+                         «⋯», celdas de la fila. Con raton van en linea y
+                         revelados al pasar por la fila, como siempre; con el dedo se recogen
+                         en un menu «⋯» (popover nativo: capa superior, no lo recorta el
+                         overflow:hidden de la ficha), porque encendidos siempre eran 54 px de
+                         ruido por fila y empujaban al resto. Mismos botones, mismos name,
+                         data-editar, data-confirmar y data-retirar: los manejadores son
+                         delegados y siguen colgando de la fila. Sin JavaScript, con raton
+                         todo sigue en linea y con dedo el popover abre igual. */ ?>
+                <span class="adm-mas">
+                  <button type="button" class="adm-mas-b" popovertarget="mas-<?= h($k) ?>"
+                          title="Más opciones" aria-label="Más opciones de <?= h($p['name']) ?>">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                  </button>
+                  <div class="adm-mas-panel" id="mas-<?= h($k) ?>" popover>
+                  <?php /* Editar. Apagado hasta que el puntero entra en la fila, como el lapiz
+                           de la cabecera de categoria: 312 lapices encendidos a la vez serian
+                           312 manchas por encima de lo unico que importa aqui, que es el nombre
+                           del plato. Con el dedo vive en el menu, con su rotulo. */ ?>
+                  <button type="button" class="adm-prow-editar" data-editar="<?= h($k) ?>"
+                          title="Cambiar este plato"
+                          aria-label="Cambiar <?= h($p['name']) ?>">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+                    <span class="adm-mas-txt">Cambiar</span>
+                  </button>
+                  <?php /* Retirar / devolver. El ultimo del menu, lejos de los tres controles
+                           del dia a dia: no es lo que se toca cada mañana y no debe estar donde
+                           cae el pulgar sin querer. Confirmacion al retirar, ninguna al
+                           devolver: una es la que quita algo de la carta y la otra la deshace. */ ?>
+                  <form method="post" class="adm-retirar-f" style="display:contents">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                    <input type="hidden" name="retirar_on" value="<?= $retirado ? '0' : '1' ?>">
+                    <?php /* La pregunta cuelga del BOTON y no del formulario: es el boton el que
+                             lleva `retirar_plato=<dishId>`, y ese par solo viaja si el envio lo
+                             dispara el. Y solo al retirar: devolver deshace, y deshacer no se
+                             pregunta.
 
-                               Un plato dado de alta AQUI no se retira: se borra. Retirar existe
-                               porque un plato de la carta compilada volveria en la siguiente
-                               compilacion y lo unico que se puede hacer con el es dejar de
-                               servirlo; este no existe en ningun otro sitio, asi que esconderlo
-                               para siempre seria dejar basura en el estado con cara de plato. */ ?>
-                      <?php $esPropio = !empty($p['nuevo']); ?>
-                      <button class="adm-retirar-b" name="<?= $esPropio ? 'plato_borrar' : 'retirar_plato' ?>" value="<?= h($k) ?>" type="submit"
-                              <?= $esPropio
-                                ? 'data-confirmar="¿Borrar «' . h($p['name']) . '»?"'
-                                    . ' data-confirmar-nota="Lo diste de alta tú: se borra del todo, con su foto y su precio. No se puede deshacer."'
-                                    . ' data-confirmar-si="Borrar" data-confirmar-tono="peligro"'
-                                : ($retirado ? '' : 'data-confirmar="¿Retirar «' . h($p['name']) . '» de la carta?"'
-                                    . ' data-confirmar-nota="Deja de verse, pero se conserva y puedes devolverlo cuando quieras."'
-                                    . ' data-confirmar-si="Retirar" data-confirmar-tono="peligro"') ?>
-                              data-retirar="<?= $esPropio ? 'borrar' : ($retirado ? 'devolver' : 'retirar') ?>"
-                              aria-label="<?= $esPropio ? 'Borrar ' . h($p['name']) : ($retirado ? 'Devolver ' . h($p['name']) . ' a la carta' : 'Retirar ' . h($p['name']) . ' de la carta') ?>"
-                              title="<?= $esPropio ? 'Borrar este plato' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?>">
-                        <?php if ($retirado): ?>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
-                        <?php else: ?>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                        <?php endif; ?>
-                        <span class="adm-mas-txt"><?= $esPropio ? 'Borrar' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?></span>
-                      </button>
-                    </form>
-                    </div>
-                  </span>
+                             Un plato dado de alta AQUI no se retira: se borra. Retirar existe
+                             porque un plato de la carta compilada volveria en la siguiente
+                             compilacion y lo unico que se puede hacer con el es dejar de
+                             servirlo; este no existe en ningun otro sitio, asi que esconderlo
+                             para siempre seria dejar basura en el estado con cara de plato. */ ?>
+                    <?php $esPropio = !empty($p['nuevo']); ?>
+                    <button class="adm-retirar-b" name="<?= $esPropio ? 'plato_borrar' : 'retirar_plato' ?>" value="<?= h($k) ?>" type="submit"
+                            <?= $esPropio
+                              ? 'data-confirmar="¿Borrar «' . h($p['name']) . '»?"'
+                                  . ' data-confirmar-nota="Lo diste de alta tú: se borra del todo, con su foto y su precio. No se puede deshacer."'
+                                  . ' data-confirmar-si="Borrar" data-confirmar-tono="peligro"'
+                              : ($retirado ? '' : 'data-confirmar="¿Retirar «' . h($p['name']) . '» de la carta?"'
+                                  . ' data-confirmar-nota="Deja de verse, pero se conserva y puedes devolverlo cuando quieras."'
+                                  . ' data-confirmar-si="Retirar" data-confirmar-tono="peligro"') ?>
+                            data-retirar="<?= $esPropio ? 'borrar' : ($retirado ? 'devolver' : 'retirar') ?>"
+                            aria-label="<?= $esPropio ? 'Borrar ' . h($p['name']) : ($retirado ? 'Devolver ' . h($p['name']) . ' a la carta' : 'Retirar ' . h($p['name']) . ' de la carta') ?>"
+                            title="<?= $esPropio ? 'Borrar este plato' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?>">
+                      <?php if ($retirado): ?>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                      <?php else: ?>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                      <?php endif; ?>
+                      <span class="adm-mas-txt"><?= $esPropio ? 'Borrar' : ($retirado ? 'Devolver a la carta' : 'Retirar de la carta') ?></span>
+                    </button>
+                  </form>
+                  </div>
+                </span>
                 </span>
               </div>
               <?php endforeach; ?>

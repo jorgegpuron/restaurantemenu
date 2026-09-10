@@ -4937,3 +4937,157 @@ la propia rejilla: a 768 el nombre del plato pasó de 30 px a 160, y a 834 a 226
 verde con destacar a 38 y el interruptor a 40 en la rejilla de tablet. Ahora barre **390 y
 768**. Es exactamente el mismo error que R1 tenía entre 390 y 560: el defecto no estaba
 escondido, estaba donde nadie miraba.
+
+# La fila de Platos en móvil: dos líneas (10 Sep 2026)
+
+El propietario, con el panel abierto en su teléfono: «mira este desastre». Medido a 320, 360 y
+390 sobre lo que había:
+
+| | 320 | 360 | 390 |
+|---|---|---|---|
+| Ancho de columna | 220 | 260 | 290 |
+| Alto de fila | 105-106 | 105-106 | 105-106 |
+| x del precio | 66 y 100 | 100 y 140 | 130 y 170 |
+| x de la etiqueta | 116 y 150 | 150 y 190 | 180 y 220 |
+| Cabecera de categoría | 110 (tres líneas) | 110 | 110 |
+| Alto de la página | 28.425 | 28.407 | 28.420 |
+
+Tres pisos por fila, dos x distintas para el mismo dato según lo que llevara la fila, la
+etiqueta cortada a cuchillo («NUEVC», «EL FAV») y la cabecera de la categoría ocupando tanto
+como una fila entera. La rejilla de columnas fijas de tablet no llega aquí: entra a partir de
+520 px de columna y un móvil de 390 tiene 290.
+
+## Dos líneas, y cada una una rejilla
+
+Por debajo de 520 px de columna una sola línea no cabe —lo fijo pide 340— así que la fila pasa
+a dos líneas con áreas con nombre:
+
+```text
+línea 1:  cámara 32 · nº 24 · NOMBRE (elástico, hasta dos líneas) · ⋯ 28
+línea 2:  flechas 56 (ocupan las dos primeras columnas) · precio 56 · oferta 24 · etiqueta · agotado 40
+```
+
+Relleno lateral 12 y hueco 4, en vez de los 16 y 6 de tablet: son 12 px más de nombre y 12 más
+de etiqueta en una columna de 290, y ahí eso es la diferencia entre que la etiqueta se lea o no.
+
+**Las flechas miden 56 y no los 62 de tablet, y no es un descuido.** Por debajo de 560 px de
+ventana ya se dibujan a 26 con hueco de 4 (26 + 4 + 26 = 56), medida que fijó R2 junto con su
+halo de 28. Las dos cifras salen de lo mismo: lo que ocupan las flechas de verdad a cada tamaño.
+
+**El nombre, hasta dos líneas**, por decisión del propietario y con la medida delante. De los
+312 nombres reales caben enteros:
+
+| Ancho del nombre | Una línea | Dos líneas |
+|---|---|---|
+| 86 px | 28 % | 78 % |
+| 126 px | 64 % | 95 % |
+| 156 px | 82 % | 99 % |
+| 196 px | 89 % | 100 % |
+
+**El precio se dibuja a 16 px** (`--tb`) y su columna mide 56. Medido en Arimo: «12,95» ocupa
+41 px de texto y `.adm-campo` suma 14 de relleno y borde; el precio más largo de la carta real
+es «21,95». No es un capricho tipográfico: por debajo de 16 px Safari en iOS amplía la página al
+enfocar un campo y no la devuelve. Con 16 no hace falta tocar el `viewport`, que sigue dejando
+ampliar al usuario (WCAG 1.4.4) — el mockup de referencia traía `user-scalable=no` y eso no se
+copia.
+
+**Nada por debajo de 12 px.** El HTML del mockup usaba 9, 10 y 11 px en 48 sitios. El suelo del
+panel es `--t4` (12) desde MISE-A y aquí se respeta entero: nombre a `--t2`, precio a `--tb`,
+etiqueta y «Incluido» a `--t4`.
+
+## Medido después, en el panel de verdad
+
+| Ventana | Columna | Alto de fila | x precio | x oferta | x etiqueta | Nombre | Etiqueta |
+|---|---|---|---|---|---|---|---|
+| 320 | 220 | 88 / 98 | 126 | 186 | — | 100 | no se dibuja |
+| 360 | 260 | 88 / 98 | 126 | 186 | 214 | 140 | 40 |
+| 390 | 290 | 88 | 126 | 186 | 214 | 170 | 70 |
+| 430 | 330 | 88 | 126 | 186 | 214 | 210 | 84 |
+| 560 | 460 | 88 | 126 | 186 | 214 | 340 | 84 |
+
+Una sola x por dato en todas las filas y en todos los anchos; el interruptor y el «⋯» comparten
+borde derecho; cero elementos fuera de la tarjeta y cero desbordamiento. La fila mide **88 px
+con el nombre en una línea y 98 con dos**, contra los 105-106 de antes, y **la página de Platos
+baja de 28.420 a 22.567 px** a 390: casi seis mil píxeles menos de recorrido.
+
+**Lo que no cabe a 320, y por qué la etiqueta no se dibuja allí.** La columna elástica la
+comparten el nombre (línea 1) y la etiqueta (línea 2), y con 220 px de columna, después de
+flechas 56, precio 56, oferta 24 e interruptor 40, a la etiqueta le quedan 0. La primera versión
+la dejó ahí con esos 0 px, y **la batería cazó lo que eso significaba de verdad**: la «×» de
+quitar la etiqueta es `flex:none` de 20 px, no encoge, se salía de su celda y se ponía **encima
+del interruptor de agotado** (E2E-DS-06, `solape:true`). Un control encima del que marca un
+plato agotado es exactamente lo que R1 y R2 estuvieron persiguiendo, así que por debajo de 240
+px de columna la etiqueta y el botón fantasma **no se dibujan**.
+
+El umbral es 239 y está medido: a la celda le tocan `columna − 220` px, así que los 20 de la «×»
+entran justo a partir de 240 de columna, que es una pantalla de 340. Se ha preferido darle esos
+píxeles al nombre —100 px a 320, el 78 % de los 312 nombres enteros en dos líneas— antes que a
+una pastilla que no cabe. Consecuencia asumida y dicha: **en un teléfono de 320 px no se pone ni
+se quita una etiqueta desde la fila**. Las dos salidas medidas, si algún día molesta: subir la
+etiqueta a la línea 1, que deja el nombre en 40 px; o llevar «Destacar» al menú «⋯», que es
+funcionalidad nueva. Ninguna se ha hecho aquí.
+
+A 390 la etiqueta muestra unos seis caracteres y el resto con «…» («POPULAR» sale «PO…»), con
+su `title` completo; a 430 entra entera. El propietario lo aceptó expresamente.
+
+## La cabecera de categoría: una línea y pegada
+
+Pasa de envolver en tres líneas de 110 px a **una sola de 44**, y se queda pegada bajo la
+cabecera del panel (`position:sticky; top:var(--sc-header-h)`) mientras se recorre su categoría.
+Con la página en 21.350 px, a media categoría ya no se sabía de qué categoría eran las filas.
+
+**Y el detalle que lo hace posible:** el `overflow` de la ficha pasa de `hidden` a `clip`.
+Medido: con `hidden` la cabecera **no se pega** —al recorrer 260 px bajaba de 68 a −191, o sea
+se iba con la ficha—, porque `hidden` crea un puerto de desplazamiento y la cabecera se pega a
+él. `clip` recorta exactamente igual las esquinas redondeadas pero no crea puerto, y con él la
+cabecera se queda clavada en 68. Es la misma lección que R3 acababa de pagar con la tira de
+secciones, en el mismo día.
+
+## Qué sustituye y qué conserva
+
+- **R1 se retira, entero.** Las dos reglas que devolvían la fila a `flex-wrap:wrap` —la de
+  `max-width:300px` y la de `pointer:coarse` + `max-width:400px`— existían para que el grupo de
+  acciones no se saliera de la tarjeta cuando no cabía en una línea. Una rejilla no envuelve y
+  no se sale: la garantía se cumple por construcción y en todos los anchos, no sólo en el rango
+  parcheado. Lo comprueba `E2E-RS-RECORTE`, que se queda y se endurece.
+- **R2, R3 y R4 se conservan enteros**, y sus áreas efectivas se vuelven a medir con los vecinos
+  nuevos. Ahí salió el segundo hallazgo de la batería, y es de los que sólo aparecen midiendo:
+  con dos líneas a 6 px una de otra, **los halos de la línea 1 se comían los de la línea 2**. Cada
+  línea mide 32 y sus controles quieren 44 de alto de zona tocable —88 entre las dos—, así que el
+  halo de la cámara se metía 6 px en el de las flechas y el del «⋯» en el del interruptor, y quien
+  pierde es el de abajo: entregaban **38 donde se contratan 44** (`E2E-RS-TACTIL-44`). El hueco
+  entre líneas sube a **12** y cada uno tiene los suyos justos, 0-44 la línea 1 y 44-88 la línea 2.
+  Cuesta 6 px por fila y no se discute: es área táctil, no aire.
+
+  Dos ajustes más, del mismo hallazgo. El halo del interruptor vuelve a **44** de alto en móvil
+  (R3 lo puso en 48 para la fila de una línea de tablet, donde encima y debajo sólo está el borde
+  de la fila; aquí encima tiene el «⋯» y esos 4 de más se los quitaba). Y **el número del plato
+  sale del reparto de impactos** (`pointer-events:none`): no es un control, pero es un `<span>`
+  con texto y el navegador le entregaba el toque, comiéndole 2 px de halo a la cámara —42
+  entregados donde se contratan 44—. Medido después: cámara 44×44, interruptor 44×44, flechas
+  28×44, «⋯» 37×44, y ninguna zona le quita el toque a otra.
+- **La rejilla de tablet (≥520 de columna) no se toca.** Verificado a 768 y 1440: mismas x,
+  mismo alto de 48, mismo nombre, precio a 13 px, cabecera estática y ficha en `hidden`.
+
+## Un cambio de marcado, uno solo
+
+`.adm-mas` (el menú «⋯») sale de `.adm-plato-acciones` y pasa a ser hijo directo de la fila. En
+móvil el grupo de acciones es la rejilla de la línea 2 y el «⋯» vive en la línea 1: un hijo no
+puede salirse de la rejilla de su padre. En tablet y escritorio es neutro —el grupo es
+`display:contents` y sus hijos ya eran celdas de la fila, como ahora lo es el «⋯»—, y así se ha
+medido. Ni un `name`, ni un `data-*`, ni un manejador cambian.
+
+## Pruebas
+
+`E2E-DS-06` se reescribe: mide en **dos** anchos, porque el contrato es distinto en cada uno. A
+360 la etiqueta se dibuja y lo que se exige es lo de siempre —dentro de la fila y sin pisar el
+interruptor—; a 320 lo que se exige es que **no** se dibuje y que el interruptor siga dentro.
+Medir a 320 el solape de algo que ya no se pinta sería dar por buena la composición vieja.
+
+`E2E-RS-RECORTE` se endurece: sigue barriendo 404-460 con dedo y ahora exige además que la fila
+sea rejilla, que no pase de dos líneas y que el nombre no baje de 90 px (antes 60, que era el
+mínimo técnico de la composición vieja). Nuevas `E2E-MOV-01..04`: la alineación y el alto a 320,
+360, 390 y 430; el precio a 16 px y ningún texto por debajo de 12; la cabecera de 44 pegada de
+verdad, medida por posición y no por CSS declarado; y el «⋯» abriendo con sus dos filas de 44.
+
+Sin commit, sin push, sin deploy, sin FTP. Producción intacta.

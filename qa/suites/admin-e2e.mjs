@@ -895,14 +895,36 @@ export async function e2eDestacados(informe, { pagina, servidor, docroot }) {
   await pagina.setViewportSize({ width: 320, height: 568 });
   await pagina.reload({ waitUntil: 'domcontentloaded' });
   await esperar(250); await abrirTodo(pagina);
-  const medida = await pagina.evaluate((k) => {
-    const fila = document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"])`); if (!fila) return { error: 'sin fila' };
+  /* Dos anchos, porque desde que la fila es de dos líneas (10 Sep 2026) el contrato es
+     distinto en cada uno. A 360 la etiqueta se dibuja y lo que hay que exigir es lo de
+     siempre: que se quede dentro de la fila y no pise al interruptor. A 320 NO se dibuja —en
+     220 px de columna no le quedan píxeles, y su «×», que no encoge, se salía encima del
+     interruptor de agotado—, así que lo que se contrata es justo eso: que no esté, y que el
+     interruptor siga dentro de su fila. Medir a 320 el solape de algo que ya no se pinta sería
+     dar por buena la composición vieja. */
+  const midePastilla = (k) => pagina.evaluate((kk) => {
+    const fila = document.querySelector(`.adm-platorow:has(.camara[data-k="${kk}"])`); if (!fila) return { error: 'sin fila' };
     fila.scrollIntoView({ block: 'center' });
-    const r = fila.getBoundingClientRect(); const tag = fila.querySelector('.adm-tag-destacado-cambiar').getBoundingClientRect(); const sw = fila.querySelector('.adm-sw-agotado').getBoundingClientRect();
-    return { dentro: tag.right <= r.right + 1 && sw.right <= r.right + 1 && tag.left >= r.left - 1, solape: tag.right > sw.left + 1, desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth };
-  }, boton.k);
-  informe.comprueba('E2E-DS-06', 'a 320 px la etiqueta larga se queda dentro de la fila sin pisar el interruptor',
-    medida.dentro && !medida.solape && medida.desborde <= 1, JSON.stringify(medida));
+    const r = fila.getBoundingClientRect();
+    const pastilla = fila.querySelector('.adm-tag-destacado');
+    const tag = pastilla ? pastilla.getBoundingClientRect() : null;
+    const sw = fila.querySelector('.adm-sw-agotado').getBoundingClientRect();
+    return {
+      seDibuja: !!(tag && tag.width > 0),
+      dentro: tag && tag.width ? (tag.right <= r.right + 1 && tag.left >= r.left - 1) : true,
+      swDentro: sw.right <= r.right + 1,
+      solape: tag && tag.width ? tag.right > sw.left + 1 : false,
+      desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  }, k);
+  const m360 = await (async () => { await pagina.setViewportSize({ width: 360, height: 800 }); await pagina.reload({ waitUntil: 'domcontentloaded' }); await esperar(250); await abrirTodo(pagina); return midePastilla(boton.k); })();
+  await pagina.setViewportSize({ width: 320, height: 568 });
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  await esperar(250); await abrirTodo(pagina);
+  const medida = await midePastilla(boton.k);
+  informe.comprueba('E2E-DS-06', 'la etiqueta larga no pisa al interruptor: a 360 px se dibuja dentro de la fila y a 320 no se dibuja, porque ahí no le caben ni los 20 px de su «×»',
+    m360.seDibuja && m360.dentro && !m360.solape && m360.desborde <= 1
+    && !medida.seDibuja && medida.swDentro && medida.desborde <= 1, JSON.stringify({ a360: m360, a320: medida }));
   await pagina.setViewportSize({ width: 1280, height: 900 });
   await pagina.reload({ waitUntil: 'domcontentloaded' });
   await esperar(200); await abrirTodo(pagina);
@@ -2260,7 +2282,7 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
     await dedo.setViewportSize({ width: w, height: 844 });
     await irA(dedo, url, 'platos', 260);
     const r = await dedo.evaluate(() => {
-      let peor = 0; let quien = '';
+      let peor = 0; let quien = ''; let altoPeor = 0;
       for (const fila of document.querySelectorAll('.adm-cat-bento-lista .adm-platorow')) {
         const tarjeta = fila.closest('.adm-f');
         const sw = fila.querySelector('.adm-sw');
@@ -2268,16 +2290,27 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
         if (!tarjeta || !sw) continue;
         const fuera = Math.round(sw.getBoundingClientRect().right - tarjeta.getBoundingClientRect().right);
         if (fuera > peor) { peor = fuera; quien = (nm ? nm.textContent.trim().slice(0, 18) : '?'); }
+        altoPeor = Math.max(altoPeor, Math.round(fila.getBoundingClientRect().height));
       }
-      /* Y el nombre no puede quedarse en el minimo tecnico de 30: eso no es un nombre. */
+      /* Y el nombre no puede quedarse en el minimo tecnico: eso no es un nombre. El suelo sube
+         de 60 a 90 porque la fila de dos lineas (10 Sep 2026) le da 100 hasta en un movil de
+         320 — lo que se contrata es la composicion nueva, no la que habia. */
       const nm0 = document.querySelector('.adm-cat-bento-lista .adm-orow-nm');
-      return { peor, quien, nombre: nm0 ? Math.round(nm0.getBoundingClientRect().width) : null };
+      const fila0 = document.querySelector('.adm-cat-bento-lista .adm-platorow');
+      return { peor, quien, altoPeor, rejilla: fila0 ? getComputedStyle(fila0).display : null,
+        nombre: nm0 ? Math.round(nm0.getBoundingClientRect().width) : null };
     });
     if (r.peor > 1) recortes.push(`${w}px: ${r.peor}px fuera de la tarjeta («${r.quien}»)`);
-    if (r.nombre !== null && r.nombre < 60) recortes.push(`${w}px: el nombre queda en ${r.nombre}px`);
+    if (r.nombre !== null && r.nombre < 90) recortes.push(`${w}px: el nombre queda en ${r.nombre}px`);
+    if (r.rejilla !== 'grid') recortes.push(`${w}px: la fila no es rejilla (display:${r.rejilla})`);
+    /* Dos lineas como mucho. Medido: 88 con el nombre en una linea y 98 con dos (89 y 99 con
+       el redondeo de subpixel), desde que el hueco entre lineas subio a 12 para que los halos
+       tactiles de las dos no se pisaran. Un tercer piso serian 119, asi que el techo va en 102:
+       separa dos lineas de tres sin discutir un pixel. */
+    if (r.altoPeor > 102) recortes.push(`${w}px: fila de ${r.altoPeor}px, mas de dos lineas`);
   }
   await dedo.setViewportSize({ width: 390, height: 844 });
-  informe.comprueba('E2E-RS-RECORTE', 'con dedo, de 404 a 460 px la fila de plato no se sale de su tarjeta y el nombre sigue siendo legible',
+  informe.comprueba('E2E-RS-RECORTE', 'con dedo, de 404 a 460 px la fila de plato es una rejilla de dos lineas como mucho, no se sale de su tarjeta y el nombre sigue siendo legible',
     recortes.length === 0, recortes.slice(0, 3).join(' | '));
 
   /* Area tactil por CLASE de control. Lo que se contrata NO es 44x44 por decreto: es el
@@ -3833,6 +3866,166 @@ export async function e2eUxPlatos(informe, { navegador, servidor }) {
           !m.fija && !m.tapaBarra && m.trozosEnteros && m.desborde <= 1 && (w >= 768 ? m.unaLinea : true), JSON.stringify(m));
       }
     } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+}
+
+/* ============================================================== 22a. la fila de Platos en movil
+ * Dos lineas con columnas fijas (10 Sep 2026). Lo que se contrata es lo que el propietario vio
+ * roto en su telefono: que precio, oferta, etiqueta e interruptor caigan en la misma x en todas
+ * las filas, que la fila no pase de dos lineas, que el precio se dibuje a 16 px —por debajo,
+ * Safari en iOS amplia al enfocar y no vuelve— y que la cabecera de la categoria se quede
+ * pegada de verdad, medido por POSICION y no por el CSS declarado.
+ */
+export async function e2eMovil(informe, { navegador, servidor, docroot }) {
+  const url = servidor.url;
+  informe.seccion('E2E móvil: la fila de Platos en dos líneas, con columnas fijas');
+  const ruta = path.join(docroot, 'estado.json');
+  const estadoAntes = readFileSync(ruta, 'utf8');
+
+  const medir = () => {
+    const rx = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.width), Math.round(b.height)] : null; };
+    const filas = [...document.querySelectorAll('.adm-cat-bento-lista .adm-platorow')].filter((r) => r.getBoundingClientRect().width > 0).slice(0, 9);
+    const x = (sel) => [...new Set(filas.map((r) => { const v = rx(r.querySelector(sel)); return v ? v[0] : null; }).filter((v) => v !== null))];
+    const der = (sel) => [...new Set(filas.map((r) => { const v = rx(r.querySelector(sel)); return v ? v[0] + v[1] : null; }).filter((v) => v !== null))];
+    let fuera = 0; let quien = '';
+    for (const r of filas) {
+      const tarjeta = r.closest('.adm-f').getBoundingClientRect();
+      for (const el of r.querySelectorAll('*')) { const b = el.getBoundingClientRect(); if (b.width && (b.right > tarjeta.right + 1 || b.left < tarjeta.left - 1)) { fuera++; if (!quien) quien = String(el.className).split(' ')[0]; } }
+    }
+    const nm = filas.map((r) => rx(r.querySelector('.adm-orow-nm'))).filter(Boolean);
+    const precio = filas.map((r) => r.querySelector('.adm-prow-nuevo')).filter(Boolean)[0];
+    /* Nada por debajo del suelo de 12 px del panel, dentro de la fila. */
+    let bajoElSuelo = '';
+    for (const r of filas) {
+      for (const el of [r, ...r.querySelectorAll('*')]) {
+        if (!el.textContent || !el.textContent.trim()) continue;
+        const b = el.getBoundingClientRect(); if (!b.width) continue;
+        const px = parseFloat(getComputedStyle(el).fontSize);
+        if (px > 0 && px < 12 && !bajoElSuelo) bajoElSuelo = String(el.className).split(' ')[0] + ':' + px;
+      }
+    }
+    return {
+      n: filas.length, display: filas.length ? getComputedStyle(filas[0]).display : null,
+      altos: [...new Set(filas.map((r) => Math.round(r.getBoundingClientRect().height)))].sort((a, b) => a - b),
+      xPrecio: x('.adm-prow-nuevo, .adm-prow-fijo'), xOferta: x('.adm-tag-oferta, .adm-plato-sinoferta'),
+      xEtiqueta: x('.adm-tag-destacado, .adm-plato-destbtn'), derSw: der('.adm-sw-agotado'), derMas: der('.adm-mas'),
+      nombreMin: nm.length ? Math.min(...nm.map((v) => v[1])) : null,
+      precioFont: precio ? Math.round(parseFloat(getComputedStyle(precio).fontSize)) : null,
+      bajoElSuelo, fuera, quien,
+      desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      conEtiqueta: filas.filter((r) => r.querySelector('.adm-tag-destacado')).length,
+      conOferta: filas.filter((r) => r.querySelector('.adm-tag-oferta')).length,
+      agotados: filas.filter((r) => r.classList.contains('es-agotado')).length,
+    };
+  };
+
+  try {
+    /* Sembrar variedad: si todas las filas fueran iguales, alinearlas no probaria nada. */
+    const sonda = await nuevaPagina(navegador, { viewport: { width: 1280, height: 900 } });
+    await entrarAlPanel(sonda, url);
+    await irA(sonda, url, 'platos', 300);
+    const claves = await sonda.evaluate(() => [...document.querySelectorAll('.adm-cat-bento-lista .adm-platorow[data-k]')].slice(0, 4).map((f) => f.dataset.k));
+    const etiqueta = await sonda.evaluate(() => { const b = document.querySelector('#dest-et .adm-destet-b'); return b ? b.value : null; }) || 'Bestseller';
+    await sonda.contextoQa.close().catch(() => {});
+    const e = JSON.parse(readFileSync(ruta, 'utf8'));
+    e.soldOut = { ...(e.soldOut || {}), [claves[0]]: fechaServicio() };
+    e.tags = { ...(e.tags || {}), [claves[1]]: etiqueta, [claves[2]]: etiqueta };
+    e.offer = { ...(e.offer || {}), on: true, keys: [...new Set([...((e.offer && e.offer.keys) || []), claves[2], claves[3]])] };
+    writeFileSync(ruta, JSON.stringify(e, null, 1));
+
+    /* ---- MOV-01: alineacion y alto, en los cuatro anchos de telefono ---- */
+    for (const [w, h] of [[320, 568], [360, 800], [390, 844], [430, 932]]) {
+      const p = await nuevaPagina(navegador, { viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        await abrirTodo(p);
+        const m = await p.evaluate(medir);
+        /* La etiqueta tiene columna a partir de 340 px de pantalla (240 de columna): por
+           debajo no se dibuja, porque su «×» de 20 px no encoge y se ponia encima del
+           interruptor. Asi que a 320 lo que se contrata es que NO este —y que el resto siga
+           alineado igual—, no que este en una x. */
+        const etiquetaEnLaFila = w >= 340;
+        const unaX = m.xPrecio.length === 1 && m.xOferta.length === 1
+          && m.xEtiqueta.length === (etiquetaEnLaFila ? 1 : 0);
+        /* Dos lineas como mucho: 88 con el nombre en una y 98 con dos. No se contrata el
+           NUMERO de altos distintos —el redondeo de subpixel da 88 y 89 para la misma fila—,
+           se contrata el techo: un tercer piso serian 119, y el techo va en 102. */
+        const dosLineas = m.altos.every((a) => a <= 102);
+        const mismoBorde = m.derSw.length === 1 && m.derMas.length === 1 && Math.abs(m.derSw[0] - m.derMas[0]) <= 1;
+        informe.comprueba(`E2E-MOV-01-${w}`, `${w} px con dedo: la fila es rejilla de dos líneas, precio, oferta y etiqueta caen en la misma x en todas las filas, el interruptor y el «⋯» comparten borde derecho, y nada se sale de la tarjeta`,
+          m.display === 'grid' && unaX && dosLineas && mismoBorde && m.fuera === 0 && m.desborde <= 1
+            && m.conEtiqueta >= 2 && m.conOferta >= 2 && m.agotados >= 1, JSON.stringify(m));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+
+    /* ---- MOV-02: el precio a 16 px y el suelo de 12 ---- */
+    {
+      const p = await nuevaPagina(navegador, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        const m = await p.evaluate(medir);
+        /* El viewport no puede prohibir ampliar: es WCAG 1.4.4 y ademas seria tapar el sintoma. */
+        const meta = await p.evaluate(() => (document.querySelector('meta[name="viewport"]') || { content: '' }).content);
+        informe.comprueba('E2E-MOV-02', 'el precio se dibuja a 16 px (si no, iOS amplía al enfocar y no vuelve), ningún texto de la fila baja de 12 px, y el viewport sigue dejando ampliar',
+          m.precioFont === 16 && m.bajoElSuelo === '' && !/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/.test(meta),
+          JSON.stringify({ precio: m.precioFont, bajoElSuelo: m.bajoElSuelo, meta }));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+
+    /* ---- MOV-03: la cabecera de categoria, de 44 y pegada DE VERDAD ---- */
+    {
+      const p = await nuevaPagina(navegador, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        const cab = await p.evaluate(async () => {
+          const ficha = document.querySelector('.adm-cat-bento');
+          const c = ficha.querySelector('.adm-cat-bento-cab');
+          ficha.scrollIntoView({ block: 'start' });
+          await new Promise((r) => setTimeout(r, 80));
+          const alto = Math.round(c.getBoundingClientRect().height);
+          const antes = Math.round(c.getBoundingClientRect().top);
+          window.scrollBy(0, 320);
+          await new Promise((r) => setTimeout(r, 140));
+          const techo = Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sc-header-h')) || 68);
+          return { alto, antes, despues: Math.round(c.getBoundingClientRect().top), techo,
+            fichaTop: Math.round(ficha.getBoundingClientRect().top), overflow: getComputedStyle(ficha).overflow };
+        });
+        informe.comprueba('E2E-MOV-03', 'la cabecera de la categoría mide 44, va en una línea y se queda pegada bajo la cabecera del panel al recorrer (medido por posición, no por el CSS declarado)',
+          cab.alto === 44 && Math.abs(cab.despues - cab.techo) <= 2 && cab.fichaTop < cab.despues - 100 && cab.overflow === 'clip', JSON.stringify(cab));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+
+    /* ---- MOV-04: el menu «⋯» sigue entero fuera del grupo de acciones ---- */
+    {
+      const p = await nuevaPagina(navegador, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+      try {
+        await entrarAlPanel(p, url);
+        await irA(p, url, 'platos', 300);
+        const caja = await p.evaluate(() => {
+          const b = document.querySelector('.adm-cat-bento-lista .adm-platorow > .adm-mas .adm-mas-b'); if (!b) return null;
+          b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: b.getAttribute('popovertarget') };
+        });
+        let abre = null;
+        if (caja) {
+          await p.touchscreen.tap(caja.x, caja.y);
+          abre = await p.evaluate(async (id) => {
+            const panel = document.getElementById(id);
+            await Promise.all(panel.getAnimations().map((a) => a.finished.catch(() => {})));
+            const filas = [...panel.querySelectorAll('button')].map((x) => ({ txt: x.textContent.trim(), h: Math.round(x.getBoundingClientRect().height) }));
+            return { abierto: panel.matches(':popover-open'), filas };
+          }, caja.id);
+        }
+        informe.comprueba('E2E-MOV-04', 'el «⋯» cuelga de la fila (no del grupo de acciones), abre en móvil y conserva sus dos filas de 44',
+          !!caja && !!abre && abre.abierto && abre.filas.length === 2 && abre.filas.every((f) => f.h >= 44), JSON.stringify({ caja: !!caja, abre }));
+        informe.comprueba('E2E-MOV-04-red', 'consola y red limpias en la pantalla de móvil', erroresConsola(p).length === 0 && p.registro.fallidas.length === 0, [...erroresConsola(p), ...p.registro.fallidas].slice(0, 2).join(' | '));
+      } finally { await p.contextoQa.close().catch(() => {}); }
+    }
+  } finally {
+    writeFileSync(ruta, estadoAntes);
   }
 }
 
@@ -5779,6 +5972,7 @@ export async function bateriaE2E(informe, { clon, fixtures, navegador }) {
   await correrBloque(informe, 'navegacion', () => e2eNavegacion(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'ux-platos', () => e2eUxPlatos(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'rejilla', () => e2eRejilla(informe, { navegador, servidor: srv, docroot: docPrincipal }));
+  await correrBloque(informe, 'movil', () => e2eMovil(informe, { navegador, servidor: srv, docroot: docPrincipal }));
   await correrBloque(informe, 'orden-platos', () => e2eOrdenPlatos(informe, { navegador, servidor: srv, docroot: docPrincipal }));
 
   const docFich = docrootDesde(clon.salida, 'e2e_fich');
