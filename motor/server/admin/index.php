@@ -5913,11 +5913,20 @@ $CUENTAS = [
   }
   .adm-kpis .adm-kpi:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
 
-  /* Dos y dos. El corte NO es el ancho de la ventana a secas: esta rejilla vive dentro de la
-     columna de contenido, con 232px de barra lateral por delante (68 de riel entre 768 y
-     1023) mas 34+34 de relleno. La fila baja de 980 por debajo de 1280 de ventana. Medido
-     con el corte en 980: a 1024 salian cuatro tarjetas de 161px con el rotulo envolviendo. */
-  @media (max-width:1279px){
+  /* Dos y dos, pero mucho mas abajo que antes. El corte estaba en 1280 de ventana porque
+     una ronda anterior midio que a 1024 las cuatro tarjetas salian de 161px «con el rotulo
+     envolviendo». Eso ya no pasa: desde entonces el rotulo salio del flujo y se ancla arriba
+     a la derecha, y remedido ahora ninguno de los cuatro —«Todos», «Agotados», «Destacados»,
+     «Con oferta»— envuelve ni se recorta a cuatro columnas en ningun ancho desde 768, con
+     tarjetas de 147 a 234 y los mismos 66 de alto. Con el corte en 1280, un iPad en vertical
+     enseñaba dos columnas teniendo 616 de rejilla: sitio de sobra para las cuatro.
+
+     Sigue siendo una consulta de ventana y no de contenedor, a proposito: los KPI no viven
+     dentro de ningun `container-type`, y declarar uno nuevo en la columna de contenido
+     traeria contencion —y con ella los `position:fixed` de dentro— por un cambio que se
+     resuelve con un numero medido. El numero es 768 porque ahi la rejilla mide 616, que es
+     donde entran las cuatro. */
+  @media (max-width:767px){
     .adm-chips-estado.adm-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   /* Movil: SIGUEN siendo dos columnas y la tarjeta adelgaza, para que el bloque entero se
@@ -7788,8 +7797,13 @@ $CUENTAS = [
      contiguos devuelve siempre el MISMO interruptor. La regla se escribe para que no
      aparezca el dia que una fila baje de 44 px de alto, no para arreglar algo roto. */
   @media (pointer:coarse){
+    /* 48 de alto y no 44: el halo se centra en la PISTA, y la etiqueta que la envuelve
+       lleva relleno arriba (`padding:var(--s1) 0 0`), asi que su centro y el de la pista no
+       coinciden. Medido desde el centro del interruptor —que es donde cae el dedo— los 44
+       entregaban 40 en la rejilla de tablet. Con 48 entrega 44 largos y sigue lejos del
+       interruptor de la fila siguiente, que esta a 27. */
     .adm-sw-pista::before{
-      content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;
+      content:"";position:absolute;left:50%;top:50%;width:44px;height:48px;
       transform:translate(-50%,-50%);
     }
   }
@@ -8231,10 +8245,18 @@ $CUENTAS = [
      caben ENTERAS y los manejadores pasan de pagina; las demas se apagan. De paso desaparece
      la barra de desplazamiento, que era la que metia 36px de alto de mas y dejaba los chips
      6px por debajo del centro de las flechas. */
+  /* El recorte es HORIZONTAL a proposito —lo que no cabe entero se apaga y se pasa de
+     pagina—, pero `overflow:hidden` recorta tambien en vertical, y ahi no sobra nada: se
+     comia el area tactil de las flechas y del rotulo. Medido: dentro de la tira entregaban
+     31 px de alto contra los 45 que entregan esas mismas flechas en la cabecera de una
+     categoria, y estan a 3 px del borde de la tira por arriba y por abajo. `clip` recorta
+     igual de bien en su eje y, a diferencia de `hidden`, deja poner `visible` en el otro
+     sin sacar barra de desplazamiento. Cero cambio de dibujo: lo unico que sale por arriba
+     y por abajo son halos invisibles. */
   .adm-secciones-tira{
     flex:1 1 auto;min-width:0;
     display:flex;align-items:center;gap:var(--space-2);
-    overflow:hidden;
+    overflow-x:clip;overflow-y:visible;
   }
   .adm-secciones-tira > .adm-pestana[hidden]{display:none}
   /* SOLO cuando pagina: entonces es cuando sobra sitio a la derecha —lo que cabe entero no
@@ -9960,8 +9982,13 @@ $CUENTAS = [
     /* 24x24 -> 28x44. Sitio de sobra por arriba, 2 px por la derecha. */
     .adm-cat-nombre-b::before{top:-12px;bottom:-8px;left:-3px;right:-1px}
 
-    /* 28x32 -> 32x44: 4 px por cada lado ponen el techo del ancho. */
-    .adm-plato-destbtn::before{top:-8px;bottom:-6px;left:-3px;right:-3px}
+    /* 28x32 -> 32x44: 4 px por cada lado ponen el techo del ancho.
+       El alto sube de 8/6 a 10/10 por la rejilla: alli el boton se dibuja a 26 en vez de
+       32, y los mismos offsets entregaban 38. No lo topaba ningun vecino —medido punto a
+       punto, debajo no hay nada y encima solo esta la propia fila—, lo topaba este numero,
+       calculado sobre la caja de antes. Con 10 y 10 da 46 en la rejilla y 52 en la fila
+       ancha, y sigue sin pisar a nadie. */
+    .adm-plato-destbtn::before{top:-10px;bottom:-10px;left:-3px;right:-3px}
 
     /* 30x32 -> 44x33. Ancho de sobra al pie de la barra; el alto lo topa el borde de
        la propia barra, a 0 px por arriba y 2 por abajo. */

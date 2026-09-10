@@ -4873,3 +4873,67 @@ antes se salía 33 px y ahora no), pero es el mismo nombre ilegible que R2 dejó
 escritorio; merece su propia medición.
 
 Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
+
+## Responsive R3 y R4, y lo que quedaba de R2 (10 Sep 2026)
+
+Cinco correcciones que salieron de remedir los pendientes contra la fila en rejilla, no
+contra la de la mañana. Dos de ellas cambian el diagnóstico que yo mismo había escrito.
+
+**1. La tira de secciones dejaba a sus controles sin área táctil.** `.adm-secciones-tira`
+recortaba con `overflow:hidden`, y el recorte que quiere es sólo el horizontal —lo que no
+cabe entero se apaga y se pasa de página—. En vertical no sobra nada, y ahí se comía los
+halos: las flechas de reordenar y el rótulo de renombrar entregaban **31 px de alto**
+dentro de la tira contra los **45** que entregan esas mismas flechas en la cabecera de una
+categoría, y están a 3 px del borde por arriba y por abajo. Pasa a
+`overflow-x:clip; overflow-y:visible` — `clip` recorta igual de bien en su eje y, a
+diferencia de `hidden`, deja poner `visible` en el otro sin sacar barra de desplazamiento.
+Medido después: **44-45 de alto**. Cero cambio de dibujo; lo único que sale por arriba y
+por abajo son halos invisibles.
+
+**2. Destacar y el interruptor, cortos en la rejilla de tablet.** A 768 con dedo,
+`.adm-plato-destbtn` entregaba 38 y `.adm-sw` 40.
+
+- Destacar: **no lo topaba ningún vecino.** Medido punto a punto, debajo no hay nada y
+  encima sólo está la propia fila. Lo topaba mi propio halo de R2, calculado sobre una caja
+  de 32 que en la rejilla mide **26**. De `-8/-6` a `-10/-10`: 46 en la rejilla, 52 en la
+  fila ancha, y sigue sin pisar a nadie.
+- El interruptor: su halo se centra en la **pista**, y la etiqueta que la envuelve lleva
+  relleno arriba (`padding:var(--s1) 0 0`), así que los dos centros no coinciden. Medido
+  desde el centro del interruptor —que es donde cae el dedo— los 44 daban 40. El halo pasa
+  a **48 de alto** y entrega 44 largos, lejos todavía del interruptor de la fila siguiente,
+  que está a 27.
+
+**3. El «⋯» se queda en 37 de ancho, medido.** Por la izquierda tiene el interruptor de
+agotado a 4 px (6 desde 640 de ficha), y el halo de 44 del interruptor ya se come 2 de
+esos: quedan 1-3 px reales. Por la derecha no hay vecino, pero ahí el techo lo pone el
+recorte de la ficha — por eso la regla declara 39 y entrega 37. De alto entrega 44-45. No
+se toca.
+
+**4. La nota fiscal de la carta, de 11 a 12 px.** Era el único texto de toda la carta por
+debajo de 12, y la razón escrita que lo sostenía —«el tamaño mínimo que el proyecto se
+permite»— se caía sola en cuanto nada más lo necesitaba.
+
+**5. Los KPI, a cuatro columnas desde tablet.** El corte estaba en 1280 de ventana porque
+una ronda anterior midió que a 1024 las cuatro tarjetas salían de 161 px «con el rótulo
+envolviendo». **Eso ya no pasa**: desde entonces el rótulo salió del flujo y se ancla
+arriba a la derecha. Remedido ahora, ninguno de los cuatro —«Todos», «Agotados»,
+«Destacados», «Con oferta»— envuelve ni se recorta a cuatro columnas en ningún ancho desde
+768, con tarjetas de 147 a 234 y los mismos 66 de alto. Con el corte en 1280, un iPad en
+vertical enseñaba dos columnas teniendo 616 de rejilla. El corte baja a **767**.
+
+Sigue siendo una consulta de ventana y no de contenedor, a propósito y contra lo que la
+orden pedía: los KPI no viven dentro de ningún `container-type`, y declarar uno nuevo en la
+columna de contenido traería contención —y con ella los `position:fixed` de dentro— por un
+cambio que se resuelve con un número medido.
+
+**6. La composición de dos columnas de categorías en tablet no se toca**, y conviene decir
+por qué se descartó en vez de dejarlo en «no procede». Si en tablet se ponen dos columnas
+de categorías, cada ficha baja de 586-652 a unos 290 — por debajo de los 520 que la rejilla
+necesita — y las filas **vuelven a envolver**. Aprovechar el ancho a lo ancho costaría
+perder la rejilla. Lo que quedaba del hallazgo «tablet desaprovecha el sitio» se lo comió
+la propia rejilla: a 768 el nombre del plato pasó de 30 px a 160, y a 834 a 226.
+
+**Y un agujero que dejé yo.** `E2E-RS-TACTIL-44` medía sólo a 390, y por eso pasaba en
+verde con destacar a 38 y el interruptor a 40 en la rejilla de tablet. Ahora barre **390 y
+768**. Es exactamente el mismo error que R1 tenía entre 390 y 560: el defecto no estaba
+escondido, estaba donde nadie miraba.

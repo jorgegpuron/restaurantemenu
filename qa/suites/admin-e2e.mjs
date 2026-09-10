@@ -2236,8 +2236,15 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
   const rt = await respuesta;
   await reposo(dedo, 400);
   const c = await leerContadorAgotados(dedo);
-  informe.comprueba('E2E-RS-TACTIL', 'con dedo (pointer: coarse) el interruptor lleva halo de 44×44 y un tap marca y guarda',
-    halo.grueso && halo.ancho === '44px' && halo.alto === '44px' && rt && rt.status() === 200 && c.chip === '1', JSON.stringify({ halo, http: rt ? rt.status() : null, chip: c.chip }));
+  /* Suelo de 44, no igualdad exacta a 44. La igualdad exacta afirmaba el TAMAÑO DECLARADO
+     del halo, y ese número no es lo que le llega al dedo: el halo se centra en la pista y la
+     etiqueta que la envuelve lleva relleno arriba, así que medido desde el centro del
+     interruptor los 44 declarados entregaban 40 en la rejilla de tablet. El alto subió a 48
+     precisamente para que lo ENTREGADO llegue a 44. Con un suelo, la garantía sigue entera
+     —si alguien encoge el halo por debajo de 44, esto falla— y quien mide lo que de verdad
+     recibe el usuario es `E2E-RS-TACTIL-44`, con `elementFromPoint`. */
+  informe.comprueba('E2E-RS-TACTIL', 'con dedo (pointer: coarse) el interruptor lleva halo de 44×44 o más y un tap marca y guarda',
+    halo.grueso && parseFloat(halo.ancho) >= 44 && parseFloat(halo.alto) >= 44 && rt && rt.status() === 200 && c.chip === '1', JSON.stringify({ halo, http: rt ? rt.status() : null, chip: c.chip }));
   await postCrudo(dedo, '/admin/index.php', [['guardar_agotados', '1']]);
   const hoja = await dedo.evaluate(async () => { document.getElementById('btn-mas-movil').click(); await new Promise((r) => setTimeout(r, 150)); const s = document.getElementById('sheet-mas'); const abierta = s.getAttribute('aria-hidden') === 'false' && !s.inert; s.querySelector('[data-tab="marca"]').click(); await new Promise((r) => setTimeout(r, 150)); return { abierta, cerrada: s.getAttribute('aria-hidden') === 'true', pane: document.querySelector('section.pane:not([hidden])').dataset.pane, titulo: document.getElementById('adm-topbar-titulo').textContent.trim() }; });
   informe.comprueba('E2E-RS-HOJA', 'la hoja «Más» abre, lleva a Marca, cambia el título y se cierra sola', hoja.abierta && hoja.cerrada && hoja.pane === 'marca' && hoja.titulo === 'Marca', JSON.stringify(hoja));
@@ -2285,19 +2292,25 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
      menu «⋯» de la fila—, asi que aqui se contrata el «⋯» (37x44 medido: 1 px por la
      izquierda, que es lo que deja el halo del interruptor con el hueco de 4; 8 por la derecha,
      que solo tiene relleno) y, mas abajo con el menu abierto, sus dos filas. */
-  const MINIMOS = { '.adm-mas-b': [37, 44], '.adm-cat-nombre-b': [24, 30],
+  /* De ALTO ya llegan todos a 44. Los tres que no llegaban —las flechas y el rotulo de la
+     tira de secciones, a 30, y el interruptor en la rejilla de tablet, a 40— dejaron de
+     estarlo: la tira recorta ahora solo en horizontal y el halo del interruptor se centro
+     bien. Los que siguen cortos lo estan de ANCHO, y cada uno con su razon medida escrita
+     al lado de su regla en el CSS. */
+  const MINIMOS = { '.adm-mas-b': [37, 44], '.adm-cat-nombre-b': [24, 44],
     '.adm-plato-destbtn': [32, 44], '.adm-tema-op': [44, 33], '.adm-pct-atajo': [67, 44],
     '.adm-dia-semanal': [81, 44], '.adm-nav-item': [43, 40], '.adm-btn': [44, 44],
-    '.adm-orden-b': [26, 30], '.camara': [44, 44], '.adm-sw': [44, 40] };
+    '.adm-orden-b': [26, 44], '.camara': [44, 44], '.adm-sw': [44, 44] };
   const sonda44 = (MIN) => {
     /* El area tactil se mide PREGUNTANDO al navegador quien recibe el toque en cada punto,
        no deduciendola del `::before`. Los halos son asimetricos —cada uno crece hacia donde
        tiene hueco— y darlos por centrados da medidas falsas; y asi entra en la cuenta lo
        que de verdad manda: quien queda encima y, sobre todo, el RECORTE de un ancestro.
-       Eso ultimo salio midiendo: un halo no puede salir de un `overflow:hidden`, asi que
-       las flechas de la tira de secciones entregan 30 de alto aunque su regla diga 44, y lo
-       mismo le pasa al interruptor dentro de su tarjeta. Por eso las cifras de abajo son
-       las MEDIDAS sobre la peor instancia de cada clase, no las que dice el CSS. */
+       Eso ultimo salio midiendo: un halo no puede salir de un `overflow:hidden`. Asi se
+       descubrio que las flechas de la tira de secciones entregaban 30 de alto aunque su
+       regla dijera 44 —ya corregido, la tira recorta solo en horizontal—, y es la razon de
+       que las cifras de arriba sean las MEDIDAS sobre la peor instancia de cada clase y no
+       las que dice el CSS: lo que le llega al dedo no siempre es lo que se declara. */
     const suyo = (el, x, y) => {
       const t = document.elementFromPoint(x, y);
       return !!t && (t === el || el.contains(t));
@@ -2358,17 +2371,25 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
     return { fallos, solapes: [...new Set(solapes)] };
   };
   const tactil = { fallos: [], solapes: [] };
-  for (const t of ['platos', 'ofertas', 'ajustes']) {
-    await irA(dedo, url, t, 300);
-    /* Sin destapar lo plegado se mide humo: en Ofertas los atajos de porcentaje y los dias
-       viven dentro de un <details> que en movil viene cerrado, y sus cajas quedan donde no
-       se pinta nada. La primera version de esta prueba los daba por tapados por la cabecera
-       de la ficha; no lo estaban, estaban plegados. */
-    await abrirTodo(dedo);
-    const r = await dedo.evaluate(sonda44, MINIMOS);
-    tactil.fallos.push(...r.fallos.map((x) => `${t}/${x}`));
-    tactil.solapes.push(...r.solapes.map((x) => `${t}/${x}`));
+  /* A 390 Y a 768. La primera version de esta prueba solo miraba 390, y por eso no vio que en
+     la rejilla de tablet destacar caia a 38 y el interruptor a 40: pasaba en verde con el
+     defecto dentro. Es el mismo agujero que R1 tenia entre 390 y 560, y se cierra igual:
+     mirando donde no se miraba. */
+  for (const ancho of [390, 768]) {
+    await dedo.setViewportSize({ width: ancho, height: 844 });
+    for (const t of ['platos', 'ofertas', 'ajustes']) {
+      await irA(dedo, url, t, 300);
+      /* Sin destapar lo plegado se mide humo: en Ofertas los atajos de porcentaje y los dias
+         viven dentro de un <details> que en movil viene cerrado, y sus cajas quedan donde no
+         se pinta nada. La primera version de esta prueba los daba por tapados por la cabecera
+         de la ficha; no lo estaban, estaban plegados. */
+      await abrirTodo(dedo);
+      const r = await dedo.evaluate(sonda44, MINIMOS);
+      tactil.fallos.push(...r.fallos.map((x) => `${ancho}/${t}/${x}`));
+      tactil.solapes.push(...r.solapes.map((x) => `${ancho}/${t}/${x}`));
+    }
   }
+  await dedo.setViewportSize({ width: 390, height: 844 });
   informe.comprueba('E2E-RS-TACTIL-44', 'con dedo, cada control mantiene el area tactil medida que el layout le deja y ninguna zona le quita el toque a otra',
     tactil.fallos.length === 0 && tactil.solapes.length === 0, [...tactil.fallos, ...tactil.solapes].slice(0, 4).join(' | '));
 
@@ -3655,11 +3676,18 @@ export async function e2eUxPlatos(informe, { navegador, servidor }) {
         };
       });
 
-      /* Cuatro columnas sólo cuando la FILA da de sí: con la barra lateral por delante, eso
-         empieza en 1280 de ventana, no en 1024. */
-      for (const [w, h, cols, etq] of [[1512, 982, 4, 'escritorio'], [1280, 900, 4, 'el corte justo'],
-                                        [1024, 800, 2, 'portátil estrecho'],
-                                        [768, 1024, 2, 'tablet'], [390, 844, 2, 'móvil'], [320, 568, 2, 'móvil estrecho']]) {
+      /* Cuatro columnas cuando la FILA da de sí, y da de sí mucho antes de lo que se creía.
+         El corte estaba en 1280 porque una ronda anterior midió que a 1024 las cuatro
+         tarjetas salían de 161 px «con el rótulo envolviendo»; desde entonces el rótulo
+         salió del flujo y se ancla arriba a la derecha, y remedido no envuelve ninguno de
+         los cuatro en ningún ancho desde 768 (tarjetas de 147 a 234, los mismos 66 de alto,
+         sin recorte). Baja a 767: un iPad en vertical enseñaba dos columnas teniendo 616 de
+         rejilla. En móvil siguen siendo dos, y eso NO es por sitio: es la decisión de que el
+         bloque entero se quede bajo 200 px para que la lista de platos no se caiga de la
+         primera pantalla. */
+      for (const [w, h, cols, etq] of [[1512, 982, 4, 'escritorio'], [1280, 900, 4, 'escritorio estrecho'],
+                                        [1024, 800, 4, 'portátil estrecho'],
+                                        [768, 1024, 4, 'tablet'], [390, 844, 2, 'móvil'], [320, 568, 2, 'móvil estrecho']]) {
         await p.setViewportSize({ width: w, height: h });
         await esperar(320);
         const k = await leer();

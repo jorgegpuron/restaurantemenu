@@ -2765,15 +2765,16 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* La nota fiscal. nota-igic es SOLO un nombre de clase historico: no hay logica fiscal
    en ninguna parte del motor: el texto entero sale de CLIENTE.impuesto y funciona igual
    con IVA o con cualquier otro impuesto. No se renombra porque cambiaria el HTML por
-   estetica. A la derecha, en la columna de los precios que explica, y en el tamaño
-   mínimo que el proyecto se permite: 11px. Por debajo de eso no es discreción, es letra que
-   no se puede leer, y esto tiene que poder leerse aunque no llame. El asterisco va pegado al
-   texto porque es una llamada, no una viñeta. */
+   estetica. A la derecha, en la columna de los precios que explica. Sube de 11 a 12px: era
+   el unico texto de toda la carta por debajo de 12, y la razon que lo justificaba —que es el
+   minimo que el proyecto se permite— se caia sola, porque nada mas lo necesitaba. Doce es el
+   suelo de legibilidad y esto tiene que poder leerse aunque no llame. El asterisco va pegado
+   al texto porque es una llamada, no una viñeta. */
 .nota-igic{
   margin:var(--s2) 0 0;
   text-align:right;
   color:var(--muted);
-  font-size:11px;
+  font-size:12px;
   letter-spacing:.02em;
 }
 
