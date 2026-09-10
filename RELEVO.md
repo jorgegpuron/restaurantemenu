@@ -28,8 +28,8 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
   con la prueba `CAR-23`, que fabrica el caso y no puede pasar en vacío.
 - Última `full` completa, sobre `0c1eada`: **731 PASS · 0 FAIL · 2 BLOCKED aprobados (MC-32,
   MC-33) · 3 NO APLICA · 4 KNOWN OPEN · 0 UNEXPECTED**.
-- Árbol limpio. Queda la rama local `fix/item-tag-12px` (integrada; se borra con OK) y las diez
-  ramas antiguas `feature/*`, `fix/*`, todas sin commits que `main` no tenga.
+- Árbol limpio. **Una sola rama, `main`, en local y en GitHub**: las quince ramas de trabajo
+  (todas integradas) se borraron con OK del propietario, las remotas incluidas.
 - `motor.lock` cuadra. `2-subir` es un build local de `0c1eada` (otro sello que el de producción:
   el runner compila el suyo; contenido idéntico).
 
