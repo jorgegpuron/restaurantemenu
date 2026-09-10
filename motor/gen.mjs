@@ -320,6 +320,8 @@ export const TOKENS = cssMarca(COLOR_PRINCIPAL) + `:root{
   --t-fast:180ms;                               /* colour, fades, tab content */
   --t-sheet-in:340ms;
   --t-sheet-out:240ms;                          /* exit faster than enter */
+  --t-modal-in:220ms;                           /* modal y hojas centradas: entrada */
+  --t-modal-out:140ms;                          /* ...y su salida, mas deprisa que entran */
 
   /* El multiplicador del tamaño de texto. 1 es lo de siempre y es el valor de partida: quien
      no toque nada ve la carta exactamente igual que antes. Lo suben los tres botones del hero,

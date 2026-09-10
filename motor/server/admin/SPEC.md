@@ -4522,3 +4522,104 @@ cuando no—, que es lo que de verdad importa, y además comprueba las dos mitad
 
 Lo que no se toca: `localStorage['socialcard-color-mode']`, el guion del `<head>` que decide el
 tema antes de pintar, y que cambiar de tema **no dispara ni una petición**.
+
+# El movimiento del panel, ocho ajustes (10 Sep 2026)
+
+Auditoría de movimiento del panel contra el catálogo de Emil Kowalski (frecuencia, curva y
+duración, físico y origen, interrumpibilidad, rendimiento, accesibilidad, cohesión). Los ocho
+planes viven en `tinge_of_turmeric/plans/` (fuera del repositorio) y se ensayaron sobre una
+copia de `2-subir` antes de tocar nada aquí. Ninguno cambia marcado, datos ni comportamiento
+funcional: sólo cómo se mueve lo que ya se movía, y qué pasa cuando alguien pide «menos
+movimiento». Tokens de partida, los de siempre: `--t-press` 140, `--t-fast` 180,
+`--t-sheet-in` 340, `--t-sheet-out` 240, `--ease-out`, `--ease-drawer`.
+
+## La barra de sesión se mueve con `transform`
+
+Era la única animación perpetua del panel y animaba `width`: el JS escribía el ancho cada
+segundo y la CSS lo interpolaba durante 1 s, o sea layout y pintado en cada fotograma mientras
+el panel estuviera abierto. Ahora el relleno mide siempre el 100 % y se desplaza a la
+izquierda el porcentaje consumido (`translateX(-N%)`); la pista, que ya recortaba con
+`overflow:hidden`, esconde lo que sale. Con `translateX` y no con `scaleX` la punta derecha
+conserva su redondeo. `transition:transform 1s linear`, la misma cadencia que el reloj. Con
+«menos movimiento» sigue sin interpolar, como antes.
+
+## «Menos movimiento» conserva los fundidos
+
+Había un comodín `*{transition-duration:1ms;animation-duration:1ms}` que aplastaba todo,
+incluido el fundido del toast que la regla de al lado conservaba a propósito: el aviso se
+volvía invisible en 1 ms y seguía 199 ms en pantalla recibiendo el puntero. Ahora la
+preferencia se atiende por componente: sin escala de pulsación, sin recorrido en interruptores
+y galones, el tooltip del riel y la hoja «Más» se funden en su sitio, el globo de ayuda y la
+foto del login sólo cambian de opacidad, y los velos de modal y hoja siguen fundiéndose —son
+opacidad pura— mientras la caja pierde el desplazamiento y la escala. Menos y más suave, no
+cero. Los tres bucles infinitos ya tenían su apagado propio y se quedan.
+
+## La hoja «Más» entra como la hoja de la carta
+
+Entraba y salía a `--t-fast` (180 ms) con `--ease-out`, la duración de un cambio de color, y
+los tres tokens de cajón que ya llegaban en `tokens.css` no los usaba nadie. Ahora: **340 ms**
+de entrada y **240 ms** de salida con `--ease-drawer`, igual que `.dsheet-panel` en la carta.
+Y el velo retrasa `visibility` hasta que acaba el fundido: antes, al cerrar, desaparecía de
+golpe y el fundido de salida nunca se veía.
+
+## Las hojas y el modal salen como entran
+
+La hoja de alta, la de sección y el cuadro de confirmar entraban animados y salían con
+`hidden = true` en seco. Dos tokens nuevos en `gen.mjs`: `--t-modal-in: 220ms` (la entrada
+iba a 180, por debajo de la banda de 200–500 de un modal) y `--t-modal-out: 140ms`, más
+deprisa que entra. El cierre pone `data-cerrando`, la CSS anima la salida —el mismo camino a la
+inversa, con la misma curva `--ease-out` y `forwards`; no se usa `animation-direction:reverse`
+porque invertiría también la curva—, la capa no recibe el puntero mientras se va, y `hidden`
+llega con `animationend` o con un respaldo de 300 ms. Abrir a mitad de salida cancela el
+cierre. El foco vuelve en el acto. Medido en el navegador: `hidden` a los 234 ms del clic.
+
+## La pila de avisos se recoloca deslizando
+
+Con tres avisos, el cuarto borraba el más viejo en seco; y al retirar uno, los que quedaban
+saltaban de sitio. Ahora el desalojado sale por la misma puerta (`fuera()`), y cada retirada
+va envuelta en un FLIP con la transición de 180 ms que ya tenía cada aviso: se apunta dónde
+estaba cada uno, se quita el que se va, se devuelve a los demás a su sitio con una
+transformación sin transición y en el siguiente cuadro se retira. Sólo los `is-in` ocupan
+plaza. El `200` del JS es respaldo, no duración; el `180ms` literal de la CSS pasa a
+`--t-fast`.
+
+## El FLIP de reordenar aguanta la ráfaga
+
+El remate del FLIP era un `setTimeout` de 220 ms sin cancelar: con dos pulsaciones seguidas,
+el temporizador de la primera caía en mitad de la transición de la segunda y las filas
+saltaban a unos 5 px del final. Ahora el temporizador es por fila y se cancela en cuanto esa
+fila vuelve a moverse —también en la fase de escritura, no sólo en el `requestAnimationFrame`,
+o el viejo podía disparar entre las dos—; y todas las medidas se toman antes de escribir nada
+(antes se alternaban lectura y escritura fila a fila). Medido: dos pulsaciones a 90 ms, tres
+filas siguen en vuelo a los 230 ms y están limpias a los 400. Los 180 ms y la curva no
+cambian.
+
+## Plegado instantáneo y tooltips sólo con puntero fino
+
+Al plegar la barra sólo su `width` transicionaba: el relleno del cuerpo, la cabecera, el
+padding de los ítems y sus rótulos cambiaban en seco, y la barra llegaba tarde, deslizándose
+sobre un contenido que ya se había recolocado. Es una acción rara y `width` es layout: se
+quita la transición y todo cambia a la vez. El tooltip del riel sólo existe entre 768 y 1023,
+que es tablet: su `:hover` va ahora dentro de `(hover:hover) and (pointer:fine)` —un toque ya
+no deja el rótulo pegado—, el `:focus-visible` lo enseña en cualquier dispositivo, y
+`visibility` se retrasa a la salida para que se vea el fundido.
+
+## Pulsación con transición en todos los controles; duraciones al token
+
+Ocho controles pisaban la transición base de `button` sin listar `transform`, así que la
+escala de pulsación entraba y salía a 0 ms: flechas de reordenar, navegación lateral, cubo de
+retirar, cámara, flechas y «+» de la tira de secciones, botones de foto e ítems de la hoja
+«Más»; y los dos botones de tema del pie de la barra, que llegaron en la sesión anterior con
+el mismo patrón. Todos llevan ya `transform var(--t-press) var(--ease-out)`. Los dos enlaces de
+«Salir» responden como sus hermanos `<button>` (`.97`). `.adm-atajo` pulsaba a `.99` —1 px en
+96—: ahora `.97`. Y los literales se van al token: la única `cubic-bezier` escrita a mano
+(`.16,1,.3,1`, casi `--ease-out`), los `200ms ease-out` de la pestaña Datos, el `160ms` del
+hover de KPI (con un `box-shadow` en la transición que ninguna regla cambiaba), el galón de los
+plegables a `--t-fast` como el de «Ver más», y el latido del botón de subir con `ease-in-out`
+como los otros dos pulsos. Los 160 ms de los interruptores siguen siendo decisión aparte y no
+se tocan.
+
+Lo que se ha visto y NO se toca: CSS sin marcado en el panel (`.tabs*`, `.switch*`,
+`.foto-btn`, `.combo*`, `.marca`), que se retirará aparte y con prueba; el asa de la hoja «Más»,
+que se dibuja y no arrastra; y el globo de ayuda, que entra siempre desde abajo aunque se
+coloque encima de su botón.

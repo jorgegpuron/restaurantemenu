@@ -5427,7 +5427,7 @@ $CUENTAS = [
     position:relative;display:flex;align-items:center;gap:var(--space-2);
     min-height:40px;padding:0 var(--space-3);border-radius:var(--radius-xl);border:0;background:transparent;
     color:var(--sc-text-2);text-decoration:none;font-family:inherit;font-size:var(--t2);font-weight:400;
-    cursor:pointer;transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+    cursor:pointer;transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   @media (max-width:1023px){ .adm-nav-item{justify-content:center;padding:0} }
   /* 16px: es lo que MIDE el icono en el prototipo. Sus clases dicen size-[17px]
@@ -5497,12 +5497,18 @@ $CUENTAS = [
     padding:6px 8px;border-radius:var(--radius-sm);
     background:var(--sc-text);color:var(--sc-surface);
     font-size:var(--t4);font-weight:500;white-space:nowrap;pointer-events:none;
-    opacity:0;visibility:hidden;transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
+    opacity:0;visibility:hidden;
+    transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out),visibility 0s linear var(--t-fast);
     box-shadow:0 8px 24px -8px rgba(0,0,0,.6);z-index:21;
   }
   @media (min-width:1024px){ .adm-nav-tooltip{display:none} }
-  .adm-nav-item:hover .adm-nav-tooltip,
-  .adm-nav-item:focus-visible .adm-nav-tooltip{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0)}
+  /* Solo con puntero fino: en la tablet, que es donde vive este tooltip, un toque disparaba un
+     hover fantasma y el rotulo se quedaba pegado. El foco de teclado lo ensena en cualquier
+     dispositivo. visibility se retrasa a la salida para que el fundido se vea. */
+  .adm-nav-item:focus-visible .adm-nav-tooltip{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0);transition-delay:0s}
+  @media (hover:hover) and (pointer:fine){
+    .adm-nav-item:hover .adm-nav-tooltip{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0);transition-delay:0s}
+  }
 
   /* =============================================== SocialCard V2: la cabecera ==
    * El panel no tenia cabecera: el titulo y la fecha vivian dentro de la tarjeta y se
@@ -5565,7 +5571,10 @@ $CUENTAS = [
        atrás, se lee como un separador. El rojo de los últimos cinco minutos se queda —eso
        sí es un cambio de estado, no un adorno. */
     background:var(--sc-primary);
-    transition:width 1s linear,background var(--t-fast) var(--ease-out);
+    /* Se mueve con transform y no con width: es la unica animacion perpetua del panel, y width
+       obliga a layout + paint en cada fotograma durante toda la sesion. La pista recorta lo que
+       sale por la izquierda (overflow:hidden), asi que la punta derecha conserva su redondeo. */
+    transition:transform 1s linear,background var(--t-fast) var(--ease-out);
   }
   .adm-sesion-queda{
     margin:0;font-size:var(--t4);font-variant-numeric:tabular-nums;color:var(--sc-text-2);
@@ -5610,8 +5619,6 @@ $CUENTAS = [
     html.adm-riel .adm-nav-tooltip{display:none}
     html.adm-riel .adm-sidebar{overflow-x:hidden}
   }
-  .adm-sidebar{transition:width var(--t-fast) var(--ease-out)}
-  @media (prefers-reduced-motion:reduce){ .adm-sidebar{transition:none} }
 
   .adm-topbar-acciones{display:flex;align-items:center;gap:var(--space-2);flex:none}
   .adm-ver-carta{flex:none;text-decoration:none}
@@ -5641,7 +5648,7 @@ $CUENTAS = [
     border:0;border-radius:var(--radius-md);background:transparent;
     color:var(--sc-text-2);font-family:inherit;font-size:var(--t4);font-weight:600;
     cursor:pointer;white-space:nowrap;
-    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+    transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   .adm-tema-op svg{width:14px;height:14px;flex:none}
   /* El elegido se LEVANTA sobre su propia superficie. Es lo unico que distingue los dos
@@ -5739,18 +5746,23 @@ $CUENTAS = [
   /* ---- hoja «Más» ---- */
   #velo-sheet{
     position:fixed;inset:0;z-index:30;background:var(--scrim);
-    opacity:0;visibility:hidden;transition:opacity var(--t-fast) var(--ease-out);
+    /* visibility se retrasa hasta que acaba el fundido: sin ese retraso el velo desaparecia de
+       golpe al cerrar y el fundido de salida nunca se veia. */
+    opacity:0;visibility:hidden;
+    transition:opacity var(--t-sheet-out) var(--ease-out),visibility 0s linear var(--t-sheet-out);
   }
-  #velo-sheet.activo{opacity:1;visibility:visible}
+  #velo-sheet.activo{opacity:1;visibility:visible;transition:opacity var(--t-sheet-in) var(--ease-out),visibility 0s}
   .adm-sheet{
     position:fixed;left:0;right:0;bottom:0;z-index:31;max-height:75vh;overflow-y:auto;
     background:var(--sc-surface);border:1px solid var(--sc-border);border-bottom:0;
     border-radius:var(--radius-xl) var(--radius-xl) 0 0;
     padding:10px var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
     box-shadow:var(--sc-sombra-hoja);
-    transform:translateY(100%);transition:transform var(--t-fast) var(--ease-out);
+    /* La misma hoja que la carta (motor/gen.mjs, .dsheet-panel): curva de cajon y entrada mas
+       lenta que la salida. Los tres tokens ya llegaban en tokens.css y no los usaba nadie. */
+    transform:translateY(100%);transition:transform var(--t-sheet-out) var(--ease-drawer);
   }
-  .adm-sheet.activo{transform:translateY(0)}
+  .adm-sheet.activo{transform:translateY(0);transition-duration:var(--t-sheet-in)}
   .adm-sheet-agarre{width:36px;height:4px;margin:2px auto 12px;border-radius:var(--radius-pill);background:var(--sc-border)}
   .adm-sheet-cab{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)}
   .adm-sheet-cab h2{margin:0;font-size:var(--t1);font-weight:600;letter-spacing:-.02em;color:var(--sc-text)}
@@ -5765,7 +5777,10 @@ $CUENTAS = [
     border-radius:var(--radius-lg);
     border:0;background:transparent;color:var(--sc-text);text-decoration:none;
     font-family:inherit;font-size:var(--t2);font-weight:500;cursor:pointer;
+    transition:transform var(--t-press) var(--ease-out);
   }
+  /* Los dos enlaces de «Salir» tienen la misma pinta que sus hermanos <button> y responden igual. */
+  a.adm-nav-item:active,a.adm-sheet-item:active{transform:scale(.97)}
   .adm-sheet-item svg{width:17px;height:17px;flex:none;color:var(--sc-text-2)}
   .adm-sheet-item:hover{background:var(--sc-hover-bg)}
   .adm-sheet-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
@@ -5875,7 +5890,7 @@ $CUENTAS = [
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
   @media (hover:hover){
-    .adm-kpis .adm-kpi{transition:border-color 160ms var(--ease-out),box-shadow 160ms var(--ease-out)}
+    .adm-kpis .adm-kpi{transition:border-color var(--t-fast) var(--ease-out)}
     .adm-kpis .adm-kpi:hover{border-color:var(--sc-input-border)}
   }
   /* Elegida: filete naranja, pastilla en solido y un acento corto arriba a la izquierda. El
@@ -6400,7 +6415,7 @@ $CUENTAS = [
     display:flex;align-items:center;justify-content:center;
     border:0;border-radius:var(--radius-lg);background:transparent;
     color:var(--sc-text-2);opacity:.75;cursor:pointer;
-    transition:opacity var(--t-fast) ease,color var(--t-fast) ease,background-color var(--t-fast) ease;
+    transition:opacity var(--t-fast) ease,color var(--t-fast) ease,background-color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
   }
   .camara::before{
     content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;
@@ -6847,7 +6862,7 @@ $CUENTAS = [
     box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 9%,transparent);
   }
   @media (prefers-reduced-motion: no-preference){
-    .dt-baldosa{transition:background-color 200ms ease-out,box-shadow 200ms ease-out}
+    .dt-baldosa{transition:background-color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out)}
   }
   .dt-baldosa.tocando{
     background:color-mix(in srgb,var(--ink) 5%,var(--surface));
@@ -6869,7 +6884,7 @@ $CUENTAS = [
   .dt-lectura em{font-style:normal;font-size:12px;font-weight:600;margin-left:4px;opacity:.75}
   .dt-baldosa.tocando .dt-lectura{color:var(--ink);opacity:1}
   @media (prefers-reduced-motion: no-preference){
-    .dt-lectura{transition:color 200ms ease-out,opacity 200ms ease-out}
+    .dt-lectura{transition:color var(--t-fast) var(--ease-out),opacity var(--t-fast) var(--ease-out)}
   }
 
   /* ---- las barras ---- */
@@ -6885,8 +6900,8 @@ $CUENTAS = [
   .dt-barras.tocando .dt-b.viva i{background:var(--ink)}
   .dt-b.cero i{min-height:2px;background:color-mix(in srgb,var(--ink) 12%,transparent)}
   @media (prefers-reduced-motion: no-preference){
-    .dt-b i{transition:background-color 200ms ease-out}
-    .dt-b{animation:dt-sube 260ms cubic-bezier(.16,1,.3,1) backwards;
+    .dt-b i{transition:background-color var(--t-fast) var(--ease-out)}
+    .dt-b{animation:dt-sube 260ms var(--ease-out) backwards;
       animation-delay:calc(var(--i) * 6ms)}
   }
   @keyframes dt-sube{from{transform:scaleY(0);transform-origin:bottom}}
@@ -6908,7 +6923,7 @@ $CUENTAS = [
   .dt-b:nth-child(-n+3) .dt-globo{left:0;transform:none}
   .dt-b:nth-last-child(-n+3) .dt-globo{left:auto;right:0;transform:none}
   @media (prefers-reduced-motion: no-preference){
-    .dt-globo{transition:opacity 160ms ease-out,visibility 160ms}
+    .dt-globo{transition:opacity var(--t-fast) var(--ease-out),visibility var(--t-fast)}
   }
   /* ---- la tira pequena de cada baldosa ----
      Hereda todo de .dt-barras: mismo hueco, mismo redondeo, mismo color, misma entrada. Aqui
@@ -7307,7 +7322,7 @@ $CUENTAS = [
     font-size:var(--t2);line-height:1.4;
     pointer-events:auto;
     opacity:0;transform:translateY(12px) scale(.98);
-    transition:opacity 180ms var(--ease-out),transform 180ms var(--ease-out);
+    transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
   }
   .toast.is-in{opacity:1;transform:none}
   /* Variantes con significado: correcto, error, aviso y dato. Solo cambia el fondo — la
@@ -7327,9 +7342,26 @@ $CUENTAS = [
   .toast-x:hover,.toast-x:focus-visible{color:var(--surface);background:color-mix(in srgb,var(--surface) 12%,transparent);outline:none}
   @media (prefers-reduced-motion:reduce){ .toast{transform:none} .toast.is-in{transform:none} }
 
+  /* «Menos movimiento» quiere decir MENOS y mas suave, no cero: se quitan los desplazamientos y
+     las escalas y se conservan los fundidos de opacidad, que son los que dicen «algo ha
+     aparecido» o «algo se ha ido». Antes un comodin ponia TODAS las transiciones y animaciones
+     del panel a 1ms, incluido el fundido del toast que la regla de arriba conserva a proposito:
+     el aviso se volvia invisible en 1ms y seguia 199ms en pantalla recibiendo el puntero. */
   @media (prefers-reduced-motion:reduce){
-    *{transition-duration:1ms !important;animation-duration:1ms !important}
-    button:active,.tabs button:active{transform:none}
+    /* pulsacion: sin escala */
+    button:active,.adm-btn:active,.adm-pct:active,.adm-atajo:active,.adm-cal-nav:active,a.adm-nav-item:active,a.adm-sheet-item:active{transform:none}
+    /* interruptores y galones: sin recorrido */
+    .adm-tema-bola,.adm-sw-bola,.adm-vermas-chev,.adm-f-plega-v{transition:none}
+    /* el tooltip del riel se queda en su sitio y solo se funde */
+    .adm-nav-tooltip,
+    .adm-nav-item:hover .adm-nav-tooltip,
+    .adm-nav-item:focus-visible .adm-nav-tooltip{transform:translateY(-50%);transition:opacity var(--t-fast) var(--ease-out)}
+    /* la hoja «Mas» no sube: se funde en su sitio */
+    .adm-sheet{transform:none;opacity:0;visibility:hidden;transition:opacity var(--t-fast) var(--ease-out),visibility 0s linear var(--t-fast)}
+    .adm-sheet.activo{opacity:1;visibility:visible;transition:opacity var(--t-fast) var(--ease-out),visibility 0s}
+    /* globo de ayuda y foto del login: solo opacidad. adm-modal-fondo es el keyframe de
+       opacidad pura del velo, definido mas abajo en este mismo fichero. */
+    .adm-globo,.login-foto img{animation-name:adm-modal-fondo}
   }
 
   /* ==========================================================================
@@ -7650,7 +7682,7 @@ $CUENTAS = [
   /* Subiendo: el boton deja de invitar a pulsarlo y late despacio. */
   .adm-btn-archivo.esta-subiendo{
     pointer-events:none;color:var(--muted);
-    animation:adm-latido 1.4s var(--ease-out) infinite;
+    animation:adm-latido 1.4s ease-in-out infinite;
   }
   @keyframes adm-latido{0%,100%{opacity:1}50%{opacity:.55}}
   @media (prefers-reduced-motion:reduce){ .adm-btn-archivo.esta-subiendo{animation:none} }
@@ -7695,7 +7727,7 @@ $CUENTAS = [
     transition:border-color var(--t-press) var(--ease-out),background var(--t-press) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   .adm-atajo:hover{border-color:var(--sc-input-border);background:var(--sc-muted-bg)}
-  .adm-atajo:active{transform:scale(.99)}
+  .adm-atajo:active{transform:scale(.97)}
   .adm-atajo .ico{display:block;color:var(--sc-text-2);margin-bottom:var(--space-2)}
   .adm-atajo .ico svg{width:16px;height:16px;stroke-width:2}
   .adm-atajo .t{font-size:var(--t2);font-weight:600;line-height:1.25}
@@ -8042,7 +8074,7 @@ $CUENTAS = [
     border:1px solid var(--sc-border);border-radius:50%;background:var(--sc-surface);
     color:var(--sc-text-2);cursor:pointer;
     transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
-               opacity var(--t-fast) var(--ease-out);
+               opacity var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   .adm-secciones[data-rueda] .adm-secciones-flecha{display:grid}
   .adm-secciones-flecha svg{width:15px;height:15px;pointer-events:none}
@@ -8062,7 +8094,7 @@ $CUENTAS = [
     border:1px dashed var(--sc-border);border-radius:50%;background:transparent;
     color:var(--sc-text-2);cursor:pointer;
     transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
-               border-color var(--t-fast) var(--ease-out);
+               border-color var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   .adm-secciones-mas svg{width:15px;height:15px;pointer-events:none}
   .adm-secciones-mas:hover{background:var(--sc-muted-bg);color:var(--sc-text);border-color:var(--sc-input-border)}
@@ -8112,7 +8144,7 @@ $CUENTAS = [
   .adm-alta-fondo{
     position:absolute;inset:0;
     background:color-mix(in srgb, var(--sc-canvas) 72%, transparent);
-    animation:adm-modal-fondo var(--t-fast) var(--ease-out);
+    animation:adm-modal-fondo var(--t-modal-in) var(--ease-out);
   }
   .adm-alta-caja{
     /* Ancha para caber en dos columnas. Fue de 460 a 530 y de 530 a 760: el ancho no era un
@@ -8132,7 +8164,7 @@ $CUENTAS = [
     background:var(--sc-surface);border:1px solid var(--sc-border);
     border-radius:var(--radius-card);
     box-shadow:0 24px 64px color-mix(in srgb, var(--sc-canvas) 60%, transparent);
-    animation:adm-modal-caja var(--t-fast) var(--ease-out);
+    animation:adm-modal-caja var(--t-modal-in) var(--ease-out);
   }
   /* El h2 del panel viejo llega en versales apretadas de 12px: aqui es el titulo de la hoja
      y tiene que leerse como tal. Se dice todo a mano para no heredar nada de aquella regla. */
@@ -8437,9 +8469,6 @@ $CUENTAS = [
   html:not(.adm-con-js) .adm-alta-idi-panel[hidden]{display:grid}
   html:not(.adm-con-js) .adm-alta-x{display:none}
   @media (max-width:560px){ .adm-alta-fila{grid-template-columns:1fr} }
-  @media (prefers-reduced-motion:reduce){
-    .adm-alta-fondo,.adm-alta-caja{animation:none}
-  }
 
   /* ---- la confirmacion, con la cara del panel ----
      `confirm()` pinta el cuadro del NAVEGADOR: sale pegado a la barra de direcciones, arriba
@@ -8455,7 +8484,7 @@ $CUENTAS = [
   .adm-modal-fondo{
     position:absolute;inset:0;
     background:color-mix(in srgb, var(--sc-canvas) 72%, transparent);
-    animation:adm-modal-fondo var(--t-fast) var(--ease-out);
+    animation:adm-modal-fondo var(--t-modal-in) var(--ease-out);
   }
   .adm-modal-caja{
     position:relative;width:min(420px,100%);max-height:100%;overflow:auto;
@@ -8463,7 +8492,7 @@ $CUENTAS = [
     background:var(--sc-surface);border:1px solid var(--sc-border);
     border-radius:var(--radius-card);
     box-shadow:0 24px 64px color-mix(in srgb, var(--sc-canvas) 60%, transparent);
-    animation:adm-modal-caja var(--t-fast) var(--ease-out);
+    animation:adm-modal-caja var(--t-modal-in) var(--ease-out);
   }
   .adm-modal-t{
     margin:0;font-family:inherit;font-size:var(--t1);font-weight:600;line-height:1.3;
@@ -8487,8 +8516,19 @@ $CUENTAS = [
   }
   @keyframes adm-modal-fondo{from{opacity:0}to{opacity:1}}
   @keyframes adm-modal-caja{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  /* La salida: el mismo camino a la inversa, mas corta, y con la misma curva de salida (no se
+     usa animation-direction:reverse porque invertiria tambien la curva). `forwards` sostiene el
+     ultimo fotograma hasta que el JS pone hidden. Mientras se va, la capa no recibe el puntero:
+     un segundo clic sobre un boton que se esta yendo no puede hacer nada. */
+  @keyframes adm-modal-fondo-fuera{to{opacity:0}}
+  @keyframes adm-modal-caja-fuera{to{opacity:0;transform:translateY(8px) scale(.98)}}
+  .adm-modal[data-cerrando],.adm-alta[data-cerrando]{pointer-events:none}
+  .adm-modal[data-cerrando] .adm-modal-fondo,.adm-alta[data-cerrando] .adm-alta-fondo{animation:adm-modal-fondo-fuera var(--t-modal-out) var(--ease-out) forwards}
+  .adm-modal[data-cerrando] .adm-modal-caja,.adm-alta[data-cerrando] .adm-alta-caja{animation:adm-modal-caja-fuera var(--t-modal-out) var(--ease-out) forwards}
   @media (prefers-reduced-motion:reduce){
-    .adm-modal-fondo,.adm-modal-caja{animation:none}
+    /* el velo se sigue fundiendo (es opacidad pura); la caja pierde el desplazamiento y la escala */
+    .adm-modal-caja,.adm-alta-caja{animation-name:adm-modal-fondo}
+    .adm-modal[data-cerrando] .adm-modal-caja,.adm-alta[data-cerrando] .adm-alta-caja{animation-name:adm-modal-fondo-fuera}
   }
 
   /* ---- renombrar la categoria ----
@@ -8576,7 +8616,7 @@ $CUENTAS = [
     border:0;border-radius:50%;background:var(--sc-muted-bg);color:var(--sc-text-2);
     display:grid;place-items:center;cursor:pointer;opacity:.6;
     transition:opacity var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),
-               background var(--t-fast) var(--ease-out);
+               background var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   /* El hueco tocable: 32 de ancho para no pisar al de al lado, 44 de alto. */
   .adm-orden-b::before{
@@ -8624,7 +8664,7 @@ $CUENTAS = [
     flex:none;width:28px;height:28px;min-height:0;padding:0;
     border:0;border-radius:var(--radius-md);background:transparent;color:var(--sc-text-2);
     display:grid;place-items:center;cursor:pointer;opacity:.45;
-    transition:opacity var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+    transition:opacity var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   .adm-retirar-b svg{width:15px;height:15px;pointer-events:none}
   .adm-platorow:hover .adm-retirar-b,
@@ -9441,7 +9481,7 @@ $CUENTAS = [
     width:40px;height:40px;min-height:0;flex:none;padding:0;border:0;border-radius:9px;
     background:transparent;color:var(--muted);
     display:grid;place-items:center;cursor:pointer;
-    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
+    transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
   .adm-foto-b svg{width:18px;height:18px}
   .adm-foto-b:hover:not(:disabled){background:var(--surface);color:var(--ink)}
@@ -9553,7 +9593,7 @@ $CUENTAS = [
      anotadas — la regla genérica que gana en silencio. */
   .adm-f-plega-v{
     flex:none;width:20px;height:20px;display:grid;place-items:center;color:var(--sc-text-2);
-    transition:transform var(--t-press) var(--ease-out);
+    transition:transform var(--t-fast) var(--ease-out);
   }
   /* `.der` sólo está definido como hijo de `.adm-f-cab`, y en el resumen no hay cabecera. */
   .adm-f-plega > summary .der{flex:none;display:flex;align-items:center;gap:var(--space-2)}
@@ -9897,14 +9937,39 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       warn: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
       info: '<path d="M12 16v-4"/><path d="M12 8h.01"/><circle cx="12" cy="12" r="10"/>'
     };
+    /* La pila se recoloca deslizando, no a saltos: se apunta donde estaba cada aviso vivo, se
+       quita el que se va, y se devuelve a los demas a su sitio de antes con una transformacion
+       sin transicion que se retira en el siguiente cuadro; la transicion de transform que
+       .toast ya tiene hace el resto. Es el mismo FLIP que las filas al reordenar. */
+    function recolocarToasts(caja, quitar) {
+      var vivos = [].slice.call(caja.querySelectorAll('.toast.is-in'));
+      var antes = vivos.map(function (v) { return v.getBoundingClientRect().top; });
+      quitar();
+      var despues = vivos.map(function (v) { return v.parentNode ? v.getBoundingClientRect().top : null; });
+      var mueven = [];
+      vivos.forEach(function (v, i) {
+        if (despues[i] === null) return;
+        var dy = antes[i] - despues[i];
+        if (!dy) return;
+        v.style.transition = 'none';
+        v.style.transform = 'translateY(' + dy + 'px)';
+        mueven.push(v);
+      });
+      if (!mueven.length) return;
+      requestAnimationFrame(function () {
+        mueven.forEach(function (v) { v.style.transition = ''; v.style.transform = ''; });
+      });
+    }
     window.toast = function (texto, tipo) {
       var caja = document.getElementById('toasts');
       if (!caja) return;
       var clase = TOAST_ICONOS[tipo] ? tipo : 'ok';
       var mal = clase === 'bad';
-      /* Tope de tres a la vista. */
-      var vivos = caja.querySelectorAll('.toast');
-      for (var i = 0; i <= vivos.length - 3; i++) { if (vivos[i].parentNode) vivos[i].parentNode.removeChild(vivos[i]); }
+      /* Tope de tres a la vista: el cuarto echa al mas viejo, y lo echa por la puerta, con su
+         salida, no borrandolo en seco. Solo cuentan los que estan dentro (is-in): uno que ya
+         se esta yendo no ocupa plaza. */
+      var vivos = caja.querySelectorAll('.toast.is-in');
+      for (var i = 0; i <= vivos.length - 3; i++) { if (vivos[i]._fuera) vivos[i]._fuera(); }
       var t = document.createElement('div');
       t.className = 'toast ' + clase;
       t.setAttribute('role', mal ? 'alert' : 'status');
@@ -9917,9 +9982,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       void t.offsetHeight;
       t.classList.add('is-in');
       var fuera = function () {
+        if (t._saliendo) return;
+        t._saliendo = true;
         t.classList.remove('is-in');
-        setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 200);
+        /* 200 > 180 de la transicion: respaldo, no duracion. */
+        setTimeout(function () {
+          if (!t.parentNode) return;
+          recolocarToasts(caja, function () { t.parentNode.removeChild(t); });
+        }, 200);
       };
+      t._fuera = fuera;
       t.querySelector('.toast-x').addEventListener('click', fuera);
       if (!mal) setTimeout(fuera, 3000);
       return t;
@@ -11459,22 +11531,30 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             var filas = filasDe(ficha);
             var antes = filas.map(function (f) { return f.getBoundingClientRect(); });
             cambiar();
+            /* Todas las medidas nuevas ANTES de escribir nada: leer y escribir alternando
+               obliga a un layout por fila. */
+            var despues = filas.map(function (f) { return f.getBoundingClientRect(); });
             var mueven = [];
             filas.forEach(function (f, i) {
-              var b = f.getBoundingClientRect();
-              var dx = antes[i].left - b.left;
-              var dy = antes[i].top - b.top;
+              var dx = antes[i].left - despues[i].left;
+              var dy = antes[i].top - despues[i].top;
               if (!dx && !dy) return;
+              /* Si esta fila aun tiene pendiente el remate de un movimiento anterior, se cancela:
+                 en rafaga, ese remate caia en mitad de la transicion nueva y la cortaba a saltos. */
+              clearTimeout(f._deslizaT);
               f.removeAttribute('data-deslizando');
               f.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
               mueven.push(f);
             });
             if (!mueven.length) return;
             requestAnimationFrame(function () {
-              mueven.forEach(function (f) { f.setAttribute('data-deslizando', ''); f.style.transform = ''; });
-              setTimeout(function () {
-                mueven.forEach(function (f) { f.removeAttribute('data-deslizando'); f.style.transform = ''; });
-              }, 220);
+              mueven.forEach(function (f) {
+                f.setAttribute('data-deslizando', '');
+                f.style.transform = '';
+                f._deslizaT = setTimeout(function () {
+                  f.removeAttribute('data-deslizando'); f.style.transform = '';
+                }, 220);
+              });
             });
           }
 
@@ -15204,6 +15284,34 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 <?php if ($dentro): ?>
 <div id="adm-ayudas"></div>
 <script>
+  /* ---- cerrar con salida ----
+     Pone data-cerrando, deja que la CSS anime la salida y solo entonces esconde. Con «menos
+     movimiento» la salida es un fundido de opacidad y termina igual; si por lo que sea no llega
+     ningun animationend (sin JS de animaciones, una CSS que alguien apago), el temporizador de
+     respaldo esconde de todas formas. Abrir cancela un cierre a medias. */
+  function admCerrarConSalida(capa) {
+    if (!capa || capa.hidden || capa.hasAttribute('data-cerrando')) return;
+    var hecho = false;
+    function fin() {
+      if (hecho) return;
+      hecho = true;
+      clearTimeout(capa._cerrandoT);
+      capa.removeEventListener('animationend', fin);
+      capa.removeAttribute('data-cerrando');
+      capa.hidden = true;
+    }
+    capa.setAttribute('data-cerrando', '');
+    capa.addEventListener('animationend', fin);
+    capa._cerrandoT = setTimeout(fin, 300);
+  }
+  function admAbrirCancelandoSalida(capa) {
+    if (!capa) return;
+    if (capa.hasAttribute('data-cerrando')) {
+      clearTimeout(capa._cerrandoT);
+      capa.removeAttribute('data-cerrando');
+    }
+    capa.hidden = false;
+  }
 (function () {
 
   /* ------------------------------------------- las acciones de fuera de la caja
@@ -15428,7 +15536,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       location.replace(location.pathname + location.search);
       return;
     }
-    relleno.style.width = (quedan / TOTAL * 100).toFixed(2) + '%';
+    relleno.style.transform = 'translateX(-' + (100 - quedan / TOTAL * 100).toFixed(2) + '%)';
     var min = Math.ceil(quedan / 60);
     barra.setAttribute('aria-valuenow', String(min));
     if (texto) {
@@ -15584,7 +15692,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
   function cerrar() {
     if (!hoja) return;
-    hoja.hidden = true;
+    admCerrarConSalida(hoja);
     if (devolverFoco && document.contains(devolverFoco)) devolverFoco.focus();
     devolverFoco = null;
   }
@@ -15595,7 +15703,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     var cual = desde && desde.getAttribute('data-alta-cat');
     if (cual && cat) cat.value = cual;
     pintarRuta();
-    hoja.hidden = false;
+    admAbrirCancelandoSalida(hoja);
     /* El foco al primer campo que hay que escribir, no al desplegable: si se ha entrado por
        el `+` de una ficha, la categoria ya esta elegida y volver a ella es un paso de mas. */
     var visible = caja.querySelector('.adm-alta-idi-panel:not([hidden]) input[type="text"]');
@@ -15800,7 +15908,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   var devolverFoco = null;
   function cerrar() {
     if (!hoja) return;
-    hoja.hidden = true;
+    admCerrarConSalida(hoja);
     if (devolverFoco && document.contains(devolverFoco)) devolverFoco.focus();
     devolverFoco = null;
   }
@@ -15813,7 +15921,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     hoja = hoja || document.getElementById('adm-seccion');
     if (!hoja) return;
     devolverFoco = b;
-    hoja.hidden = false;
+    admAbrirCancelandoSalida(hoja);
     var primero = hoja.querySelector('input[type="text"]');
     if (primero) primero.focus();
   });
@@ -15855,7 +15963,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   }
 
   function cerrar() {
-    if (capa) capa.hidden = true;
+    admCerrarConSalida(capa);
     alSi = null;
     if (devolverFoco && document.contains(devolverFoco)) devolverFoco.focus();
     devolverFoco = null;
@@ -15871,7 +15979,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     si.textContent = op.si || 'Aceptar';
     if (op.tono) capa.setAttribute('data-tono', op.tono); else capa.removeAttribute('data-tono');
     alSi = alAceptar;
-    capa.hidden = false;
+    admAbrirCancelandoSalida(capa);
     /* El foco arranca en Cancelar cuando lo que se pregunta quita algo: un Enter de mas no
        puede ser lo que retire un plato. */
     (op.tono === 'peligro' ? noes[noes.length - 1] : si).focus();
