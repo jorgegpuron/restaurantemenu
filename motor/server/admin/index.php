@@ -5071,6 +5071,14 @@ $CUENTAS = [
     .card-main{padding:var(--space-5)}
   }
 
+  /* En móvil el ancho útil es el recurso escaso: página y tarjeta sumaban 35px por lado
+     antes del grid. Se reduce solo el relleno horizontal y solo con sesión, manteniendo el
+     aire vertical, el borde y el relleno propio de cada ficha. */
+  @media (max-width:699px){
+    body:not(.sin-entrar) .page{padding-left:var(--space-2);padding-right:var(--space-2)}
+    body:not(.sin-entrar) .card-main{padding-left:var(--space-2);padding-right:var(--space-2)}
+  }
+
   /* La pagina, mas oscura que la tarjeta: la tarjeta tiene que levantarse del fondo. */
   body:has(.card-main){background:var(--sc-canvas)}
 
@@ -8325,14 +8333,16 @@ $CUENTAS = [
   .adm-secciones-tira{
     flex:1 1 auto;min-width:0;
     display:flex;align-items:center;gap:var(--space-2);
-    overflow-x:clip;overflow-y:visible;
+    overflow-x:auto;overflow-y:visible;scrollbar-width:none;
+    scroll-behavior:smooth;overscroll-behavior-inline:contain;touch-action:pan-x;
   }
+  .adm-secciones-tira::-webkit-scrollbar{display:none}
   .adm-secciones-tira > .adm-pestana[hidden]{display:none}
   /* SOLO cuando pagina: entonces es cuando sobra sitio a la derecha —lo que cabe entero no
      llena la fila— y ese hueco, pegado a la flecha, se lee como que algo falta. Repartido
      entre los chips que se ven, la fila queda llena de borde a borde. Si no pagina, caben
      todas y no hay nada que repartir: se quedan juntas a la izquierda, como siempre. */
-  .adm-secciones[data-rueda] .adm-secciones-tira{justify-content:space-between}
+  .adm-secciones[data-rueda] .adm-secciones-tira{justify-content:flex-start}
   /* Los manejadores. Solo aparecen si de verdad hay algo que rodar —lo decide el script— y
      se apagan al llegar al extremo: un boton que no puede hacer nada tiene que decirlo. */
   .adm-secciones-flecha{
@@ -11948,36 +11958,18 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           }
 
           function pintar() {
-            if (!anchos) medir();
-            if (desde > chips.length - 1) desde = chips.length - 1;
-            if (desde < 0) desde = 0;
-            /* Primero se decide SI hacen falta los manejadores, y solo despues se mide cuantas
-               caben. Al reves —que era como estaba— se mide con la tira ancha, sin manejadores,
-               salen ocho, y al encenderlos la tira se estrecha 72px y la ultima se queda
-               cortada por el borde: exactamente el corte que no puede haber. */
-            var total = anchos.reduce(function (a, b) { return a + b; }, 0)
-                      + hueco * Math.max(0, anchos.length - 1);
-            caja.removeAttribute('data-rueda');
-            var cabenTodas = total <= tira.clientWidth + 0.5;
-            if (!cabenTodas) caja.setAttribute('data-rueda', '');
-            if (cabenTodas) desde = 0;
-            var n = cabenTodas ? chips.length : cabenDesde(desde);
-            /* Si al final sobra sitio, se retrocede para no dejar hueco a la derecha. */
-            while (!cabenTodas && desde > 0 && cabenDesde(desde - 1) >= n + 1) { desde--; n = cabenDesde(desde); }
-            chips.forEach(function (c, i) { c.hidden = (i < desde || i >= desde + n); });
-            /* Red de seguridad: si el ultimo que se ha enseñado se sale por el borde —una
-               medida vieja, una fuente que acaba de cargar—, se apaga. La regla de esta tira
-               es que no se ve media seccion, y eso se comprueba con la caja de verdad, no con
-               la cuenta que se hizo antes. */
-            for (var t = desde + n - 1; t > desde; t--) {
-              var rb = chips[t].getBoundingClientRect();
-              if (rb.right <= tira.getBoundingClientRect().right + 0.5) break;
-              chips[t].hidden = true; n--;
-            }
-            var hayMas = desde + n < chips.length;
-            izq.disabled = desde === 0;
-            der.disabled = !hayMas;
-            voz.textContent = 'Secciones ' + (desde + 1) + ' a ' + (desde + n) + ' de ' + chips.length + '.';
+            /* La tira es un carrusel nativo: todas las secciones siguen en el DOM y el dedo
+               desplaza horizontalmente sin paginar ni esconder chips. Así no aparecen huecos
+               artificiales ni secciones que dejan de cargar cuando cambia el ancho. */
+            chips.forEach(function (c) { c.hidden = false; });
+            var desplazable = tira.scrollWidth > tira.clientWidth + 1;
+            if (desplazable) caja.setAttribute('data-rueda', '');
+            else caja.removeAttribute('data-rueda');
+            izq.disabled = tira.scrollLeft <= 1;
+            der.disabled = tira.scrollLeft + tira.clientWidth >= tira.scrollWidth - 1;
+            voz.textContent = desplazable
+              ? 'Secciones desplazables: ' + chips.length + ' disponibles.'
+              : 'Secciones: ' + chips.length + '.';
           }
 
           var voz = document.createElement('span');
@@ -11986,9 +11978,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           voz.setAttribute('aria-live', 'polite');
           caja.appendChild(voz);
 
-          izq.addEventListener('click', function () { desde = Math.max(0, desde - cabenDesde(desde)); pintar(); });
-          der.addEventListener('click', function () { desde = Math.min(chips.length - 1, desde + cabenDesde(desde)); pintar(); });
+          izq.addEventListener('click', function () { tira.scrollBy({ left: -Math.max(160, tira.clientWidth * .8), behavior: 'smooth' }); });
+          der.addEventListener('click', function () { tira.scrollBy({ left: Math.max(160, tira.clientWidth * .8), behavior: 'smooth' }); });
+          tira.addEventListener('scroll', pintar, { passive: true });
           window.addEventListener('resize', function () { anchos = null; pintar(); });
+          if (document.fonts && document.fonts.ready) document.fonts.ready.then(pintar);
           pintar();
         }());
 

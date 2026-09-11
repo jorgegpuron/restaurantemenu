@@ -5285,3 +5285,11 @@ campos no pueden crecer más allá del ancho de su tarjeta en móvil.
 En la ficha de Nombre, el campo visible se rotula «Texto pequeño» con su límite breve. En Fotos,
 el selector y «Subir» permanecen en una sola fila flexible en móvil para evitar una acción aislada
 debajo del selector.
+
+En móvil con sesión, el tablero reduce el relleno horizontal exterior a 8 px por capa (página y
+tarjeta), dejando unos 17 px por lado hasta el grid. El relleno interno de cada ficha y el aire
+vertical se mantienen; el login y el escritorio no cambian.
+
+La tira de secciones de Platos conserva todas las pestañas en el DOM y usa desplazamiento
+horizontal nativo con el dedo, rueda, teclado y flechas. Los controles solo aparecen cuando el
+contenido desborda y nunca se ocultan pestañas para fabricar páginas o huecos.
