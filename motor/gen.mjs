@@ -3054,7 +3054,12 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Vegano / sin gluten: mismo .item-tag, color invertido -- fondo naranja lo lleva el
    destacado, este lleva el fondo oscuro con el texto en el naranja de marca. Un vistazo
    basta para no confundirlos. Los dos comparten esta paleta; solo cambia el texto. */
-.item-tag-diet{background:var(--badge-ink);color:var(--accent);border:1px solid var(--accent)}
+/* padding:0 6px, no el 1 7px de .item-tag: el borde de 1px se come exactamente el pixel
+   que le sobra a cada lado (arriba/abajo y a los lados), asi que la caja mide igual que la
+   de destacado -- 18px de alto, medido -- en vez de 20. auto-size no reparte por si solo el
+   borde dentro del padding aunque box-sizing sea border-box: eso solo pasa con un ancho/alto
+   explicito, y aqui lo decide el contenido. */
+.item-tag-diet{background:var(--badge-ink);color:var(--accent);border:1px solid var(--accent);padding:0 6px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.

@@ -17,8 +17,18 @@ color:var(--accent)}` — exactamente los dos colores de `.item-tag`/`.item-tag-
 al revés. Vegano y sin gluten comparten esta misma paleta; se diferencian solo por el texto,
 decidido con el propietario antes de implementar. Añadido después, a la vista del resultado:
 `border:1px solid var(--accent)` — sin esto el badge se leía plano contra el fondo claro de
-la tarjeta; el borde lo recorta del mismo naranja que ya lleva el texto. `box-sizing:border-box`
-es global (línea ~1584), así que el borde no mueve nada alrededor.
+la tarjeta; el borde lo recorta del mismo naranja que ya lleva el texto.
+
+**El borde por sí solo desencajaba el tamaño: 20px de alto contra los 18 de destacado.**
+`box-sizing:border-box` es global (línea ~1584), pero eso sólo reparte padding/borde DENTRO
+de un ancho o alto ya fijado explícitamente — aquí ninguno de los dos existe, la caja crece
+con el contenido (`line-height` + padding), así que el borde nuevo simplemente se suma por
+fuera. Medido con `getBoundingClientRect`: `.item-tag-high` (destacado, sin borde) 18px de
+alto con `padding:1px 7px`; `.item-tag-diet` con el borde sin más, 20px. Corregido bajando el
+padding a `0 6px` — el borde de 1px se come exactamente el píxel que sobra a cada lado (arriba,
+abajo y a los dos costados) — y las dos vuelven a medir 18px de alto y el mismo tamaño de
+letra (12px); el ancho difiere solo por el largo del texto («Vegan» contra «New»), que es lo
+que tiene que pasar.
 
 **Las clases `diet`/`diet-vegan`/`diet-gf` y el envoltorio `diet-marks` se conservan tal cual,
 sin CSS propio.** No son solo del render: el índice de búsqueda del buscador cuenta
