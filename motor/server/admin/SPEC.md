@@ -42,6 +42,12 @@ encima de la tarjeta clara; la columna del QR vive fuera de la tarjeta, directam
 fondo de la página. Corregido a `color:var(--surface)` (el tono claro de la propia tarjeta),
 confirmado con `getComputedStyle`: texto `rgb(246,244,244)` sobre fondo `rgb(18,18,18)`.
 
+**La columna quedaba 11px más abajo que el hero.** `top:40px` del `position:sticky` era un
+número puesto a ojo; medido con `getBoundingClientRect` en un navegador real (con foto de
+portada subida), el marco del hero (`.hero-frame`) arranca en `y=29`, no en `y=40` — la
+sección tiene 21px de margen propio más 8px del envoltorio interno. Corregido a `top:29px`:
+las dos cajas arrancan en el mismo `y` ahora, verificado con la misma medida.
+
 **Sin QR subido, no hay columna ni hueco.** Dos guardas independientes y no una: el `<aside>`
 nace con `hidden` en el HTML y sólo se le quita cuando `aplicarQR()` —parte de
 `motor/gen.mjs`, runtime de la carta— ve `marca.qrArchivo` con contenido; y `.carta-qr-col`

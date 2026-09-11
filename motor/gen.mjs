@@ -4216,7 +4216,11 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
     width:260px;
     flex:0 0 260px;
     position:sticky;
-    top:40px;
+    /* 29px, no un numero redondo: es donde arranca de verdad el marco del hero
+       (.hero-frame), medido con getBoundingClientRect en un navegador real -- la seccion
+       tiene 21 de margen mas 8 del envoltorio interno. Con 40 el QR quedaba 11px mas abajo
+       que la foto, visible a ojo. */
+    top:29px;
     text-align:center;
   }
   .carta-qr-img{
