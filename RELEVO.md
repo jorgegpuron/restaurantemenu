@@ -5,8 +5,9 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **10 sep 2026, noche** · **Siete cambios en producción en un día, tres
-> sesiones de Claude sobre un solo árbol, la batería `full` limpia y nada pendiente de confirmar.**
+> Última actualización: **11 sep 2026, tarde** · **Los días de Ofertas ya caben a 320px,
+> desplegado y verificado en producción. Dos pruebas quedan documentadas en tensión con el
+> diseño nuevo, a la espera de que alguien las actualice.**
 
 ---
 
@@ -14,77 +15,91 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 
 **Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`)
 
-- **`main` = `origin/main` = el commit que lleva este RELEVO**, encima de **`0c1eada`**, que es lo
-  que **sirve producción** (build `1789077974161`, run 34535710843, FTPS real, «Deleting 0 B»,
-  verificado desde fuera: `version.json`, carta, juego, panel con login, 404). El RELEVO no se
-  sirve. `DESPLIEGUE_REAL` está en `false`.
-- Lo que entró hoy, en orden, cada paso con orden expresa del propietario en el chat de la
-  sesión que lo hizo: `8466389` el movimiento del panel (ocho ajustes) · `2389f41` responsive
-  R1/R2 · `7e1ab56` la fila de Platos en columnas fijas en tablet, con menú «⋯» · `3800774`
-  dos esperas fijas de QA · `8d183a1` responsive R3/R4, KPI a cuatro columnas en tablet y la
-  nota fiscal a 12 px · `53c853a` **la fila de Platos en móvil en dos líneas** (nombre hasta
-  dos líneas, cabecera de categoría en una y pegada con `overflow:clip`, fila de 88/98 frente a
-  105) · `0c1eada` **el suelo tipográfico de la carta a 12 px** (etiquetas y marca de agotado)
-  con la prueba `CAR-23`, que fabrica el caso y no puede pasar en vacío.
-- Última `full` completa, sobre `0c1eada`: **731 PASS · 0 FAIL · 2 BLOCKED aprobados (MC-32,
-  MC-33) · 3 NO APLICA · 4 KNOWN OPEN · 0 UNEXPECTED**.
-- Árbol limpio. **Una sola rama, `main`, en local y en GitHub**: las quince ramas de trabajo
-  (todas integradas) se borraron con OK del propietario, las remotas incluidas.
-- `motor.lock` cuadra. `2-subir` es un build local de `0c1eada` (otro sello que el de producción:
-  el runner compila el suyo; contenido idéntico).
+- **`main` = `origin/main` = producción**, los tres en **`f5700ea`** — build `1789147237565`,
+  FTPS real, `Uploading: 0 B · Deleting: 0 B · Replacing: 1.6 MB`, verificado desde fuera:
+  `version.json`, carta, ES/EN/DE, juego, panel con login (no filtra nada sin clave), 404 real.
+  `DESPLIEGUE_REAL` en `false`.
+- Lo que entró hoy: siete commits de sesiones anteriores (movimiento del panel, responsive
+  R1-R4, rejilla de tablet, fila de móvil, suelo tipográfico a 12px, alineación de destacados y
+  días circulares) y, al cierre de esta sesión, **`f5700ea` fix: los días de Ofertas caben a
+  320px** — ver «Qué se hizo» abajo.
+- Árbol limpio salvo `.ai/`, sin versionar: relevo entre agentes de la sesión de hoy (Codex +
+  Claude Code en el otro ordenador). No es del producto; se queda hasta que se decida borrarlo.
+- Queda la rama `fix/ofertas-dias-320` sin borrar (ya integrada en `main` por fast-forward): no
+  se borró por no tener un OK expreso para eso en concreto.
 
 ## Qué se hizo, y qué falta
 
-Medidas y razones en **`motor/server/admin/SPEC.md`** (movimiento, responsive R1-R4, rejilla de
-tablet, fila de móvil) y en el **`SPEC.md` de la raíz** (suelo de 12 px de la carta, nota fiscal).
-Los planes de movimiento y su herramienta viven en `tinge_of_turmeric/plans/`, fuera del repo.
+Al abrir la sesión había un cambio **sin commit** en `main` mismo (sin rama): un encargo del
+propietario a Codex —el wrapper de Claude Code falló ahí con `Connection refused`— para
+arreglar la ficha «La oferta» (bloque Descuento montándose, días que debían ser círculos en una
+sola fila). Codex lo dejó funcionando en apariencia pero con **CSS apilado en vez de corregido
+en el origen**, con dos defectos reales: un bloque `@media(901px)` duplicado dos veces
+verbatim, y los siete días con diámetro **fijo** de 36px — cabía de sobra en tablet/escritorio
+pero desbordaba la ficha 18px a 320px (`E2E-OFR-01-320`, y ese desborde de página arrastraba
+otras 16 pruebas no relacionadas).
 
-**Falta (nada bloquea; cada cosa pide su orden):**
+Se pasó por `nueva-funcion` completo: DISEÑO → IMPLEMENTACIÓN → AUDITORÍA → COMMIT →
+INTEGRACIÓN → PUSH SEGURO/ensayo → PRODUCCIÓN → CERRADA, con autorización expresa del
+propietario en cada compuerta. La corrección mantiene el círculo pedido pero con diámetro
+**elástico** (`flex:1 1 0; max-width:40px; aspect-ratio:1`, tope igualado a la altura de
+«Semanal»): cabe en cualquier ancho por construcción. Medidas y razones completas en
+`motor/server/admin/SPEC.md`, sección «Los días vuelven a ser círculos, pero con diámetro
+elástico».
 
-- **El clon de QA no se parece a producción en los estados que importan** (sin platos con
-  etiqueta, sin agotados): causa raíz de que tres veces hoy se afirmara «éste es el único caso»
-  y hubiera otro. Poblarlo con esos estados. Un `SPAN.i18n @11px` visto una vez y no reproducido
-  saldrá por `CAR-23` con nombre y ancestros si vuelve.
-- Auditoría móvil del panel (13/20, en el temporal de la sesión coordinadora): contraste no
-  textual (botón de peligro, anillo de foco, pista del interruptor), `viewport-fit=cover`,
-  `<main>`, tira de secciones de un chip por página, sheet «Más» (75vh, sin bloqueo de scroll).
-- Anchos táctiles del panel por debajo de 44 (cada uno con su tope medido en SPEC); el
-  `white-space:nowrap` de la etiqueta de la carta se sale a 320 desde ~19 caracteres (Tinge
-  llega a 16); seis esperas fijas más en `admin-e2e.mjs`; CSS sin marcado (`.tabs*`, `.switch*`,
-  `.foto-btn`, `.combo*`, `.marca`); hallazgos LOW de movimiento en `plans/README.md`.
+**Falta, con dueño distinto de esta tarea:**
+
+- **`E2E-OFR-02` (diasPegados) y `E2E-RH-SEM-01` (filaPropia) miden el diseño ANTERIOR**
+  (segmentado que se toca borde con borde, Semanal siempre debajo de los días). Con círculos
+  separados y días+Semanal en la misma línea en escritorio —las dos cosas pedidas hoy por el
+  propietario— esas dos aserciones ya no pueden cumplirse por definición, no por descuido.
+  Actualizarlas toca `qa/suites/admin-e2e.mjs`, fuera de la allowlist de hoy: tarea aparte, con
+  su propia autorización.
+- **Dos fallos ajenos a esta tarea**, de commits de hoy anteriores a `84dcaca` (grids/iconos de
+  categorías, objetivos táctiles): `E2E-OFR-01-320` con el nombre del plato suelto a 86px
+  (exige 108) y `E2E-OFR-04-320/390` con objetivos táctiles insuficientes en los filtros de
+  «Platos sueltos». Ninguno de los dos toca `.adm-dia`; no se tocaron hoy.
+- Lo ya conocido de sesiones previas sigue igual: clon de QA sin estados con etiqueta/agotados,
+  auditoría móvil del panel (13/20), anchos táctiles bajo 44, seis esperas fijas más en
+  `admin-e2e.mjs`, CSS sin marcar (`.tabs*`, `.switch*`, `.foto-btn`, `.combo*`, `.marca`).
 
 ## Trampas pagadas hoy
 
-1. **Tres sesiones sobre UN árbol.** Una implementa, las otras sólo leen; integrar moviendo la
-   referencia (`git fetch . rama:main`) si hay batería corriendo; cada sesión exige la orden del
-   propietario **en su propio chat** (un aviso transmitido por otra sesión no vale, y está bien).
-2. **Editar un fichero con finales de línea mixtos (`motor/gen.mjs`) en modo texto lo normaliza
-   a LF**: 8.496 líneas de diff falso que `git diff --check` no ve. Escribir en binario y
-   comprobar con `git ls-files --eol` y `git diff --ignore-all-space --stat`.
-3. **«Éste es el único caso» medido sobre un estado que no contiene el caso.** La prueba tiene
-   que fabricar el caso y fallar si la muestra está vacía (`CAR-23`).
-4. **OneDrive hace desaparecer ficheros de `2-subir` un instante durante la batería**
-   (`FAST-13` rojo con `version.json` intacto). Repetir la pasada antes de creerlo.
-5. **Una prueba con espera fija o con igualdad exacta caduca sola.** Medir cuando pasa algo
-   (`esperarA()`, `getAnimations().finished`) y afirmar suelos, no valores declarados.
-6. **Filas de dos líneas: los halos táctiles de la línea 1 se comen los de la 2** con 6 px de
-   hueco; hacen falta 12. Y la cabecera pegada no funciona con `overflow:hidden`, sólo con `clip`.
-7. **El panel «Browser» de la app congela animaciones si está oculto**; `php -S` muere si se
-   borra su raíz; el build quita los comentarios CSS de `index.php` (anclar por código).
+1. **`DESPLIEGUE_REAL` estaba en `true` al llegar** —de un despliegue manual anterior de la
+   misma sesión de hoy, no de esta tarea—. El protocolo obliga a comprobarlo SIEMPRE antes de
+   empujar y nunca asumir `false`; si no lo está, parar y pedir instrucciones antes de tocarla.
+2. **«El último `@media` gana siempre» es una simplificación falsa.** Un mismo selector de días
+   estaba definido en tres sitios del fichero con especificidades distintas (una con
+   `.adm-regla >` de más, dos sin ella) y un bloque duplicado verbatim de otro. Reconstruir la
+   cascada a mano llevó a una conclusión equivocada dos veces; lo que la sacó de dudas fue medir
+   `getComputedStyle` en un navegador real, con y sin las reglas sospechosas.
+3. **El mismo bloque de días existe DOS VECES**: una vez sin condición y otra dentro de
+   `<?php if ($colorPrincipalOverride !== null): ?>` —el camino de CSS que se activa cuando el
+   restaurante tiene un color de marca guardado en el panel—. Un cliente con ese override activo
+   corre una hoja de estilos distinta; probar solo el estado por defecto no basta.
+4. **Un cambio de Codex puede ser una petición legítima del propietario, no un capricho.**
+   `84dcaca` (el commit de partida de hoy) ya pedía «días circulares» explícitamente, y
+   `.ai/CLAUDE_MISSION.txt` lo repetía. La primera propuesta de diseño de esta sesión iba a
+   deshacer eso sin darse cuenta; se corrigió a tiempo preguntando, no asumiendo.
+5. **`gen.mjs` rechaza compilar si `index.php` o `SPEC.md` cambian sin refirmar `motor.lock`
+   antes**: `node motor/lock.mjs --escribir` primero, siempre.
+6. **Imports ESM con ruta absoluta de Windows necesitan `file:///`**, no la ruta pelada
+   (`C:/...` a secas falla con `ERR_UNSUPPORTED_ESM_URL_SCHEME`).
 
 ## Servidor de revisión
 
 No vive en el repositorio. Copiar `2-subir` al temporal, poner `define('DEMO_SIN_CLAVE', true)`
 en `admin/config.php` **de la copia** y servir con `php -S 127.0.0.1:<puerto> -t <copia>
--d extension=gd -d extension=mbstring` (más `-d extension_dir=<ext de PHP>` con el PHP de winget).
-**Nunca servir `2-subir` directamente.** Receta completa en `plans/README.md`. Para móvil de
-verdad, Playwright con `isMobile` y `hasTouch`, no el panel de la app.
+-d extension=gd -d extension=mbstring -d extension_dir=<ext de PHP de winget>`. **Nunca servir
+`2-subir` directamente.** Para simular un cliente con color de marca propio: copiar
+`estado-EJEMPLO.json` a `estado.json` en la copia y ponerle `marca.colorPrincipal`. Para móvil
+de verdad, Playwright con `isMobile` y `hasTouch`, no el panel de la app.
 
 ## Herramientas
 
 `stitch` (MCP de Google, HTTP) en ámbito local de este workspace, en `C:\Users\sopor\.claude.json`
 (no viaja por OneDrive; la clave conviene rotarla). `gh` conectado como `jorgegpuron`.
-`.claude/launch.json` del workspace lleva entradas de vista previa (`tinge-admin-base`, `-planes`,
-`-tablet`, `-old`, `-movil`) que apuntan a copias temporales de sesiones concretas: si no
-existen, se recrean o se borran. Aviso por voz para esperas largas: `SAPI.SpVoice` con la voz
-«Microsoft Helena Desktop» (por COM; `System.Speech` falla con el dispositivo de audio).
+`.claude/launch.json` del workspace lleva entradas de vista previa que apuntan a copias
+temporales de sesiones concretas: si no existen, se recrean o se borran. Aviso por voz para
+esperas largas: `SAPI.SpVoice` con la voz «Microsoft Helena Desktop» (por COM; `System.Speech`
+falla con el dispositivo de audio).
