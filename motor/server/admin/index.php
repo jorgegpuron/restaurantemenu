@@ -9072,7 +9072,7 @@ $CUENTAS = [
   .adm-dia{
     flex:none;position:relative;width:36px;height:36px;
     display:grid;place-items:center;
-    border:0;border-radius:var(--radius-lg);background:var(--sc-muted-bg);
+    border:0;border-radius:50%;background:var(--sc-muted-bg);
     color:var(--sc-text-2);font-size:var(--t3);font-weight:600;cursor:pointer;
     transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
   }
@@ -9808,6 +9808,18 @@ $CUENTAS = [
      sitio a ninguna vecina por crecer, así que crece lo que le haga falta. */
   .adm-cat-bento-lista{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;padding:0 14px}
   .adm-cat-bento-lista:has(> .adm-cat-bento-col:nth-child(2):empty){grid-template-columns:1fr}
+  /* Al filtrar por Destacados/Agotados puede quedar vacía la primera columna aunque
+     la ficha siga teniendo filas visibles en la segunda. En ese caso la columna restante
+     vuelve a ocupar todo el ancho y no queda apiñada contra la derecha. */
+  @media (min-width:901px){
+    .adm-cat-bento-lista:has(> .adm-cat-bento-col:first-child .adm-orow:not([hidden])):not(:has(> .adm-cat-bento-col:nth-child(2) .adm-orow:not([hidden]))){
+      grid-template-columns:1fr;
+    }
+    .adm-cat-bento-lista:not(:has(> .adm-cat-bento-col:first-child .adm-orow:not([hidden]))):has(> .adm-cat-bento-col:nth-child(2) .adm-orow:not([hidden])){
+      grid-template-columns:1fr;
+    }
+    .adm-cat-bento-lista:not(:has(> .adm-cat-bento-col:first-child .adm-orow:not([hidden]))):has(> .adm-cat-bento-col:nth-child(2) .adm-orow:not([hidden])) > .adm-cat-bento-col:nth-child(2){grid-column:1}
+  }
 
   /* ---- tres por columna, y el resto detras del desplegable ----
      Se recorta por CSS y no quitando filas del HTML: los 312 platos siguen estando en el
