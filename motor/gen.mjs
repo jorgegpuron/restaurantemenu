@@ -3074,14 +3074,17 @@ html:not(.js) .lang-menu{position:static;display:block}
    anularlo aqui, solo para la que tiene otra pastilla de dieta justo detras. */
 .item-tag-diet:has(+ .item-tag-diet){margin-right:0}
 /* Regla unica de separacion entre badges: 4px siempre que uno vaya pegado a otro --
-   oferta+destacado, destacado+dieta, oferta+dieta si el destacado esta oculto entre medias --
-   en vez de los 8px normales, que son para separar el ultimo badge del NOMBRE del plato, no
-   badge de badge. Sin soporte de :has() se queda en 8px, que ya funcionaba antes de esto --
-   no empeora. Casos con destacado oculto pegando oferta a dieta con dos saltos de hermano
-   no se cubren aqui: raro (oferta activa sin ser New/Most loved y con marca de dieta) y no
-   es peor que antes de esta regla. */
+   oferta+destacado, destacado+dieta, cualquiera+agotado hoy -- en vez de los 8px normales,
+   que son para separar el ultimo badge del NOMBRE del plato, no badge de badge. .diet-marks
+   es un envoltorio sin margin propio, asi que cuando le sigue "agotado hoy" el hueco lo pone
+   SU ultima pastilla (:last-child dentro), vegano si va sola o sin-gluten si van las dos.
+   Sin soporte de :has() se queda en 8px, que ya funcionaba antes de esto -- no empeora.
+   Casos con destacado oculto pegando oferta a dieta o a agotado con dos saltos de hermano
+   no se cubren aqui: raro (oferta activa sin ser New/Most loved) y no es peor que antes. */
 .item-tag-offer:not([hidden]):has(+ .item-tag-high:not([hidden])),
-.item-tag:has(+ .diet-marks){margin-right:4px}
+.item-tag:has(+ .diet-marks),
+.item-tag:has(+ .sold-out-flag){margin-right:4px}
+.diet-marks:has(+ .sold-out-flag) .item-tag-diet:last-child{margin-right:4px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.
