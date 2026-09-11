@@ -570,10 +570,8 @@ export const ui = {
   'Close categories': 'Kategorien schließen',
   'Sauce': 'Sauce',
   'Ingredient': 'Zutat',
-  'Available vegan': 'Vegane Variante erhältlich',
-  'Available gluten free': 'Glutenfreie Variante erhältlich',
-  'These marks point to a version of the dish on our vegan or gluten-free menu.':
-    'Diese Zeichen verweisen auf eine Variante des Gerichts auf unserer veganen oder glutenfreien Karte.',
+  'Vegan': 'Vegan',
+  'Gluten free': 'Glutenfrei',
   'Allergen information': 'Allergeninformationen',
   'Allergens': 'Allergene',
   'Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo.':
@@ -631,8 +629,8 @@ export const ui = {
   'Lupin': 'Lupinen',
   'Molluscs': 'Weichtiere',
   'Allergies or intolerances?': 'Allergien oder Unverträglichkeiten?',
-  'Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.':
-    'Fragen Sie unser Personal nach den 14 Allergenen. Die Symbole für vegan und glutenfrei ersetzen diese Information nicht.',
+  'Ask our staff about the 14 allergens. The Vegan and Gluten free badges do not replace this information.':
+    'Fragen Sie unser Personal nach den 14 Allergenen. Die Kennzeichnungen Vegan und Glutenfrei ersetzen diese Information nicht.',
   'South Indian Restaurant Menu': 'Südindische Küche',
   'Bestseller': 'Bestseller',
   'Most loved': 'Liebling der Gäste',

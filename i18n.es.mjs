@@ -570,15 +570,10 @@ export const ui = {
   'Close categories': 'Cerrar categorías',
   'Sauce': 'Salsa',
   'Ingredient': 'Ingrediente',
-  /* "Available", not "is": the gluten-free and vegan lists are separate preparations at
-     their own prices, so the mark points to that version — it never claims the plate on
-     this line is free of anything. */
-  'Available vegan': 'Hay versión vegana',
-  'Available gluten free': 'Hay versión sin gluten',
-  /* The marks are a convenience, and the notice is the thing the establishment actually
-     relies on — so the notice is the one written plainly, and the marks say what they are not. */
-  'These marks point to a version of the dish on our vegan or gluten-free menu.':
-    'Estas marcas indican que existe una versión del plato en nuestra carta vegana o sin gluten.',
+  /* Texto del badge fijo, corto a propósito: mismo sitio que «destacado», mismo tamaño de
+     letra. Un plato puede llevar los dos si tiene versión vegana Y sin gluten. */
+  'Vegan': 'Vegano',
+  'Gluten free': 'Sin gluten',
   'Allergen information': 'Información sobre alérgenos',
   'Allergens': 'Alérgenos',
   'Classic sauces: Butter Masala, Tikka Masala, Korma, Kashmiri, Madras, Balti, Jalfrezi, Bhuna, Dopiaza, Curry, Dhansak, Saag, Kashmiri Rogan Josh. South Indian sauces: Kadai, Madras, Garlic Chilli, Hyderabadi Handi, Chettinad, Malabar Curry, Goan Vindaloo.':
@@ -636,8 +631,8 @@ export const ui = {
   'Lupin': 'Altramuces',
   'Molluscs': 'Moluscos',
   'Allergies or intolerances?': '¿Alergias o intolerancias?',
-  'Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.':
-    'Consulta al personal sobre los 14 alérgenos. Los iconos vegano y sin gluten no sustituyen esta información.',
+  'Ask our staff about the 14 allergens. The Vegan and Gluten free badges do not replace this information.':
+    'Consulta al personal sobre los 14 alérgenos. Las etiquetas Vegano y Sin gluten no sustituyen esta información.',
   'Tinge of Turmeric — Indian restaurant menu.': 'Tinge of Turmeric — carta de restaurante indio.',
   'South Indian Restaurant Menu': 'Cocina del Sur de India',
   'Bestseller': 'Más vendido',

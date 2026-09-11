@@ -1,3 +1,51 @@
+## Vegano / sin gluten: de icono a badge fijo, como destacado pero invertido (11 Sep 2026)
+
+Los platos con versión vegana o sin gluten dejan de llevar un icono pequeño sin texto (hoja /
+trigo tachado, 14×14, color de acento) después del nombre, y pasan a llevar un badge de
+píldora — la misma clase `.item-tag` que ya usa «destacado» — ANTES del nombre, junto al resto
+de etiquetas de la fila. Texto corto: «Vegan» / «Gluten free» (`Vegano`/`Sin gluten` en
+español, traducido como cualquier otro texto de `ui`).
+
+**La detección YA era automática y no se ha tocado.** `veganNames`/`gfNames` (motor/gen.mjs
+~1052-1058) comparan el nombre normalizado del plato contra las categorías cuyo nombre empieza
+por "Vegan"/"Gluten Free" — es la misma señal de siempre, «hay una versión de esto», no «esto
+es». No hay campo booleano por plato en `carta.json` y no hace falta crearlo: la categoría ya
+es la fuente. `motor/importar.mjs` no se toca.
+
+**Color invertido, no un color nuevo.** `.item-tag-diet{background:var(--badge-ink);
+color:var(--accent)}` — exactamente los dos colores de `.item-tag`/`.item-tag-high` (destacado)
+al revés. Vegano y sin gluten comparten esta misma paleta; se diferencian solo por el texto,
+decidido con el propietario antes de implementar.
+
+**Las clases `diet`/`diet-vegan`/`diet-gf` y el envoltorio `diet-marks` se conservan tal cual,
+sin CSS propio.** No son solo del render: el índice de búsqueda del buscador cuenta
+`.diet-vegan`/`.diet-gf` por fila para los contadores «Vegan 53 · Gluten Free 58»
+(motor/gen.mjs ~7138-7139), y `.diet-marks` se clona entero en la ficha de plato y en el
+resultado de búsqueda (~7570, ~7760) — cambiar de icono a badge sin tocar esos nombres de
+clase no les rompe nada. Verificado con los tres: los contadores del buscador siguen en
+53/58, y el badge se ve igual clonado.
+
+**Un efecto de mover el badge que no era obvio: `has-tags`.** La línea de etiquetas
+(`.item-tags`) sólo se enseña en móvil cuando el runtime pone `.has-tags` en la fila
+(motor/gen.mjs ~6122), y esa condición sólo miraba destacado/oferta —los dos vienen de
+`estado.json`—. El badge de dieta es del BUILD, no del runtime: sin ampliar esa condición,
+un plato que fuera SÓLO vegano se quedaba con la línea de etiquetas en `display:none` en
+móvil, invisible del todo. Añadido `|| !!row.querySelector('.diet-marks')`.
+
+**El atenuado de agotado usaba un selector de hijo directo** (`h3 > .diet-marks`) que dejó de
+cumplirse al mover el badge dentro de `.item-tags` (ya no es hijo directo del `h3`). Cambiado
+a descendiente. Verificado forzando `.is-sold-out` por JS: el envoltorio `.diet-marks` marca
+`opacity:0.45` — el hijo (`.item-tag-diet`) sigue leyendo `opacity:1` en su propio
+`getComputedStyle`, que es lo esperado: la opacidad no se hereda como valor, se compone
+visualmente por el padre.
+
+**La leyenda del pie que explicaba el icono se retira entera** (`legendaMarcas`,
+`hayMarcasDieta`, CSS `.legend-marks`/`.legend-item`/`.legend-caveat`) — un badge con su
+propio texto no necesita una leyenda aparte que lo explique, y así lo pidió el propietario.
+La leyenda de alérgenos se queda —es un aviso legal, no una explicación de icono— con una
+palabra corregida: decía «los iconos vegano y sin gluten no sustituyen esta información»,
+y ya no hay iconos.
+
 ## El QR de escritorio: la carta se congela a ancho de tablet y una columna al lado (11 Sep 2026)
 
 Vista de escritorio con QR para la carta pública. Por encima de **1400px** de ventana la carta

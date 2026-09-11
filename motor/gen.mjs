@@ -1057,12 +1057,6 @@ for (const g of GRUPOS_PLANOS) {
 }
 const isSpecialCat = (cat) => /^Gluten Free|^Vegan/.test(cat);
 
-/* ¿Este restaurante tiene carta vegana o sin gluten?
-
-   De esto depende que salga la leyenda que explica las dos marcas. Sin una sola carta especial
-   no hay ni una marca que explicar, y la leyenda le decia al comensal que buscara un simbolo que
-   no existe en ninguna pagina de la carta. */
-const hayMarcasDieta = veganNames.size > 0 || gfNames.size > 0;
 /* ¿Ha declarado alguien sus alergenos plato a plato? Se cuenta para el informe del build, no
    para decidir si el aviso del pie sale: ver la leyenda mas abajo. */
 const platosConAlergenos = GRUPOS_PLANOS
@@ -1076,19 +1070,26 @@ if (CLIENTE.alergenos.enOrigen === 'si' && platosConAlergenos === 0) {
 }
 
 const DIET_ICON = {
-  vegan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21c.5 -4.5 2.5 -8 7 -10"/><path d="M9 18c6.218 0 10.5 -3.288 11 -12v-2h-4.014c-9 0 -11.986 4 -12 9c0 1 0 3 2 5h3l.014 0"/></svg>',
   gf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M12 21.5v-3.75"/><path d="M5.916 9.49l-.43 1.604c-.712 2.659 .866 5.392 3.524 6.104c.997 .268 1.994 .535 2.99 .802v-3.44c-.164 -2.105 -1.637 -3.879 -3.677 -4.426l-2.407 -.644"/><path d="M10.249 4.251c.007 -.007 .014 -.014 .021 -.021l1.73 -1.73"/><path d="M10.27 11.15c-.589 -.589 -1.017 -1.318 -1.246 -2.118"/><path d="M14.988 8.988c.229 -.834 .234 -1.713 .013 -2.549c-.221 -.836 -.659 -1.598 -1.271 -2.209l-1.73 -1.73"/><path d="M16.038 10.037l2.046 -.547l.431 1.604c.142 .53 .193 1.063 .162 1.583"/><path d="M16.506 16.505c-.45 .307 -.959 .544 -1.516 .694c-.997 .268 -1.994 .535 -2.99 .801v-3.44c.055 -.708 .259 -1.379 .582 -1.978"/></svg>',
 };
 
+/* Badge fijo, no icono: misma familia que el de destacado (.item-tag), con el color
+   invertido para distinguirlo a golpe de vista -- fondo naranja/texto oscuro el destacado,
+   fondo oscuro/texto naranja este. Vegano y sin gluten comparten esta misma paleta; solo
+   cambia el texto. Las clases diet/diet-vegan/diet-gf y el envoltorio diet-marks se
+   conservan sin CSS propio: son las que lee el indice de busqueda (~7138) y las que clona
+   la ficha de plato y el resultado de busqueda (~7570, ~7760) -- moverlas de sitio sin
+   cambiar su nombre no les rompe nada. Sin role="img"/aria-label: el texto visible ya es
+   el nombre accesible, duplicarlo confundiria a un lector de pantalla. */
 function dietMarks(catName, name) {
   if (isSpecialCat(catName)) return '';   // the tab already says it
   const n = normDish(name);
   let out = '';
   if (veganNames.has(n)) {
-    out += `<span class="diet diet-vegan" role="img"${TL('Available vegan')}>${DIET_ICON.vegan}</span>`;
+    out += `<span class="item-tag item-tag-diet diet diet-vegan">${T('Vegan', 'ui')}</span>`;
   }
   if (gfNames.has(n)) {
-    out += `<span class="diet diet-gf" role="img"${TL('Available gluten free')}>${DIET_ICON.gf}</span>`;
+    out += `<span class="item-tag item-tag-diet diet diet-gf">${T('Gluten free', 'ui')}</span>`;
   }
   return out ? `<span class="diet-marks">${out}</span>` : '';
 }
@@ -1189,7 +1190,7 @@ const renderItem = (it, showSlot, icon, catName) => {
      línea entera para sí — 312 platos × una fila = cinco pantallas de scroll — y como prefijo
      del nombre cabe en la misma línea. Las etiquetas sí conservan su línea, pero sólo las
      lleva un puñado de filas al día. */
-  const tags = `<span class="item-tags">${offerTag}${highTag}${soldFlag}</span>`;
+  const tags = `<span class="item-tags">${offerTag}${highTag}${dietMarks(catName, it.name)}${soldFlag}</span>`;
 
   const included = /^included$/i.test(it.price);
   const priceCell = included ? T('Included', 'ui') : esc(money(it.price));
@@ -1218,7 +1219,7 @@ const renderItem = (it, showSlot, icon, catName) => {
   return `                    <div class="single-menu-items" data-key="${key}" data-legacy="${legacy}" data-vid="${vid}" data-cat="${esc(catName)}" data-catid="${it.catId}" data-num="${esc(it.id || '')}"${included ? '' : ` data-price="${esc(it.price)}"`}>
                       <div class="details">${column}
                         <div class="menu-content">
-                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${dietMarks(catName, it.name)}${alergenoMarks(it)}</h3>
+                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${alergenoMarks(it)}</h3>
 ${/* Un plato sin descripción no deja un <p> vacío: dejaría su interlínea de hueco bajo el
       nombre y la fila quedaría más alta que sus vecinas sin decir nada a cambio. Aparece en
       los catorce ingredientes de currys, donde la instrucción la lleva la nota del grupo y
@@ -1385,12 +1386,6 @@ const leyendaIconos = !CLIENTE.alergenos.leyenda.length ? '' : `                
 ${CLIENTE.alergenos.leyenda.map((k) => `                  <span class="allergen">${ALERGENO[k]}<span class="a11y">${T(ALERGENO_LABEL[k], 'ui')}</span></span>`).join(String.fromCharCode(10))}
                 </span>`;
 
-const leyendaMarcas = !hayMarcasDieta ? '' : `            <p class="legend-marks">
-              <span class="legend-item"><span class="diet diet-vegan" aria-hidden="true">${DIET_ICON.vegan}</span>${T('Available vegan', 'ui')}</span>
-              <span class="legend-item"><span class="diet diet-gf" aria-hidden="true">${DIET_ICON.gf}</span>${T('Available gluten free', 'ui')}</span>
-              <span class="legend-caveat">${T('These marks point to a version of the dish on our vegan or gluten-free menu.', 'ui')}</span>
-            </p>`;
-
 /* El aviso general del pie sale SIEMPRE, haya o no platos con alergenos declarados.
    Antes se quitaba en cuanto un solo plato declaraba algo, con el razonamiento de que "cada
    plato lleva ya sus iconos". Eso solo seria cierto con la carta entera verificada: con
@@ -1404,7 +1399,7 @@ const leyendaAlergenos = `            <p class="legend-allergens">
                 <strong>${T('Allergens', 'ui')}</strong>
 ${leyendaIconos}
               </span>
-              <span class="allergen-text"><strong class="allergen-lead">${T('Allergies or intolerances?', 'ui')}</strong> ${T('Ask our staff about the 14 allergens. The vegan and gluten-free icons do not replace this information.', 'ui')}</span>
+              <span class="allergen-text"><strong class="allergen-lead">${T('Allergies or intolerances?', 'ui')}</strong> ${T('Ask our staff about the 14 allergens. The Vegan and Gluten free badges do not replace this information.', 'ui')}</span>
             </p>`;
 
 /* Empieza por salto y NO acaba en salto; la plantilla pone el resto. Asi la carta de quien ya
@@ -1417,10 +1412,10 @@ ${leyendaIconos}
    como nota al pie sin necesidad de repetirlo en las 312 filas. */
 const notaIgic = `          <p class="nota-igic">${T(CLIENTE.impuesto, 'ui-cliente')}</p>`;
 
-const leyenda = !(leyendaMarcas || leyendaAlergenos) ? notaIgic :
+const leyenda = !leyendaAlergenos ? notaIgic :
   String.fromCharCode(10) + notaIgic + String.fromCharCode(10)
   + '          <div class="menu-legend">' + String.fromCharCode(10)
-  + [leyendaMarcas, leyendaAlergenos].filter(Boolean).join(String.fromCharCode(10))
+  + leyendaAlergenos
   + String.fromCharCode(10) + '          </div>';
 
 const panes = TAXO.map((t, i) => {
@@ -2439,7 +2434,6 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-variant-numeric:tabular-nums;
 }
 .ds-hit .diet-marks{margin-left:6px}
-.ds-hit .diet-marks svg{width:13px;height:13px}
 .ds-hit.is-off .ds-hit-name,
 .ds-hit.is-off .ds-hit-price{opacity:.45}
 .ds-hit.is-off .ds-hit-name{text-decoration:line-through;text-decoration-thickness:1px}
@@ -2732,10 +2726,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 .group-icon svg{width:17px;height:17px}
 
-/* diet marks — informational, so they carry a label rather than aria-hidden */
+/* diet marks — badge de texto, no icono: ver item-tag-diet junto al resto de .item-tag */
 .diet-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:1px}
-.diet{display:inline-flex;color:var(--accent)}
-.diet svg{width:14px;height:14px}
 /* Los alergenos declarados del plato. Misma caja y misma medida que las marcas de dieta -- van
    en la misma linea y a la misma altura optica-- pero en el gris del texto secundario y no en
    el acento: la marca de dieta es una recomendacion de la casa y esto es una advertencia, y no
@@ -2750,18 +2742,6 @@ html:not(.js) .lang-menu{position:static;display:block}
   border-top:1px solid var(--hairline);
   font-family:var(--body-font);
 }
-/* The marks are the quiet half — a convenience, and explicitly not a declaration. */
-.legend-marks{
-  display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  gap:var(--s1) var(--s3);
-  color:var(--muted);
-  font-size:13px;
-  line-height:20px;
-}
-.legend-item{display:inline-flex;align-items:center;gap:6px}
-.legend-caveat{flex:1 1 260px;min-width:0}
 /* La nota fiscal. nota-igic es SOLO un nombre de clase historico: no hay logica fiscal
    en ninguna parte del motor: el texto entero sale de CLIENTE.impuesto y funciona igual
    con IVA o con cualquier otro impuesto. No se renombra porque cambiaria el HTML por
@@ -3071,6 +3051,10 @@ html:not(.js) .lang-menu{position:static;display:block}
   vertical-align:3px;
   white-space:nowrap;
 }
+/* Vegano / sin gluten: mismo .item-tag, color invertido -- fondo naranja lo lleva el
+   destacado, este lleva el fondo oscuro con el texto en el naranja de marca. Un vistazo
+   basta para no confundirlos. Los dos comparten esta paleta; solo cambia el texto. */
+.item-tag-diet{background:var(--badge-ink);color:var(--accent)}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.
@@ -3088,7 +3072,9 @@ html:not(.js) .lang-menu{position:static;display:block}
    child can never be more opaque than its parent — with .45 on the row the flag itself
    came out washed out, which is the one thing here that has to be read. */
 .is-sold-out .menu-content h3 > .i18n,
-.is-sold-out .menu-content h3 > .diet-marks,
+/* .diet-marks vive ahora dentro de .item-tags, no como hijo directo del h3 -- descendiente,
+   no ">" */
+.is-sold-out .menu-content h3 .diet-marks,
 .is-sold-out .menu-content p,
 .is-sold-out .price,
 .is-sold-out .item-id,
@@ -6118,9 +6104,12 @@ ${sheet}
       }
 
       /* El número ya no vive aquí, así que la línea de etiquetas —y el desplazamiento del
-         precio que la acompaña— sólo aparece si hay etiqueta que enseñar. */
+         precio que la acompaña— sólo aparece si hay etiqueta que enseñar. El badge de
+         vegano/sin gluten es del build, no del runtime como destacado/oferta -- pero vive
+         en la misma línea (.item-tags) y por eso cuenta igual: sin esto, un plato que SOLO
+         fuera vegano se quedaba con la línea de etiquetas en display:none en móvil. */
       row.classList.toggle('has-tags',
-        (alto && !alto.hidden) || (oferta && !oferta.hidden));
+        (alto && !alto.hidden) || (oferta && !oferta.hidden) || !!row.querySelector('.diet-marks'));
     });
 
     /* La banda de oferta, una sola y arriba del todo. Dice el porcentaje, a qué se aplica y
