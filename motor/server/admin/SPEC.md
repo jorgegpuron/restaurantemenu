@@ -5281,3 +5281,7 @@ secundarios, y no se confunden con controles editables.
 
 Los rótulos y textos opcionales de las fichas de Marca permiten salto de línea seguro y los
 campos no pueden crecer más allá del ancho de su tarjeta en móvil.
+
+En la ficha de Nombre, el campo visible se rotula «Texto pequeño» con su límite breve. En Fotos,
+el selector y «Subir» permanecen en una sola fila flexible en móvil para evitar una acción aislada
+debajo del selector.

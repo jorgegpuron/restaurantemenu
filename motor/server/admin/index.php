@@ -10009,7 +10009,7 @@ $CUENTAS = [
   .adm-foto-aviso{margin:0 0 var(--s2);font-size:var(--t3);color:var(--muted)}
   .adm-foto-aviso-mal{color:var(--ui-state-error)}
   .adm-subida{
-    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    display:flex;align-items:center;gap:10px;flex-wrap:nowrap;
     margin:auto 0 0;padding-top:var(--s2);border-top:1px solid var(--hairline);
   }
   .adm-subida input[type=file]{flex:1 1 190px;min-width:0;color:var(--muted);font-size:var(--t3)}
@@ -10091,8 +10091,9 @@ $CUENTAS = [
     min-height:40px;padding:0 var(--space-3);
     background:var(--sc-input-bg);border:1px solid var(--sc-border);
     border-radius:var(--ui-radius-control);color:var(--sc-text-2);font-size:var(--t3);
-    flex:1 1 220px;max-width:420px;min-width:0;
+    flex:1 1 auto;max-width:none;min-width:0;
   }
+  .adm-subida > .adm-btn{flex:0 0 auto;white-space:nowrap}
   .adm-archivo:focus-within{border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow)}
   .adm-archivo input[type=file]{
     position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
@@ -14607,7 +14608,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <label class="adm-lbl" for="marca-nombre">Nombre del restaurante <span class="opt">(máximo 20)</span></label>
           <input class="adm-campo" id="marca-nombre" name="marca_nombre" form="marca-form" maxlength="20"
                  value="<?= h($marca['nombreVisible']) ?>" placeholder="<?= h(CLIENTE_NOMBRE) ?>">
-          <label class="adm-lbl" for="marca-rotulo">Texto pequeño, encima del nombre <span class="opt">(máximo 25)</span></label>
+          <label class="adm-lbl" for="marca-rotulo">Texto pequeño <span class="opt">(máximo 25)</span></label>
           <input class="adm-campo" id="marca-rotulo" name="marca_rotulo" form="marca-form" maxlength="25"
                  value="<?= h($marca['rotuloVisible']) ?>"
                  placeholder="<?= h(defined('CLIENTE_ROTULO') ? CLIENTE_ROTULO : '') ?>">
@@ -14629,8 +14630,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             picante tampoco es un color de marca, es un aviso.
           </p>
           <div class="adm-color-principal">
-            <label class="adm-lbl" for="color-principal-hex">Primario
-              <span class="opt">(en blanco, el de fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
+            <label class="adm-lbl" for="color-principal-hex">Color principal
+              <span class="opt">(fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
             </label>
             <div class="adm-color">
               <input type="color" id="color-principal-picker" class="adm-color-muestra"
