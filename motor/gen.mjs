@@ -2726,8 +2726,14 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 .group-icon svg{width:17px;height:17px}
 
-/* diet marks — badge de texto, no icono: ver item-tag-diet junto al resto de .item-tag */
-.diet-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:1px}
+/* diet marks — badge de texto, no icono: ver item-tag-diet junto al resto de .item-tag.
+   Sin margin-left propio: si fuera el unico tag (sin New/Most loved delante) quedaba
+   metido hacia dentro en vez de a ras del margen, como el resto de tags sueltos. El hueco
+   con el tag anterior lo pone SU margin-right (ver .item-tag:has(+ .diet-marks) mas abajo),
+   asi que solo, arranca en 0. vertical-align:3px, igual que .item-tag en escritorio -- aqui
+   iba a 1px y el badge quedaba 2px mas abajo que New/Most loved en la misma fila; en movil
+   ambos bajan a 1px juntos (ver el media query de item-tag). */
+.diet-marks{display:inline-flex;align-items:center;gap:2px;vertical-align:3px}
 /* Los alergenos declarados del plato. Misma caja y misma medida que las marcas de dieta -- van
    en la misma linea y a la misma altura optica-- pero en el gris del texto secundario y no en
    el acento: la marca de dieta es una recomendacion de la casa y esto es una advertencia, y no
@@ -3060,6 +3066,16 @@ html:not(.js) .lang-menu{position:static;display:block}
    borde dentro del padding aunque box-sizing sea border-box: eso solo pasa con un ancho/alto
    explicito, y aqui lo decide el contenido. */
 .item-tag-diet{background:var(--badge-ink);color:var(--accent);border:1px solid var(--accent);padding:0 6px}
+/* Vegano y sin gluten pegados sin hueco cuando coinciden en el mismo plato: son la misma
+   pastilla repetida, no dos badges distintos -- el gap:0 de .diet-marks no basta solo, el
+   margin-right:8px que hereda de .item-tag manda por encima del gap del flex y hay que
+   anularlo aqui, solo para la que tiene otra pastilla de dieta justo detras. */
+.item-tag-diet:has(+ .item-tag-diet){margin-right:0}
+/* Cuando New/Most loved va justo delante del badge de dieta, el hueco entre los dos pasa
+   de los 8px normales (separan tag de nombre) a 2px: son dos badges de la misma familia
+   pegados entre si, no un tag y el texto del plato. Sin soporte de :has() se queda en 8px,
+   que ya funcionaba antes de esto -- no empeora. */
+.item-tag:has(+ .diet-marks){margin-right:2px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.
@@ -4116,6 +4132,7 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .is-sold-out .item-tags{display:block;width:max-content;margin:0 0 5px;line-height:var(--tags-line)}
   .item-badge{display:inline}
   .item-tag{vertical-align:1px}
+  .diet-marks{vertical-align:1px}
   /* That line pushes the dish name down, so the price follows it rather than sitting up
      beside the number. The row carries the class from the generator instead of :has(),
      so alignment does not depend on selector support. */
