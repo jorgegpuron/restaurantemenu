@@ -2729,11 +2729,13 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* diet marks — badge de texto, no icono: ver item-tag-diet junto al resto de .item-tag.
    Sin margin-left propio: si fuera el unico tag (sin New/Most loved delante) quedaba
    metido hacia dentro en vez de a ras del margen, como el resto de tags sueltos. El hueco
-   con el tag anterior lo pone SU margin-right (ver .item-tag:has(+ .diet-marks) mas abajo),
-   asi que solo, arranca en 0. vertical-align:3px, igual que .item-tag en escritorio -- aqui
-   iba a 1px y el badge quedaba 2px mas abajo que New/Most loved en la misma fila; en movil
-   ambos bajan a 1px juntos (ver el media query de item-tag). */
-.diet-marks{display:inline-flex;align-items:center;gap:2px;vertical-align:3px}
+   con el tag anterior lo pone SU margin-right (ver los .item-tag:has(...) mas abajo, regla
+   unica: 4px entre cualquier pareja de badges pegados), asi que solo, arranca en 0. Aqui el
+   gap:4px es el mismo hueco pero para vegano+sin gluten cuando coinciden en el mismo plato.
+   vertical-align:3px, igual que .item-tag en escritorio -- aqui iba a 1px y el badge quedaba
+   2px mas abajo que New/Most loved en la misma fila; en movil ambos bajan a 1px juntos (ver
+   el media query de item-tag). */
+.diet-marks{display:inline-flex;align-items:center;gap:4px;vertical-align:3px}
 /* Los alergenos declarados del plato. Misma caja y misma medida que las marcas de dieta -- van
    en la misma linea y a la misma altura optica-- pero en el gris del texto secundario y no en
    el acento: la marca de dieta es una recomendacion de la casa y esto es una advertencia, y no
@@ -3071,11 +3073,15 @@ html:not(.js) .lang-menu{position:static;display:block}
    margin-right:8px que hereda de .item-tag manda por encima del gap del flex y hay que
    anularlo aqui, solo para la que tiene otra pastilla de dieta justo detras. */
 .item-tag-diet:has(+ .item-tag-diet){margin-right:0}
-/* Cuando New/Most loved va justo delante del badge de dieta, el hueco entre los dos pasa
-   de los 8px normales (separan tag de nombre) a 2px: son dos badges de la misma familia
-   pegados entre si, no un tag y el texto del plato. Sin soporte de :has() se queda en 8px,
-   que ya funcionaba antes de esto -- no empeora. */
-.item-tag:has(+ .diet-marks){margin-right:2px}
+/* Regla unica de separacion entre badges: 4px siempre que uno vaya pegado a otro --
+   oferta+destacado, destacado+dieta, oferta+dieta si el destacado esta oculto entre medias --
+   en vez de los 8px normales, que son para separar el ultimo badge del NOMBRE del plato, no
+   badge de badge. Sin soporte de :has() se queda en 8px, que ya funcionaba antes de esto --
+   no empeora. Casos con destacado oculto pegando oferta a dieta con dos saltos de hermano
+   no se cubren aqui: raro (oferta activa sin ser New/Most loved y con marca de dieta) y no
+   es peor que antes de esta regla. */
+.item-tag-offer:not([hidden]):has(+ .item-tag-high:not([hidden])),
+.item-tag:has(+ .diet-marks){margin-right:4px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.
