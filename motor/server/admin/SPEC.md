@@ -5260,3 +5260,24 @@ debajo de **Salir**, separado por un filete y con dos opciones segmentadas de ig
 nombre visibles: **Claro** y **Oscuro**. Cada opción mide al menos 44 px de alto. La disposición
 vertical de iconos queda limitada al riel lateral estrecho; nunca afecta a la hoja móvil.
 `E2E-RS-HOJA-TEMA` lo comprueba a 390 px.
+
+## Sesión de superadministrador: indicador compacto (11 Sep 2026)
+
+La sesión normal no muestra ningún indicador. Al entrar con la clave de superadministrador,
+el rótulo grande deja de ocupar una línea y aparece un icono de escudo de 40 × 40 px en la esquina
+superior derecha del panel, con fondo naranja y símbolo beige. Conserva su nombre accesible y un
+`title`; no es una acción ni abre una pantalla. El modo demo mantiene su aviso textual porque
+explica una condición funcional distinta. `E2E-SU-00` verifica su ausencia en la sesión normal y
+`E2E-SU-01` su presencia y tamaño en la sesión de superadministrador.
+
+## Marca: Google y color con jerarquía compacta (11 Sep 2026)
+
+En móvil, los datos de la nota de Google se muestran como campos apilados y legibles; el campo se
+rotula «Enlace», conserva su valor completo y queda contenido dentro de la ficha sin scroll
+horizontal. La ficha de Color de marca mantiene una composición simple: el selector, hexadecimal
+y restauración usan el ancho de la ficha, y las referencias fijas del motor aparecen debajo en
+tres chips iguales de una sola fila cuando caben. Estas últimas llevan su rótulo y aclaración
+secundarios, y no se confunden con controles editables.
+
+Los rótulos y textos opcionales de las fichas de Marca permiten salto de línea seguro y los
+campos no pueden crecer más allá del ancho de su tarjeta en móvil.

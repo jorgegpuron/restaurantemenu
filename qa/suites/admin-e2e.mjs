@@ -1879,7 +1879,8 @@ export async function e2eSuperadmin(informe, { navegador, servidor, docroot, cla
   /* Una sesión de restaurante abierta, que tiene que caerse cuando el super le cambie la clave. */
   const rest = await nuevaPagina(navegador);
   await entrarAlPanel(rest, url);
-  informe.comprueba('E2E-SU-00', 'el restaurante entra con su contraseña', await rest.evaluate(() => !document.querySelector('#clave')));
+  const accesoRestaurante = await rest.evaluate(() => !document.querySelector('#clave') && !document.querySelector('.adm-super-indicador'));
+  informe.comprueba('E2E-SU-00', 'el restaurante entra con su contraseña sin indicador de superadministrador', accesoRestaurante);
 
   const sup = await nuevaPagina(navegador);
   await sup.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
@@ -1890,10 +1891,11 @@ export async function e2eSuperadmin(informe, { navegador, servidor, docroot, cla
   const fichas = await sup.evaluate(() => ({
     super: document.querySelectorAll('.adm-f-super').length, reset: !!document.querySelector('input[name="reset_cliente"]'),
     cambiar: !!document.querySelector('input[name="cambiar_super"]'), log: !!document.querySelector('pre.adm-log'),
-    resumenLog: (document.querySelector('.adm-f-log summary') || {}).textContent?.replace(/\s+/g, ' ').trim(),
+    indicador: (() => { const e = document.querySelector('.adm-super-indicador'); const r = e?.getBoundingClientRect(); return { existe: !!e, etiqueta: e?.getAttribute('aria-label'), ancho: Math.round(r?.width || 0), alto: Math.round(r?.height || 0) }; })(),
   }));
-  informe.comprueba('E2E-SU-01', 'con la contraseña de super se entra por la misma casilla y Ajustes enseña sus tres fichas',
-    fichas.super === 3 && fichas.reset && fichas.cambiar && fichas.log, JSON.stringify(fichas));
+  informe.comprueba('E2E-SU-01', 'con la contraseña de super se entra por la misma casilla, Ajustes enseña sus tres fichas y el indicador compacto',
+    fichas.super === 3 && fichas.reset && fichas.cambiar && fichas.log && fichas.indicador.existe
+      && fichas.indicador.etiqueta === 'Sesión de superadministrador' && fichas.indicador.ancho === 40 && fichas.indicador.alto === 40, JSON.stringify(fichas));
 
   /* CSRF también aquí. */
   const c0 = hashDe(clavePhp);

@@ -5160,11 +5160,17 @@ $CUENTAS = [
   body:has(.card-main) .chapa{font-family:"Arimo",Arial,sans-serif;font-size:var(--t3,13px)}
 
   /* MISE-B, décima ronda: "En línea" se retiró (no comprobaba nada real) y "Usuario"
-     también (el caso normal no necesita insignia) — sólo queda la insignia cuando hay
-     algo que merece decirse: demo, o superadministrador. */
+     también (el caso normal no necesita insignia). Demo conserva su insignia; la sesión de
+     superadministrador usa un icono compacto para no robar una línea al panel. */
   .card-main .insignia{border-color:transparent}
-  .card-main .insignia.is-super{background:var(--accent);color:var(--accent-ink)}
   .card-main .insignia.is-demo{background:var(--sc-warn-bg);color:var(--sc-warn-ink)}
+  .adm-super-indicador{
+    position:absolute;top:var(--space-3);right:var(--space-3);z-index:6;
+    width:40px;height:40px;border-radius:var(--radius-md);
+    display:grid;place-items:center;background:var(--sc-primary);color:var(--sc-primary-ink);
+    box-shadow:0 2px 6px color-mix(in srgb,var(--sc-primary) 30%,transparent);
+  }
+  .adm-super-indicador svg{width:20px;height:20px}
 
   /* ---------------------------------------------------------- la botonera
    * Sangraba 21 px a cada lado para recortarse contra el borde de la tarjeta
@@ -7516,16 +7522,9 @@ $CUENTAS = [
     color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;
   }
 
-  /* ---------- insignias de sesión ----------
-     Fijas arriba a la derecha, como las etiquetas de oferta y destacados de la carta.
-     MISE-B, décima ronda: sólo avisan de lo que de verdad hace falta saber — que se ha
-     entrado como SUPERADMIN (más alcance que el caso normal) o que el panel está abierto
-     en demo. "En línea" no comprobaba nada (ni un latido, nada en JS la tocaba) y
-     "Usuario" era el caso de siempre: las dos se retiraron. Siempre a la vista, también
-     con el scroll abajo — cuando hay algo que mostrar. */
+  /* ---------- insignia de demo ---------- */
   .insignias{
-    /* Dentro de la tarjeta, en su esquina, y quietas: flotando sobre el navy tapaban y
-       distraían; aquí se leen una vez al entrar, que es lo que tienen que hacer. */
+    /* Demo sí necesita una frase: explica por qué se puede editar sin contraseña. */
     display:flex;justify-content:center;gap:6px;margin:0 0 var(--s2);pointer-events:none;
   }
   /* En móvil no hay esquina libre: pisaban el rótulo. Ahí van en fila, quietas, encima de él;
@@ -7539,7 +7538,6 @@ $CUENTAS = [
     font-family:var(--title-font);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
     box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 25%,transparent);
   }
-  .insignia.is-super{background:var(--ink);color:var(--surface);outline:2px solid var(--surface)}
   .insignia.is-demo{background:var(--ui-badge-demo);color:var(--surface)}
 
   /* ---------- avisos flotantes (toast) ----------
@@ -9946,8 +9944,9 @@ $CUENTAS = [
      la ficha ya decía cuál era. Aquí hay fichas con cuatro campos seguidos: hace falta
      rótulo visible, y con el mismo peso que el resto del sistema. */
   /* 13/500 apagado: la etiqueta acompaña al control, no compite con el. */
-  .adm-lbl{display:block;margin:var(--space-2) 0 6px;font-size:var(--t3);font-weight:500;color:var(--sc-text-2)}
-  .adm-lbl .opt{font-weight:400;color:var(--sc-text-2)}
+  .adm-lbl{display:block;max-width:100%;margin:var(--space-2) 0 6px;font-size:var(--t3);font-weight:500;color:var(--sc-text-2);white-space:normal;overflow-wrap:anywhere}
+  .adm-lbl .opt{font-weight:400;color:var(--sc-text-2);overflow-wrap:anywhere}
+  .adm-f .adm-campo{min-width:0;max-width:100%}
   .adm-2col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s2)}
   .adm-2col .adm-lbl{margin-top:0}
   /* Excepción de Redes: «Nota» y «Reseñas» son dos cifras cortas y caben partidas a
@@ -10042,13 +10041,30 @@ $CUENTAS = [
   .adm-color-muestra::-webkit-color-swatch{border:0;border-radius:7px}
   .adm-color-muestra::-moz-color-swatch{border:0;border-radius:7px}
   .adm-color-hex{flex:1 1 0;min-width:0;text-transform:uppercase;font-variant-numeric:tabular-nums}
+  /* La URL de reseña es un dato largo por naturaleza: el campo conserva todo su valor, pero
+     en la vista compacta no hace crecer la ficha ni corta la lectura sin indicarlo. */
+  .adm-f-google #op-url{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .adm-f-google .hint{overflow-wrap:anywhere}
+  .adm-google-datos{display:grid;gap:var(--space-2);margin-top:var(--s3)}
+  .adm-google-dato{min-width:0}
+  .adm-google-dato .adm-lbl{margin-top:0;min-height:2.5em;display:flex;align-items:flex-end}
+  .adm-google-enlace{display:block;margin-top:var(--s3)}
+  /* Agrupación semántica sin una tarjeta ni un grid dentro de la ficha. */
+  .adm-color-principal{display:contents}
+  .adm-color-principal .adm-lbl{margin-top:0}
+  .adm-color-referencias{margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--sc-border)}
+  .adm-color-referencias .adm-color-rot{margin:0 0 var(--space-2)}
+  .adm-color-referencias .adm-color-rot span{color:var(--muted)}
+  @media (min-width:700px){.adm-google-datos{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}}
+  @media (max-width:699px){.adm-google-dato .adm-lbl{min-height:0}.adm-f-google #op-url{font-size:var(--t3)}}
   /* Deshacer no es la acción principal de la ficha: a ancho completo pesaba lo mismo que
      Guardar. Vuelve a su ancho natural, alineado a la izquierda con los campos. */
-  .adm-color-volver{align-self:flex-start;margin-top:var(--space-2)}
-  .adm-color-rot{margin:var(--s3) 0 8px}
-  .adm-color-fijos{display:flex;flex-wrap:wrap;gap:7px}
+  .adm-color-volver{display:block;width:100%;align-self:stretch;margin-top:var(--space-2)}
+  .adm-color-rot{margin:var(--s3) 0 8px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
+  .adm-color-rot strong{font-weight:600;color:var(--sc-text)}
+  .adm-color-fijos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
   .adm-color-fijo{
-    display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px 0 7px;
+    display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;height:30px;padding:0 5px;
     border-radius:var(--radius-pill);background:var(--chip);border:1px solid var(--hairline);
   }
   /* El aro de dentro salva al Oscuro del motor: sin él, un color casi negro no tiene
@@ -10058,6 +10074,7 @@ $CUENTAS = [
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
   }
   .adm-color-fijo b{font-size:var(--t3);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+  @media (max-width:699px){.adm-color-fijo b{font-size:11px}.adm-color-referencias{margin-top:var(--s3)}}
 
   /* ==================================================================== SocialCard V6
      Lo que faltaba para cerrar Marca y Ajustes. Cuatro piezas, todas construidas con
@@ -10446,23 +10463,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
 <?php else: ?>
   <div class="card-main">
-  <?php /* MISE-B, décima ronda: "En línea" no comprobaba nada — ni un latido, ni una
-           reconexión, nada en JS la tocaba nunca. Era el texto fijo que salía siempre
-           que la página cargaba con sesión, lo cual es cierto por definición (si no
-           hubiera "línea", no habría página) y no dice nada que el usuario no supiera ya.
-           Se retira. "Usuario" tampoco avisaba de nada que no fuera el caso normal —
-           sólo queda la insignia cuando SÍ hay algo que merece decirse: demo, o sesión de
-           superadministrador (más alcance, sí vale la pena que se note). */ ?>
-  <?php if ($demo || $super): ?>
+  <?php /* Demo necesita una frase porque explica por qué se puede editar sin contraseña.
+           La sesión de super no ocupa una línea: su indicador compacto vive dentro de la
+           cabecera, arriba a la derecha. */ ?>
+  <?php if ($demo): ?>
     <div class="insignias" role="status" aria-label="Sesión">
-      <?php if ($demo): ?>
-        <span class="insignia is-demo">Modo demo</span>
-      <?php else: ?>
-        <span class="insignia is-super">Superadmin</span>
-      <?php endif; ?>
+      <span class="insignia is-demo">Modo demo</span>
     </div>
   <?php endif; ?>
   <header class="head">
+    <?php if ($super): ?>
+      <span class="adm-super-indicador" role="status" aria-label="Sesión de superadministrador" title="Sesión de superadministrador">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5.2 3.4 9.8 8 11 4.6-1.2 8-5.8 8-11V5l-8-3Z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>
+      </span>
+    <?php endif; ?>
     <p class="head-eyebrow"><?= h(CLIENTE_NOMBRE) ?></p>
     <h1><span class="dia"><?= h(dia_semana($hoyReal)) ?>,</span> <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></h1>
     <?php /* De madrugada la fecha de arriba ya es la de hoy, pero los agotados todavia son los
@@ -14614,22 +14628,25 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             iguales para cualquier carta y no se cambian desde aquí. El rojo de las ofertas y del
             picante tampoco es un color de marca, es un aviso.
           </p>
-          <label class="adm-lbl" for="color-principal-hex">Primario
-            <span class="opt">(en blanco, el de fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
-          </label>
-          <div class="adm-color">
-            <input type="color" id="color-principal-picker" class="adm-color-muestra"
-                   value="<?= h($colorPrincipalActual) ?>"
-                   aria-label="Elegir color principal con el selector">
-            <input type="text" id="color-principal-hex" name="marca_color_principal" form="marca-form"
-                   class="adm-campo adm-color-hex"
-                   value="<?= h($marca['colorPrincipal']) ?>" placeholder="<?= h(CLIENTE_COLOR_PRINCIPAL) ?>"
-                   pattern="#?[0-9A-Fa-f]{6}" maxlength="7" spellcheck="false" autocomplete="off"
-                   aria-label="Color principal en hexadecimal">
+          <div class="adm-color-principal">
+            <label class="adm-lbl" for="color-principal-hex">Primario
+              <span class="opt">(en blanco, el de fábrica: <?= h(CLIENTE_COLOR_PRINCIPAL) ?>)</span>
+            </label>
+            <div class="adm-color">
+              <input type="color" id="color-principal-picker" class="adm-color-muestra"
+                     value="<?= h($colorPrincipalActual) ?>"
+                     aria-label="Elegir color principal con el selector">
+              <input type="text" id="color-principal-hex" name="marca_color_principal" form="marca-form"
+                     class="adm-campo adm-color-hex"
+                     value="<?= h($marca['colorPrincipal']) ?>" placeholder="<?= h(CLIENTE_COLOR_PRINCIPAL) ?>"
+                     pattern="#?[0-9A-Fa-f]{6}" maxlength="7" spellcheck="false" autocomplete="off"
+                     aria-label="Color principal en hexadecimal">
+            </div>
+            <button type="button" class="adm-btn adm-btn-fino adm-color-volver" id="color-principal-restaurar">Restaurar color original</button>
           </div>
-          <button type="button" class="adm-btn adm-btn-fino adm-color-volver" id="color-principal-restaurar">Restaurar color original</button>
-          <p class="adm-f-nota adm-color-rot">Del motor, iguales en todas las cartas</p>
-          <div class="adm-color-fijos">
+          <div class="adm-color-referencias">
+            <p class="adm-f-nota adm-color-rot"><strong>Referencias del motor</strong><span>Iguales en todas las cartas y no editables aquí</span></p>
+            <div class="adm-color-fijos">
             <span class="adm-color-fijo" role="group" aria-label="Secundario, del motor: <?= h(CLIENTE_COLOR_SECUNDARIO) ?>">
               <i style="background:<?= h(CLIENTE_COLOR_SECUNDARIO) ?>" aria-hidden="true"></i>
               <b aria-hidden="true"><?= h(CLIENTE_COLOR_SECUNDARIO) ?></b>
@@ -14642,6 +14659,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <i style="background:<?= h(CLIENTE_COLOR_NEUTRAL) ?>" aria-hidden="true"></i>
               <b aria-hidden="true"><?= h(CLIENTE_COLOR_NEUTRAL) ?></b>
             </span>
+            </div>
           </div>
         </section>
 
@@ -14751,20 +14769,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
             <span class="adm-sw-txt" data-on="La nota SE ENSEÑA en la carta" data-off="La nota NO se enseña"><?= $opinion['on'] ? 'La nota SE ENSEÑA en la carta' : 'La nota NO se enseña' ?></span>
           </label>
-          <div class="adm-2col">
-            <div class="adm-2col-c">
+          <div class="adm-google-datos">
+            <div class="adm-google-dato">
               <label class="adm-lbl" for="op-nota">Nota <span class="opt">(como en Google)</span></label>
               <input class="adm-campo" id="op-nota" name="op_nota" form="marca-form" inputmode="decimal" maxlength="3"
                      value="<?= h(str_replace('.', ',', (string) $opinion['rating'])) ?>" placeholder="4,9">
             </div>
-            <div class="adm-2col-c">
+            <div class="adm-google-dato">
               <label class="adm-lbl" for="op-cuantas">Número de reseñas</label>
               <input class="adm-campo" id="op-cuantas" type="number" name="op_cuantas" form="marca-form"
                      min="0" max="100000" step="1"
                      value="<?= (int) $opinion['count'] ?>" placeholder="180">
             </div>
           </div>
-          <label class="adm-lbl" for="op-url">Enlace para dejar reseña <span class="opt">(empieza por https://)</span></label>
+          <label class="adm-lbl adm-google-enlace" for="op-url">Enlace <span class="opt">(empieza por https://)</span></label>
           <input class="adm-campo" id="op-url" name="op_url" type="url" inputmode="url" maxlength="300" form="marca-form"
                  value="<?= h($resena['url'] ?? '') ?>"
                  placeholder="https://g.page/r/XXXXXXXXXXXX/review">
