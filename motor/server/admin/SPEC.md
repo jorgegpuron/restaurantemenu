@@ -5297,3 +5297,7 @@ contenido desborda y nunca se ocultan pestañas para fabricar páginas o huecos.
 ## Ajuste responsive de controles táctiles (11 Sep 2026)
 
 En dispositivos con puntero táctil, los controles compactos de cabecera de categoría (`.adm-cat-nombre-b` y `.adm-orden-b`) conservan su icono visual pero disponen de un área mínima de 44 px. El interruptor maestro de Ofertas usa también 44 px de alto y su mando alcanza el borde útil de la tarjeta en móvil, evitando huecos y objetivos pequeños sin alterar la jerarquía de espaciado.
+
+## Cabeceras de categorías e higiene de Ofertas (11 Sep 2026)
+
+Las cabeceras de Platos y Ofertas reciben el icono de categoría declarado por la carta, con un fallback neutro para categorías creadas desde el panel. Las categorías con una sola columna visible ocupan todo el ancho de su ficha para no dejar filas pegadas a la izquierda. En escritorio, los siete días y el control Semanal se distribuyen en la misma línea cuando el ancho disponible lo permite; en móvil y tablet se conservan los saltos necesarios para evitar desbordes.

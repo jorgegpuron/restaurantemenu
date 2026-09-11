@@ -8037,6 +8037,7 @@ const catalogue = TAXO.flatMap((t) =>
                       : (resolverIdioma('es', t.label, 'tabs') ?? t.label),
       group_en: g.sub ? (resolverIdioma('en', g.sub, 'groups') ?? g.sub)
                       : (resolverIdioma('en', t.label, 'tabs') ?? t.label),
+      grupoIcono: g.icono || t.icono || null,
       /* El rotulo del grupo en TODOS los idiomas de la carta, no solo en dos. El panel lo
          necesita para dejar renombrar la categoria idioma a idioma: sin esto no sabria que
          dice hoy el aleman y pediria un nombre a ciegas. `group_es`/`group_en` se quedan
