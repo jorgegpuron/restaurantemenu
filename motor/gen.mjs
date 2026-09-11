@@ -4232,7 +4232,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
     max-width:220px;
     font-size:15px;
     line-height:1.4;
-    color:var(--ink);
+    /* Vive fuera de la tarjeta, sobre el fondo oscuro de la pagina (body usa --ink) -- no
+       sobre la tarjeta clara donde --ink SI se lee. Un texto oscuro ahi es invisible. */
+    color:var(--surface);
   }
   /* .col-lg-6 decide a dos columnas por la VENTANA real (@media min-width:992px, línea
      ~3002), no por el ancho de su contenedor: a 1400+ de ventana real con la carta metida

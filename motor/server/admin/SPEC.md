@@ -36,6 +36,12 @@ que exigirían una auditoría bastante más profunda (o pasar el freeze entero a
 Queries, que resolvería esto de raíz en vez de regla a regla) para cerrar del todo. Se deja
 así, documentado, salvo que se pida ese esfuerzo mayor aparte.
 
+**El texto de la columna nació ilegible: `color:var(--ink)`, casi negro, sobre el fondo oscuro
+de la página —`body` usa ese mismo `--ink` como fondo—.** `--ink` es la tinta que SÍ se lee
+encima de la tarjeta clara; la columna del QR vive fuera de la tarjeta, directamente sobre el
+fondo de la página. Corregido a `color:var(--surface)` (el tono claro de la propia tarjeta),
+confirmado con `getComputedStyle`: texto `rgb(246,244,244)` sobre fondo `rgb(18,18,18)`.
+
 **Sin QR subido, no hay columna ni hueco.** Dos guardas independientes y no una: el `<aside>`
 nace con `hidden` en el HTML y sólo se le quita cuando `aplicarQR()` —parte de
 `motor/gen.mjs`, runtime de la carta— ve `marca.qrArchivo` con contenido; y `.carta-qr-col`
