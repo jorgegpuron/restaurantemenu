@@ -58,6 +58,17 @@ fuera él solo: los bordes ya no casaban. Corregido dándole el mismo `max-width
 `getBoundingClientRect`: `x` del footer y de la sección coinciden en los dos estados —sin QR
 (299.5 los dos) y con QR (141.5 los dos).
 
+**El buscador (`.sheet-panel`) y la ficha de plato (`.dsheet-panel`) también se centraban
+sobre la ventana, no sobre la carta.** Los dos son `position:fixed` con `left:50%` a partir de
+768px (líneas ~3840 y ~2313) — ninguno es descendiente de `.carta-qr-layout`, así que da
+igual: `fixed` se posiciona contra el viewport siempre. Con QR puesto, el centro de la carta
+queda 158px (=(56+260)/2) a la izquierda del centro de la ventana, y los dos paneles se
+abrían centrados sobre el hueco de la columna. Mismo ajuste que el footer, en el eje
+horizontal: `left:calc(50% - (56px + 260px) / 2)`. Verificado con el buscador abierto:
+centro del panel y centro de la sección, 642 los dos. La ficha de plato comparte exactamente
+el mismo cálculo — no se pudo abrir en esta carta de prueba porque exige foto en el plato
+(`abrirFicha()`, condición `row.dataset.foto`), pero la regla es la misma comprobada.
+
 **Sin QR subido, no hay columna ni hueco.** Dos guardas independientes y no una: el `<aside>`
 nace con `hidden` en el HTML y sólo se le quita cuando `aplicarQR()` —parte de
 `motor/gen.mjs`, runtime de la carta— ve `marca.qrArchivo` con contenido; y `.carta-qr-col`

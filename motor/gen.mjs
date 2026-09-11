@@ -4266,6 +4266,15 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      casen con los de la carta, no con los del bloque entero. */
   .site-footer{max-width:991px;margin-left:auto;margin-right:auto}
   html.con-qr .site-footer{margin-left:calc((100% - 991px - 56px - 260px) / 2);margin-right:auto}
+  /* El buscador (.sheet-panel) y la ficha de plato (.dsheet-panel) son fixed, centrados con
+     left:50% sobre la VENTANA (lineas ~3840 y ~2313) -- ninguno de los dos es descendiente de
+     .carta-qr-layout, asi que da igual: fixed se posiciona contra el viewport siempre, no
+     contra un ancestro con flujo normal. Con QR puesto, el centro de la carta ya no es el
+     centro de la ventana (queda 158px = (56+260)/2 a la izquierda), y estos dos paneles se
+     abrian centrados sobre el hueco de la columna, no sobre la carta. Mismo ajuste que el
+     footer, aplicado al eje horizontal en vez del margen. */
+  html.con-qr .sheet-panel{left:calc(50% - (56px + 260px) / 2)}
+  html.con-qr .dsheet-panel{left:calc(50% - (56px + 260px) / 2)}
 }
 
 /* ---------- accessibility ----------
