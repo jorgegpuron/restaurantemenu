@@ -4167,6 +4167,93 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .single-menu-items .price{padding-left:0}
 }
 
+/* ---------- carta con QR en escritorio ----------
+   Por encima de este ancho la carta a todo lo ancho de un monitor deja de tener sentido --
+   nadie lee un menú de restaurante en una columna de 1570px -- así que se congela a ancho de
+   tablet, centrada, y si el restaurante ha subido un QR desde el panel aparece a su lado para
+   escanearlo desde el mostrador o una mesa expositora.
+
+   991px de ancho congelado: el punto de ruptura que ya existe más cerca de una tablet de 10
+   pulgadas (991, no 1199 -- 33px de diferencia contra 175). No es un número cualquiera: es
+   el MISMO 991 que usa el resto de la carta pública (linea ~4031), así que el contenido de
+   dentro decide con el mismo criterio que ya usa en cualquier otro sitio de este fichero.
+
+   1400px es donde arranca la columna: 991 (carta) + 56 (hueco) + 260 (QR) = 1307, y hace
+   falta aire a los lados antes de tocarse -- 1400 es el próximo punto de ruptura que ya
+   existe (linea ~4026, hoy sólo como 'max-width:1399px'), no un valor inventado para esto.
+   Medidas completas en admin/SPEC.md.
+
+   .carta-qr-col se queda en display:none SIEMPRE que no exista .con-qr en el html --
+   tanto por debajo del breakpoint como por encima sin QR subido -- así que un cliente sin QR
+   no tiene ni columna ni hueco vacío donde iría. */
+.carta-qr-col{display:none}
+@media (min-width:1400px){
+  .carta-qr-layout{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap:56px;
+  }
+  .carta-qr-layout > .food-menu-section.fix{
+    width:991px;
+    flex:0 0 991px;
+    /* --gutter también decide por la ventana real (líneas ~4023 y ~4027), no por el
+       contenedor: a 1600+ de ventana se quedaba en --s6 (89px) en vez de los --s5 (55px)
+       que ya usa una tablet nativa de 991 -- misma familia de problema que .col-lg-6 de
+       más abajo, y misma solución: heredar aquí el valor que el propio motor ya elige
+       para 991, en vez de dejar que decida la ventana real. */
+    --gutter:var(--s5);
+  }
+  /* .single-menu-items también decide su margen por la ventana real (línea ~4026,
+     'max-width:1399px'): a 1400+ nunca se aplicaba y se quedaba con el margen grande de
+     escritorio. Misma familia, misma solución. */
+  .carta-qr-layout .single-menu-items{margin-top:var(--s2)}
+  html.con-qr .carta-qr-col{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:20px;
+    width:260px;
+    flex:0 0 260px;
+    position:sticky;
+    top:40px;
+    text-align:center;
+  }
+  .carta-qr-img{
+    width:220px;
+    height:220px;
+    background:#fff;
+    padding:14px;
+    border-radius:16px;
+    box-shadow:0 8px 24px -12px rgba(0,0,0,.25);
+  }
+  .carta-qr-texto{
+    margin:0;
+    max-width:220px;
+    font-size:15px;
+    line-height:1.4;
+    color:var(--ink);
+  }
+  /* .col-lg-6 decide a dos columnas por la VENTANA real (@media min-width:992px, línea
+     ~3002), no por el ancho de su contenedor: a 1400+ de ventana real con la carta metida
+     en una caja de 991, sin esto se veía a dos columnas apretadas -- que es justo lo que NO
+     hace una tablet real de 991, donde el navegador nunca llega a esos 992. Forzarlo a 100%
+     aquí iguala byte a byte lo que ya hace el propio :992 por debajo de ese ancho: la carta
+     congelada se ve exactamente como en una tablet real, no como una versión estrecha de
+     escritorio. Las dos .col-lg-6 siguen llevando la mitad de platos cada una -- eso no
+     cambia con el ancho -- pero apiladas en el mismo orden se leen del tirón, 1 a N. */
+  .carta-qr-layout .col-lg-6{width:100%;max-width:100%}
+  /* Mismo problema, dos sitios mas encontrados auditando TODOS los media query de la carta
+     publica entre 767 y 1600 -- no uno a uno segun aparecian, sino los siete que hay en total
+     (ver admin/SPEC.md para la lista completa con su porque). Los dos que faltaban: */
+  /* El hueco entre categorias de la misma pestaña usa --s4 (34px) hasta 991 de ventana real
+     y --s5 (55px) por encima (linea ~4031) -- una tablet real de 991 nunca pasa de --s4. */
+  .carta-qr-layout .menu-group + .menu-group{margin-top:var(--s4)}
+  /* La foto de cabecera se aplana a 2:1 desde 1024 de ventana real (linea ~3355) -- una
+     tablet real de 991 se queda siempre en su 3:2 de movil/tablet. */
+  .carta-qr-layout .hero-frame{aspect-ratio:3 / 2}
+}
+
 /* ---------- accessibility ----------
    Reduced motion is gentler motion, not none: presses still respond, colours still change,
    the sheet still fades. What goes is travel — the slide, the rise, the scale. */
@@ -4206,6 +4293,11 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      foco: es la primera parada del Tab y no se ve en ningún otro momento. -->
 <a class="skip-link" href="#carta">${T('Skip to the menu', 'ui')}</a>
 
+<!-- Envoltorio de la carta con QR de escritorio: por encima de cierto ancho la carta se
+     congela a ancho de tablet y, si el restaurante ha subido un QR desde el panel, aparece a
+     su lado. Sin QR, la columna se queda en display:none (ver CSS) -- no hay hueco vacío.
+     Ver SPEC.md para el breakpoint elegido y sus medidas. -->
+<div class="carta-qr-layout">
 <section class="food-menu-section fix">
   <div class="food-menu-wrapper style3">
     <div class="container">
@@ -4462,6 +4554,16 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
     </div>
   </div>
 </section>
+
+<!-- La columna del QR. Vacía en el HTML a proposito -- ni texto de relleno, ni src en el
+     <img>: los pone aplicarMarca() en cuanto llega estado.json, y si el restaurante no ha
+     subido QR se queda con hidden puesto y el CSS ya la tiene en display:none por debajo del
+     breakpoint (y por encima, mientras no exista .con-qr en <html>). -->
+<aside class="carta-qr-col" id="carta-qr-col" hidden>
+  <img class="carta-qr-img" id="carta-qr-img" alt="${TL_TXT('QR code for this menu')}" width="220" height="220" loading="lazy" decoding="async">
+  <p class="carta-qr-texto">${T('Scan this code to open the menu on your phone', 'ui')}</p>
+</aside>
+</div>
 
 <footer class="site-footer">
   <p><span class="brand">SocialCard</span> <span id="footer-year">2026</span> — ${T('Want your own menu?', 'ui')}<br>
@@ -6145,7 +6247,7 @@ ${sheet}
       .then(function (r) { return r.ok ? r.json() : null; });
     return peticion
       .then(function (state) {
-        if (state) { estado = state; aplicarMarca(state.marca); }
+        if (state) { estado = state; aplicarMarca(state.marca); aplicarQR(state.marca); }
         estadoLeido = true;
         render();
       })
@@ -6657,6 +6759,36 @@ ${DATOS_ACTIVO ? `
         raizStyle.setProperty('--accent-ink', d.accentInk);
         raizStyle.setProperty('--metal', d.metal);
         raizStyle.setProperty('--badge-ink', d.badgeInk);
+      }
+    }
+  }
+
+  /* La columna del QR de escritorio. Aparte de aplicarMarca() a proposito: un contrato de
+     pruebas (motor/tests/contrato-tintas.mjs) extrae aplicarMarca() sola y la ejecuta contra
+     un DOM de mentira que sólo sabe leer y escribir tokens de color -- no tiene
+     getElementById(). Meter esto ahí rompía esa prueba sin tocarla.
+
+     Lo sube el restaurante desde el panel; sin él la columna se queda oculta -- el hidden de
+     abajo y el .con-qr que nunca se pone son la misma guardia por dos caminos (atributo y
+     CSS), y el <img> no se toca para no pedir nunca un archivo que no existe. */
+  function aplicarQR(marca) {
+    var qrCol = document.getElementById('carta-qr-col');
+    var qrImg = document.getElementById('carta-qr-img');
+    if (!qrCol || !qrImg) return;
+    var qrArchivo = typeof (marca && marca.qrArchivo) === 'string' ? marca.qrArchivo.trim() : '';
+    if (qrArchivo) {
+      if (qrImg.dataset.archivo !== qrArchivo) {
+        qrImg.src = 'assets/qr/' + qrArchivo;
+        qrImg.dataset.archivo = qrArchivo;
+      }
+      qrCol.hidden = false;
+      document.documentElement.classList.add('con-qr');
+    } else {
+      qrCol.hidden = true;
+      document.documentElement.classList.remove('con-qr');
+      if (qrImg.dataset.archivo) {
+        qrImg.removeAttribute('src');
+        delete qrImg.dataset.archivo;
       }
     }
   }

@@ -547,6 +547,8 @@ export const ui = {
   'Previous photo': 'Foto anterior',
   'Next photo': 'Foto siguiente',
   'Search dishes': 'Buscar platos',
+  'QR code for this menu': 'Código QR de esta carta',
+  'Scan this code to open the menu on your phone': 'Escanea este código para abrir la carta en tu móvil',
   'Prices include IGIC': 'Precios con IGIC incluido',
   'Text size': 'Tamaño del texto',
   'Normal text': 'Texto normal',

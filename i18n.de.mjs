@@ -547,6 +547,8 @@ export const ui = {
   'Previous photo': 'Vorheriges Foto',
   'Next photo': 'Nächstes Foto',
   'Search dishes': 'Gerichte suchen',
+  'QR code for this menu': 'QR-Code dieser Karte',
+  'Scan this code to open the menu on your phone': 'Scannen Sie diesen Code, um die Karte auf Ihrem Handy zu öffnen',
   'Prices include IGIC': 'Preise inklusive IGIC',
   'Text size': 'Textgröße',
   'Normal text': 'Normaler Text',

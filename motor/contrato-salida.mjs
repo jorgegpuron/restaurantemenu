@@ -46,7 +46,7 @@ export const NO_SON_DEL_BUILD = [
   'admin/activacion.consumida', 'admin/intentos.json', 'admin/accesos.log',
   'admin/canjes.json', 'admin/marcador.json', 'admin/permitir-hash.txt',
   'admin/copias/', 'admin/datos/', 'assets/hero/', 'assets/platos/', 'assets/publicidad/',
-  'admin/activacion.php',
+  'assets/qr/', 'admin/activacion.php',
 ];
 
 /* El contrato, como lista de rutas relativas a 2-subir. `lock` es motor.lock ya leido y

@@ -1255,6 +1255,42 @@
       "persistencia": "record.json",
       "reflejo_publico": "la bandera del podio",
       "estado": "cubierto"
+    },
+    {
+      "id": "AC-QR-SUBIR",
+      "clave": "subir_qr",
+      "donde": "Marca, ficha QR de la carta",
+      "prueba": "ninguna",
+      "esperado": "guarda el QR (PNG o SVG saneado) y 'QR guardado'",
+      "estado": "blocked",
+      "motivo_blocked": "feature nueva del 11 sep 2026 (rama feature/carta-qr-escritorio); probada a mano con Playwright real durante el desarrollo -- subida PNG, SVG con <script>/on*/href externo saneado en disco, descarga, quitar -- pero sin prueba E2E permanente en esta bateria todavia. Tarea aparte, con su propia autorizacion; ver admin/SPEC.md seccion del QR de escritorio."
+    },
+    {
+      "id": "AC-QR-CAMPO",
+      "clave": "qr_img",
+      "donde": "campo de fichero del QR",
+      "prueba": "ninguna",
+      "esperado": "acepta un PNG o SVG",
+      "estado": "blocked",
+      "motivo_blocked": "ver AC-QR-SUBIR"
+    },
+    {
+      "id": "AC-QR-QUITAR",
+      "clave": "quitar_qr",
+      "donde": "Marca, ficha QR de la carta",
+      "prueba": "ninguna",
+      "esperado": "borra el archivo y limpia estado.marca.qrArchivo",
+      "estado": "blocked",
+      "motivo_blocked": "ver AC-QR-SUBIR"
+    },
+    {
+      "id": "AC-QR-DESCARGAR",
+      "clave": "descargar_qr",
+      "donde": "Marca, ficha QR de la carta",
+      "prueba": "ninguna",
+      "esperado": "sirve el fichero real con Content-Disposition:attachment",
+      "estado": "blocked",
+      "motivo_blocked": "ver AC-QR-SUBIR"
     }
   ],
   "endpoints": [

@@ -193,7 +193,9 @@ function estado_vacio(): array {
        trae los de fábrica; esto es lo que el propio restaurante ha cambiado desde el
        panel para sustituirlos, y nunca al revés — el panel no toca cliente.mjs. Vacío es
        "sigue mandando el de fábrica", no "sin nombre"/"sin color". */
-    'marca'   => ['nombreVisible' => '', 'rotuloVisible' => '', 'colorPrincipal' => ''],
+    /* qrArchivo: el nombre del QR subido para la columna de escritorio (assets/qr/). Vacío es
+       "no hay QR", no un dato a medias -- ver la ficha QR de la carta en Marca. */
+    'marca'   => ['nombreVisible' => '', 'rotuloVisible' => '', 'colorPrincipal' => '', 'qrArchivo' => ''],
     /* El orden de los platos DENTRO de su categoria, elegido desde el panel.
        categoryId => [dishId, dishId, ...]. Es DISPERSO a proposito: solo aparecen las
        categorias que alguien ha tocado, y una categoria ausente se pinta en el orden
@@ -547,6 +549,147 @@ function pub_estado_banner(?array $b): string {
   if ($ini !== '') { $t = strtotime($ini); if ($t === false || $ahora < $t) return 'PROGRAMADO'; }
   if ($fin !== '') { $t = strtotime($fin); if ($t === false || $ahora > $t) return 'CADUCADO'; }
   return 'ACTIVO';
+}
+
+/* --- qr: el codigo que abre la propia carta, para la columna de escritorio -------------
+   El QR lo genera el restaurante FUERA de este panel y lo sube ya hecho: aqui solo se
+   guarda, se valida y se enseña. Mismos principios que hero/publicidad -- nombre aleatorio
+   generado AQUI, carpeta con guardian que apaga PHP, basename validado en cada uso -- con
+   una pieza mas: un SVG es XML, no una imagen rasterizada, y puede llevar <script> o
+   atributos on*= que se ejecutarian si alguien lo abre suelto en una pestaña. Se sanea ANTES
+   de escribirlo a disco; nunca se guarda el SVG tal cual llega. */
+
+function qr_nombre_valido(string $n): bool {
+  return (bool) preg_match('/^[0-9a-f]{16}\.(svg|png)$/', $n);
+}
+
+function qr_carpeta_lista(): bool {
+  if (!is_dir(QR_DIR) && !@mkdir(QR_DIR, 0755, true)) return false;
+  $guardia = QR_DIR . '/.htaccess';
+  if (!is_file($guardia)) {
+    @file_put_contents($guardia, implode(PHP_EOL, [
+      '# Aqui solo hay un QR subido desde el panel. Nada se ejecuta.',
+      '<IfModule mod_php.c>',
+      '  php_flag engine off',
+      '</IfModule>',
+      '<IfModule mod_php7.c>',
+      '  php_flag engine off',
+      '</IfModule>',
+      '<IfModule mod_mime.c>',
+      '  RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phps',
+      '  AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .phps',
+      '</IfModule>',
+      '<IfModule mod_headers.c>',
+      '  Header set X-Content-Type-Options "nosniff"',
+      '</IfModule>',
+    ]) . PHP_EOL);
+  }
+  return carpeta_escribible(QR_DIR);
+}
+
+/* Borra UN qr por su basename, y nada mas que eso: mismo patron que pub_borrar(). Ausente =
+   ya esta hecho (idempotente). Devuelve false solo cuando el fichero sigue ahi. */
+function qr_borrar(string $nombre): bool {
+  if (!qr_nombre_valido($nombre)) { registrar_acceso('qr: basename invalido al borrar'); return false; }
+  $ruta = QR_DIR . '/' . $nombre;
+  if (is_link($ruta)) { registrar_acceso('qr: ' . $nombre . ' es un symlink, borrado abortado'); return false; }
+  if (!is_file($ruta)) return true;
+  if (!@unlink($ruta)) { registrar_acceso('qr: no he podido borrar ' . $nombre); return false; }
+  return true;
+}
+
+/* Quita de un SVG todo lo que podria ejecutar algo al abrirlo: <script>, <foreignObject>,
+   cualquier atributo on*= (onload, onclick...) y cualquier referencia externa (href/xlink:href
+   que no sea un fragmento interno #... o un data:). Devuelve null si el contenido no parsea
+   como XML bien formado o su raiz no es <svg> -- fallar cerrado, no guardar nada a medias.
+
+   Sin DOCTYPE: un SVG de un generador de QR nunca trae uno, y es la via clasica de una entidad
+   externa (XXE). Se rechaza el archivo entero en vez de intentar limpiarlo. */
+function qr_svg_sanear(string $raw): ?string {
+  $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw); // BOM
+  if ($raw === null || trim($raw) === '') return null;
+  if (stripos($raw, '<!doctype') !== false) return null;
+  if (!function_exists('mb_check_encoding') || !mb_check_encoding($raw, 'UTF-8')) return null;
+
+  libxml_use_internal_errors(true);
+  $doc = new DOMDocument();
+  $doc->resolveExternals = false;
+  $doc->substituteEntities = false;
+  $ok = @$doc->loadXML($raw, LIBXML_NONET | LIBXML_NOCDATA);
+  libxml_clear_errors();
+  if (!$ok || !$doc->documentElement) return null;
+  if (strtolower($doc->documentElement->localName ?? '') !== 'svg') return null;
+
+  foreach (['script', 'foreignObject'] as $etiqueta) {
+    foreach (iterator_to_array($doc->getElementsByTagName($etiqueta)) as $nodo) {
+      $nodo->parentNode?->removeChild($nodo);
+    }
+  }
+
+  $xpath = new DOMXPath($doc);
+  foreach (iterator_to_array($xpath->query('//*')) as $el) {
+    if (!($el instanceof DOMElement)) continue;
+    foreach (iterator_to_array($el->attributes) as $attr) {
+      $nombreAttr = strtolower($attr->nodeName);
+      if (strpos($nombreAttr, 'on') === 0) { $el->removeAttribute($attr->nodeName); continue; }
+      if ($nombreAttr === 'href' || $nombreAttr === 'xlink:href') {
+        $valor = trim($attr->nodeValue);
+        if ($valor !== '' && $valor[0] !== '#' && stripos($valor, 'data:') !== 0) {
+          $el->removeAttribute($attr->nodeName);
+        }
+      }
+    }
+  }
+
+  return $doc->saveXML($doc->documentElement);
+}
+
+/* Devuelve el nombre guardado, o un mensaje de error. Falla cerrado: PNG que no abre GD o
+   SVG que no sanea, no se guarda ninguno de los dos. */
+function qr_guardar(array $f) {
+  $codigo = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+  if ($codigo !== UPLOAD_ERR_OK) {
+    return ['error' => subida_error_texto($codigo, QR_MAX_BYTES, 'imagen')];
+  }
+  if ($f['size'] > QR_MAX_BYTES) {
+    return ['error' => 'El QR pesa ' . peso_texto((int) $f['size']) . ' y el máximo es '
+                     . peso_texto(subida_tope_bytes(QR_MAX_BYTES)) . '.'];
+  }
+  if (!is_uploaded_file($f['tmp_name'])) return ['error' => 'Archivo no válido.'];
+
+  $info = @getimagesize($f['tmp_name']);
+  if ($info !== false && $info[2] === IMAGETYPE_PNG) {
+    if (function_exists('finfo_open')) {
+      $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+      if ($mime !== 'image/png') return ['error' => 'Eso no es un PNG válido.'];
+    }
+    if (!qr_carpeta_lista()) {
+      return ['error' => 'No puedo escribir en assets/qr/. Crea la carpeta en el servidor y dale permiso de escritura.'];
+    }
+    $nombre  = bin2hex(random_bytes(8)) . '.png';
+    $destino = QR_DIR . '/' . $nombre;
+    if (!@move_uploaded_file($f['tmp_name'], $destino)) return ['error' => 'No he podido guardar el QR.'];
+    if (@getimagesize($destino) === false) {
+      @unlink($destino);
+      return ['error' => 'La imagen ha llegado rota. Vuelve a intentarlo.'];
+    }
+    @chmod($destino, 0644);
+    return ['ok' => $nombre];
+  }
+
+  $raw = @file_get_contents($f['tmp_name']);
+  $limpio = $raw === false ? null : qr_svg_sanear($raw);
+  if ($limpio === null) {
+    return ['error' => 'Eso no es un PNG ni un SVG válido de un código QR.'];
+  }
+  if (!qr_carpeta_lista()) {
+    return ['error' => 'No puedo escribir en assets/qr/. Crea la carpeta en el servidor y dale permiso de escritura.'];
+  }
+  $nombre  = bin2hex(random_bytes(8)) . '.svg';
+  $destino = QR_DIR . '/' . $nombre;
+  if (@file_put_contents($destino, $limpio) === false) return ['error' => 'No he podido guardar el QR.'];
+  @chmod($destino, 0644);
+  return ['ok' => $nombre];
 }
 
 /* Con varios archivos, PHP no da una lista de archivos: da un archivo cuyos campos son
@@ -2925,6 +3068,24 @@ if ($csrfOk) {
     exit;
   }
 
+  /* El QR de la columna de escritorio: se descarga el fichero tal cual esta guardado, nunca
+     lo que venga en el POST -- el nombre real sale SIEMPRE del estado del cliente. */
+  if (isset($_POST['descargar_qr'])) {
+    $qrActual = (string) ($estado['marca']['qrArchivo'] ?? '');
+    $qrRuta   = QR_DIR . '/' . $qrActual;
+    if ($qrActual !== '' && qr_nombre_valido($qrActual) && is_file($qrRuta)) {
+      $qrExt = strtolower((string) pathinfo($qrActual, PATHINFO_EXTENSION));
+      $qrSlug = CLIENTE_SLUG !== '' ? CLIENTE_SLUG : 'carta';
+      header('Content-Type: ' . ($qrExt === 'svg' ? 'image/svg+xml' : 'image/png') . '; charset=utf-8');
+      header('Content-Disposition: attachment; filename="qr-' . $qrSlug . '.' . $qrExt . '"');
+      header('Content-Length: ' . (string) filesize($qrRuta));
+      readfile($qrRuta);
+      exit;
+    }
+    $pestana = 'marca';
+    $error = 'No hay QR guardado para descargar.';
+  }
+
 
   /* --- agotados --- */
   /* Las fotos no son un ajuste que se edita y se guarda: subir y quitar son acciones que
@@ -3001,6 +3162,56 @@ if ($csrfOk) {
     } else {
       $estado['hero'] = array_values(array_filter($hero, function ($x) use ($cual) { return $x !== $cual; }));
       $aviso = guardar_estado($estado) ? 'Foto quitada.' : 'No he podido escribir estado.json.';
+    }
+  }
+
+  /* El QR de la columna de escritorio: subir y quitar son acciones que pasan al momento,
+     igual que las fotos de portada -- sin botón de guardar aparte. */
+  if (isset($_POST['subir_qr'])) {
+    $pestana = 'marca';
+    $f = $_FILES['qr_img'] ?? null;
+    if (!$f || !is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+      $error = 'Elige primero un archivo de QR.';
+    } else {
+      $r = qr_guardar($f);
+      if (isset($r['error'])) {
+        $error = $r['error'];
+      } else {
+        $estado['marca'] = is_array($estado['marca'] ?? null) ? $estado['marca'] : [];
+        $anterior = (string) ($estado['marca']['qrArchivo'] ?? '');
+        $estado['marca']['qrArchivo'] = $r['ok'];
+        if (!guardar_estado($estado)) {
+          /* compensacion: el estado no ha cambiado, el QR nuevo sobra */
+          if (!qr_borrar($r['ok'])) {
+            registrar_acceso('qr: ' . $r['ok'] . ' queda huerfano tras fallo de estado.json');
+          }
+          $error = 'El QR se subió pero no he podido escribir estado.json. Se ha descartado.';
+        } else {
+          $aviso = 'QR guardado. Escanéalo con el móvil y confirma que abre esta misma carta antes de darlo por bueno.';
+          if ($anterior !== '' && $anterior !== $r['ok'] && !qr_borrar($anterior)) {
+            registrar_acceso('qr: el anterior ' . $anterior . ' queda como residuo');
+            $aviso .= ' (El QR anterior no se ha podido borrar; queda registrado.)';
+          }
+        }
+      }
+    }
+  }
+
+  if (isset($_POST['quitar_qr'])) {
+    $pestana = 'marca';
+    $actual = (string) ($estado['marca']['qrArchivo'] ?? '');
+    if ($actual === '') {
+      $aviso = 'No hay QR que quitar.';
+    } else {
+      $estado['marca'] = is_array($estado['marca'] ?? null) ? $estado['marca'] : [];
+      $estado['marca']['qrArchivo'] = '';
+      if (!guardar_estado($estado)) {
+        $error = 'No he podido escribir estado.json.';
+      } else {
+        $aviso = qr_borrar($actual)
+          ? 'QR quitado.'
+          : 'QR quitado del estado; el archivo no se ha podido borrar del servidor (queda registrado).';
+      }
     }
   }
 
@@ -3121,7 +3332,11 @@ if ($csrfOk) {
     } elseif ($malas) {
       $error = implode(' ', $malas);
     } else {
-      $estado['marca'] = ['nombreVisible' => $marcaNombre, 'rotuloVisible' => $marcaRotulo, 'colorPrincipal' => $colorNormalizado];
+      /* subir/quitar QR es una accion aparte (ver mas abajo) que no pasa por este guardado;
+         este formulario reescribe 'marca' entero y sin este cuidado se llevaria el QR por
+         delante en cuanto alguien guardase el nombre o el color. */
+      $qrArchivoAntes = (string) ($estado['marca']['qrArchivo'] ?? '');
+      $estado['marca'] = ['nombreVisible' => $marcaNombre, 'rotuloVisible' => $marcaRotulo, 'colorPrincipal' => $colorNormalizado, 'qrArchivo' => $qrArchivoAntes];
       $estado['reviews'] = ['on' => $op_on, 'rating' => $op_not, 'count' => $op_num];
       $estado['social'] = $redes;
       /* El enlace es de aquí, y ya es lo único que queda en review. */
@@ -7776,6 +7991,9 @@ $CUENTAS = [
     .adm-f-fotos {grid-column:1 / span 6;grid-row:2}
     .adm-f-google{grid-column:1 / span 3;grid-row:3}
     .adm-f-redes {grid-column:4 / span 3;grid-row:3}
+    /* El QR de la carta, en su propia fila: es un dato nuevo y aparte de todo lo de arriba,
+       no comparte tarea con ninguna de las otras cinco fichas. */
+    .adm-f-qr    {grid-column:1 / span 6;grid-row:4}
 
     /* Ajustes (sólo con sesión de superadministrador; sin ella la pantalla sigue siendo
        una columna, ver el :not(:has()) de arriba). Las copias cruzan el ancho porque son
@@ -10237,6 +10455,22 @@ $CUENTAS = [
   }
   .adm-archivo svg{width:16px;height:16px;flex:none;stroke-width:2}
   .adm-archivo-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---- el QR de la carta ----
+     Miniatura a la izquierda, el aviso de comprobación y los dos botones a la derecha. En
+     780px de ficha con una miniatura de 96 caben de sobra en fila; por debajo se apilan. */
+  .adm-qr-actual{
+    display:flex;gap:var(--space-3);align-items:flex-start;flex-wrap:wrap;
+    margin-bottom:var(--s2);
+  }
+  .adm-qr-actual img{
+    width:96px;height:96px;flex:none;object-fit:contain;
+    background:#fff;padding:8px;border:1px solid var(--hairline);border-radius:var(--radius-lg);
+  }
+  .adm-qr-datos{flex:1 1 220px;min-width:0}
+  .adm-qr-datos .adm-f-txt{margin:0 0 var(--space-3)}
+  .adm-qr-datos .adm-f-txt a{color:inherit;text-decoration:underline}
+  .adm-qr-acciones{display:flex;gap:var(--space-2);flex-wrap:wrap}
 
   /* ---- ficha plegable ----
      Las tres fichas de superadministrador se abren pocas veces al año. Dejarlas abiertas
@@ -14878,6 +15112,66 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <?php else: ?>
             <p class="adm-f-txt adm-al-pie">Ya están las <?= (int) HERO_MAX ?>. Quita una para poder subir otra.</p>
           <?php endif; ?>
+        </section>
+
+        <?php /* --------------------------------------------- el QR de la carta (escritorio) */ ?>
+        <?php $qrArchivo = (string) ($marca['qrArchivo'] ?? ''); ?>
+        <section class="adm-f adm-f-qr">
+          <div class="adm-f-cab">
+            <span class="adm-f-ico"><?php /* Lucide «qr-code» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg></span>
+            <h2>QR de la carta</h2>
+            <span class="der adm-a-qr"></span>
+          </div>
+          <p class="hint" data-adm-ayuda="El QR de la carta" data-adm-ancla=".adm-a-qr">
+            En pantallas de escritorio grandes la carta se estrecha a ancho de tablet y, si hay
+            un QR subido aquí, aparece a su lado para escanearlo desde el mostrador o una mesa
+            expositora. El QR se genera fuera de este panel — súbelo ya hecho, en SVG o PNG,
+            apuntando a la URL de tu propia carta. Nadie aquí comprueba a dónde lleva: escanéalo
+            tú mismo con el móvil y confirma que abre esta misma carta antes de darlo por bueno.
+            Máximo <?= h(peso_texto((int) QR_MAX_BYTES)) ?>.
+          </p>
+
+          <?php if ($qrArchivo === ''): ?>
+            <p class="adm-vacio">
+              <?php /* Lucide «qr-code» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/></svg>
+              Todavía no hay QR. En escritorio ancho la carta se enseña sola, sin columna.
+            </p>
+          <?php else: ?>
+            <div class="adm-qr-actual">
+              <img src="../assets/qr/<?= h($qrArchivo) ?>?v=<?= (int) time() ?>" alt="">
+              <div class="adm-qr-datos">
+                <p class="adm-f-txt">
+                  Escanea este QR con el móvil y compara con
+                  <a href="../index.html" target="_blank" rel="noopener">esta carta</a>: los dos
+                  tienen que llevar al mismo sitio.
+                </p>
+                <div class="adm-qr-acciones">
+                  <form method="post" style="display:contents">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                    <button class="adm-btn adm-btn-fino" name="descargar_qr" value="1" type="submit">Descargar</button>
+                  </form>
+                  <form method="post" style="display:contents">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                    <button class="adm-btn adm-btn-fino adm-foto-b-quitar" name="quitar_qr" value="1" type="submit"
+                            data-confirmar="¿Quitar el QR de la carta?"
+                            data-confirmar-nota="La columna deja de aparecer en escritorio. Se borra del servidor y no se puede deshacer."
+                            data-confirmar-si="Quitar el QR" data-confirmar-tono="peligro">Quitar</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          <?php endif; ?>
+
+          <form method="post" enctype="multipart/form-data" class="adm-subida">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <input type="hidden" name="MAX_FILE_SIZE" value="<?= (int) QR_MAX_BYTES ?>">
+            <label class="adm-archivo">
+              <?php /* Lucide «qr-code» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/></svg>
+              <input type="file" name="qr_img" accept="image/svg+xml,image/png" required aria-label="Elegir el archivo del QR">
+              <span class="adm-archivo-txt" data-vacio="Elegir archivo…">Elegir archivo…</span>
+            </label>
+            <button class="adm-btn adm-btn-fino" name="subir_qr" value="1" type="submit"><?= $qrArchivo === '' ? 'Subir' : 'Reemplazar' ?></button>
+          </form>
         </section>
 
         <?php /* -------------------------------------------------------- la nota de Google */ ?>

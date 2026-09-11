@@ -157,6 +157,16 @@ define('HERO_ANCHOS', [480, 640, 800, 1000, 1200, 1600]);
 // simple vista y pesa un tercio menos.
 define('HERO_WEBP_CALIDAD', 72);
 
+// Carpeta donde el panel deja el QR de la carta pública, para la columna que aparece junto a
+// la carta en pantallas de escritorio anchas. Mismo patrón que HERO_DIR: el panel la crea sola
+// y le pone su propio .htaccess apagando la ejecución. El QR no lo genera el panel -- lo sube
+// el propio restaurante ya hecho, apuntando a su propia carta.
+define('QR_DIR', __DIR__ . '/../assets/qr');
+
+// Peso máximo del QR, en bytes. Un SVG o PNG de un código QR pesan, de sobra, unos pocos KB;
+// medio mega deja fuera cualquier cosa que no sea, de verdad, un QR y sigue siendo generoso.
+define('QR_MAX_BYTES', 512 * 1024);
+
 /* ------------------------------------------------------------ FOTOS DE PLATO
  * Una foto por plato, cuadrada, y la recorta y comprime el NAVEGADOR antes de subirla: aquí
  * llega ya en 1000x1000 WebP y por debajo de medio mega. El servidor no reescala nada, sólo

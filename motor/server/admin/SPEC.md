@@ -1,4 +1,93 @@
-## Lo marcado va en gris; el naranja se guarda (5 Sep 2026)
+## El QR de escritorio: la carta se congela a ancho de tablet y una columna al lado (11 Sep 2026)
+
+Vista de escritorio con QR para la carta pública. Por encima de **1400px** de ventana la carta
+deja de estirarse a lo ancho de un monitor —`.container` sigue en 1570px por debajo del
+breakpoint, que es donde ya vivía— y se congela a **991px**: no un ancho de tablet cómodo
+elegido a ojo, sino el punto de ruptura que la propia carta ya usa (línea ~4031), el más
+cercano a una tablet de 10 pulgadas (991 frente a 1199 — 33px de diferencia contra 175). Si el
+restaurante ha subido un QR desde el panel, aparece a su lado, en una columna de 260px con 56px
+de hueco entre las dos. 991+56+260 = 1307px de contenido — 1400 es el siguiente punto de
+ruptura que la carta ya usa (línea ~4026, hoy sólo como `max-width:1399px`), no un valor
+inventado para esto, y deja 93px de aire a cada lado del grupo, centrado como bloque único.
+
+**991px no era sólo cuestión de qué número usar — el propio ancho no bastaba.** Congelar
+`.food-menu-section` a un ancho de tablet no basta para que SE VEA como una tablet: dentro,
+media docena de reglas deciden por la ventana REAL del navegador, no por el ancho de su
+contenedor, así que con la ventana en 1400+ la carta encajonada en 991px seguía usando las
+reglas de escritorio. Medido comparando `getBoundingClientRect()` a 991px nativo contra 991px
+forzado dentro de una ventana de 1600: la primera vez salieron **dos columnas** en vez de una
+(`.col-lg-6` pasa a 50% desde `min-width:992px`, línea ~3002 — con la ventana real en 1600,
+992 se cumple aunque el contenedor mida 991) y **87px más de alto** en total. Auditados TODOS
+los `@media` de la carta pública entre 767 y 1600px (siete en total, no uno a uno según
+aparecían) y replicados dentro de `.carta-qr-layout`, con el valor que ya usa la carta por
+debajo de cada corte:
+- `.col-lg-6{width:100%}` — si no, dos columnas apretadas en vez de una (línea ~3002).
+- `--gutter:var(--s5)` — si no, 89px de aire en vez de 55 (líneas ~4023/4027).
+- `.single-menu-items{margin-top:var(--s2)}` — si no, 34px en vez de 13 (línea ~4026).
+- `.menu-group + .menu-group{margin-top:var(--s4)}` — si no, 55px en vez de 34 (línea ~4031).
+- `.hero-frame{aspect-ratio:3/2}` — si no, se aplana a 2/1 desde 1024 (línea ~3355); esta
+  carta de prueba no tiene foto de cabecera y no lo enseña, pero un cliente con hero sí lo
+  vería distinto sin el arreglo.
+
+Con las cinco, la diferencia de alto baja de 87px a 66px sobre ~1700px totales (menos del 4%,
+sin ningún salto estructural ya) — no se ha perseguido más allá: quedan restos menores
+—probablemente redondeos y detalles de tipografía repartidos por varias reglas más pequeñas—
+que exigirían una auditoría bastante más profunda (o pasar el freeze entero a CSS Container
+Queries, que resolvería esto de raíz en vez de regla a regla) para cerrar del todo. Se deja
+así, documentado, salvo que se pida ese esfuerzo mayor aparte.
+
+**Sin QR subido, no hay columna ni hueco.** Dos guardas independientes y no una: el `<aside>`
+nace con `hidden` en el HTML y sólo se le quita cuando `aplicarQR()` —parte de
+`motor/gen.mjs`, runtime de la carta— ve `marca.qrArchivo` con contenido; y `.carta-qr-col`
+vive en `display:none` salvo dentro de `@media(min-width:1300px)` **y** con `.con-qr` puesto en
+el `<html>`. Así un cliente sin QR no paga hueco ni por debajo ni por encima del breakpoint, y
+uno con QR no lo ve asomar en tablet o móvil aunque el estado ya lo traiga.
+
+**`aplicarQR()` va aparte de `aplicarMarca()` a propósito.** `motor/tests/contrato-tintas.mjs`
+extrae `aplicarMarca()` sola —sin el resto del fichero— y la ejecuta contra un DOM de mentira
+que sólo sabe leer y escribir tokens de color, sin `getElementById()`. La primera versión de
+este cambio metía el QR dentro de `aplicarMarca()` y esa prueba, que no está en la allowlist de
+esta tarea, se rompía. La columna se resuelve en una función hermana, llamada desde el mismo
+sitio (`cargarEstado()`) justo después.
+
+**El texto de la columna es vocabulario del motor** (`T('Scan this code to open the menu on
+your phone', 'ui')`), traducido en `i18n.es.mjs`/`i18n.de.mjs` como cualquier otro texto de
+sistema — no un campo que edite el restaurante. El `alt` del QR (`'QR code for this menu'`) va
+con `TL_TXT`, en el idioma base, igual que el resto de textos alternativos que no cambian con
+el selector de idioma en caliente (mismo patrón que las fotos del carrusel).
+
+**El QR es un dato de producción del cliente, como las fotos del hero.** Vive en
+`assets/qr/<16-hex>.svg|png`, con nombre generado en servidor
+(`bin2hex(random_bytes(8))`, nunca el original), carpeta con su propio `.htaccess` que apaga la
+ejecución de PHP (mismo bloque que `assets/hero/`), y sin recursión en `gen.mjs`: el bucle que
+arma `2-subir/` sólo copia el primer nivel de cada carpeta (`if (!e.isFile()) continue`), así
+que `assets/qr/` queda fuera del build exactamente igual que `assets/hero/` y `assets/platos/`
+—**sin tocar `NO_SUBIR`**, que sólo lista nombres de archivo, no carpetas. Se comprobó
+expresamente antes de dar la tarea por completa para no añadir una entrada que no hacía nada.
+`assets/qr/` sí se añadió a `NO_SON_DEL_BUILD` en `motor/contrato-salida.mjs`, que es la lista
+que de verdad importa: la que dice por qué el contrato no exige ese original en el repositorio.
+
+**El SVG se sanea al subirlo, nunca se guarda tal cual llega.** `qr_svg_sanear()` en
+`server/admin/index.php` parsea con `DOMDocument`, rechaza cualquier `<!DOCTYPE` (vía clásica
+de XXE, y un QR de verdad nunca trae uno), quita `<script>` y `<foreignObject>` enteros, y
+cualquier atributo `on*=` o `href`/`xlink:href` que no sea un fragmento interno (`#...`) o un
+`data:`. Falla cerrado: si la raíz no es `<svg>` o el XML no parsea, no se guarda nada. Probado
+con Playwright subiendo un SVG con `<script>alert('xss')</script>`, `onload=`, `onclick=` y dos
+referencias externas (`xlink:href` e `<image href>`): el fichero **guardado en disco** —no la
+vista previa— sale limpio de las cinco. El PNG reutiliza la validación de imagen real que ya
+usa `hero_guardar()` (tipo por contenido con `finfo`, no por lo que declare el navegador).
+
+**`estado['marca']['qrArchivo']`** es la clave nueva, junto a `colorPrincipal`. El guardado del
+resto de Marca (nombre, rótulo, color, redes, reseña) reescribe `estado['marca']` entero en un
+solo paso — sin cuidado, ese guardado se habría llevado el QR por delante en cuanto alguien
+tocara el nombre. Se preserva explícitamente antes de reescribir. Probado con Playwright: subir
+un QR, guardar el formulario de Marca, releer `estado.json` — `qrArchivo` sigue ahí.
+
+Ficha nueva en Marca, entre «Fotos de portada» y «La nota de Google»: subir (PNG o SVG, máximo
+512KB), previsualizar, comparar con un enlace a la carta real, descargar (con el nombre real
+del fichero, nunca el que venga en el POST) y quitar (con confirmación, mismo patrón que
+quitar una foto). En el grid de escritorio de la pestaña, fila propia (`grid-row:4`, span 6):
+es un dato nuevo que no comparte tarea con ninguna de las cinco fichas de encima.
 
 Regla de color para todo el panel, y la razón no es de gusto: **con veinte platos elegidos,
 veinte pastillas naranjas no destacan nada. Destacan todas, que es no destacar ninguna.**
