@@ -15,7 +15,10 @@ es la fuente. `motor/importar.mjs` no se toca.
 **Color invertido, no un color nuevo.** `.item-tag-diet{background:var(--badge-ink);
 color:var(--accent)}` — exactamente los dos colores de `.item-tag`/`.item-tag-high` (destacado)
 al revés. Vegano y sin gluten comparten esta misma paleta; se diferencian solo por el texto,
-decidido con el propietario antes de implementar.
+decidido con el propietario antes de implementar. Añadido después, a la vista del resultado:
+`border:1px solid var(--accent)` — sin esto el badge se leía plano contra el fondo claro de
+la tarjeta; el borde lo recorta del mismo naranja que ya lleva el texto. `box-sizing:border-box`
+es global (línea ~1584), así que el borde no mueve nada alrededor.
 
 **Las clases `diet`/`diet-vegan`/`diet-gf` y el envoltorio `diet-marks` se conservan tal cual,
 sin CSS propio.** No son solo del render: el índice de búsqueda del buscador cuenta

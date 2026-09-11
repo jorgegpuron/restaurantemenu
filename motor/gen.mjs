@@ -3054,7 +3054,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Vegano / sin gluten: mismo .item-tag, color invertido -- fondo naranja lo lleva el
    destacado, este lleva el fondo oscuro con el texto en el naranja de marca. Un vistazo
    basta para no confundirlos. Los dos comparten esta paleta; solo cambia el texto. */
-.item-tag-diet{background:var(--badge-ink);color:var(--accent)}
+.item-tag-diet{background:var(--badge-ink);color:var(--accent);border:1px solid var(--accent)}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.
