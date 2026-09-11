@@ -5293,3 +5293,7 @@ vertical se mantienen; el login y el escritorio no cambian.
 La tira de secciones de Platos conserva todas las pestañas en el DOM y usa desplazamiento
 horizontal nativo con el dedo, rueda, teclado y flechas. Los controles solo aparecen cuando el
 contenido desborda y nunca se ocultan pestañas para fabricar páginas o huecos.
+
+## Ajuste responsive de controles táctiles (11 Sep 2026)
+
+En dispositivos con puntero táctil, los controles compactos de cabecera de categoría (`.adm-cat-nombre-b` y `.adm-orden-b`) conservan su icono visual pero disponen de un área mínima de 44 px. El interruptor maestro de Ofertas usa también 44 px de alto y su mando alcanza el borde útil de la tarjeta en móvil, evitando huecos y objetivos pequeños sin alterar la jerarquía de espaciado.

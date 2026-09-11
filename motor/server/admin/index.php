@@ -6386,7 +6386,7 @@ $CUENTAS = [
   @keyframes adm-mas-fuera{to{opacity:0;transform:scale(.97)}}
   @media (pointer:coarse){
     .adm-mas-b{
-      display:grid;place-items:center;width:28px;height:28px;min-height:0;padding:0;
+      display:grid;place-items:center;width:28px;height:28px;min-height:44px;padding:0;
       border:0;border-radius:var(--radius-md);background:transparent;color:var(--sc-text-2);
       cursor:pointer;position:relative;
       transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
@@ -8825,6 +8825,10 @@ $CUENTAS = [
   .adm-cat-nombre-b:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
   .adm-cat-nombre-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
   @media (pointer:coarse){ .adm-cat-nombre-b{opacity:1} }
+  @media (pointer:coarse){
+    /* El icono conserva su cuerpo compacto, pero toda la caja del encabezado es táctil. */
+    .adm-cat-bento-cab .adm-cat-nombre-b{width:44px;height:44px;min-height:44px;min-width:44px;margin-block:-8px}
+  }
   /* El formulario cuelga de la cabecera, por encima de la lista: es una hoja pequeña, no una
      seccion mas de la ficha — abrirla no puede empujar los platos hacia abajo. */
   /* FIJA, no absoluta. La ficha lleva `overflow:hidden` —lo necesita para sus esquinas
@@ -8930,6 +8934,9 @@ $CUENTAS = [
   .adm-pest-orden .adm-orden-b:not(:disabled){opacity:1}
   .adm-orden-b:disabled:hover{background:transparent;color:var(--sc-text-2)}
   @media (pointer:coarse){ .adm-orden-b{opacity:1} .adm-orden-b:disabled{opacity:.3} }
+  @media (pointer:coarse){
+    .adm-cat-bento-cab .adm-cat-orden .adm-orden-b{width:44px;height:44px;min-height:44px;min-width:44px;margin-block:-8px}
+  }
   /* Estrecho: circulos algo menores para no comerle ancho al nombre del plato. */
   @media (max-width:560px){
     .adm-orden-flechas{gap:4px}
@@ -9380,7 +9387,7 @@ $CUENTAS = [
     display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
     margin-top:var(--space-3);font-size:var(--t4);color:var(--sc-text-2);
   }
-  .adm-sw-alto{min-height:40px;padding:0}
+  .adm-sw-alto{min-height:44px;padding:0}
   /* SocialCard V4: el interruptor maestro, ya fuera del plegado. Una fila propia
      inmediatamente debajo del titulo: rotulo a la izquierda, interruptor y su palabra a
      la derecha — el mismo patron "etiqueta + switch" que usa la fila de plato del
@@ -9652,7 +9659,7 @@ $CUENTAS = [
     }
     .adm-f-ooferta > .adm-f-cab > .adm-f-ico{display:none}
     .adm-f-ooferta > .adm-f-cab h2{min-width:0;font-size:var(--t2);line-height:40px}
-    .adm-f-ooferta .adm-oferta-mando{grid-column:2;grid-row:1;gap:var(--space-2)}
+    .adm-f-ooferta .adm-oferta-mando{grid-column:2;grid-row:1;gap:var(--space-2);margin-right:calc(-1 * var(--space-4))}
     .adm-osueltos-barra .adm-f-ico{display:none}
     .adm-osueltos-barra{
       display:grid;grid-template-columns:max-content minmax(0,1fr);
