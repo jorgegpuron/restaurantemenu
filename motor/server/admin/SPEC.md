@@ -48,6 +48,16 @@ portada subida), el marco del hero (`.hero-frame`) arranca en `y=29`, no en `y=4
 sección tiene 21px de margen propio más 8px del envoltorio interno. Corregido a `top:29px`:
 las dos cajas arrancan en el mismo `y` ahora, verificado con la misma medida.
 
+**El `<footer>` quedaba descuadrado de la carta.** Es hermano de `.carta-qr-layout`, no hijo,
+así que se centraba en TODA la ventana por su cuenta. Sin QR eso coincide con la carta sola
+—las dos cosas centradas de la misma manera dan el mismo borde—, pero con QR el bloque
+centrado es carta+hueco+columna (991+56+260=1307), y el footer seguía centrándose como si
+fuera él solo: los bordes ya no casaban. Corregido dándole el mismo `max-width:991px` y, con
+`.con-qr` puesto, el mismo desplazamiento a la izquierda del centro que arrastra la columna
+(`margin-left:calc((100% - 991px - 56px - 260px) / 2)`). Verificado con
+`getBoundingClientRect`: `x` del footer y de la sección coinciden en los dos estados —sin QR
+(299.5 los dos) y con QR (141.5 los dos).
+
 **Sin QR subido, no hay columna ni hueco.** Dos guardas independientes y no una: el `<aside>`
 nace con `hidden` en el HTML y sólo se le quita cuando `aplicarQR()` —parte de
 `motor/gen.mjs`, runtime de la carta— ve `marca.qrArchivo` con contenido; y `.carta-qr-col`

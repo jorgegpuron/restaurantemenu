@@ -4258,6 +4258,14 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   /* La foto de cabecera se aplana a 2:1 desde 1024 de ventana real (linea ~3355) -- una
      tablet real de 991 se queda siempre en su 3:2 de movil/tablet. */
   .carta-qr-layout .hero-frame{aspect-ratio:3 / 2}
+  /* El footer es hermano de .carta-qr-layout, no hijo: centrado en toda la ventana por su
+     cuenta, queda descuadrado del bloque carta+QR de encima. Sin QR (columna en display:none,
+     cero ancho), el bloque es solo la carta (991) centrada en la ventana, e igual la centra
+     el footer -- coinciden solos. Con QR, el bloque centrado es carta+hueco+columna (1307):
+     el footer necesita el mismo desplazamiento a la izquierda del centro para que sus bordes
+     casen con los de la carta, no con los del bloque entero. */
+  .site-footer{max-width:991px;margin-left:auto;margin-right:auto}
+  html.con-qr .site-footer{margin-left:calc((100% - 991px - 56px - 260px) / 2);margin-right:auto}
 }
 
 /* ---------- accessibility ----------
