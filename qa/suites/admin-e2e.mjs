@@ -1348,11 +1348,10 @@ export async function e2eOfertas(informe, { pagina, servidor, docroot }) {
   await pagina.setViewportSize({ width: 390, height: 844 });
   await pagina.reload({ waitUntil: 'domcontentloaded' });
   await esperar(250);
-  /* El interruptor maestro ya no vive en su propia caja gris: subió a la cabecera, al lado de
-     la insignia, porque el estado se decía tres veces. Lo que se comprueba sigue siendo lo
-     mismo —que los dos se vean siempre, se pliegue lo que se pliegue. */
-  const h3 = await pagina.evaluate(async () => { const caja = document.querySelector('.adm-oferta-config'); const cerrado = !caja.open; const maestro = document.querySelector('.adm-f-ooferta .adm-f-cab input[name="oferta_on"]').closest('.adm-sw').getBoundingClientRect(); const badge = document.querySelector('.adm-f-ooferta .adm-estado').getBoundingClientRect(); caja.querySelector('.adm-oferta-config-resumen').click(); await new Promise((r) => setTimeout(r, 80)); return { cerrado, abierto: caja.open, maestroVis: maestro.width > 0 && maestro.right <= innerWidth, badgeVis: badge.width > 0 }; });
-  informe.comprueba('E2E-OF-24', 'H3: a 390 px la configuración viene plegada y abre; maestro e insignia siempre visibles', h3.cerrado && h3.abierto && h3.maestroVis && h3.badgeVis, JSON.stringify(h3));
+  /* El interruptor maestro vive en la cabecera y la configuración queda siempre disponible:
+     descuento, horario y días son parte de una misma decisión, también a 390 px. */
+  const h3 = await pagina.evaluate(() => { const caja = document.querySelector('.adm-oferta-config'); const regla = caja ? caja.querySelector('.adm-regla').getBoundingClientRect() : null; const maestro = document.querySelector('.adm-f-ooferta .adm-f-cab input[name="oferta_on"]').closest('.adm-sw').getBoundingClientRect(); const badge = document.querySelector('.adm-f-ooferta .adm-estado').getBoundingClientRect(); return { configVisible: !!(caja && regla && regla.width > 0 && regla.height > 0), sinDesplegable: !document.querySelector('.adm-oferta-config summary'), maestroVis: maestro.width > 0 && maestro.right <= innerWidth, badgeVis: badge.width > 0 }; });
+  informe.comprueba('E2E-OF-24', 'a 390 px la configuración de la oferta siempre está visible, sin desplegable; maestro e insignia siguen visibles', h3.configVisible && h3.sinDesplegable && h3.maestroVis && h3.badgeVis, JSON.stringify(h3));
   await pagina.setViewportSize({ width: 1280, height: 900 });
 
   /* Restaurar el fixture. */
@@ -2268,8 +2267,9 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
   informe.comprueba('E2E-RS-TACTIL', 'con dedo (pointer: coarse) el interruptor lleva halo de 44×44 o más y un tap marca y guarda',
     halo.grueso && parseFloat(halo.ancho) >= 44 && parseFloat(halo.alto) >= 44 && rt && rt.status() === 200 && c.chip === '1', JSON.stringify({ halo, http: rt ? rt.status() : null, chip: c.chip }));
   await postCrudo(dedo, '/admin/index.php', [['guardar_agotados', '1']]);
-  const hoja = await dedo.evaluate(async () => { document.getElementById('btn-mas-movil').click(); await new Promise((r) => setTimeout(r, 150)); const s = document.getElementById('sheet-mas'); const abierta = s.getAttribute('aria-hidden') === 'false' && !s.inert; s.querySelector('[data-tab="marca"]').click(); await new Promise((r) => setTimeout(r, 150)); return { abierta, cerrada: s.getAttribute('aria-hidden') === 'true', pane: document.querySelector('section.pane:not([hidden])').dataset.pane, titulo: document.getElementById('adm-topbar-titulo').textContent.trim() }; });
+  const hoja = await dedo.evaluate(async () => { document.getElementById('btn-mas-movil').click(); await new Promise((r) => setTimeout(r, 150)); const s = document.getElementById('sheet-mas'); const abierta = s.getAttribute('aria-hidden') === 'false' && !s.inert; const tema = [...s.querySelectorAll('.adm-tema-op')].map((b) => { const r = b.getBoundingClientRect(); const texto = b.querySelector('span'); return { ancho: Math.round(r.width), alto: Math.round(r.height), texto: !!texto && getComputedStyle(texto).width !== '1px' }; }); s.querySelector('[data-tab="marca"]').click(); await new Promise((r) => setTimeout(r, 150)); return { abierta, cerrada: s.getAttribute('aria-hidden') === 'true', pane: document.querySelector('section.pane:not([hidden])').dataset.pane, titulo: document.getElementById('adm-topbar-titulo').textContent.trim(), tema }; });
   informe.comprueba('E2E-RS-HOJA', 'la hoja «Más» abre, lleva a Marca, cambia el título y se cierra sola', hoja.abierta && hoja.cerrada && hoja.pane === 'marca' && hoja.titulo === 'Marca', JSON.stringify(hoja));
+  informe.comprueba('E2E-RS-HOJA-TEMA', 'a 390 px el tema se presenta como dos opciones visibles, iguales y táctiles dentro de la hoja «Más»', hoja.tema.length === 2 && hoja.tema.every((x) => x.texto && x.alto >= 44) && Math.abs(hoja.tema[0].ancho - hoja.tema[1].ancho) <= 1, JSON.stringify(hoja.tema));
   informe.comprueba('E2E-RS-TACTIL-red', 'consola y red limpias en la sesión táctil', erroresConsola(dedo).length === 0 && dedo.registro.fallidas.length === 0, [...erroresConsola(dedo), ...dedo.registro.fallidas].slice(0, 2).join(' | '));
 
   /* El agujero de 404 a 460, que ninguna pasada anterior veía porque el documento NO saca
@@ -2331,8 +2331,8 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
      bien. Los que siguen cortos lo estan de ANCHO, y cada uno con su razon medida escrita
      al lado de su regla en el CSS. */
   const MINIMOS = { '.adm-mas-b': [37, 44], '.adm-cat-nombre-b': [24, 44],
-    '.adm-plato-destbtn': [32, 44], '.adm-tema-op': [44, 33], '.adm-pct-atajo': [67, 44],
-    '.adm-dia-semanal': [81, 44], '.adm-nav-item': [43, 40], '.adm-btn': [44, 44],
+    '.adm-plato-destbtn': [32, 44], '.adm-tema-op': [44, 33], '.adm-pct-atajo': [45, 44],
+    '.adm-dia-semanal': [81, 44] /* y el atajo baja de 67 a 45: al pegarse en un segmentado cada uno mide lo que le toca de la tira, y 45 sigue por encima del objetivo de 44 */, '.adm-nav-item': [43, 40], '.adm-btn': [44, 44],
     '.adm-orden-b': [26, 44], '.camara': [44, 44], '.adm-sw': [44, 44] };
   const sonda44 = (MIN) => {
     /* El area tactil se mide PREGUNTANDO al navegador quien recibe el toque en cada punto,
@@ -3865,6 +3865,135 @@ export async function e2eUxPlatos(informe, { navegador, servidor }) {
         informe.comprueba(`E2E-UX-CHAPA-${w}`, `${w} px: la chapa no flota, no tapa la barra inferior, y ${w >= 768 ? 'cabe en una línea' : 'baja con cada trozo entero'}`,
           !m.fija && !m.tapaBarra && m.trozosEnteros && m.desborde <= 1 && (w >= 768 ? m.unaLinea : true), JSON.stringify(m));
       }
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+}
+
+/* ================================================================== 21b. Ofertas: una sola linea
+ * La fila de un plato suelto prioriza el nombre, el precio y el interruptor; «CAT» sólo se pinta
+ * donde explica algo. La configuración detallada queda plegada de entrada en móvil: el mando de
+ * encendido y el estado no compiten con una tarjeta de configuración alta.
+ */
+export async function e2eOfertasLinea(informe, { navegador, servidor }) {
+  const url = servidor.url;
+  informe.seccion('E2E Ofertas: la fila en una línea y la regla a todo el ancho');
+
+  const medir = () => {
+    const rx = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [Math.round(b.left), Math.round(b.width), Math.round(b.height)] : null; };
+    const filas = [...document.querySelectorAll('.adm-ofertas .adm-orow')].filter((r) => r.getBoundingClientRect().width > 0).slice(0, 9);
+    const x = (sel) => [...new Set(filas.map((r) => { const v = rx(r.querySelector(sel)); return v ? v[0] : null; }).filter((v) => v !== null))];
+    const der = (sel) => [...new Set(filas.map((r) => { const v = rx(r.querySelector(sel)); return v ? v[0] + v[1] : null; }).filter((v) => v !== null))];
+    let fuera = 0;
+    for (const r of filas) { const t = r.closest('.adm-f').getBoundingClientRect(); for (const el of r.querySelectorAll('*')) { const b = el.getBoundingClientRect(); if (b.width && (b.right > t.right + 1 || b.left < t.left - 1)) fuera++; } }
+    const regla = document.querySelector('.adm-f-ooferta .adm-regla');
+    const dias = [...document.querySelectorAll('.adm-f-ooferta .adm-dia')].filter((d) => d.getBoundingClientRect().width > 0);
+    const cajas = dias.map((d) => d.getBoundingClientRect());
+    const anchos = cajas.map((b) => Math.round(b.width));
+    const fichaCaja = document.querySelector('.adm-f-ooferta').getBoundingClientRect();
+    return {
+      n: filas.length, display: filas.length ? getComputedStyle(filas[0]).display : null,
+      altos: [...new Set(filas.map((r) => Math.round(r.getBoundingClientRect().height)))].sort((a, b) => a - b),
+      xNum: x('.adm-prow-n'), xPrecio: x('.adm-prow-fijo'), xSw: x('.adm-sw-oferta'),
+      nombreMin: filas.length ? Math.min(...filas.map((r) => Math.round(r.querySelector('.adm-orow-nm').getBoundingClientRect().width))) : 0,
+      derSw: der('.adm-sw-oferta'), fuera,
+      dias: dias.length, diasIguales: anchos.length ? Math.max(...anchos) - Math.min(...anchos) <= 1 : false,
+      diasPegados: cajas.slice(1).every((b, i) => Math.round(b.left - cajas[i].right) <= 1),
+      diasDentro: cajas.length ? Math.round(cajas[cajas.length - 1].right) <= Math.round(fichaCaja.right) : false,
+      semanal: !!document.getElementById('of-semanal'),
+      reglaAlto: regla ? Math.round(regla.getBoundingClientRect().height) : null,
+      fichaAlto: Math.round(fichaCaja.height),
+      desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  };
+  const abrir = async (p) => p.evaluate(() => {
+    document.querySelectorAll('[data-cat-bento]').forEach((f) => f.setAttribute('data-abierto', ''));
+    document.querySelectorAll('section.pane:not([hidden]) details').forEach((d) => { d.open = true; });
+  });
+
+  /* ---- OFR-01: la fila, en cuatro anchos ---- */
+  for (const [w, h] of [[320, 568], [390, 844], [768, 1024], [1440, 900]]) {
+    const p = await nuevaPagina(navegador, { viewport: { width: w, height: h }, hasTouch: w < 700, isMobile: w < 700 });
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'ofertas', 300);
+      await abrir(p);
+      const m = await p.evaluate(medir);
+      const dosCol = w >= 1200;
+      const unaX = m.xNum.length === (dosCol ? 2 : 1)
+        && m.xPrecio.length === (dosCol ? 2 : 1) && m.xSw.length === (dosCol ? 2 : 1);
+      /* Y el precio SIEMPRE antes del interruptor: en movil le llegaba `order:3` desde la fila de
+         Precios —`.adm-prow-fijo` es compartido— y en una rejilla eso reordena de verdad. */
+      const ordenBien = m.xPrecio.every((v, i) => v < m.xSw[i]);
+      informe.comprueba(`E2E-OFR-01-${w}`, `${w} px: la fila de un plato suelto es una rejilla de UNA línea, alto 48, con nº, nombre, precio e interruptor cada uno en su x, el nombre no se estrangula, el precio siempre va antes del interruptor y nada sale de la tarjeta`,
+        m.display === 'grid' && m.altos.length === 1 && m.altos[0] === 48 && unaX && ordenBien
+          && m.nombreMin >= (w < 700 ? 108 : 80) && m.fuera === 0 && m.desborde <= 1, JSON.stringify(m));
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+
+  /* ---- OFR-02: la regla, sin rendirse a una columna ---- */
+  for (const [w, h, techoRegla, techoFicha] of [[390, 844, 300, 600], [768, 1024, 120, 280]]) {
+    const p = await nuevaPagina(navegador, { viewport: { width: w, height: h }, hasTouch: true, isMobile: w < 700 });
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'ofertas', 300);
+      await abrir(p);
+      const m = await p.evaluate(medir);
+      informe.comprueba(`E2E-OFR-02-${w}`, `${w} px: los siete días son un segmentado de segmentos iguales y pegados que no se sale de la ficha, «Semanal» sigue ahí, y la regla no se apila (regla ≤ ${techoRegla}, ficha ≤ ${techoFicha})`,
+        m.dias === 7 && m.diasIguales && m.diasPegados && m.diasDentro && m.semanal
+          && m.reglaAlto !== null && m.reglaAlto <= techoRegla && m.fichaAlto <= techoFicha
+          && m.desborde <= 1, JSON.stringify(m));
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+
+  /* ---- OFR-03: el segmentado de descuento, pegado a su caja ---- */
+  {
+    const p = await nuevaPagina(navegador, { viewport: { width: 768, height: 1024 }, hasTouch: true });
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'ofertas', 300);
+      await abrir(p);
+      const m = await p.evaluate(() => {
+        const caja = document.querySelector('.adm-f-ooferta .adm-dto').getBoundingClientRect();
+        const at = [...document.querySelectorAll('.adm-f-ooferta .adm-pct-atajo')].map((a) => a.getBoundingClientRect());
+        return {
+          n: at.length,
+          pegadoALaCaja: at.length ? Math.round(at[0].left - caja.right) <= 1 : false,
+          entreSi: at.slice(1).every((b, i) => Math.round(b.left - at[i].right) <= 1),
+          mismaAltura: at.every((b) => Math.abs(Math.round(b.height) - Math.round(caja.height)) <= 1),
+        };
+      });
+      informe.comprueba('E2E-OFR-03', 'los cuatro atajos de descuento son un segmentado pegado a la caja del número, no cuatro pastillas sueltas',
+        m.n === 4 && m.pegadoALaCaja && m.entreSi && m.mismaAltura, JSON.stringify(m));
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
+
+  /* ---- OFR-04: las dos puertas de trabajo usan el ancho del móvil ---- */
+  for (const [w, h] of [[320, 568], [390, 844]]) {
+    const p = await nuevaPagina(navegador, { viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'ofertas', 300);
+      const m = await p.evaluate(() => {
+        const r = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null; };
+        const oferta = document.querySelector('.adm-f-ooferta');
+        const sueltos = document.querySelector('.adm-f-osueltos');
+        const titulo = r('.adm-f-ooferta > .adm-f-cab h2');
+        const mando = r('.adm-f-ooferta .adm-oferta-mando');
+        const filtro = r('.adm-osueltos-barra .vp-per');
+        const botones = [...document.querySelectorAll('.adm-osueltos-barra .vp-per button')].map((b) => b.getBoundingClientRect());
+        const cajaOferta = oferta.getBoundingClientRect();
+        const cajaSueltos = sueltos.getBoundingClientRect();
+        return {
+          mismaLinea: titulo && mando && Math.abs(titulo.top - mando.top) <= 2,
+          mandoAlBorde: mando && Math.abs(cajaOferta.right - mando.right) <= 1,
+          filtroCompleto: filtro && Math.abs(filtro.width - (cajaSueltos.width - 32)) <= 2,
+          botonesIguales: botones.length === 2 && Math.abs(botones[0].width - botones[1].width) <= 1,
+          tactiles: botones.every((b) => b.height >= 40),
+          desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      informe.comprueba(`E2E-OFR-04-${w}`, `${w} px: estado e interruptor comparten la cabecera de La oferta y los dos filtros de Platos sueltos llenan su barra`,
+        m.mismaLinea && m.mandoAlBorde && m.filtroCompleto && m.botonesIguales && m.tactiles && m.desborde <= 1, JSON.stringify(m));
     } finally { await p.contextoQa.close().catch(() => {}); }
   }
 }
@@ -5973,6 +6102,7 @@ export async function bateriaE2E(informe, { clon, fixtures, navegador }) {
   await correrBloque(informe, 'ux-platos', () => e2eUxPlatos(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'rejilla', () => e2eRejilla(informe, { navegador, servidor: srv, docroot: docPrincipal }));
   await correrBloque(informe, 'movil', () => e2eMovil(informe, { navegador, servidor: srv, docroot: docPrincipal }));
+  await correrBloque(informe, 'ofertas-linea', () => e2eOfertasLinea(informe, { navegador, servidor: srv }));
   await correrBloque(informe, 'orden-platos', () => e2eOrdenPlatos(informe, { navegador, servidor: srv, docroot: docPrincipal }));
 
   const docFich = docrootDesde(clon.salida, 'e2e_fich');

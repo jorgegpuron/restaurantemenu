@@ -5092,3 +5092,171 @@ mínimo técnico de la composición vieja). Nuevas `E2E-MOV-01..04`: la alineaci
 verdad, medida por posición y no por CSS declarado; y el «⋯» abriendo con sus dos filas de 44.
 
 Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
+
+# Ofertas: la fila en una línea y la regla a todo el ancho (10 Sep 2026)
+
+El propietario, con la pantalla delante: la fila «no está bien» y la regla «deja mucho aire en el
+grid». Medido antes:
+
+| | 390 | 768 | 1024 | 1440 |
+|---|---|---|---|---|
+| Fila de plato suelto | **dos pisos** de 55 px, interruptor en x=151 **antes** del precio (x=289) | una línea, 48 | 48 | 48 |
+| Ficha «La oferta» | 675 px | 490 | 320 | 291 |
+| Rejilla de la regla | 1 columna | 1 columna | 3 columnas | 3 columnas |
+
+## La regla ya repartía el ancho… por encima de 900
+
+El comentario de `.adm-regla` dice literalmente lo que el propietario pidió hoy: «los tres
+controles se apelotonaban a la izquierda y media ficha quedaba vacía… Ahora es una rejilla que
+reparte el ancho entero». El fallo estaba en una línea: `@media (max-width:900px){
+.adm-regla{grid-template-columns:1fr} }`. Por debajo de 900 se apilaba todo, y de ahí salían los
+490 de tablet y los 675 de móvil. No se rehace la rejilla: se le quita la rendición, y para que
+quepa sin apilarse cambian tres componentes.
+
+## Tres componentes
+
+1. **Los cuatro atajos de descuento** dejan de ser cuatro pastillas sueltas y se pegan a la caja
+   del número formando un segmentado: `[ 20 % │ 10 │ 15 │ 25 │ 30 ]`.
+2. **Los siete días** dejan de ser siete cuadrados de 36 con hueco de 8 y pasan a un segmentado
+   que se estira a todo el ancho de su línea: medido, **67 px por día a 1440 y 51 a 768**, contra
+   los 36 fijos de antes. El botón «Semanal» se queda, al final de esa línea.
+3. **Las dos horas** dejan de ser dos cajas con un guión suelto entre ellas y pasan a UNA caja con
+   el guión dentro.
+
+Ni un selector, ni un `id`, ni un `name`, ni un handler cambian.
+
+## La fila, cinco columnas fijas
+
+`nº 24 · nombre 1fr · origen 24 · precio 56 · interruptor 40`, hueco 8, alto 48. El
+`<small>Toda la categoría</small>` que colgaba bajo el nombre —y que era lo que partía la fila—
+pasa a la columna «origen»: pastilla «CAT» cuando la oferta le viene de la categoría, punto gris
+cuando no, con el hueco reservado siempre. El texto completo se conserva para quien no ve la
+pastilla.
+
+Todo acotado a `.adm-ofertas`: `.adm-orow`, `.adm-prow-n`, `.adm-orow-nm` y `.adm-prow-fijo` son
+de Platos y de Precios también.
+
+## Tres trampas de herencia, las tres medidas
+
+0. **`.adm-ofertas` no es Ofertas.** Esa clase envuelve también la lista de PLATOS —viene del
+   nombre que tenía la lista antes de que Platos existiera como pantalla— así que acotar con ella
+   la rejilla nueva se la aplicaba a la fila de Platos entera. Medido: su fila pasaba a cinco
+   columnas `24px 82px 24px 56px 40px` y el nombre se quedaba en 24 px; la batería lo cantó con
+   trece fallos de golpe, todos de Platos y ninguno de Ofertas. Misma especificidad y ésta llega
+   después, así que ganaba. Se acota por el panel: `.pane[data-pane="ofertas"]`.
+
+1. **`order:3` viajando desde Precios.** `.adm-prow-fijo` es compartido y la fila de Precios lo
+   reordena en móvil (`@media (max-width:699px){.adm-prow-nuevo,.adm-prow-fijo{order:3}}`). En una
+   rejilla `order` sí manda: a 390 el precio saltaba a x=284 **detrás** del interruptor (236), que
+   es exactamente el desorden que se venía a arreglar. Se anula con `order:0`.
+2. **El rótulo delante no cabe en un móvil.** Con el rótulo inline, a 390 «Descuento» (68) + la
+   caja (92) + los cuatro atajos (176) piden 348 en una ficha de 286, y eso sacaba 42 px de
+   desplazamiento horizontal a la página entera. Por debajo de 700 el rótulo vuelve encima y el
+   control se lleva el ancho completo; de 700 a 900 va delante, que es donde cabe.
+
+## Medido después
+
+| | 390 | 768 | 1024 | 1440 |
+|---|---|---|---|---|
+| Fila | 48, una línea, precio antes del interruptor | 48 | 48 | 48 |
+| Alto de la regla | 272 (era 372) | **92** (era 328) | 110 (era 158) | 110 (era 148) |
+| Ficha «La oferta» | 575 (era 675) | **254** (era 490) | 272 (era 320) | 253 (era 291) |
+| Ancho de un día | 41 | 51 | 38 | 67 |
+| Desborde | 0 | 0 | 0 | 0 |
+
+La ficha de móvil sigue en 575 porque ahí dentro hay dos cosas que el mockup no tenía: el párrafo
+de ayuda y la cabecera plegable «Configurar oferta». Lo que se rediseñaba —la regla— baja de 372
+a 272.
+
+## Lo que NO se hace, y consta
+
+El mockup traía de vuelta un interruptor de «categoría entera» en la cabecera de cada ficha. Se
+retiró el 7 de septiembre por decisión expresa del propietario —«esto nunca va a pasar»— y no
+vuelve. La pastilla «CAT» de la fila sí se queda: no mete nada, sólo enseña lo que `estado.cats`
+ya pueda traer.
+
+## Y una decisión ajena que casi se pierde
+
+Poner la regla en fila subió el botón «Semanal» al lado de los días, y ahí volvía a leerse como un
+octavo día apagado — que es exactamente lo que la décima ronda de MISE-B arregló dándole su propia
+línea bajo «Frecuencia». Lo guarda `E2E-RH-SEM-01`, y por eso el grupo de días envuelve y
+«Semanal» conserva su línea.
+
+## Pruebas
+
+`E2E-OFR-01` (320, 390, 768 y 1440): la fila es rejilla de una línea de 48, cada dato en su x, el
+precio siempre antes del interruptor, nada fuera de la tarjeta. `E2E-OFR-02` (390 y 768): los
+siete días son un segmentado de segmentos iguales y pegados que no se sale de la ficha, «Semanal»
+sigue ahí y la regla no se apila. `E2E-OFR-03`: los atajos van pegados a la caja del número.
+
+Sin commit, sin push, sin deploy, sin FTP. Producción intacta.
+
+## El segmentado de días, y por qué el filete NO puede ir en el día (11 Sep 2026)
+
+Los siete días se estiran a todo el ancho de su línea, y para que se lean como un mando y no como
+siete cuadrados sueltos hacen falta un marco y seis separadores. El primer dibujo fue el evidente
+—`border:1px` en cada día, `margin-left:-1px` para solapar los filetes— y se veía bien. Estaba mal
+por tres razones distintas, y las tres se descubrieron midiendo, no mirando:
+
+1. **Un día no puede llevar borde propio.** `E2E-RH-SEM-01` lee `borderWidth` del día y exige cero,
+   y `1px` en «Semanal». No es una formalidad de la prueba: el filete es precisamente una de las
+   tres cosas que la décima ronda de MISE-B le dio a «Semanal» para que dejara de leerse como un
+   octavo día apagado. Poniéndoselo también al día, se devuelve el defecto que esa ronda cerró.
+2. **El filete tampoco puede ir en cada segmento con `box-shadow`.** Con la oferta apagada,
+   `.adm-f-ooferta[data-apagada] .adm-dia:has(input:checked)` pone su propio aro de 1,5 px y gana
+   por especificidad: los separadores desaparecían justo en ese estado, que es el que trae la
+   batería. Medido: `box-shadow` computado del día = `inset 0 0 0 1.5px`, no el separador escrito.
+3. **La caja no puede recortar con `overflow` para redondear las esquinas.** Se lleva por delante
+   el halo táctil de 44 px, que es lo único que hace tocable un segmento de 41 de ancho. Medido con
+   `elementFromPoint`: **40×41 con recorte, 40×45 sin él.** Misma familia que la trampa de la
+   cabecera pegada, donde `overflow:hidden` creaba contenedor de desplazamiento y mataba el
+   `sticky`: `overflow` nunca es sólo un recorte.
+
+Lo que queda: el marco y los separadores los pone **la caja**. Su fondo es el color del filete, con
+1 px de relleno y 1 px de hueco, y los siete días se apoyan encima. Lo que se ve como separación es
+el contenedor asomando, así que no depende del estado del día, ningún día tiene borde, y nada
+recorta el halo. Medido a 390 / 768 / 1440: hueco 1, `borderWidth` del día 0, halo 40×45, 51×45 y
+67×45, cero desbordamiento.
+
+## Ofertas móvil: una tarea continua (11 Sep 2026)
+
+La configuración detallada permanece siempre visible. El mando de encendido, la insignia y la
+frase de estado quedan arriba, seguidos por descuento, horario y días sin un desplegable que
+oculte una tarea de configuración habitual. No cambia ningún `name`, identificador ni petición de
+autoguardado.
+
+Las filas de **Platos sueltos** pasan de cinco columnas rígidas a cuatro: número, nombre, precio e
+interruptor. La etiqueta `CAT` sólo aparece cuando explica que el plato ya viene de una categoría;
+se coloca sobre el extremo del nombre y reserva espacio dentro de él. Para las filas normales no se
+dibuja un punto sin significado. A 320–390 px el nombre conserva al menos 108 px, el precio queda
+antes del interruptor y la fila mantiene 48 px de alto, sin desbordamiento.
+
+`E2E-OFR-01` verifica esa composición en 320, 390, 768 y 1440 px. `E2E-OFR-02` conserva la
+comprobación del segmentado de días y los límites de alto existentes. No hay commit, push,
+despliegue ni cambio de datos.
+
+En 320–390 px la cabecera de **La oferta** comparte una sola línea: título a la izquierda, estado
+y activación al borde derecho. En **Platos sueltos**, título y búsqueda ocupan la primera fila y
+los dos filtros llenan la segunda a partes iguales; no queda una columna sin función. `E2E-OFR-04`
+mide que los mandos estén en la misma línea, alcancen el borde útil y mantengan 40 px de alto.
+
+El título visible de esa barra es **Platos**: se elimina «sueltos» para dejar aire junto a la
+búsqueda. La distancia entre ambos conserva el paso amplio del sistema, y el texto de estado de la
+oferta usa una altura de línea de 1,5 y separación superior media para que la fecha final no quede
+pegada al resto del mensaje.
+
+La configuración de la oferta deja de ser un desplegable. Descuento, horario y días permanecen
+visibles en móvil, tablet y escritorio; la separación media después del mensaje de estado conserva
+la jerarquía antes de esos controles. `E2E-OF-24` verifica que no exista resumen plegable y que la
+regla, la insignia y el interruptor se vean a 390 px.
+
+El aviso nocturno sobre platos agotados solo se muestra en **Platos**. Informa de qué servicio se
+está gestionando y cuándo se limpia, por lo que no aparece en Ofertas ni en las demás pantallas.
+
+## Menú móvil: apariencia visible (11 Sep 2026)
+
+En la hoja **Más**, el tema no se comporta como una entrada de navegación. Se sitúa al final,
+debajo de **Salir**, separado por un filete y con dos opciones segmentadas de igual ancho, icono y
+nombre visibles: **Claro** y **Oscuro**. Cada opción mide al menos 44 px de alto. La disposición
+vertical de iconos queda limitada al riel lateral estrecho; nunca afecta a la hoja móvil.
+`E2E-RS-HOJA-TEMA` lo comprueba a 390 px.

@@ -3,7 +3,7 @@
  "version": "1.1.8",
  "esquemaEstado": 2,
  "esquemaCarta": "carta/2",
- "fecha": "2026-09-10",
+ "fecha": "2026-09-11",
  "envoltorios": {
   "gen.mjs": "3044cde1a1bcaa249a61179a99c0c262e3bdf4bc1f191aedf9759b114edf53a4",
   "importar.mjs": "63c6bec2f4e3810ae4a3d7210849a12e0dc10c66316c22a8aff3d79287d7f920"
@@ -100,10 +100,10 @@
   "server/admin/copias/.htaccess": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934",
   "server/admin/datos.php": "48130308368881686c8e3564634a5676ccb2aea99b26b8e77640cbfd5707644e",
   "server/admin/hash.php": "e0c3915b9b0a0d50066111af46ce7bce82b1da7cb9a7673b37897450d8fe2e41",
-  "server/admin/index.php": "d97da26fcf8bb3720780b739d3dc48b7f10efef22bc8bbb3326a6b8a09e3e54f",
+  "server/admin/index.php": "d51d86dc90664ae843b1a0c6a14bbecbe74e0ba046aa4549b94de742c75097e2",
   "server/admin/motor-acceso.jpg": "b557cab42d53244afd571fad8c172a92c5d3b7295c73fadb3437d4c9a617c7df",
   "server/admin/record.php": "d307aa4917349ec6dc5486acd95348cd4028b447fff1c6f903f7dbb52fc6647f",
-  "server/admin/SPEC.md": "4a7d4da4afb268d0fb9737496213d9dcd23c21a34b5951c7c244a18ab25248a2",
+  "server/admin/SPEC.md": "016cab7959a7f3d7652f1df0ef3b88d9d652a0e939b3af003d12853054531ddc",
   "server/admin/vista.php": "273f698309a39442fd2aedef200354cd4bd71222e25c2a4ee96734bc8024e709",
   "temas.mjs": "9aae2d9b43438e0b9e6e74580464d6c6607a3ac292224d9fa64f02283c8c78e6",
   "tests/contrato-tintas.mjs": "8a6367929b94afe766fc1aea6fa855d8e97f878cb0cc214a2f061c441e5ebe6d",

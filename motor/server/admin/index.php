@@ -5661,11 +5661,11 @@ $CUENTAS = [
   }
   .adm-tema-op:hover[aria-pressed="false"]{color:var(--sc-text)}
   .adm-tema-op:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
-  /* En riel —la barra estrecha, por debajo de 1024— no cabe el texto: quedan los iconos,
-     uno encima del otro, y el nombre lo sigue diciendo el aria-label del boton. */
+  /* En riel —la barra lateral estrecha, por debajo de 1024— no cabe el texto: quedan los
+     iconos uno encima del otro. La hoja móvil mantiene siempre los dos nombres visibles. */
   @media (max-width:1023px){
-    .adm-tema-seg{flex-direction:column}
-    .adm-tema-op span{
+    .adm-sidebar .adm-tema-seg{flex-direction:column}
+    .adm-sidebar .adm-tema-op span{
       position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
     }
   }
@@ -5786,6 +5786,19 @@ $CUENTAS = [
   .adm-sheet-item svg{width:17px;height:17px;flex:none;color:var(--sc-text-2)}
   .adm-sheet-item:hover{background:var(--sc-hover-bg)}
   .adm-sheet-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  /* Apariencia es una preferencia secundaria, separada de los destinos. Se coloca al final
+     de la hoja, debajo de Salir, con dos botones completos y no como otra fila del menú. */
+  .adm-sheet-apariencia{
+    margin:var(--space-2) 0 0;padding:var(--space-3) 0 0;
+    border-top:1px solid var(--sc-border);
+  }
+  .adm-sheet-apariencia-tit{
+    display:block;margin:0 0 var(--space-2);padding:0 var(--space-3);color:var(--sc-text-2);
+    font-size:var(--t4);font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  }
+  .adm-sheet-apariencia .adm-tema-seg{margin:0;padding:3px;background:var(--sc-muted-bg)}
+  .adm-sheet-apariencia .adm-tema-op{min-height:44px;font-size:var(--t3)}
+  .adm-sheet-apariencia .adm-tema-op svg{width:16px;height:16px}
   @media (min-width:768px){ .adm-sheet, #velo-sheet{display:none} }
 
   /* ---- Platos: filtro por estado y controles nuevos de la fila fusionada ---- */
@@ -9382,6 +9395,217 @@ $CUENTAS = [
   }
   /* Las dos horas son UN dato. Con la flecha en medio se leen como un rango; separadas por
      el mismo hueco que lo demas parecian dos campos sin relacion. */
+  /* ==================================== Ofertas: una sola línea y el ancho entero (10 Sep 2026) ==
+     El propietario, con la pantalla delante: la fila «no está bien» y la regla «deja mucho aire en
+     el grid». Medido antes: a 390 la fila se partía en dos pisos de 55 px y el interruptor caía en
+     x=151, ANTES del precio (x=289); la ficha de la oferta medía 675 px de alto en móvil y 490 en
+     tablet.
+
+     La rejilla de la regla ya repartía el ancho entero —lo dice su propio comentario, más abajo—,
+     pero sólo por encima de 900: '@media (max-width:900px){grid-template-columns:1fr}' lo apilaba
+     todo, y de ahí salían esos 490 y 675. Aquí no se rehace la rejilla: se le quita la rendición.
+
+     Y para que quepa sin apilarse cambian TRES componentes, que es lo que el propietario autorizó:
+       · los cuatro atajos de descuento dejan de ser cuatro pastillas sueltas y se pegan a la caja
+         del número formando un segmentado: [ 20 % │ 10 │ 15 │ 25 │ 30 ];
+       · los siete días dejan de ser siete cuadrados con hueco y pasan a un segmentado que se
+         estira a todo el ancho de su línea (77 px por día en tablet contra los 36 fijos de antes);
+       · las dos horas dejan de ser dos cajas con un guión suelto y pasan a UNA caja con el guión
+         dentro.
+     Ni un selector, ni un 'id', ni un 'name', ni un handler cambian: la batería contrata
+     '.adm-dia', '.adm-pct-otro', '.adm-pct-atajo', '.adm-dia-semanal', '.adm-regla-pie',
+     '#of-pct', '#of-desde', '#of-hasta' y '#of-semanal', y todos siguen ahí con su papel.
+
+     Lo que NO se hace, y consta: el mockup traía de vuelta un interruptor de «categoría entera» en
+     la cabecera de cada ficha. Eso se retiró el 7 de septiembre por decisión expresa del
+     propietario —«esto nunca va a pasar»— y no vuelve. La pastilla «CAT» de la fila sí se queda:
+     no mete nada, sólo enseña lo que 'estado.cats' ya pueda traer. */
+
+  /* ---- la fila de un plato suelto: cinco columnas fijas, una sola línea ----
+     Acotado al PANEL de Ofertas y no a '.adm-ofertas', que es una trampa: esa clase envuelve
+     también la lista de PLATOS —viene del nombre que tenía la lista antes de que Platos existiera
+     como pantalla— y con ella la fila de Platos se comía esta rejilla entera. Medido: su fila
+     pasaba a cinco columnas '24px 82px 24px 56px 40px' y el nombre se quedaba en 24 px. Las dos
+     tienen la misma especificidad y ésta llega después, así que ganaba. '.adm-orow',
+     '.adm-prow-n', '.adm-orow-nm' y '.adm-prow-fijo' son de Platos y de Precios también, y ahí
+     no se toca nada. Al ser rejilla, la regla de
+     '@media (max-width:699px){.adm-orow{flex-wrap:wrap}}' deja de aplicar sola —'flex-wrap' no
+     significa nada en un grid—; lo único que hay que anular de ella es el 'margin-left:auto' del
+     precio, que en una rejilla lo empujaría dentro de su propia celda. */
+  .pane[data-pane="ofertas"] .adm-orow{
+    display:grid;
+    grid-template-columns:24px minmax(0,1fr) 24px 56px 40px;
+    column-gap:var(--space-2);align-items:center;
+    min-height:48px;padding:var(--space-1) var(--space-4);
+  }
+  /* El número no es un control y no debe recibir el toque: pegado al nombre, le robaba área a
+     lo que sí lo es. Misma lección que la fila de Platos en móvil. */
+  .pane[data-pane="ofertas"] .adm-orow > .adm-prow-n{min-width:0;text-align:right;pointer-events:none}
+  .pane[data-pane="ofertas"] .adm-orow > .adm-orow-nm{
+    flex:none;min-width:0;display:block;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  }
+  /* `order:3` le llega desde la fila de PRECIOS —`.adm-prow-fijo` es compartido y esa regla lo
+     reordena en móvil—, y en una rejilla `order` sí manda: a 390 el precio saltaba DETRÁS del
+     interruptor, que es el mismo desorden que se venía a arreglar. Medido: precio en x=284 con el
+     interruptor en 236. */
+  .pane[data-pane="ofertas"] .adm-orow > .adm-prow-fijo{margin-left:0;order:0;text-align:right;white-space:nowrap}
+  .pane[data-pane="ofertas"] .adm-orow > .adm-sw-oferta{justify-self:end}
+  /* La columna de origen: pastilla cuando la oferta le viene de la categoría, punto cuando no.
+     El hueco existe en las dos, que es lo que alinea las cinco columnas. */
+  .adm-of-origen{
+    justify-self:center;position:relative;width:24px;height:22px;
+    display:grid;place-items:center;
+  }
+  .adm-of-origen:not(.es-cat)::before{
+    content:"";width:6px;height:6px;border-radius:50%;background:var(--sc-border);
+  }
+  .adm-of-origen.es-cat{
+    width:auto;min-width:24px;padding:0 5px;border-radius:var(--radius-md);
+    background:var(--sc-selected-bg);color:var(--sc-selected-text);
+    font-size:var(--t4);font-weight:600;line-height:22px;
+  }
+  /* La fila de una categoría entera se lee apagada: el interruptor no se puede tocar. */
+  .pane[data-pane="ofertas"] .adm-orow.por-categoria > .adm-orow-nm{color:var(--sc-text-2)}
+
+  /* ---- la regla: tres campos, y el rótulo DELANTE ----
+     Encima gastaba una línea entera por campo; delante, no. Sólo por debajo de 901, que es donde
+     la ficha va justa: por encima manda la rejilla de tres columnas de siempre. */
+  @media (max-width:900px) and (min-width:700px){
+    .adm-f-ooferta .adm-regla-g{
+      flex-direction:row;align-items:center;gap:var(--space-3);flex-wrap:nowrap;
+    }
+    .adm-f-ooferta .adm-regla-g > .adm-lbl{flex:none;margin:0}
+    .adm-f-ooferta .adm-regla-g > .adm-lbl .adm-regla-ico{display:none}
+    /* Y los controles se llevan lo que sobre, que es de lo que se quejaba el propietario. */
+    .adm-f-ooferta .adm-regla-g > .adm-dias,
+    .adm-f-ooferta .adm-regla-g > .adm-rango{flex:1 1 auto;min-width:0}
+  }
+  /* Móvil: el rótulo vuelve ENCIMA y el control se lleva el ancho entero. Con el rótulo delante
+     no cabía: medido a 390, «Descuento» (68) + la caja (92) + los cuatro atajos (176) piden 348 en
+     una ficha de 286, y eso sacaba 42 px de desplazamiento horizontal a la página entera. Encima
+     cuesta una línea por campo y a cambio cada control ocupa los 286 de lado a lado, que es lo que
+     se pedía. El botón «Semanal» baja a su propia línea por el mismo motivo. */
+  @media (max-width:699px){
+    .adm-f-ooferta .adm-regla-g{flex-direction:column;align-items:stretch;gap:6px}
+    .adm-f-ooferta .adm-regla-g > .adm-lbl{margin:0 0 2px}
+    .adm-f-ooferta .adm-dto{flex:0 0 92px}
+    .adm-f-ooferta .adm-pct-atajos{flex:1 1 auto}
+    .adm-f-ooferta .adm-pct-atajo{min-width:0;flex:1 1 0}
+    /* La caja y sus atajos, en una tira sola a todo el ancho. */
+    .adm-f-ooferta .adm-regla-g:first-child{flex-direction:row;flex-wrap:wrap;align-items:center}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{flex:1 0 100%}
+    .adm-f-ooferta .adm-dias-frec{margin-top:2px}
+  }
+
+  /* Tablet: dos filas en vez de una columna. Descuento y horario arriba, los días cruzando las
+     dos columnas debajo — medido, los tres campos no caben en una sola línea de 582. */
+  @media (max-width:900px) and (min-width:700px){
+    .adm-regla{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-3) var(--space-4)}
+    .adm-regla > .adm-regla-g{padding:0;border-left:0}
+    .adm-regla > .adm-regla-g:nth-child(3){grid-column:1 / -1}
+  }
+
+  /* ---- componente 1: el descuento y sus atajos, pegados ----
+     Sólo donde van UNO AL LADO DEL OTRO, que es por debajo de 901: por encima, la columna del
+     descuento mide 150-229 y la caja (92) más los cuatro atajos (176) no caben en una línea, así
+     que siguen en dos —y ahí la caja tiene que conservar su borde derecho y su radio, o se vería
+     cortada contra nada—. */
+  @media (max-width:900px){
+    .adm-f-ooferta .adm-regla-g:first-child{gap:0}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{margin-right:var(--space-3)}
+    .adm-f-ooferta .adm-dto{
+      flex:0 0 auto;width:92px;padding:0 8px 0 12px;
+      border-radius:var(--radius-md) 0 0 var(--radius-md);border-right:0;
+    }
+  }
+  .adm-f-ooferta .adm-pct-atajos{
+    flex:0 0 auto;gap:0;margin-top:0;flex-wrap:nowrap;
+  }
+  /* Pegados con 'border-left:0' y NO con 'margin-left:-1px': solapando un pixel, el segmento de
+     la izquierda le robaba esa banda al de la derecha —la sonda de area tactil lo canto:
+     «BUTTON.adm-pct-atajo le quita el toque a BUTTON.adm-pct-atajo»—. Sin solape se ven igual de
+     pegados y cada uno recibe lo suyo. */
+  .adm-f-ooferta .adm-pct-atajo{
+    flex:none;min-width:44px;min-height:40px;border-left:0;border-radius:0;
+  }
+  .adm-f-ooferta .adm-pct-atajo:last-child{
+    border-radius:0 var(--radius-md) var(--radius-md) 0;
+  }
+  /* El atajo que coincide con el número puesto se lee elegido: si no, el segmentado enseña un
+     estado que no es verdad. Lo pone el JS con 'aria-pressed', que ya usaba. */
+  .adm-f-ooferta .adm-pct-atajo[aria-pressed="true"]{
+    background:var(--sc-selected-bg);border-color:var(--sc-selected-bg);color:var(--sc-selected-text);
+  }
+  /* Esta corrección va DESPUÉS de la geometría del segmentado: la regla general de arriba usa
+     44 px para tablet, pero no puede ganar sobre el reparto elástico del móvil. Antes la
+     cascada dejaba cuatro atajos rígidos en 320–699 px y despegaba la tira de la cifra. */
+  @media (max-width:699px){
+    .adm-f-ooferta .adm-pct-atajos{flex:1 1 auto}
+    .adm-f-ooferta .adm-pct-atajo{flex:1 1 0;min-width:0}
+  }
+  /* En tablet la columna de descuento mide 283 px: el rótulo, la cifra y cuatro segmentos
+     suman más que eso. El rótulo ocupa su propia línea y deja debajo una tira compacta de
+     92 + 180 px, sin invadir la columna de horario ni aumentar la ficha más de una línea. */
+  @media (min-width:700px) and (max-width:900px){
+    .adm-f-ooferta .adm-regla-g:first-child{flex-wrap:wrap;align-content:center}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{flex:1 0 100%;margin:0 0 2px}
+  }
+
+  /* ---- componente 2: los siete días, un segmentado que se estira ---- */
+  .adm-dias{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
+  /* El borde va en la CAJA y los separadores dentro, con sombra interior: un día no puede tener
+     borde propio. No es un capricho de dibujo — es lo que distingue un día (pastilla de selección)
+     de «Semanal» (botón), y lo contrata E2E-RH-SEM-01 exigiendo 'borderWidth' cero en el día y
+     '1px' en el botón. Con el borde en cada segmento se veía igual pero se perdía esa distinción,
+     y la prueba la guarda con razón. El fondo apagado del día sin marcar también se conserva por
+     lo mismo: si fuera la superficie de la ficha, sería el mismo fondo que el del botón. */
+  /* El marco y los separadores los pone la CAJA, no el día: el fondo del contenedor es el color
+     del filete y los siete días se apoyan encima dejando 1 px de hueco, así que lo que se ve como
+     separación es el contenedor asomando. Tres razones, y ninguna es estética:
+       · un día NO puede llevar borde propio — es lo que lo distingue de «Semanal», que sí es un
+         botón con filete, y lo contrata E2E-RH-SEM-01 leyendo 'borderWidth' del día;
+       · el filete tampoco puede ir en cada segmento con 'box-shadow': con la oferta apagada,
+         '[data-apagada] .adm-dia:has(input:checked)' pone su propio aro de 1.5 y gana por
+         especificidad, así que los separadores desaparecían justo en ese estado;
+       · y la caja no puede recortar con 'overflow' para redondear: se llevaría por delante el
+         halo táctil de 44, que es lo único que hace tocable un segmento de 41 px de ancho —
+         medido, 40x41 con recorte contra 40x45 sin él. */
+  .adm-f-ooferta .adm-dias{
+    display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;flex-wrap:nowrap;
+    padding:1px;background:var(--sc-border);border-radius:var(--radius-md);
+  }
+  .adm-f-ooferta .adm-dia{
+    width:auto;min-width:0;height:40px;
+    border:0;border-radius:0;background:var(--sc-muted-bg);
+  }
+  .adm-f-ooferta .adm-dia:first-of-type{border-radius:var(--radius-md) 0 0 var(--radius-md)}
+  .adm-f-ooferta .adm-dia:last-of-type{border-radius:0 var(--radius-md) var(--radius-md) 0}
+  .adm-f-ooferta .adm-dia:has(input:checked){
+    background:var(--sc-selected-bg);color:var(--sc-selected-text);position:relative;z-index:1;
+  }
+  /* El halo de 44 de ancho se comía 4 px al día de al lado en cuanto el segmento bajaba de 44
+     —en móvil mide 36—. Se ciñe al segmento: el alto sigue siendo 44, que es lo que importa. */
+  .adm-f-ooferta .adm-dia::before{left:0;top:50%;width:100%;transform:translateY(-50%)}
+  /* «Semanal» se queda: es el único control que no es un día y sigue en su sitio, al final. */
+  .adm-f-ooferta .adm-dias-frec{flex:none;margin-top:0}
+  /* «Semanal», del mismo alto que un dia. Es una de las tres cosas que E2E-RH-SEM-01 contrata
+     para que se lea como un boton y no como un octavo dia apagado, y al pasar los dias a
+     segmentado subieron a 40 mientras el boton se quedaba en 36. */
+  .adm-f-ooferta .adm-dia-semanal{min-height:40px}
+
+  /* ---- componente 3: el horario, una sola caja ---- */
+  .adm-f-ooferta .adm-rango{
+    border:1px solid var(--sc-input-border,var(--sc-border));border-radius:var(--radius-md);
+    background:var(--sc-input-bg,var(--sc-surface));
+    gap:0;padding:0 var(--space-2);min-height:40px;
+  }
+  .adm-f-ooferta .adm-rango .adm-campo{
+    width:auto;flex:1 1 0;min-width:0;min-height:38px;
+    border:0;background:transparent;padding:0 4px;
+  }
+  .adm-f-ooferta .adm-rango .adm-campo:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+
   .adm-rango{display:flex;align-items:center;gap:var(--space-2)}
   /* Las horas son campos: 40 de alto, como el resto de campos migrados. */
   .adm-rango .adm-campo{width:120px;flex:none;min-height:40px}
@@ -9404,39 +9628,51 @@ $CUENTAS = [
     .adm-regla-dias{flex:1 1 100%}
   }
 
-  /* Hallazgo H3, Fase 2: en cualquier ancho que no sea el móvil de abajo, "Configurar
-     oferta" no existe visualmente — el <details> lo fuerza abierto por JS y esta cabecera
-     se apaga del todo, así que la ficha se ve exactamente igual que antes de este cambio:
-     ni una palabra nueva, ni un aviso de que algo se pueda plegar. */
-  .adm-oferta-config-resumen{
-    display:none;list-style:none;cursor:default;
-  }
-  .adm-oferta-config-resumen::-webkit-details-marker{display:none}
-  .adm-oferta-config-chev{display:none;flex:none;width:18px;height:18px;color:var(--muted)}
-  .adm-oferta-config-resumen:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-
-  /* Medido en vivo, ancho a ancho (1512/1200/1024/900/768/699/600/560/390/320): la ficha
-     se queda en meseta a 427px desde 1024 hasta 699 —el mismo alto que ya toleraba
-     tablet/escritorio sin queja— y es exactamente en 560px, un corte que el propio
-     fichero ya usa en otro sitio, donde empieza a subir de verdad (501, luego 597 a 390,
-     712 a 320, con la primera categoría de Platos sueltos recién en y=1115). No es 699
-     "porque ya estaba": a 699px la ficha mide lo mismo que a 1024, así que ese corte no
-     hacía nada aquí — 560 es el que de verdad separa "como tablet/escritorio" de "empieza
-     a doler". Por debajo de esa medida, la cabecera se ve y se puede tocar; el orden
-     visual pone el estado (frase canónica) ANTES que el acceso a configurar, como pide
-     la jerarquía de esta fase — sin mover nada en el HTML, sólo el orden de pintado. */
+  /* La configuración es parte de la acción principal de Ofertas. No se esconde detrás de
+     un desplegable: descuento, horario y días están siempre disponibles en cualquier ancho. */
   @media (max-width:560px){
     .adm-f-ooferta > .adm-f-cab{order:0}
     .adm-f-ooferta > .hint{order:1}
-    .adm-f-ooferta > .adm-regla-pie{order:2;margin-top:var(--s2)}
-    .adm-f-ooferta > .adm-oferta-config{order:3}
-    .adm-oferta-config-resumen{
-      display:flex;align-items:center;gap:8px;cursor:pointer;min-height:44px;
-      margin-top:var(--s2);padding-top:var(--s2);border-top:1px solid var(--hairline);
-      font-size:var(--t2);font-weight:600;color:var(--ink);
+    .adm-f-ooferta > .adm-regla-pie{order:2;margin-top:var(--space-2);line-height:1.5}
+    .adm-f-ooferta > .adm-oferta-config{order:3;margin-top:var(--space-3)}
+
+    /* «La oferta» y «Platos sueltos» son puertas de trabajo, no tarjetas de presentación.
+       En móvil se conserva cada acción, pero se quita la fila de icono que no añade decisión:
+       título y filtro comparten la primera línea; la búsqueda ocupa una segunda completa. */
+    .adm-f-ooferta > .adm-f-cab{
+      display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);align-items:center;
     }
-    .adm-oferta-config-chev{display:block}
-    .adm-oferta-config[open] .adm-oferta-config-chev{transform:rotate(180deg)}
+    .adm-f-ooferta > .adm-f-cab > .adm-f-ico{display:none}
+    .adm-f-ooferta > .adm-f-cab h2{min-width:0;font-size:var(--t2);line-height:40px}
+    .adm-f-ooferta .adm-oferta-mando{grid-column:2;grid-row:1;gap:var(--space-2)}
+    .adm-osueltos-barra .adm-f-ico{display:none}
+    .adm-osueltos-barra{
+      display:grid;grid-template-columns:max-content minmax(0,1fr);
+      grid-template-areas:"titulo buscar" "filtro filtro";column-gap:var(--space-3);row-gap:var(--space-2);
+    }
+    .adm-osueltos-barra h2{grid-area:titulo;font-size:var(--t2);line-height:40px}
+    .adm-osueltos-barra .adm-buscar{grid-area:buscar;order:0;margin:0;min-width:0}
+    .adm-osueltos-barra .vp-per{
+      grid-area:filtro;margin:0;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;
+    }
+    .adm-osueltos-barra .vp-per button{min-height:40px;width:100%;padding-inline:var(--space-2)}
+
+    /* La fila se quedaba con cinco columnas rígidas aunque sólo una de ellas —el nombre—
+       cambia de una fila a otra. El origen no es una acción: cuando es «CAT» se superpone al
+       extremo del nombre, y cuando no aporta nada desaparece. Así quedan cuatro columnas
+       útiles y el título recupera 24 px sin perder la explicación accesible. */
+    .pane[data-pane="ofertas"] .adm-orow{
+      grid-template-columns:28px minmax(0,1fr) 52px 40px;
+      column-gap:6px;
+    }
+    .pane[data-pane="ofertas"] .adm-of-origen{display:none}
+    .pane[data-pane="ofertas"] .adm-of-origen.es-cat{
+      display:grid;grid-column:2;grid-row:1;justify-self:end;z-index:1;
+      min-width:0;height:20px;padding:0 4px;font-size:10px;line-height:20px;
+    }
+    .pane[data-pane="ofertas"] .adm-orow:has(.adm-of-origen.es-cat) > .adm-orow-nm{
+      padding-right:34px;
+    }
   }
   @media (max-width:900px){.adm-4col{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media (max-width:480px){.adm-4col{grid-template-columns:minmax(0,1fr)}}
@@ -10234,7 +10470,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
              tachados tiene que saber de que servicio son y cuando se van a ir solos.
 
              El resto del dia las dos fechas son la misma y esta linea no se pinta. */ ?>
-    <?php if ($hoy !== $hoyReal): ?>
+    <?php if ($hoy !== $hoyReal && $pestana === 'platos'): ?>
       <p class="sub sub-servicio">
         Son las <strong><?= h((new DateTimeImmutable("now", new DateTimeZone(TZ)))->format("H:i")) ?>
         </strong> en Canarias. Los agotados que veas son los del servicio del
@@ -10615,13 +10851,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
         Marca
       </button>
-      <?php /* La MISMA pieza, porque la barra lateral no existe por debajo de 768px: sin
-               esto, en movil no habria forma de cambiar de tema. Las dos copias las mantiene
-               en sintonia el mismo guion. */ ?>
-      <div class="adm-tema-seg" role="group" aria-label="Tema" data-tema-seg="hoja">
-        <button type="button" class="adm-tema-op" data-tema="light" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span>Claro</span></button>
-        <button type="button" class="adm-tema-op" data-tema="dark" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg><span>Oscuro</span></button>
-      </div>
       <button type="button" class="adm-sheet-item" data-tab="ajustes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
         Ajustes
@@ -10630,6 +10859,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
         Salir
       </a>
+      <?php /* La barra lateral no existe por debajo de 768px. El tema queda al final, debajo
+               de Salir: es una preferencia del panel, no otro destino de navegación. */ ?>
+      <section class="adm-sheet-apariencia" aria-labelledby="sheet-apariencia-tit">
+        <span class="adm-sheet-apariencia-tit" id="sheet-apariencia-tit">Tema</span>
+        <div class="adm-tema-seg" role="group" aria-label="Tema" data-tema-seg="hoja">
+          <button type="button" class="adm-tema-op" data-tema="light" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span>Claro</span></button>
+          <button type="button" class="adm-tema-op" data-tema="dark" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg><span>Oscuro</span></button>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -13013,20 +13251,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                    el chip de la cabecera, que dice lo mismo en una palabra. Debajo del
                    interruptor estiraba su columna y dejaba las otras tres cojas.
 
-                   Auditoría UX/UI, hallazgo H3, Fase 2: en móvil (≤560px, ver el <details>
-                   mismo, más abajo, para la medida que justifica ese corte) esta fila de
-                   cuatro grupos se apila en hasta cuatro pisos (712px medidos a 320px de
-                   ancho, con la primera categoría de "Platos sueltos" recién a y=1115) —
-                   configuración que se toca de vez en cuando, por delante de la tarea diaria
-                   (elegir platos). El estado (icono, insignia y la frase de abajo,
-                   `.adm-regla-pie`) NUNCA se pliega — sólo esto, la configuración detallada,
-                   dentro de un <details> de verdad: sin JavaScript queda abierto, exactamente
-                   como hoy. */ ?>
-          <details class="adm-oferta-config" open>
-            <summary class="adm-oferta-config-resumen">
-              <span class="adm-oferta-config-etq">Configurar oferta</span>
-              <svg class="adm-oferta-config-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </summary>
+                   La configuración es una acción principal: se mantiene visible también en
+                   móvil, sin un desplegable que obligue a abrirla antes de usarla. */ ?>
+          <div class="adm-oferta-config">
           <div class="adm-regla">
             <div class="adm-regla-g">
               <label class="adm-lbl" for="of-pct">Descuento
@@ -13096,7 +13323,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             </div>
 
           </div>
-          </details>
+          </div>
 
           <?php /* La UNICA frase que dice lo que esta pasando ahora mismo, y la que explica
                    lo que ningun control puede: que «hasta las 14:00» significa que la ultima
@@ -13129,7 +13356,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <section class="adm-f adm-f-osueltos">
           <div class="adm-f-cab adm-osueltos-barra">
             <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></span>
-            <h2>Platos sueltos</h2>
+            <h2>Platos</h2>
             <label class="adm-buscar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
               <input class="adm-campo" type="search" id="qo" autocomplete="off"
@@ -13235,7 +13462,19 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                      data-cat="<?= h($cid) ?>"
                      data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
                   <span class="adm-prow-n"><?= h($p['id']) ?></span>
-                  <span class="adm-orow-nm"><?= h($p['name']) ?><?php if ($porCat): ?><small>Toda la categoría</small><?php endif; ?></span>
+                  <span class="adm-orow-nm"><?= h($p['name']) ?></span>
+                  <?php /* De dónde le viene la oferta al plato. Era un <small>Toda la categoría</small>
+                           colgando DEBAJO del nombre, y era justo lo que partía la fila en dos en
+                           cuanto la pantalla se estrechaba. Ahora es su propia columna de 24, con el
+                           hueco reservado SIEMPRE —pastilla «CAT» cuando viene de la categoría, punto
+                           gris cuando no—, que es lo que hace que el precio y el interruptor caigan
+                           en la misma x en todas las filas. El texto entero sigue estando para quien
+                           no ve la pastilla. */ ?>
+                  <?php if ($porCat): ?>
+                    <span class="adm-of-origen es-cat"><span aria-hidden="true">CAT</span><span class="sr">En oferta porque lo está toda su categoría</span></span>
+                  <?php else: ?>
+                    <span class="adm-of-origen" aria-hidden="true"></span>
+                  <?php endif; ?>
                   <span class="adm-prow-fijo"><?= h(CLIENTE_MONEDA) . h($p['price']) ?></span>
                   <label class="adm-sw adm-sw-oferta" title="<?= $porCat ? 'Ya incluido por su categoría' : ($suelto ? 'Quitar de la oferta' : 'Meter en la oferta') ?>">
                     <input type="checkbox" name="oferta_plato[]" value="<?= h($p['key']) ?>" form="ofertas-form"
@@ -13262,30 +13501,6 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
       </div>
     </div>
-
-    <script>
-      /* ------------------------------------------- plegado de "Configurar oferta" en móvil
-       * Hallazgo H3, Fase 2. Mismo patrón que "Ajustar precios" en Platos (H1): sin
-       * JavaScript, `<details open>` deja esto exactamente como estaba — visible siempre,
-       * cero controles perdidos. Con JavaScript, el estado se decide por el ancho real
-       * (560px, medido — ver el comentario junto a la regla CSS), con un listener de
-       * `change` (no sólo al cargar) para que un cambio de tamaño que cruce ese corte lo
-       * reajuste solo. En escritorio/tablet, un guardián de un renglón evita que un clic
-       * en la cabecera la cierre por accidente — ahí no es un control, ni siquiera se ve. */
-      (function () {
-        var caja = document.querySelector('.adm-oferta-config');
-        if (!caja) return;
-        var mq = window.matchMedia('(max-width:560px)');
-        function ajustar(m) { caja.open = !m.matches; }
-        ajustar(mq);
-        if (mq.addEventListener) mq.addEventListener('change', ajustar);
-        else if (mq.addListener) mq.addListener(ajustar);
-        var resumen = caja.querySelector('.adm-oferta-config-resumen');
-        resumen.addEventListener('click', function (e) {
-          if (!mq.matches) e.preventDefault();
-        });
-      })();
-    </script>
 
     <script>
       /* El buscador y el filtro de la lista de la oferta.
