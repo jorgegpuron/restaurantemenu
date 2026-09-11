@@ -5301,3 +5301,33 @@ En dispositivos con puntero táctil, los controles compactos de cabecera de cate
 ## Cabeceras de categorías e higiene de Ofertas (11 Sep 2026)
 
 Las cabeceras de Platos y Ofertas reciben el icono de categoría declarado por la carta, con un fallback neutro para categorías creadas desde el panel. Las categorías con una sola columna visible ocupan todo el ancho de su ficha para no dejar filas pegadas a la izquierda. En escritorio, los siete días y el control Semanal se distribuyen en la misma línea cuando el ancho disponible lo permite; en móvil y tablet se conservan los saltos necesarios para evitar desbordes.
+
+## Los días vuelven a ser círculos, pero con diámetro elástico (11 Sep 2026)
+
+El propietario pidió círculos para los siete días de Ofertas (84dcaca), sustituyendo el
+segmentado cuadrado de la entrada anterior. Un primer intento les dio un diámetro FIJO de
+36px: cabía de sobra en tablet y escritorio, pero no en 320px, donde 7×36 más los huecos
+desbordaba la ficha 18px — `LABEL.adm-dia` se salía por el borde derecho.
+
+La corrección no vuelve al segmentado: mantiene el círculo pedido, pero el diámetro se
+reparte con `flex:1 1 0` dentro de la fila (`.adm-f-ooferta .adm-dias`, `display:flex`) en
+vez de fijarse en píxeles — `width:auto;min-width:0;max-width:40px;aspect-ratio:1`. Así
+caben en cualquier ancho por construcción: a 320px se encogen, a 390/768/1440 llegan a su
+tope de 40px y se ven exactamente igual que con el diámetro fijo. El tope es 40, no 36,
+para igualar la altura de «Semanal» (`min-height:40px`), que E2E-RH-SEM-01 exige idéntica
+a la del día. El halo táctil (`::before`, 44×44 centrado) no cambia.
+
+Dos pruebas quedan en tensión con el diseño nuevo y no se tocan en este arreglo, porque
+tocar `qa/suites/admin-e2e.mjs` no estaba en la allowlist de esta tarea:
+
+- `E2E-OFR-02` exige `diasPegados` (huecos ≤1px entre días): medía el segmentado de la
+  entrada anterior, que se tocaba borde con borde. Un círculo con separación visible —lo
+  que lo distingue de una barra continua— no puede cumplirlo por definición.
+- `E2E-RH-SEM-01` exige `filaPropia` (Semanal por debajo de los días): medía el diseño en
+  el que Semanal SIEMPRE iba en su propia línea. Con días y Semanal en la misma línea en
+  escritorio (pedido también por el propietario, conservado de la rama sin commit), Semanal
+  ya no está por debajo — está al lado.
+
+Las dos siguen siendo el criterio correcto para el diseño ANTERIOR; con el diseño actual
+piden algo que ya no es cierto por decisión, no por descuido. Corregirlas es tarea aparte,
+con su propia autorización, y toca `qa/suites/admin-e2e.mjs`, fuera de esta allowlist.

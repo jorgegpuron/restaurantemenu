@@ -4778,6 +4778,49 @@ $CUENTAS = [
     --metal-ink:<?= h($colorPrincipalOverride['--metal-ink']) ?>;
     --badge-ink:<?= h($colorPrincipalOverride['--badge-ink']) ?>;
   }
+
+  /* Rejilla final de la oferta: cada bloque tiene un encabezado y una zona de
+     controles propia. Los días ganan una fila completa en tablet/escritorio;
+     así nunca compiten por el mismo ancho con descuento u horario. */
+  .adm-f-ooferta .adm-regla{display:grid !important;grid-template-columns:repeat(12,minmax(0,1fr)) !important;gap:var(--space-4) !important;align-items:start !important}
+  .adm-f-ooferta .adm-regla > .adm-regla-g{grid-column:span 4;padding:0;border:0;min-width:0}
+  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1 / -1}
+  .adm-f-ooferta .adm-regla > .adm-regla-g > .adm-lbl{margin:0 0 var(--space-2);display:flex;align-items:center;gap:var(--space-2);justify-content:space-between}
+  .adm-f-ooferta .adm-regla > .adm-regla-g > .adm-lbl .adm-regla-ico{display:inline-flex}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto 40px;gap:var(--space-2);align-items:center}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-lbl{grid-column:1 / -1;grid-row:1}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-dto{grid-column:1;grid-row:2;width:auto;min-width:0}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-pct-atajos{grid-column:2;grid-row:2;min-width:0;width:100%;margin:0}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2){display:grid;grid-template-rows:auto 40px;gap:var(--space-2)}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-lbl{grid-row:1}
+  .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-rango{grid-row:2;min-width:0;width:100%}
+  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;grid-template-rows:auto 40px !important;gap:var(--space-2) var(--space-3);height:auto !important;min-height:0}
+  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-lbl{grid-column:1 / -1;grid-row:1}
+  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias{grid-column:1;grid-row:2;display:flex;flex-wrap:nowrap;gap:var(--space-2);width:100%;min-width:0;align-self:start}
+  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias-frec{grid-column:2;grid-row:2;margin:0;align-self:start;white-space:nowrap}
+  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias .adm-dia{flex:1 1 0;width:auto;min-width:0;max-width:40px;aspect-ratio:1;height:auto;border-radius:50%}
+  @media (min-width:700px) and (max-width:1099px){
+    .adm-f-ooferta .adm-regla > .adm-regla-g{grid-column:span 6}
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1 / -1}
+  }
+  @media (max-width:699px){
+    .adm-f-ooferta .adm-regla{grid-template-columns:1fr !important;gap:var(--space-4) !important}
+    .adm-f-ooferta .adm-regla > .adm-regla-g,
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1;display:grid !important;grid-template-columns:1fr !important;grid-template-rows:auto auto auto !important;gap:6px}
+    .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-lbl,
+    .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-lbl,
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-lbl{grid-column:1;grid-row:1}
+    .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-dto{grid-column:1;grid-row:2}
+    .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-pct-atajos{grid-column:1;grid-row:3}
+    .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-rango{grid-column:1;grid-row:2}
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-template-rows:auto auto auto !important}
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias{grid-column:1;grid-row:2;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-1);width:100%}
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias-frec{grid-column:1;grid-row:3;justify-content:center;text-align:center}
+    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias .adm-dia{min-width:0}
+  }
+  /* El ajuste de escritorio para los días (columna 220px, «Semanal» centrada) vive una sola
+     vez, al final de la hoja: aquí no hace falta repetirlo, y duplicarlo abría otra vía de
+     divergencia entre esta hoja (con color de marca) y la de siempre. */
 </style>
 <?php endif; ?>
 <style>
@@ -9632,6 +9675,45 @@ $CUENTAS = [
      segmentado subieron a 40 mientras el boton se quedaba en 36. */
   .adm-f-ooferta .adm-dia-semanal{min-height:40px}
 
+  /* Corrección final: las reglas del segmentado anterior no deben pisar el selector circular. */
+  @media (min-width:901px){
+    /* En escritorio, descuento y horario comparten la primera fila; días ocupa el
+       ancho completo para que sus siete círculos y «Semanal» quepan en un solo renglón. */
+    .adm-f-ooferta .adm-regla{grid-template-columns:minmax(340px,1fr) minmax(300px,1fr)}
+    .adm-f-ooferta .adm-regla-g:first-child{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;column-gap:var(--space-2);row-gap:var(--space-2)}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{display:flex;align-items:center;gap:var(--space-2);margin:0;grid-column:1 / -1;grid-row:1}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl .adm-regla-ico{display:inline-flex}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-dto{grid-column:1;grid-row:2}
+    .adm-f-ooferta .adm-regla-g:first-child > .adm-pct-atajos{grid-column:2;grid-row:2;margin:0}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias{grid-column:1 / -1;display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;grid-template-rows:auto 40px !important;align-items:center;column-gap:var(--space-3);row-gap:var(--space-2);height:auto !important;min-height:0}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-lbl{grid-column:1 / -1;grid-row:1;display:flex;align-items:center;gap:var(--space-2);margin:0}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-lbl .adm-regla-ico{display:inline-flex}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias{grid-column:1;grid-row:2;width:auto;min-width:0;flex:1 1 auto}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{grid-column:2;grid-row:2;margin:0;flex:0 0 auto}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias,
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{align-self:start}
+  }
+  .adm-f-ooferta .adm-dias{
+    display:flex;flex-wrap:nowrap;gap:var(--space-2);padding:0;
+    background:transparent;border-radius:0;
+  }
+  /* Círculos, como se pidió (84dcaca) — pero el diámetro se reparte con la fila en vez de
+     fijarse en un valor fijo: así caben en cualquier ancho por construcción, en vez de
+     depender de que sobre sitio. El techo es 40px, igual que «Semanal» —E2E-RH-SEM-01 exige
+     la misma altura en los dos—, así que en tablet/escritorio se ven igual que antes; sólo
+     se encogen cuando el hueco real es menor (320 px). */
+  .adm-f-ooferta .adm-dia,
+  .adm-f-ooferta .adm-dia:first-of-type,
+  .adm-f-ooferta .adm-dia:last-of-type{
+    flex:1 1 0;width:auto;min-width:0;max-width:40px;aspect-ratio:1;height:auto;
+    border-radius:50%;background:var(--sc-muted-bg);
+  }
+  .adm-f-ooferta .adm-dia:has(input:checked){background:var(--sc-selected-bg);color:var(--sc-selected-text)}
+  .adm-f-ooferta .adm-dia::before{left:50%;width:44px;transform:translate(-50%,-50%)}
+  /* Una columna filtrada ocupa siempre el primer carril, aunque PHP la haya generado como
+     segunda columna antes de aplicar el KPI. */
+  .adm-cat-bento-col:not(:has(> .adm-orow:not([hidden]))){display:none}
+
   /* ---- componente 3: el horario, una sola caja ---- */
   .adm-f-ooferta .adm-rango{
     border:1px solid var(--sc-input-border,var(--sc-border));border-radius:var(--radius-md);
@@ -10394,7 +10476,12 @@ $CUENTAS = [
        Filas de 48: dos halos de 44 no se tocan. */
     .adm-mas-b::before{content:"";position:absolute;top:-8px;bottom:-8px;left:-1px;right:-8px}
   }
-</style>
+  /* Ajuste de distribución de escritorio: los días ocupan su carril y la frecuencia queda centrada. */
+  @media (min-width:901px){
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias{grid-template-columns:minmax(0,1fr) minmax(180px,220px) !important}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias{display:flex;justify-content:space-between;gap:clamp(8px,1.4vw,24px);width:100% !important}
+    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{width:100%;justify-content:center;text-align:center}
+  }</style>
 </head>
 <body<?= $dentro ? "" : ' class="sin-entrar"' ?>>
 <div class="page<?= $dentro ? "" : " page-login" ?>">
