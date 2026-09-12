@@ -5104,6 +5104,37 @@ $CUENTAS = [
    * Valores: los del encargo. Donde el prototipo difiere se ha seguido el encargo y la
    * diferencia queda anotada en SPEC.md, no resuelta en silencio.
    */
+  /* ============================================ ARREGLOS MEDIDOS DEL PANEL ==
+   * Dos piezas nuevas: la regla que apaga las transiciones durante el cambio de tema y el
+   * token del anillo de foco. Nada del Design System 2026 entra aqui. */
+
+  :root{
+    /* ARREGLO 3: un anillo de foco, uno solo.
+       Habia seis variantes repartidas por la hoja: 2px y 2.5px, con `--sc-primary`, con
+       `--accent` y con `--p-accent-stroke`. Las tres dan casi lo mismo con la marca de
+       Tinge y por eso nadie lo noto, pero `--accent` es el color del RESTAURANTE: lo
+       elige el cliente en la pestana Marca y viaja a la carta publica. Un cliente de
+       marca pastel se queda con un anillo de foco que no se ve, fallo de WCAG 2.4.7 que
+       no aparece en Tinge y aparece en el siguiente cliente. El foco es del PRODUCTO.
+       El desvio NO se tokeniza: los tres valores en uso (2, 1 y -2) estan dimensionados
+       al hueco real de cada pieza, y unificarlos solaparia anillos con el vecino. */
+    --focus-grosor:2px;
+    --focus-color:var(--sc-primary);
+    --focus-anillo:var(--focus-grosor) solid var(--focus-color);
+    --focus-desvio:2px;
+  }
+
+  /* ARREGLO 1 (la regla). El script del selector pone esta clase, fuerza un reflujo y la
+     quita dos fotogramas despues. Es el unico sitio del panel donde un `!important`
+     global esta justificado: tiene que ganarle a las transiciones declaradas, y vive
+     tres milisegundos. */
+  html.adm-cambiando-tema,
+  html.adm-cambiando-tema *,
+  html.adm-cambiando-tema *::before,
+  html.adm-cambiando-tema *::after{
+    transition:none !important;
+  }
+
   :root,
   :root.light{
     color-scheme:light;
@@ -5169,6 +5200,20 @@ $CUENTAS = [
     --sc-ok-bg:#E6F2EC;   --sc-ok-ink:#20624A;
     --sc-warn-bg:#FBEFD9; --sc-warn-ink:#84540A;
     --sc-bad-bg:#FAE7E7;  --sc-bad-ink:#C62828;
+
+    /* ARREGLO 2: la escala de elevacion, y el fallo que la hizo falta.
+       Seis piezas llevan la sombra escrita a mano asi:
+           box-shadow:0 12px 32px color-mix(in srgb, var(--sc-canvas) 55%, transparent)
+       `--sc-canvas` en claro es un crema. Una sombra crema sobre un tablero crema no es
+       una sombra tenue: es NINGUNA sombra. En oscuro el mismo codigo si funciona, y por
+       eso llevaba tiempo sin verse; con el panel entrando ahora en oscuro por defecto,
+       menos todavia. El toast, el popover de renombrar, la hoja de alta y el modal se
+       apoyan solo en su borde para despegarse del fondo.
+       Tres niveles y no mas: 1 apoyado, 3 flotante, 4 superpuesto. Se declaran por tema
+       porque la sombra en oscuro no es la misma sombra mas fuerte, es otra cosa. */
+    --e-1:0 1px 2px rgba(26,22,20,.08);
+    --e-3:0 12px 32px -8px rgba(26,22,20,.18);
+    --e-4:0 24px 64px -16px rgba(26,22,20,.24);
   }
   :root.dark{
     color-scheme:dark;
@@ -5200,6 +5245,11 @@ $CUENTAS = [
     --sc-ok-bg:#1B3A2C;   --sc-ok-ink:#6FD3A6;
     --sc-warn-bg:#3A3020; --sc-warn-ink:#EFC578;
     --sc-bad-bg:#3B2320;  --sc-bad-ink:#FF8D87;
+    /* ARREGLO 2: la misma escala, en negro y mas profunda. Sobre carbon una sombra
+       calida no se ve; la profundidad en oscuro la da el negro puro. */
+    --e-1:0 1px 2px rgba(0,0,0,.5);
+    --e-3:0 12px 32px -8px rgba(0,0,0,.6);
+    --e-4:0 24px 64px -16px rgba(0,0,0,.7);
   }
 
   /* Escala de spacing y de radios. Se estrenan en el shell (V2) y en cada componente
@@ -5618,7 +5668,7 @@ $CUENTAS = [
   .tabs-arrow-next{right:4px}
   .tabs-arrow:not(:disabled):active{transform:scale(.92)}
   .tabs-arrow:disabled{opacity:.3;cursor:default}
-  .tabs-arrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tabs-arrow:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   @media (min-width:768px){
     .tabs-wrap{margin-left:calc(var(--s5) * -1);margin-right:calc(var(--s5) * -1)}
     .tabs-wrap.is-scrollable .tabs-arrow{display:flex}
@@ -5640,7 +5690,7 @@ $CUENTAS = [
     transition:background-color var(--t-fast) ease,color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
   }
   .tabs button:active{transform:scale(.97)}
-  .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tabs button:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .tabs button.on{background:var(--solid);color:var(--solid-ink)}
   .tabs .n{
     min-width:20px;padding:0 6px;
@@ -5743,7 +5793,7 @@ $CUENTAS = [
     .adm-nav-item .n{position:absolute;top:2px;right:2px;margin-left:0;min-width:18px;height:18px;padding:0 4px}
   }
   .adm-nav-item:hover{background:var(--sc-hover-bg);color:var(--sc-text)}
-  .adm-nav-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-nav-item:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   /* Seleccionado NO es relleno naranja solido: es la pastilla suave del prototipo.
      Veinte destinos en naranja no destacan ninguno (regla del naranja, punto 15). */
   .adm-nav-item.on{background:var(--sc-selected-bg);color:var(--sc-selected-text);font-weight:600}
@@ -5890,7 +5940,7 @@ $CUENTAS = [
   }
   .adm-plegar svg{width:18px;height:18px}
   .adm-plegar:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-  .adm-plegar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-plegar:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   /* Solo donde hay barra que plegar. Por debajo de 768 la navegacion es la tira de abajo. */
   @media (min-width:768px){ .adm-plegar{display:grid} }
   /* Plegada NO es escondida: es el RIEL de iconos que esta barra ya sabe ser entre 768 y
@@ -5956,7 +6006,7 @@ $CUENTAS = [
     box-shadow:0 1px 2px rgba(0,0,0,.10);
   }
   .adm-tema-op:hover[aria-pressed="false"]{color:var(--sc-text)}
-  .adm-tema-op:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-tema-op:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   /* En riel —la barra lateral estrecha, por debajo de 1024— no cabe el texto: quedan los
      iconos uno encima del otro. La hoja móvil mantiene siempre los dos nombres visibles. */
   @media (max-width:1023px){
@@ -5991,7 +6041,7 @@ $CUENTAS = [
     transform:translate(-50%,-50%);
   }
   .adm-tema-sw[aria-checked="true"]{background:var(--sc-primary)}
-  .adm-tema-sw:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-tema-sw:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .adm-tema-bola{
     position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:var(--radius-pill);
     background:var(--sc-surface);pointer-events:none;
@@ -6037,7 +6087,7 @@ $CUENTAS = [
      distancia, no al lado de un texto de 14. Es la excepcion razonada al tamaño de
      navegacion, no un descuido. */
   .adm-navmovil-item svg{width:20px;height:20px}
-  .adm-navmovil-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-navmovil-item:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   .adm-navmovil-item.on{color:var(--sc-selected-text);font-weight:600}
   .adm-navmovil-item.on svg{color:var(--sc-primary)}
 
@@ -6081,7 +6131,7 @@ $CUENTAS = [
   a.adm-nav-item:active,a.adm-sheet-item:active{transform:scale(.97)}
   .adm-sheet-item svg{width:17px;height:17px;flex:none;color:var(--sc-text-2)}
   .adm-sheet-item:hover{background:var(--sc-hover-bg)}
-  .adm-sheet-item:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-sheet-item:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   /* Apariencia es una preferencia secundaria, separada de los destinos. Se coloca al final
      de la hoja, debajo de Salir, con dos botones completos y no como otra fila del menú. */
   .adm-sheet-apariencia{
@@ -6150,7 +6200,7 @@ $CUENTAS = [
     white-space:normal;overflow:hidden;text-align:left;
     border:1px solid var(--sc-border);border-radius:14px;
     background:var(--sc-surface);
-    box-shadow:0 1px 2px color-mix(in srgb, var(--sc-canvas) 45%, transparent);
+    box-shadow:var(--e-1);
     cursor:pointer;
   }
   /* El envoltorio del texto desaparece como caja y deja que sus tres hijos sean celdas. */
@@ -6220,7 +6270,7 @@ $CUENTAS = [
   .adm-kpis .adm-kpi[aria-pressed="true"] .adm-kpi-ico{
     background:var(--sc-primary);color:var(--sc-primary-ink);
   }
-  .adm-kpis .adm-kpi:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-kpis .adm-kpi:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
 
   /* Dos y dos, pero mucho mas abajo que antes. El corte estaba en 1280 de ventana porque
      una ronda anterior midio que a 1024 las cuatro tarjetas salian de 161px «con el rotulo
@@ -6297,7 +6347,7 @@ $CUENTAS = [
     cursor:default;list-style:none;
   }
   .adm-ajustar-precios-resumen::-webkit-details-marker{display:none}
-  .adm-ajustar-precios-resumen:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  .adm-ajustar-precios-resumen:focus-visible{outline:var(--focus-anillo);outline-offset:2px;border-radius:4px}
   .adm-ajustar-precios-chev{display:none;flex:none;width:18px;height:18px;color:var(--muted)}
   /* Agrupada y centrada, no repartida a los dos extremos. «Cambiar precio manual» llevaba
      `margin-left:auto` y se iba al borde derecho de la fila: entre el porcentaje que se
@@ -6675,7 +6725,7 @@ $CUENTAS = [
     }
     .adm-mas-b svg{width:16px;height:16px;pointer-events:none}
     .adm-mas-b:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-    .adm-mas-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+    .adm-mas-b:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
     /* Cerrado: nada. Abierto: capa superior, colocado por el JS junto a su boton. Los estilos
        de fabrica del popover (inset:0, margin:auto, borde y fondo del sistema) se anulan. */
     .adm-mas-panel{display:none}
@@ -6828,7 +6878,7 @@ $CUENTAS = [
     cursor:pointer;
   }
   .adm-tag-destacado-cambiar:hover{background:var(--sc-selected-text);color:var(--sc-surface)}
-  .adm-tag-destacado-cambiar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-tag-destacado-cambiar:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   .adm-tag-destacado-quitar{
     height:22px;min-height:0;box-sizing:border-box;
     /* padding:0 explicito: el reset general de <button> pone `padding:0 21px` y con
@@ -6840,7 +6890,7 @@ $CUENTAS = [
   }
   .adm-tag-destacado-quitar svg{width:11px;height:11px}
   .adm-tag-destacado-quitar:hover{opacity:1;background:color-mix(in srgb, var(--ui-state-danger) 20%, transparent);color:var(--ui-state-danger)}
-  .adm-tag-destacado-quitar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-tag-destacado-quitar:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
 
   /* ---- Agotado, en el grupo de acciones: mismo checkbox, aspecto de interruptor mini.
      Rojo al marcar y no verde: agotado es una baja, no un "encendido". */
@@ -6941,7 +6991,7 @@ $CUENTAS = [
      `.row` era la fila del panel anterior. La sustituyo `.adm-orow` en V3 y desde entonces
      no la pedia nadie: cero `class=` en el marcado y cero construccion dinamica. */
   .tick input{width:24px;height:24px;accent-color:var(--offer);cursor:pointer}
-  .tick:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--r-sheet)}
+  .tick:has(input:focus-visible){outline:var(--focus-anillo);outline-offset:-2px;border-radius:var(--r-sheet)}
   .num{
     flex:0 0 auto;min-width:34px;
     font-family:var(--title-font);font-size:12px;font-weight:600;
@@ -6979,7 +7029,7 @@ $CUENTAS = [
     content:"";position:absolute;right:3px;top:3px;
     width:6px;height:6px;border-radius:50%;background:var(--sc-primary);
   }
-  .camara:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .camara:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
 
   /* El recorte. Una capa sobre todo, con el cuadrado en el centro: lo que se ve dentro del
      cuadrado es exactamente lo que se guarda, ni más ni menos. */
@@ -7143,7 +7193,7 @@ $CUENTAS = [
   .switch:has(input:checked) .switch-txt{color:var(--ink)}
   .switch:has(input:checked) .switch-on{display:inline}
   .switch:has(input:checked) .switch-off{display:none}
-  .switch:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .switch:has(input:focus-visible){outline:var(--focus-anillo);outline-offset:2px}
   @media (prefers-reduced-motion:reduce){ .switch-bola{transition:none} }
   .marca{
     position:relative;
@@ -7168,7 +7218,7 @@ $CUENTAS = [
   .marca .tickmark svg{width:12px;height:12px}
   .marca:has(input:checked){background:var(--solid);color:var(--solid-ink)}
   .marca:has(input:checked) .tickmark{background:color-mix(in srgb,var(--solid-ink) 28%,transparent);color:var(--solid-ink)}
-  .marca:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .marca:has(input:focus-visible){outline:var(--focus-anillo);outline-offset:2px}
 
   /* ---------- lista de categorías ----------
      Cuarenta y una casillas: en columnas para no hacer una tira de dos pantallas, con el
@@ -7248,7 +7298,7 @@ $CUENTAS = [
     font-family:var(--title-font);font-size:16px;font-weight:600;
     text-align:right;font-variant-numeric:tabular-nums;
   }
-  .pnuevo:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  .pnuevo:focus{outline:var(--focus-anillo);outline-offset:1px;border-color:transparent}
   .pfijo{font-family:var(--title-font);font-weight:700;font-variant-numeric:tabular-nums}
   .badge{
     display:inline-block;padding:2px 9px;border-radius:var(--r-pill);
@@ -7287,7 +7337,7 @@ $CUENTAS = [
     transition:transform var(--t-press) var(--ease-out),background-color var(--t-fast) ease;
   }
   button:active{transform:scale(.97)}
-  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
 
   /* ==================================================================== SocialCard V7
      LA TRAMPA DEL RESET, CERRADA EN EL COMPONENTE Y NO CASO A CASO.
@@ -7889,7 +7939,7 @@ $CUENTAS = [
     color:var(--ink);font-family:var(--body-font);font-size:13px;
     text-transform:uppercase;font-variant-numeric:tabular-nums;
   }
-  .colores-fila input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .colores-fila input[type=text]:focus{outline:var(--focus-anillo);outline-offset:1px}
   .colores-fila input[type=text]:invalid:not(:placeholder-shown){box-shadow:inset 0 0 0 2px var(--offer)}
   .colores-fila .ghost{flex:none;white-space:nowrap;padding:0 var(--s2);min-height:36px;font-size:12px}
   /* Los tres fijos: circulo + hex, compactos -- el nombre (Secundario/Oscuro/Neutro) no
@@ -7958,7 +8008,7 @@ $CUENTAS = [
        del tema hace de fondo y la superficie hace de texto. Funciona igual en los dos
        temas sin una regla por tema. */
     background:var(--ink);color:var(--surface);
-    box-shadow:0 12px 32px color-mix(in srgb,var(--sc-canvas) 45%,transparent);
+    box-shadow:var(--e-3);
     font-size:var(--t2);line-height:1.4;
     pointer-events:auto;
     opacity:0;transform:translateY(12px) scale(.98);
@@ -8280,7 +8330,7 @@ $CUENTAS = [
   }
   .adm-sw:has(input:checked) .adm-sw-pista{background:var(--sc-primary)}
   .adm-sw:has(input:checked) .adm-sw-bola{transform:translateX(18px)}
-  .adm-sw:has(input:focus-visible) .adm-sw-pista{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-sw:has(input:focus-visible) .adm-sw-pista{outline:var(--focus-anillo);outline-offset:2px}
   .adm-sw:has(input:disabled){cursor:default}
   .adm-sw:has(input:disabled) .adm-sw-pista{opacity:var(--ui-control-disabled-opacity)}
   .adm-sw-txt{font-size:var(--t2);font-weight:500;color:var(--sc-text)}
@@ -8326,7 +8376,7 @@ $CUENTAS = [
   .adm-btn-fino{flex:0 0 auto;min-height:40px;padding:0 14px;font-size:var(--t3)}
   .adm-btn-quitar{border-color:color-mix(in srgb, var(--ui-state-danger) 45%, transparent);color:var(--ui-state-danger);background:transparent}
   .adm-btn-quitar:hover{background:color-mix(in srgb, var(--ui-state-danger) 10%, transparent);border-color:var(--ui-state-danger)}
-  .adm-btn-archivo:focus-within{outline:2.5px solid var(--accent);outline-offset:2px}
+  .adm-btn-archivo:focus-within{outline:var(--focus-anillo);outline-offset:2px}
   /* Subiendo: el boton deja de invitar a pulsarlo y late despacio. */
   .adm-btn-archivo.esta-subiendo{
     pointer-events:none;color:var(--muted);
@@ -8535,9 +8585,18 @@ $CUENTAS = [
     font-size:var(--t3);color:var(--muted);
   }
   .adm-quitar-fechas button{
+    position:relative;
     border:0;background:transparent;padding:0;cursor:pointer;
     font-size:var(--t3);font-weight:600;color:var(--ink);
     text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;
+  }
+  /* ARREGLO 4: 102x15 medidos, por debajo de los 24x24 que pide WCAG 2.2 (2.5.8).
+     Se agranda la zona que responde, no el dibujo: un subrayado de 24 px de alto dejaria
+     de parecer un enlace y empujaria la linea. Mismo patron que los halos tactiles del
+     resto del panel, pero SIN media query: el criterio no distingue dedo de raton.
+     5 arriba y 4 abajo dan 24 justos y caben en los 7 px de hueco de la caja. */
+  .adm-quitar-fechas button::before{
+    content:"";position:absolute;left:0;right:0;top:-5px;bottom:-4px;
   }
   .adm-quitar-fechas button:hover{color:var(--p-accent-stroke)}
   .adm-cal-rejilla{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
@@ -8737,7 +8796,7 @@ $CUENTAS = [
   .adm-secciones[data-rueda] .adm-secciones-flecha{display:grid}
   .adm-secciones-flecha svg{width:15px;height:15px;pointer-events:none}
   .adm-secciones-flecha:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-  .adm-secciones-flecha:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-secciones-flecha:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .adm-secciones-flecha:disabled{opacity:.3;cursor:default}
   .adm-secciones-flecha:disabled:hover{background:var(--sc-surface);color:var(--sc-text-2)}
   /* `adm-pestana` y NO `adm-seccion`: ese nombre ya lo tenia el rotulo que separa las fichas
@@ -8756,7 +8815,7 @@ $CUENTAS = [
   }
   .adm-secciones-mas svg{width:15px;height:15px;pointer-events:none}
   .adm-secciones-mas:hover{background:var(--sc-muted-bg);color:var(--sc-text);border-color:var(--sc-input-border)}
-  .adm-secciones-mas:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-secciones-mas:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .adm-cat-nombre-borrar{display:grid;margin-top:2px}
   /* Los chips REPARTEN el sobrante en vez de dejarlo muerto a la derecha.
      La tira pagina y solo enseña las secciones que caben ENTERAS —una seccion cortada por la
@@ -8821,7 +8880,7 @@ $CUENTAS = [
     display:grid;gap:var(--space-5);padding:var(--space-5);
     background:var(--sc-surface);border:1px solid var(--sc-border);
     border-radius:var(--radius-card);
-    box-shadow:0 24px 64px color-mix(in srgb, var(--sc-canvas) 60%, transparent);
+    box-shadow:var(--e-4);
     animation:adm-modal-caja var(--t-modal-in) var(--ease-out);
   }
   /* El h2 del panel viejo llega en versales apretadas de 12px: aqui es el titulo de la hoja
@@ -8862,7 +8921,7 @@ $CUENTAS = [
   }
   .adm-alta-x svg{width:18px;height:18px}
   .adm-alta-x:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-  .adm-alta-x:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-alta-x:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   /* Lo unico que se desplaza. El ritmo lo llevan los GRUPOS, no los campos: entre grupo y
      grupo, aire; dentro de un grupo, casi nada. */
   .adm-alta-cuerpo{
@@ -8923,10 +8982,10 @@ $CUENTAS = [
   .adm-alta-idi-tab:hover{color:var(--sc-text)}
   .adm-alta-idi-tab[aria-selected="true"]{
     background:var(--sc-surface);color:var(--sc-text);font-weight:600;
-    box-shadow:0 1px 2px color-mix(in srgb, var(--sc-canvas) 22%, transparent);
+    box-shadow:var(--e-1);
   }
   .adm-alta-idi-tab[aria-selected="true"] .adm-alta-idi-punto{background:var(--sc-primary)}
-  .adm-alta-idi-tab:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-alta-idi-tab:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   .adm-alta-idi-panel{display:grid;gap:var(--space-3);min-width:0}
   .adm-alta-idi-panel[hidden]{display:none}
   .adm-alta-area{resize:vertical;min-height:62px;line-height:1.4;padding-top:7px;padding-bottom:7px}
@@ -8953,7 +9012,7 @@ $CUENTAS = [
   .adm-alta-idioma .adm-campo{
     border:0;border-radius:0;background:transparent;min-width:0;
   }
-  .adm-alta-idioma:focus-within{background:var(--sc-surface);outline:2px solid var(--sc-primary);outline-offset:-2px;border-radius:2px}
+  .adm-alta-idioma:focus-within{background:var(--sc-surface);outline:var(--focus-anillo);outline-offset:-2px;border-radius:2px}
   .adm-alta-idioma .adm-campo:focus,.adm-alta-idioma .adm-campo:focus-visible{outline:none;box-shadow:none}
   .adm-alta-pista{
     margin:0;display:flex;align-items:flex-start;gap:8px;
@@ -8975,7 +9034,7 @@ $CUENTAS = [
   .adm-platorow:hover .adm-prow-editar,
   .adm-prow-editar:focus-visible{opacity:1}
   .adm-prow-editar:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-  .adm-prow-editar:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-prow-editar:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   @media (pointer:coarse){ .adm-prow-editar{opacity:1} }
   /* La foto ocupa lo que le sobra a la columna derecha. Un boton de 44px al lado de la
      palabra «Foto» no decia que ahi cabe una foto; una zona de puntos del alto de la columna,
@@ -9002,7 +9061,7 @@ $CUENTAS = [
   .adm-alta-suelta:hover,.adm-alta-suelta[data-encima]{
     border-color:var(--sc-primary);background:var(--sc-muted-bg);color:var(--sc-text);
   }
-  .adm-alta-suelta:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-alta-suelta:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .adm-alta-suelta-ico{
     width:46px;height:46px;display:grid;place-items:center;margin-bottom:2px;
     border:1px solid var(--sc-border);border-radius:50%;background:var(--sc-surface);
@@ -9057,7 +9116,7 @@ $CUENTAS = [
     border-color:var(--sc-primary);border-style:solid;
     background:color-mix(in srgb, var(--sc-primary) 8%, transparent);
   }
-  .adm-alergeno:has(input:focus-visible){outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-alergeno:has(input:focus-visible){outline:var(--focus-anillo);outline-offset:1px}
   .adm-alergeno:has(input:checked) .adm-alergeno-txt{font-weight:600}
   .adm-alergeno:has(input:checked) .adm-alergeno-ico{color:var(--sc-primary)}
   @media (max-width:460px){ .adm-alergenos{grid-template-columns:1fr 1fr} }
@@ -9111,7 +9170,7 @@ $CUENTAS = [
     background:color-mix(in srgb, var(--sc-primary) 88%, black);
     border-color:color-mix(in srgb, var(--sc-primary) 88%, black);
   }
-  .adm-alta-si:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-alta-si:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   /* Sin JavaScript no hay hoja: es el ultimo bloque de la pantalla, y se manda igual. */
   html:not(.adm-con-js) .adm-alta,
   html:not(.adm-con-js) .adm-alta[hidden]{
@@ -9149,7 +9208,7 @@ $CUENTAS = [
     display:grid;gap:var(--space-3);padding:var(--space-5);
     background:var(--sc-surface);border:1px solid var(--sc-border);
     border-radius:var(--radius-card);
-    box-shadow:0 24px 64px color-mix(in srgb, var(--sc-canvas) 60%, transparent);
+    box-shadow:var(--e-4);
     animation:adm-modal-caja var(--t-modal-in) var(--ease-out);
   }
   .adm-modal-t{
@@ -9211,7 +9270,7 @@ $CUENTAS = [
   .adm-cat-nombre[open] .adm-cat-nombre-b,
   .adm-cat-nombre-b:focus-visible{opacity:1}
   .adm-cat-nombre-b:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-  .adm-cat-nombre-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-cat-nombre-b:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   @media (pointer:coarse){ .adm-cat-nombre-b{opacity:1} }
   @media (pointer:coarse){
     /* El icono conserva su cuerpo compacto, pero toda la caja del encabezado es táctil. */
@@ -9233,7 +9292,7 @@ $CUENTAS = [
     width:min(320px,calc(100vw - 24px));display:grid;gap:var(--space-3);
     padding:var(--space-4);
     background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:var(--radius-card);
-    box-shadow:0 12px 32px color-mix(in srgb, var(--sc-canvas) 55%, transparent);
+    box-shadow:var(--e-3);
     max-height:calc(100vh - 24px);overflow:auto;
   }
   .adm-cat-nombre-l{display:grid;gap:4px}
@@ -9303,7 +9362,7 @@ $CUENTAS = [
   .adm-orden-b:hover{background:var(--sc-selected-bg);color:var(--sc-selected-text)}
   .adm-platorow:hover .adm-orden-b,
   .adm-orden-b:focus-visible{opacity:1}
-  .adm-orden-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:2px}
+  .adm-orden-b:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   /* .45 y no .25. A .25 sobre el crema la flecha apagada no se ve, y el propietario leyo
      la pantalla como «no tiene manejadores»: se creia que ahi no habia control ninguno.
      Sigue leyendose apagada —la mitad de la encendida— pero se ve que existe. */
@@ -9351,7 +9410,7 @@ $CUENTAS = [
   .adm-platorow:hover .adm-retirar-b,
   .adm-retirar-b:focus-visible{opacity:1}
   .adm-retirar-b:hover{background:var(--sc-bad-bg);color:var(--sc-bad-ink)}
-  .adm-retirar-b:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-retirar-b:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   @media (pointer:coarse){ .adm-retirar-b{opacity:1} }
 
   /* La fila retirada. Se queda a la vista —hay que poder devolverla— pero dice sin lugar a
@@ -9456,7 +9515,7 @@ $CUENTAS = [
   .adm-dia input{position:absolute;opacity:0;width:1px;height:1px}
   .adm-dia:hover{background:var(--sc-hover-bg);color:var(--sc-text-medio)}
   .adm-dia:has(input:checked){background:var(--sc-selected-bg);color:var(--sc-selected-text);font-weight:600}
-  .adm-dia:has(input:focus-visible){outline:2.5px solid var(--sc-primary);outline-offset:2px}
+  .adm-dia:has(input:focus-visible){outline:var(--focus-anillo);outline-offset:2px}
   /* "Semanal" es un BOTON, y en revision no lo parecia: sin filete, del mismo alto, del
      mismo radio y del mismo cuerpo que un dia, y con el gris que aqui significa "dia sin
      marcar", se leia como un octavo dia apagado al final de la fila. Ahora lleva las tres
@@ -9476,7 +9535,7 @@ $CUENTAS = [
                border-color var(--t-press) var(--ease-out);
   }
   .adm-dia-semanal:hover{border-color:var(--sc-text-2);color:var(--sc-text)}
-  .adm-dia-semanal:focus-visible{outline:2.5px solid var(--sc-primary);outline-offset:2px}
+  .adm-dia-semanal:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .adm-dia-semanal-ok{display:none;width:15px;height:15px;flex:none}
   /* Con los siete ya puestos el boton no hace nada (el listener sale antes de tocar
      nada): se dice con una marca y bajando el enfasis, no rellenandolo — un boton relleno
@@ -9639,7 +9698,7 @@ $CUENTAS = [
   .adm-destrow{width:100%;text-align:left;font-family:inherit;color:inherit}
   button.adm-destrow{border:0;background:transparent;cursor:pointer}
   button.adm-destrow:hover{background:var(--chip)}
-  button.adm-destrow:focus-visible{outline:2.5px solid var(--accent);outline-offset:-2px;border-radius:11px}
+  button.adm-destrow:focus-visible{outline:var(--focus-anillo);outline-offset:-2px;border-radius:11px}
   .adm-destpick-ir{
     flex:none;margin-left:auto;padding:5px 12px;border-radius:999px;
     border:1px solid var(--border);color:var(--muted);
@@ -9673,7 +9732,7 @@ $CUENTAS = [
     transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
   }
   .adm-destet-b:hover{background:var(--marca-fondo);color:var(--marca-ink)}
-  .adm-destet-b:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+  .adm-destet-b:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
   .adm-destet-x{
     min-height:40px;padding:0 13px;margin-left:auto;
     border:0;background:transparent;color:var(--muted);
@@ -9768,7 +9827,7 @@ $CUENTAS = [
   .adm-pct-atajo[aria-pressed="true"]{
     border-color:var(--sc-primary);background:var(--sc-selected-bg);color:var(--sc-selected-text);
   }
-  .adm-pct-atajo:focus-visible{outline:2px solid var(--sc-primary);outline-offset:1px}
+  .adm-pct-atajo:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   /* «Frecuencia» y su boton, en su propia linea bajo los circulos: el boton iba suelto
      detras del domingo y se leia como un octavo dia. */
   .adm-dias-frec{
@@ -10053,7 +10112,7 @@ $CUENTAS = [
     width:auto;flex:1 1 0;min-width:0;min-height:38px;
     border:0;background:transparent;padding:0 4px;
   }
-  .adm-f-ooferta .adm-rango .adm-campo:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-f-ooferta .adm-rango .adm-campo:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
 
   .adm-rango{display:flex;align-items:center;gap:var(--space-2)}
   /* Las horas son campos: 40 de alto, como el resto de campos migrados. */
@@ -10251,7 +10310,7 @@ $CUENTAS = [
     transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
   }
   .adm-vermas:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
-  .adm-vermas:focus-visible{outline:2px solid var(--sc-primary);outline-offset:-2px}
+  .adm-vermas:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   .adm-vermas-chev{width:16px;height:16px;flex:none;transition:transform var(--t-fast) var(--ease-out)}
   .adm-vermas[aria-expanded="true"] .adm-vermas-chev{transform:rotate(180deg)}
   /* Rejilla (10 Sep 2026): 820 -> 1099. Con la rejilla de columnas fijas una columna de
@@ -10598,7 +10657,7 @@ $CUENTAS = [
   }
   .adm-f-plega > summary::-webkit-details-marker{display:none}
   .adm-f-plega > summary:hover{background:var(--sc-hover-bg)}
-  .adm-f-plega > summary:focus-visible{outline:2.5px solid var(--p-accent-stroke);outline-offset:-2px}
+  .adm-f-plega > summary:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   /* El resumen ES el botón: dentro sólo va contenido de frase, así que el rótulo no puede
      ser un <h2>. Se le da el mismo aspecto que a la cabecera de una ficha normal — quien
      lo lee ve el mismo título; quien lo escucha oye un botón que despliega, que es
@@ -15671,8 +15730,24 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            una copia que dijera lo contrario que la otra seria peor que no tenerla. */
         function pintar(modo) {
           var oscuro = modo === 'dark';
+          /* ARREGLO 1: apagar las transiciones MIENTRAS se cambia el tema.
+             Medido en este mismo build: al pasar de oscuro a claro, el fondo de los
+             controles con `transition:background` se queda con el valor del tema anterior
+             y no lo recupera nunca, mientras el texto si cambia. Con el panel entrando en
+             oscuro por defecto, el primer gesto de quien lo quiera claro topa con esto: el
+             boton «Anadir plato» queda carbon sobre carbon, ~1,05:1, hasta recargar.
+             Forzando `transition:none` sobre el elemento, el fondo salta al valor correcto
+             al instante: la transicion es la causa.
+             Dos vias para quitar la clase, y no por gusto: con la pestana en segundo plano
+             el navegador NO ejecuta requestAnimationFrame, y la clase se quedaria puesta
+             dejando el panel sin transiciones el resto de la sesion. */
+          raiz.classList.add('adm-cambiando-tema');
           raiz.classList.toggle('dark', oscuro);
           raiz.classList.toggle('light', !oscuro);
+          void raiz.offsetWidth;   /* lectura forzada: recalcula AHORA, sin transiciones */
+          var quitarCambio = function () { raiz.classList.remove('adm-cambiando-tema'); };
+          requestAnimationFrame(function () { requestAnimationFrame(quitarCambio); });
+          setTimeout(quitarCambio, 120);
           ops.forEach(function (b) {
             var suyo = (b.dataset.tema === 'dark') === oscuro;
             b.setAttribute('aria-pressed', String(suyo));
