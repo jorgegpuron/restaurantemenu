@@ -2086,18 +2086,26 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
    * hace falta aquí: «no se corrige y no se esconde», no cuenta como cobertura, y NO es un PASS.
    * Presentarlo como WCAG AA PASS sería falsear el informe; callarlo sería peor.
    *
-   * Y no es un comentario: se MIDE en el botón de la recepción —texto real sobre el naranja
-   * real, en los dos temas— contra los valores aprobados. Si alguien mejora la paleta sale
-   * UNEXPECTED PASS y se retira de la lista a sabiendas; si alguien la empeora, o la cambia sin
-   * registrarlo, sale FAIL. Lo único que no puede pasar es que cambie en silencio. */
+   * Y no es un comentario: se MIDE en un elemento real con esa pareja de colores, en los dos
+   * temas, contra los valores aprobados. Hasta el 11 sep 2026 se medía en el botón de la
+   * recepción; la puerta «Bienvenida» (12 sep 2026, ver SPEC.md) la rediseñó a texto sobre
+   * canvas oscuro FIJO — deja de tener relleno naranja y deja de seguir el interruptor de
+   * tema, así que dejó de representar la excepción. Se reapunta a `.adm-sidebar-logo` —el
+   * cuadrado del producto en la barra lateral—: misma pareja `--sc-primary`/`--sc-primary-ink`
+   * de siempre, presente en cualquier pantalla con sesión, sin depender de modo demo ni de
+   * abrir ningún diálogo.
+   *
+   * Si alguien mejora la paleta sale UNEXPECTED PASS y se retira de la lista a sabiendas; si
+   * alguien la empeora, o la cambia sin registrarlo, sale FAIL. Lo único que no puede pasar es
+   * que cambie en silencio. */
   const APROBADO = { claro: 2.65, oscuro: 2.31, tolerancia: 0.06 };
-  const razonBoton = (pagina) => pagina.evaluate(() => {
+  const razonInsignia = (pagina) => pagina.evaluate(() => {
     const lum = (c) => {
       const m = c.match(/[\d.]+/g).slice(0, 3).map(Number);
       const f = m.map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
       return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
     };
-    const b = document.querySelector('.login button');
+    const b = document.querySelector('.adm-sidebar-logo');
     if (!b) return null;
     const cs = getComputedStyle(b);
     const l1 = lum(cs.color); const l2 = lum(cs.backgroundColor);
@@ -2106,19 +2114,18 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
       tinta: cs.color, relleno: cs.backgroundColor,
     };
   });
-  const rec = await nuevaPagina(navegador);
+  const rec = await nuevaPagina(navegador, { viewport: { width: 1440, height: 900 } });
   try {
-    await rec.goto(url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
-    await esperar(150);
-    const claroM = await razonBoton(rec);
+    await entrarAlPanel(rec, url);
+    const claroM = await razonInsignia(rec);
     await rec.evaluate(() => localStorage.setItem('socialcard-color-mode', 'dark'));
     await rec.reload({ waitUntil: 'domcontentloaded' });
     await esperar(300);
-    const oscuroM = await razonBoton(rec);
+    const oscuroM = await razonInsignia(rec);
     const cerca = (v, ref) => v !== null && Math.abs(v - ref) <= APROBADO.tolerancia;
     const detalle = JSON.stringify({ claro: claroM, oscuro: oscuroM, aprobado: APROBADO });
     if (!claroM || !oscuroM) {
-      informe.fail('E2E-TE-CONTRASTE', 'no se ha podido medir el botón de la recepción para registrar la excepción de contraste', detalle);
+      informe.fail('E2E-TE-CONTRASTE', 'no se ha podido medir la insignia de la barra lateral para registrar la excepción de contraste', detalle);
     } else if (claroM.razon >= 4.5 && oscuroM.razon >= 4.5) {
       informe.unexpected('E2E-TE-CONTRASTE', 'la tinta sobre el naranja ya cumple WCAG AA en los dos temas: retirar la excepción de la lista a sabiendas', detalle);
     } else if (cerca(claroM.razon, APROBADO.claro) && cerca(oscuroM.razon, APROBADO.oscuro)) {
@@ -2226,7 +2233,7 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
       if (!r.lateral && !r.temaEnHoja) problemas.push(`${t}: sin barra lateral y sin selector en la hoja «Más»`);
     }
     await pagina.goto(url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
-    const login = await pagina.evaluate(() => ({ desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth, boton: document.querySelector('.login button').getBoundingClientRect().right <= innerWidth }));
+    const login = await pagina.evaluate(() => ({ desborde: document.documentElement.scrollWidth - document.documentElement.clientWidth, boton: document.querySelector('.login-puerta button').getBoundingClientRect().right <= innerWidth }));
     if (login.desborde > 1 || !login.boton) problemas.push(`recepción: desborde=${login.desborde}`);
     informe.comprueba(`E2E-RS-${w}${suf}`, `${w}×${h} en ${nombreTema}: ocho pantallas + recepción sin desborde, sin elementos fuera, navegación y Guardar a la vista`, problemas.length === 0, problemas.slice(0, 4).join(' | '));
     informe.comprueba(`E2E-RS-${w}${suf}-red`, `${w}×${h} en ${nombreTema}: consola y red limpias`, erroresConsola(pagina).length === 0 && pagina.registro.fallidas.length === 0, [...erroresConsola(pagina), ...pagina.registro.fallidas].slice(0, 2).join(' | '));

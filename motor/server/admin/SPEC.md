@@ -5514,3 +5514,52 @@ tocar `qa/suites/admin-e2e.mjs` no estaba en la allowlist de esta tarea:
 Las dos siguen siendo el criterio correcto para el diseño ANTERIOR; con el diseño actual
 piden algo que ya no es cierto por decisión, no por descuido. Corregirlas es tarea aparte,
 con su propia autorización, y toca `qa/suites/admin-e2e.mjs`, fuera de esta allowlist.
+
+## La puerta del restaurante: «Bienvenida» (12 Sep 2026)
+
+La recepción (`.login-puerta` cuando el restaurante ya tiene contraseña — no la pantalla de
+alta, que no se toca) deja de ser la tarjeta clara centrada con foto arriba que tenía desde
+V7. Sale de tres rondas del skill `/prototype` sobre la misma URL en producción, elegida por
+el propietario paso a paso: primero la forma (pantalla partida foto|formulario en vez de
+tarjeta), luego el tema (oscuro real del panel, no uno inventado), luego el titular y el
+campo (el propietario pidió explícitamente rehacerlos: "no me gusta" el rótulo pequeño ni la
+caja del campo de la primera pasada).
+
+**Forma:** a sangre, no una tarjeta flotando — foto a la izquierda, formulario a la derecha,
+se apilan bajo 820px. Sin foto (`estado.json` sin portada, o el archivo ya no está) colapsa a
+una sola columna centrada con el mismo titular: dos columnas con la izquierda vacía se leería
+como un fallo del panel, no como diseño — es el mismo caso que ya cubría `.sin-foto` en V7,
+conservado con el fondo nuevo.
+
+**Tema, OSCURO FIJO — la decisión que hay que recordar:** hoy el panel entero (dentro y
+fuera de sesión) seguía el interruptor claro/oscuro guardado en `localStorage
+socialcard-color-mode`, leído en `<head>` antes de pintar para no parpadear. La puerta ROMPE
+ese vínculo a propósito: `.login-puerta` declara sus propios `--sc-*` con los valores
+literales de `:root.dark` (no `var(--sc-canvas)` etc., que seguirían el interruptor) —
+oscura para todo el mundo, siempre, decida lo que decida el propietario para el resto del
+panel. Confirmado expresamente antes de implementar, no asumido.
+
+**Titular y campo, la parte que se rehizo:** el rótulo pequeño «Acceso privado» + `<h1>` +
+filete se sustituye por un saludo directo — `<h2>` "Bienvenido de nuevo" + un subtítulo — y
+el campo pierde la caja: sin borde, sólo una línea inferior que gana una segunda línea del
+color de acento creciendo desde el centro (`transform:scaleX(0→1)`, `transform-origin:center`,
+200ms) al enfocar. El botón deja de ser píldora rellena: es texto con flecha
+(`.login-puerta-entrar`), con el área de toque estirada por `::before` (`-9px`/`-8px`) igual
+que `.adm-btn::before` un poco más abajo en el mismo fichero, porque el texto solo mide menos
+de 44px.
+
+**Lo que NO cambia:** el `<form method="post">`, `name="clave"`, el mensaje de error real del
+servidor (`$error`), y el enmascarado de asteriscos (`.clave-campo`/`.clave-mascara` y su
+`<script>`) — mismo mecanismo, sólo se le ajustó el padding (`0 2px`, simétrico) para que
+siga midiendo exactamente lo mismo que el campo sin caja; con paddings distintos entre el
+input real y la máscara superpuesta, los asteriscos se desalinean del texto.
+
+**Consecuencia en pruebas, y por qué esta vez SÍ toca `admin-e2e.mjs`** (a diferencia de la
+entrada anterior): `E2E-TE-CONTRASTE` medía `.login button` en claro y oscuro para vigilar la
+excepción de contraste aprobada (2.65/2.31, tinta crema sobre el naranja de marca). La puerta
+ya no tiene ese botón relleno — es texto sobre el canvas oscuro, una pareja de colores
+distinta — así que ese punto de medida dejó de representar la excepción del panel. Se
+reapunta a `.save` (mismo `--sc-primary`/`--sc-primary-ink` que sigue usando el resto del
+panel — "Guardar cambios", etc.), que es el proxy real que queda. `E2E-RS-*` sólo comprobaba
+que el botón de la recepción no desbordaba: ahí el cambio es sólo de selector
+(`.login button` → `.login-puerta button`).
