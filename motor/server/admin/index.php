@@ -7563,8 +7563,12 @@ $CUENTAS = [
   .page-login > .login{margin:auto}
   /* La puerta real (login-puerta, abajo) es pantalla completa, no una tarjeta centrada: la
      regla base de arriba no le sirve, y --puerta la anula sin tocarla (la sigue usando esta
-     pantalla de alta). */
-  .page-login.page-login--puerta{display:block;min-height:100dvh;padding:0}
+     pantalla de alta). El tope de 1570px es el de `.page{}` de siempre -- pensado para la
+     tarjeta centrada, no para una pantalla a sangre -- así que también se anula aquí; con
+     sesión ya se anula igual para el sidebar (ver `body:not(.sin-entrar) .page` mas arriba),
+     esto es lo mismo pero para cuando NO hay sesión. Sin esto quedan franjas oscuras a los
+     lados en cualquier monitor ancho: la foto y el formulario nunca llegan al borde. */
+  .page-login.page-login--puerta{display:block;min-height:100dvh;padding:0;max-width:none;margin:0}
   .login{max-width:380px}
   .login .card-main{padding:var(--s4) var(--s3)}
   .login h1{margin:0 0 4px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--sc-text)}
@@ -7643,6 +7647,10 @@ $CUENTAS = [
   }
   .login-puerta-foto-texto{position:relative;z-index:1;padding:var(--s3) var(--s4) var(--s4);color:#FDF6EF}
   .login-puerta-foto-texto h1{margin:0;font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.02em}
+  /* La chapa de versión, integrada bajo el nombre en vez de como pie aparte -- ver el PHP,
+     mas abajo en este fichero, que la suprime ahí para esta pantalla. */
+  .login-puerta-chapa{margin:4px 0 0;font-size:11px;line-height:1.4;color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
+  .login-puerta-chapa--sinfoto{color:var(--sc-text-2);opacity:1}
   .login-puerta-panel{display:flex;align-items:center;justify-content:center;padding:var(--s4) var(--s3);background:var(--sc-surface)}
   .login-puerta.sin-foto .login-puerta-panel{background:var(--sc-canvas)}
   .login-puerta-inner{width:100%;max-width:320px;text-align:left}
@@ -7651,7 +7659,13 @@ $CUENTAS = [
   }
   @keyframes login-puerta-form{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .login-puerta-nombre{margin:0 0 var(--s2);font-size:22px;font-weight:700;letter-spacing:-.01em;color:var(--sc-text)}
-  .login-puerta-titulo{margin:0 0 6px;font-size:32px;line-height:1.15;font-weight:700;letter-spacing:-.02em;color:var(--sc-text)}
+  /* El h2{} genérico de mas abajo en este fichero (rótulos de sección del panel) pone
+     font-family:var(--title-font) y text-transform:uppercase por defecto en TODO h2 -- sin
+     anularlos aquí, este titular salía en la tipografía de la carta y en mayúsculas. */
+  .login-puerta-titulo{
+    margin:0 0 6px;font-size:32px;line-height:1.15;font-weight:700;letter-spacing:-.02em;
+    color:var(--sc-text);font-family:inherit;text-transform:none;
+  }
   .login-puerta-sub{margin:0 0 var(--s4);font-size:14px;color:var(--sc-text-2)}
   .login-puerta form{display:flex;flex-direction:column}
   /* El campo pierde la caja: sólo queda la línea de abajo, y una segunda línea del color de
@@ -7714,8 +7728,13 @@ $CUENTAS = [
   .clave-campo input.con-mascara:-webkit-autofill:hover,
   .clave-campo input.con-mascara:-webkit-autofill:focus{
     -webkit-text-fill-color:transparent;
-    -webkit-box-shadow:0 0 0 100px #fff inset;
-    box-shadow:0 0 0 100px #fff inset;
+    /* var(--sc-input-bg), no #fff a secas: esta regla la usa SOLO el campo de la puerta
+       (.clave-campo no aparece en ningún otro formulario), y desde que la puerta es oscura
+       fija, un blanco fijo aquí pintaba una caja blanca encima del campo transparente en
+       cuanto el navegador tenía la contraseña recordada -- se ve incluso sin haber tecleado
+       nada, en el primer pintado con autorrelleno. */
+    -webkit-box-shadow:0 0 0 100px var(--sc-input-bg) inset;
+    box-shadow:0 0 0 100px var(--sc-input-bg) inset;
   }
   .clave-mascara{
     position:absolute;
@@ -10841,17 +10860,35 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       if (is_file(__DIR__ . '/' . $cual)) { $foto_login = $cual; break; }
     }
     $hay_foto = $foto_login !== '';
+    /* La chapa de versión de siempre (mas abajo en este fichero) queda FUERA de .login-puerta:
+       en una pantalla de 100dvh a sangre, cualquier cosa después empuja la página por debajo
+       del viewport y aparece scroll sólo para leer tres números. Aquí se repite el mismo dato
+       -- panel/carta, para saber si una subida se quedó a medias -- pero integrado bajo el
+       nombre, sin el aviso de discrepancia (ese se sigue viendo dentro, en la chapa de
+       siempre): no hay sitio para ese texto largo en una esquina, y quien mira aquí ya está
+       fuera del panel para poder leerlo del todo. */
+    $cartaRawPuerta = @file_get_contents(__DIR__ . '/../version.json');
+    $cartaJPuerta = $cartaRawPuerta === false ? null : json_decode($cartaRawPuerta, true);
+    $cartaBuildPuerta = is_array($cartaJPuerta) ? (string) ($cartaJPuerta['build'] ?? '') : '';
+    $chapaPuerta = (BUILD_FECHA !== '' ? 'Versión ' . BUILD_FECHA : 'Versión desconocida')
+      . ' · panel ' . (BUILD_ID !== '' ? BUILD_ID : '?') . ' · carta ' . ($cartaBuildPuerta !== '' ? $cartaBuildPuerta : '?');
   ?>
   <div class="login-puerta<?= $hay_foto ? '' : ' sin-foto' ?>">
     <?php if ($hay_foto): ?>
       <div class="login-puerta-foto">
         <img src="<?= h($foto_login) ?>?v=<?= (int) filemtime(__DIR__ . '/' . $foto_login) ?>" alt="" fetchpriority="high">
-        <div class="login-puerta-foto-texto"><h1><?= h(CLIENTE_NOMBRE) ?></h1></div>
+        <div class="login-puerta-foto-texto">
+          <h1><?= h(CLIENTE_NOMBRE) ?></h1>
+          <p class="login-puerta-chapa"><?= h($chapaPuerta) ?></p>
+        </div>
       </div>
     <?php endif; ?>
     <div class="login-puerta-panel">
       <div class="login-puerta-inner">
-        <?php if (!$hay_foto): ?><h1 class="login-puerta-nombre"><?= h(CLIENTE_NOMBRE) ?></h1><?php endif; ?>
+        <?php if (!$hay_foto): ?>
+          <h1 class="login-puerta-nombre"><?= h(CLIENTE_NOMBRE) ?></h1>
+          <p class="login-puerta-chapa login-puerta-chapa--sinfoto"><?= h($chapaPuerta) ?></p>
+        <?php endif; ?>
         <h2 class="login-puerta-titulo">Bienvenido de nuevo</h2>
         <p class="login-puerta-sub">Introduce tu contraseña para entrar.</p>
         <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
@@ -15899,6 +15936,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
  * Los dos primeros se comparan aqui: si no coinciden, la subida se quedo a medias. El
  * tercero no se puede ver desde aqui, pero teniendo este a mano se sabe contra que comparar.
  */ ?>
+<?php /* La puerta (!$dentro && !$sin_configurar) ya lleva su propia chapa compacta, integrada
+         bajo el nombre dentro de .login-puerta -- ver mas arriba. Repetir ésta ahí debajo
+         añadía altura por debajo de los 100dvh de una pantalla a sangre y aparecía scroll
+         sólo para leer tres números. */ ?>
+<?php if ($dentro || $sin_configurar): ?>
 <?php
   $cartaRaw = @file_get_contents(__DIR__ . '/../version.json');
   $cartaJ = $cartaRaw === false ? null : json_decode($cartaRaw, true);
@@ -15922,6 +15964,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <span class="chapa-mal">la carta de al lado es de otra compilación: la subida se quedó a medias</span>
   <?php endif; ?>
 </p>
+<?php endif; ?>
 
   <?php if (DATOS_ACTIVO): ?>
   <script>
