@@ -5647,7 +5647,7 @@ $CUENTAS = [
   .head-eyebrow{
     margin:0 0 6px;
     font-family:var(--title-font);
-    font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+    font-size:var(--t4);font-weight:600;letter-spacing:.18em;text-transform:uppercase;
     color:var(--ink);
   }
   /* La fecha es el dato, así que va en cifras grandes y tabulares: cambia todos los días y
@@ -7064,7 +7064,7 @@ $CUENTAS = [
   .res-lbl{
     grid-column:1;
     font-family:var(--title-font);
-    font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    font-size:var(--t4);font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:var(--ink);
   }
   .res-val{
@@ -7402,7 +7402,7 @@ $CUENTAS = [
     /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
        con cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
     background:var(--accent);color:var(--badge-ink);
-    font-family:var(--title-font);font-size:10px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--t4);font-weight:600;
     letter-spacing:.1em;text-transform:uppercase;
   }
 
@@ -7633,7 +7633,7 @@ $CUENTAS = [
   .dt-barras.chica{height:32px;margin-top:var(--s2);touch-action:auto}
   .dt-barras.chica .dt-b{pointer-events:none}
   .dt-b.futuro i{background:color-mix(in srgb,var(--ink) 5%,transparent)}
-  .dt-barras.chica + .dt-eje{margin-top:6px;font-size:10px;letter-spacing:.06em;
+  .dt-barras.chica + .dt-eje{margin-top:6px;font-size:var(--t4);letter-spacing:.06em;
     text-transform:uppercase}
 
   /* ---- el chip de variacion ----
@@ -7648,11 +7648,11 @@ $CUENTAS = [
   }
   .dt-chip.sube{color:var(--ink);background:color-mix(in srgb,var(--ink) 12%,transparent)}
   .dt-chip.baja{color:var(--ui-trend-negative);background:color-mix(in srgb,var(--ui-trend-negative) 10%,transparent)}
-  .dt-chip.nuevo{font-size:11px;letter-spacing:.06em;padding:2px 8px}
+  .dt-chip.nuevo{font-size:var(--t4);letter-spacing:.06em;padding:2px 8px}
   .dt-chip svg{width:10px;height:10px;flex:0 0 auto}
 
   .dt-eje{display:flex;justify-content:space-between;margin-top:var(--s2);
-    color:var(--muted);font-size:11px;font-family:var(--title-font)}
+    color:var(--muted);font-size:var(--t4);font-family:var(--title-font)}
 
   /* ---- la nota que explica la rejilla ----
      Era un parrafo de dos frases largas debajo de las baldosas, y se leia como si fuera un dato
@@ -8056,7 +8056,7 @@ $CUENTAS = [
   }
   .color-fijo-hex{
     display:block;flex:none;white-space:nowrap;
-    color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;
+    color:var(--muted);font-size:var(--t4);font-variant-numeric:tabular-nums;
   }
 
   /* ---------- insignia de demo ---------- */
@@ -8072,7 +8072,7 @@ $CUENTAS = [
   .insignia{
     display:inline-block;padding:4px 10px;
     border-radius:var(--r-pill);
-    font-family:var(--title-font);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;   /* DS-2026: el peso fuerte se queda; es la insignia de marca, no interfaz. */
+    font-family:var(--title-font);font-size:var(--t4);font-weight:700;letter-spacing:.12em;text-transform:uppercase;   /* DS-2026: el peso fuerte se queda; es la insignia de marca, no interfaz. */
     box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 25%,transparent);
   }
   .insignia.is-demo{background:var(--ui-badge-demo);color:var(--surface)}
@@ -10297,7 +10297,7 @@ $CUENTAS = [
     .pane[data-pane="ofertas"] .adm-of-origen{display:none}
     .pane[data-pane="ofertas"] .adm-of-origen.es-cat{
       display:grid;grid-column:2;grid-row:1;justify-self:end;z-index:1;
-      min-width:0;height:20px;padding:0 4px;font-size:10px;line-height:20px;
+      min-width:0;min-height:20px;padding:0 4px;font-size:var(--t4);line-min-height:20px;
     }
     .pane[data-pane="ofertas"] .adm-orow:has(.adm-of-origen.es-cat) > .adm-orow-nm{
       padding-right:34px;
@@ -10722,7 +10722,7 @@ $CUENTAS = [
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
   }
   .adm-color-fijo b{font-size:var(--t3);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-  @media (max-width:699.98px){.adm-color-fijo b{font-size:11px}.adm-color-referencias{margin-top:var(--s3)}}
+  @media (max-width:699.98px){.adm-color-fijo b{font-size:var(--t4)}.adm-color-referencias{margin-top:var(--s3)}}
 
   /* ==================================================================== SocialCard V6
      Lo que faltaba para cerrar Marca y Ajustes. Cuatro piezas, todas construidas con

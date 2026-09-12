@@ -28,6 +28,17 @@ no es un detalle.
 
 **12 px es el suelo. Nada baja de ahí**, y no es una preferencia estética: es quién usa esto.
 
+Y ahora es verdad, no una aspiración. Había **once rótulos a 10 y 11 px** que contradecían esa
+regla escrita tres líneas más arriba en el propio código: el sobretítulo de la cabecera, el
+rótulo del resumen, la insignia, el eje y el chip de Analítica, el hex de los colores fijos y la
+chapa de origen de Ofertas. Los diez del panel han subido a `--t4`. Medido después: cero
+desbordamiento a 1440, 375 y 320, y ninguna caja recortando su texto.
+
+**La excepción es una, y es de cortesía:** `.login-puerta-chapa`, la chapa bajo el nombre del
+restaurante en la puerta nueva. Es diseño recién entregado por otra sesión y aprobado por el
+propietario; subirle la letra sin que nadie lo pida es retocar el trabajo de otro. Queda
+anotada para cuando esa pantalla pase por su repaso.
+
 El encargo pedía diez niveles (Display, Heading XL/L/M/S, Body L/M/S, Label, Caption). **No se
 inventan cuatro tamaños para rellenar la tabla.** Seis cubren el panel entero hoy; un nivel
 nuevo se añade cuando haya una pantalla que lo necesite y con la razón escrita, no antes.
