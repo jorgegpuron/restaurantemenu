@@ -5026,7 +5026,7 @@ $CUENTAS = [
     .adm-f-ooferta .adm-regla > .adm-regla-g{grid-column:span 6}
     .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1 / -1}
   }
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-f-ooferta .adm-regla{grid-template-columns:1fr !important;gap:var(--space-4) !important}
     .adm-f-ooferta .adm-regla > .adm-regla-g,
     .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1;display:grid !important;grid-template-columns:1fr !important;grid-template-rows:auto auto auto !important;gap:6px}
@@ -5135,6 +5135,91 @@ $CUENTAS = [
     transition:none !important;
   }
 
+  /* ======================================================= DS-2026: capa primitiva ==
+   * Aqui no hay ni una decision de diseno nueva: son EXACTAMENTE los mismos colores que ya
+   * usaba el panel, sacados de dentro de los tokens semanticos y puestos en una rampa con
+   * nombre.
+   *
+   * Por que hacia falta: hasta ahora `--sc-surface:#FFFDFB` llevaba el hex escrito dentro, y
+   * el mismo crema aparecia otra vez como `--sc-primary-ink`. Cambiar la familia neutra
+   * obligaba a editar 24 valores a mano, dos veces (claro y oscuro), sin forma de saber
+   * cuales eran el mismo color. Con la rampa, el color se declara UNA vez.
+   *
+   * La regla que ordena todo esto:
+   *     primitiva (--c-)  ->  semantica (--sc-)  ->  componente
+   * Un componente NUNCA escribe un hex ni referencia una primitiva: pide el token semantico.
+   * Una primitiva no significa nada por si misma: `--c-n-850` es "este carbon", no "el fondo
+   * de la tarjeta".
+   *
+   * Los numeros son luminancia, no orden de invencion: 0 el mas claro, 950 el mas oscuro, con
+   * huecos para que quepan escalones nuevos sin renumerar. Los saltos irregulares (25/620/910)
+   * son pares de colores casi identicos que el panel ya distinguia y que se respetan tal cual.
+   *
+   * Lo que NO entra: los `rgba()` de sombras y velos. Expresarlos con la rampa obliga a
+   * `color-mix`, que el navegador computa como `color(srgb ...)` en vez de `rgba(...)`: cambia
+   * el valor calculado sin cambiar el dibujo. */
+  /* ============================================== DS-2026: tipografia del panel ==
+   * Los mismos seis tamanos, en rem: 24/20/16/14/13/12 px sobre una raiz de 16 son
+   * 1.5/1.25/1/0.875/0.8125/0.75rem, asi que el dibujo no cambia ni un pixel hoy. Lo que
+   * cambia es que ahora responden a quien sube el tamano de letra del navegador sin tocar
+   * el zoom, una preferencia que en px se ignora y que en un panel que usan personas de mas
+   * de 45 anos no es un detalle. El suelo sigue siendo 12: nada baja de ahi. */
+  :root{
+    --t0:1.5rem;      /* 24 · Display: el titulo de pantalla, uno por pagina */
+    --t1:1.25rem;     /* 20 · Titulo L: la cifra que se mira de lejos */
+    --tb:1rem;        /* 16 · Titulo M / cuerpo largo: nombre de plato */
+    --t2:0.875rem;    /* 14 · Cuerpo: navegacion, botones, campos. El tamano base */
+    --t3:0.8125rem;   /* 13 · Cuerpo S: descripcion y apunte */
+    --t4:0.75rem;     /* 12 · Etiqueta / pie: metadatos y contadores. El suelo */
+
+    /* Alturas de linea: habia dieciseis valores distintos y ninguno con nombre. Los
+       relativos caben en cinco papeles, y las fusiones estan medidas: 1.45 y 1.55 van a
+       1.5, 1.4 y 1.3 a 1.35, 1.2 a 1.25, 1.1 a 1.05. Son fracciones de pixel por linea.
+       Los cuatro en pixeles NO son interlineado: son centrado a la vieja usanza, y su
+       sustituto es place-items:center. Se tratan aparte. */
+    --lh-corrido:1.5;    /* texto que se lee seguido: ayudas, descripciones, avisos */
+    --lh-compacto:1.35;  /* dos lineas en poco alto: apunte de plato, pie de KPI */
+    --lh-titulo:1.25;    /* titulos y nombres */
+    --lh-cifra:1.05;     /* cifras grandes, donde el interlineado solo estorba */
+    --lh-control:1;      /* una sola linea dentro de un control */
+  }
+
+  :root{
+    --c-n-0:#FFFDFB;     /* crema papel, la tarjeta */
+    --c-n-25:#F5EFE8;    /* crema tinta, el texto en oscuro */
+    --c-n-50:#F5F1EC;    /* crema tablero */
+    --c-n-100:#EFEAE3;   /* crema navegacion */
+    --c-n-150:#EBE5DD;
+    --c-n-200:#E9E2D9;
+    --c-n-250:#E2DAD0;
+    --c-n-300:#DCD3CA;
+    --c-n-350:#CABDAB;
+    --c-n-400:#B8ADA3;
+    --c-n-600:#605245;
+    --c-n-620:#5C5450;
+    --c-n-700:#3A322E;
+    --c-n-750:#332C26;
+    --c-n-800:#2B241D;
+    --c-n-820:#262119;
+    --c-n-850:#1F1B18;
+    --c-n-900:#1A1614;
+    --c-n-910:#1A1613;
+    --c-n-950:#14110F;
+
+    /* Naranja. El 500 es el de la marca de fabrica tal cual; el 400 es el mismo aclarado
+       para que aguante como texto sobre carbon. */
+    --c-naranja-50:#FFE9D6;
+    --c-naranja-300:#FFB877;
+    --c-naranja-400:#FF8A3D;
+    --c-naranja-500:#FF7517;
+    --c-naranja-800:#8A3F08;
+    --c-naranja-900:#33231A;
+
+    --c-verde-50:#E6F2EC;   --c-verde-300:#6FD3A6;  --c-verde-700:#20624A;  --c-verde-900:#1B3A2C;
+    --c-ambar-50:#FBEFD9;   --c-ambar-300:#EFC578;  --c-ambar-700:#84540A;  --c-ambar-900:#3A3020;
+    --c-rojo-50:#FAE7E7;    --c-rojo-300:#FF8D87;   --c-rojo-600:#C62828;   --c-rojo-900:#3B2320;
+  }
+
   :root,
   :root.light{
     color-scheme:light;
@@ -5149,16 +5234,16 @@ $CUENTAS = [
        Se cambian VALORES y nada mas. Ni un nombre de token, ni una regla, ni una medida:
        todo lo que cuelga de estos tokens -- incluidos los --p-* del prototipo, que son
        alias de --sc-primary -- sigue exactamente donde estaba. */
-    --sc-canvas:#F5F1EC;
-    --sc-surface:#FFFDFB;
+    --sc-canvas:var(--c-n-50);
+    --sc-surface:var(--c-n-0);
     /* Tercera superficie, la de la navegacion. Antes coincidia con la tarjeta y la barra
        lateral se perdia contra el tablero; ahora es el crema un escalon mas profundo, que
        es lo que la separa sin necesidad de un filete mas. */
-    --sc-nav:#EFEAE3;
-    --sc-text:#1A1614;
-    --sc-text-2:#5C5450;
-    --sc-border:#E2DAD0;
-    --sc-primary:#FF7517;
+    --sc-nav:var(--c-n-100);
+    --sc-text:var(--c-n-900);
+    --sc-text-2:var(--c-n-620);
+    --sc-border:var(--c-n-250);
+    --sc-primary:var(--c-naranja-500);
     /* Tinta CREMA sobre el naranja, por decision expresa del propietario y con el coste
        medido y aceptado: 2.65:1 contra el 4.5 que pide la norma. La alternativa que si
        cumplia -- hundir el relleno a #B44A08 y quedarse la crema en 4.76 -- se descarto
@@ -5171,15 +5256,15 @@ $CUENTAS = [
        No es un despiste: la carta publica hace lo mismo en sus insignias (--badge-ink es el
        crema), asi que panel y carta dicen lo mismo. Queda escrito aqui para que nadie lo
        "arregle" dentro de seis meses creyendo que se coló. */
-    --sc-primary-ink:#FFFDFB;
-    --sc-selected-bg:#FFE9D6;
-    --sc-selected-text:#8A3F08;
-    --sc-muted-bg:#EBE5DD;
-    --sc-hover-bg:#E9E2D9;
+    --sc-primary-ink:var(--c-n-0);
+    --sc-selected-bg:var(--c-naranja-50);
+    --sc-selected-text:var(--c-naranja-800);
+    --sc-muted-bg:var(--c-n-150);
+    --sc-hover-bg:var(--c-n-200);
     /* Tinta intermedia entre el texto principal y el secundario. La usa el prototipo
        para lo que esta seleccionado pero no es la accion principal: chip activo,
        boton secundario. Es --secondary-foreground alli. */
-    --sc-text-medio:#3A322E;
+    --sc-text-medio:var(--c-n-700);
     /* El campo NO tiene fondo propio en el prototipo: usa el canvas, que sobre una
        tarjeta blanca es justo un escalon mas oscuro y por eso se ve sin necesidad de
        inventar un tono. Medido: background #F2F4F7, borde #DCE1E8. */
@@ -5187,7 +5272,7 @@ $CUENTAS = [
     /* Este NO es el borde del campo (ese es --sc-border): es el gris fuerte que el
        prototipo llama --input y reserva para la PISTA de los interruptores apagados
        y para lo que tiene que verse sobre blanco. */
-    --sc-input-border:#CABDAB;
+    --sc-input-border:var(--c-n-350);
     /* Las sombras y el velo tambien se acaloran: un negro azulado sobre crema se ve gris
        sucio. Misma opacidad que antes, otro tono. */
     --sc-scrim:rgba(26,22,20,.45);
@@ -5197,9 +5282,9 @@ $CUENTAS = [
 
     /* El rojo es el MISMO que usa la carta para las ofertas (#C62828): un panel y una carta
        que hablan del mismo restaurante no pueden tener dos rojos distintos. */
-    --sc-ok-bg:#E6F2EC;   --sc-ok-ink:#20624A;
-    --sc-warn-bg:#FBEFD9; --sc-warn-ink:#84540A;
-    --sc-bad-bg:#FAE7E7;  --sc-bad-ink:#C62828;
+    --sc-ok-bg:var(--c-verde-50);   --sc-ok-ink:var(--c-verde-700);
+    --sc-warn-bg:var(--c-ambar-50); --sc-warn-ink:var(--c-ambar-700);
+    --sc-bad-bg:var(--c-rojo-50);  --sc-bad-ink:var(--c-rojo-600);
 
     /* ARREGLO 2: la escala de elevacion, y el fallo que la hizo falta.
        Seis piezas llevan la sombra escrita a mano asi:
@@ -5221,30 +5306,30 @@ $CUENTAS = [
        -- canvas, nav, superficie, apagado, hover -- y no las sombras, que en oscuro casi no
        se ven. El acento se ACLARA a #FF8A3D porque el naranja de marca sobre #1F1B18 se
        queda corto cuando hace de texto. */
-    --sc-canvas:#14110F;
-    --sc-surface:#1F1B18;
-    --sc-nav:#1A1613;
-    --sc-text:#F5EFE8;
-    --sc-text-2:#B8ADA3;
-    --sc-border:#332C26;
-    --sc-primary:#FF8A3D;
+    --sc-canvas:var(--c-n-950);
+    --sc-surface:var(--c-n-850);
+    --sc-nav:var(--c-n-910);
+    --sc-text:var(--c-n-25);
+    --sc-text-2:var(--c-n-400);
+    --sc-border:var(--c-n-750);
+    --sc-primary:var(--c-naranja-400);
     /* Misma decision en oscuro: crema sobre el naranja, 2.31:1. Ver el bloque claro. */
-    --sc-primary-ink:#FFFDFB;
-    --sc-selected-bg:#33231A;
-    --sc-selected-text:#FFB877;
-    --sc-muted-bg:#262119;
-    --sc-hover-bg:#2B241D;
-    --sc-text-medio:#DCD3CA;
+    --sc-primary-ink:var(--c-n-0);
+    --sc-selected-bg:var(--c-naranja-900);
+    --sc-selected-text:var(--c-naranja-300);
+    --sc-muted-bg:var(--c-n-820);
+    --sc-hover-bg:var(--c-n-800);
+    --sc-text-medio:var(--c-n-300);
     --sc-input-bg:var(--sc-canvas);
-    --sc-input-border:#605245;
+    --sc-input-border:var(--c-n-600);
     --sc-scrim:rgba(10,8,7,.62);
     --sc-sombra-hoja:0 -12px 32px -12px rgba(0,0,0,.6);
     --sc-sombra-card:0 2px 5px #00000014;
     --sc-sombra-menu:0 8px 24px -8px rgba(0,0,0,.7);
 
-    --sc-ok-bg:#1B3A2C;   --sc-ok-ink:#6FD3A6;
-    --sc-warn-bg:#3A3020; --sc-warn-ink:#EFC578;
-    --sc-bad-bg:#3B2320;  --sc-bad-ink:#FF8D87;
+    --sc-ok-bg:var(--c-verde-900);   --sc-ok-ink:var(--c-verde-300);
+    --sc-warn-bg:var(--c-ambar-900); --sc-warn-ink:var(--c-ambar-300);
+    --sc-bad-bg:var(--c-rojo-900);  --sc-bad-ink:var(--c-rojo-300);
     /* ARREGLO 2: la misma escala, en negro y mas profunda. Sobre carbon una sombra
        calida no se ve; la profundidad en oscuro la da el negro puro. */
     --e-1:0 1px 2px rgba(0,0,0,.5);
@@ -5268,15 +5353,31 @@ $CUENTAS = [
     --space-5:20px;
     --space-6:24px;
     --space-8:32px;
+    /* DS-2026: los seis escalones que faltaban para cerrar la escala 4/8. No se inventan
+       medidas: 2 y 6 son los que el panel ya usaba a mano, y 40/48/64/80 los que hacian
+       falta arriba y hoy se escriben sueltos. El nombre sigue la regla que ya habia: el
+       numero por cuatro son los pixeles; los dos medios escalones lo dicen con un guion
+       para que no se confundan con --space-5 y --space-15. */
+    --space-0-5:2px;
+    --space-1-5:6px;
+    --space-10:40px;
+    --space-12:48px;
+    --space-16:64px;
+    --space-20:80px;
 
     /* Los radios del prototipo, medidos con getComputedStyle y no estimados. Su base
        es --radius:.65rem = 10.4px, y los escalones se derivan de ella igual que alli:
        sm = r-4, md = r-2, lg = r, xl = r+4. La tarjeta usa un 16 fijo aparte. */
-    --radius:10.4px;
-    --radius-sm:6.4px;
-    --radius-md:8.4px;
-    --radius-lg:10.4px;
-    --radius-xl:14.4px;
+    /* DS-2026: los radios venian del prototipo medidos sobre una base de .65rem = 10,4 px,
+       y arrastraban el decimal a los cuatro escalones. Un radio con decimal no pertenece a
+       ninguna escala, no se puede repetir de memoria y el navegador lo redondea distinto
+       segun el zoom. Al entero mas cercano: diferencia maxima de 0,4 px, que no se ve, y a
+       cambio la escala queda 6-8-10-14-16 y se puede decir en voz alta. */
+    --radius:10px;
+    --radius-sm:6px;
+    --radius-md:8px;
+    --radius-lg:10px;
+    --radius-xl:14px;
     --radius-card:16px;
     --radius-pill:999px;
 
@@ -5294,8 +5395,8 @@ $CUENTAS = [
     background:var(--ink);
     color:var(--surface);
     font-family:var(--body-font);
-    font-size:16px;
-    line-height:1.5;
+    font-size:var(--tb);
+    line-height:var(--lh-corrido);
     -webkit-font-smoothing:antialiased;
   }
 
@@ -5351,22 +5452,13 @@ $CUENTAS = [
     --ui-state-error:var(--offer);
     --ui-badge-demo:var(--offer);
 
-    /* -------------------------------------------------- la escala, SocialCard V1
-     * Eran tres tamaños; el sistema nuevo pide seis, y dos de los tres viejos ya
-     * coincidian con el —20 y 13— asi que solo se mueve uno y se añaden tres:
-     *   --t0  24px / 600   titulo de pantalla        (nuevo, lo estrena la cabecera)
-     *   --t1  20px / 600   cifra que se mira de lejos     (igual que antes)
-     *   --tb  16px         contenido y nombre de plato    (nuevo)
-     *   --t2  14px / 500   navegacion, botones, campos, etiquetas   (era 15)
-     *   --t3  13px / 400   descripcion y apunte           (igual que antes)
-     *   --t4  12px / 500   metadatos y contadores         (nuevo, y es el suelo)
-     * Nada por debajo de 12: quien usa esto tiene mas de 45 años. */
-    --t0:24px;
-    --t1:20px;
-    --tb:16px;
-    --t2:14px;
-    --t3:13px;
-    --t4:12px;
+    /* La escala tipografica y las alturas de linea VIVIAN AQUI, dentro de .card-main.
+       DS-2026 las movio a :root, y no por simetria: `body` usa `--tb` y `--lh-corrido`, y
+       body es ANCESTRO de .card-main. Un `var()` que apunta a un token declarado en un
+       descendiente no resuelve: la declaracion entera se cae. Medido -- con la escala aqui,
+       `body{line-height:var(--lh-corrido)}` se caia a `normal` y 2.219 elementos perdian su
+       interlineado. El tamano de body se salvaba por casualidad, porque --tb vale 16 y 16 es
+       tambien el valor heredado del navegador. Los tokens del sistema van arriba. */
 
     /* Arimo para todo el panel. La de la carta se queda en la carta. */
     font-family:"Arimo",Arial,system-ui,sans-serif;
@@ -5406,7 +5498,7 @@ $CUENTAS = [
   /* En móvil el ancho útil es el recurso escaso: página y tarjeta sumaban 35px por lado
      antes del grid. Se reduce solo el relleno horizontal y solo con sesión, manteniendo el
      aire vertical, el borde y el relleno propio de cada ficha. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     body:not(.sin-entrar) .page{padding-left:var(--space-2);padding-right:var(--space-2)}
     body:not(.sin-entrar) .card-main{padding-left:var(--space-2);padding-right:var(--space-2)}
   }
@@ -5465,7 +5557,7 @@ $CUENTAS = [
     letter-spacing:.08em;color:var(--muted);
   }
   .card-main .head h1{
-    font-family:inherit;font-size:var(--t1);font-weight:650;letter-spacing:-.01em;
+    font-family:inherit;font-size:var(--t1);font-weight:600;letter-spacing:-.01em;
     margin:4px 0 0;
   }
   .card-main .head h1 .dia{font-weight:500;color:var(--muted);display:inline;font-size:inherit;letter-spacing:0}
@@ -5569,16 +5661,16 @@ $CUENTAS = [
     margin:0;
     font-family:var(--title-font);
     font-size:clamp(26px,6vw,34px);
-    font-weight:800;
-    line-height:1.05;
+    font-weight:600;
+    line-height:var(--lh-cifra);
     letter-spacing:-0.02em;
     color:var(--ink);
   }
   .head .sub{
     margin:6px 0 0;
     color:var(--muted);
-    font-size:14px;
-    line-height:1.45;
+    font-size:var(--t2);
+    line-height:var(--lh-corrido);
   }
   /* El aviso de la madrugada se lee antes que el pie de sesion: no es un adorno, es lo que
      explica por que la fecha de arriba no es la del movil de quien mira. */
@@ -5616,7 +5708,7 @@ $CUENTAS = [
     border-top:1px solid var(--sc-border);
     color:var(--sc-text-2);
     font-family:var(--body-font);
-    font-size:13px;
+    font-size:var(--t3);
     line-height:20px;
     text-align:center;
   }
@@ -5685,7 +5777,7 @@ $CUENTAS = [
     background:var(--chip);
     color:var(--muted);
     font-family:var(--title-font);
-    font-size:15px;font-weight:600;
+    font-size:var(--t2);font-weight:600;
     text-decoration:none;
     transition:background-color var(--t-fast) ease,color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
   }
@@ -5696,7 +5788,7 @@ $CUENTAS = [
     min-width:20px;padding:0 6px;
     border-radius:var(--r-pill);
     background:color-mix(in srgb,var(--ink) 10%,transparent);
-    font-size:12px;font-variant-numeric:tabular-nums;text-align:center;
+    font-size:var(--t4);font-variant-numeric:tabular-nums;text-align:center;
   }
   .tabs button.on .n{background:color-mix(in srgb,var(--surface) 22%,transparent)}
   @media (hover:hover) and (pointer:fine){
@@ -5754,7 +5846,7 @@ $CUENTAS = [
     padding:0 calc(var(--sc-sidebar-pad) + var(--space-2));
     border-bottom:1px solid var(--sc-border);
   }
-  @media (max-width:1023px){ .adm-sidebar-cab{justify-content:center;padding-left:0;padding-right:0} }
+  @media (max-width:1023.98px){ .adm-sidebar-cab{justify-content:center;padding-left:0;padding-right:0} }
   .adm-sidebar-logo{
     flex:none;display:grid;place-items:center;width:36px;height:36px;
     border-radius:var(--radius-lg);background:var(--sc-primary);color:var(--sc-primary-ink);
@@ -5777,7 +5869,7 @@ $CUENTAS = [
     color:var(--sc-text-2);text-decoration:none;font-family:inherit;font-size:var(--t2);font-weight:400;
     cursor:pointer;transition:background var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-press) var(--ease-out);
   }
-  @media (max-width:1023px){ .adm-nav-item{justify-content:center;padding:0} }
+  @media (max-width:1023.98px){ .adm-nav-item{justify-content:center;padding:0} }
   /* 16px: es lo que MIDE el icono en el prototipo. Sus clases dicen size-[17px]
      pero una regla mas especifica de la propia biblioteca lo deja en 16 -- lo que
      cuenta es el pixel dibujado, no la clase escrita. */
@@ -5789,7 +5881,7 @@ $CUENTAS = [
     border-radius:var(--radius-pill);background:var(--sc-muted-bg);color:var(--sc-text-2);
     font-size:var(--t4);font-weight:600;font-variant-numeric:tabular-nums;
   }
-  @media (max-width:1023px){
+  @media (max-width:1023.98px){
     .adm-nav-item .n{position:absolute;top:2px;right:2px;margin-left:0;min-width:18px;height:18px;padding:0 4px}
   }
   .adm-nav-item:hover{background:var(--sc-hover-bg);color:var(--sc-text)}
@@ -5830,7 +5922,7 @@ $CUENTAS = [
   .adm-sidebar-fecha{display:none}
   .adm-sidebar-sesion{
     display:none;margin:0 0 var(--space-2);padding:0 var(--space-3);
-    font-size:var(--t3);color:var(--sc-text-2);line-height:1.4;
+    font-size:var(--t3);color:var(--sc-text-2);line-height:var(--lh-compacto);
   }
   @media (min-width:1024px){
     .adm-sidebar-sesion{display:block}
@@ -5892,7 +5984,7 @@ $CUENTAS = [
   /* Con el rotulo fuera de la vista, la fecha deja de ser el pie de un titulo y pasa a ser lo
      unico que hay en la cabecera: se le sube el tamaño al del cuerpo. */
   .adm-topbar-sub{
-    margin:0;font-size:var(--t2);font-weight:500;line-height:1.4;color:var(--sc-text);
+    margin:0;font-size:var(--t2);font-weight:500;line-height:var(--lh-compacto);color:var(--sc-text);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   /* Por debajo de 560 el titulo de 24 y su linea de apoyo no caben juntos en 68px de
@@ -5972,7 +6064,7 @@ $CUENTAS = [
   .adm-ver-carta{flex:none;text-decoration:none}
   /* En movil la barra de arriba es estrecha y los dos iconos ya dicen a donde van: el rotulo
      se retira a la etiqueta accesible, que sigue ahi para quien la necesita. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-topbar-acciones .adm-btn-txt{
       position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
     }
@@ -6009,7 +6101,7 @@ $CUENTAS = [
   .adm-tema-op:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   /* En riel —la barra lateral estrecha, por debajo de 1024— no cabe el texto: quedan los
      iconos uno encima del otro. La hoja móvil mantiene siempre los dos nombres visibles. */
-  @media (max-width:1023px){
+  @media (max-width:1023.98px){
     .adm-sidebar .adm-tema-seg{flex-direction:column}
     .adm-sidebar .adm-tema-op span{
       position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
@@ -6140,7 +6232,7 @@ $CUENTAS = [
   }
   .adm-sheet-apariencia-tit{
     display:block;margin:0 0 var(--space-2);padding:0 var(--space-3);color:var(--sc-text-2);
-    font-size:var(--t4);font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    font-size:var(--t4);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   }
   .adm-sheet-apariencia .adm-tema-seg{margin:0;padding:3px;background:var(--sc-muted-bg)}
   .adm-sheet-apariencia .adm-tema-op{min-height:44px;font-size:var(--t3)}
@@ -6210,7 +6302,7 @@ $CUENTAS = [
      competir con la cifra por el mismo eje y la tarjeta tiene dos anclas, no una. */
   .adm-kpis .adm-kpi .adm-kpi-t{
     position:absolute;top:9px;right:12px;margin:0;text-align:right;
-    font-size:var(--t3);font-weight:500;line-height:1.25;letter-spacing:0;
+    font-size:var(--t3);font-weight:500;line-height:var(--lh-titulo);letter-spacing:0;
     text-transform:none;color:var(--sc-text);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
@@ -6220,7 +6312,11 @@ $CUENTAS = [
        .adm-chip-n, que es una insignia y viene centrada. Sin esto la cifra salia desplazada
        a la derecha y no cuadraba con el rotulo de encima. */
     text-align:left;justify-self:start;align-self:end;
-    font-size:26px;line-height:1.05;font-weight:700;letter-spacing:-.02em;
+    /* DS-2026: la cifra del KPI iba a 26/700, dos valores que no estaban en el sistema
+       (la escala topa en 24 y el peso en 600). Con el nombre de plato en 16 y el cromo en
+       14, la cifra sigue mandando en su tarjeta a 24: lo que la hace dominar es el
+       contraste con lo de al lado, no dos pixeles mas. */
+    font-size:var(--t0);line-height:var(--lh-cifra);font-weight:600;letter-spacing:-.02em;
     color:var(--sc-text);font-variant-numeric:tabular-nums;
   }
   .adm-kpis .adm-kpi .adm-kpi-ico{
@@ -6247,7 +6343,7 @@ $CUENTAS = [
     align-self:start;justify-self:start;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     margin-top:0;padding-top:0;border-top:0;
-    font-size:var(--t4);font-weight:400;line-height:1.3;color:var(--sc-text-2);
+    font-size:var(--t4);font-weight:400;line-height:var(--lh-compacto);color:var(--sc-text-2);
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
   @media (hover:hover){
@@ -6285,19 +6381,19 @@ $CUENTAS = [
      traeria contencion —y con ella los `position:fixed` de dentro— por un cambio que se
      resuelve con un numero medido. El numero es 768 porque ahi la rejilla mide 616, que es
      donde entran las cuatro. */
-  @media (max-width:767px){
+  @media (max-width:767.98px){
     .adm-chips-estado.adm-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
   /* Movil: SIGUEN siendo dos columnas y la tarjeta adelgaza, para que el bloque entero se
      quede por debajo de 200px y la lista de platos no se caiga de la primera pantalla.
      El pie —y con el su filete— se retira: a este ancho salia cortado y no explicaba nada. */
-  @media (max-width:640px){
+  @media (max-width:699.98px){
     .adm-chips-estado.adm-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .adm-kpis .adm-kpi{padding:11px 12px;column-gap:8px;border-radius:12px}
     .adm-kpis .adm-kpi .adm-kpi-ico{width:34px;height:34px;border-radius:10px}
     .adm-kpis .adm-kpi .adm-kpi-ico svg{width:17px;height:17px}
     .adm-kpis .adm-kpi .adm-kpi-t{margin-bottom:2px;font-size:var(--t3)}
-    .adm-kpis .adm-kpi .adm-kpi-n{font-size:24px}
+    .adm-kpis .adm-kpi .adm-kpi-n{font-size:var(--t0)}
     .adm-kpis .adm-kpi .adm-kpi-s{display:none}
   }
   @media (max-width:360px){
@@ -6392,7 +6488,7 @@ $CUENTAS = [
      aquí abajo se ve y se comporta como un desplegable de verdad: cabecera tocable y
      chevron que gira. En cualquier otro ancho, `.adm-ajustar-precios-resumen` de arriba
      ya la deja con `cursor:default` y el chevron oculto — un rótulo fijo, no un control. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     /* 44px de alto real: aquí SÍ es un control que se toca, no un rótulo — el mismo
        criterio de área táctil que ya usa el resto del panel. */
     .adm-ajustar-precios-resumen{cursor:pointer;min-height:44px}
@@ -6584,7 +6680,7 @@ $CUENTAS = [
     }
     .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
     .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
-    .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:1}
+    .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:var(--lh-control)}
     .adm-cat-bento-lista .adm-sw-agotado{grid-column:4;justify-self:end}
     /* El interruptor lleva halo de 48 de alto desde R3, calculado para la fila de UNA línea de
        tablet, donde encima y debajo sólo está el borde de la fila. Aquí encima tiene el «⋯» de
@@ -6702,7 +6798,7 @@ $CUENTAS = [
     .adm-cat-bento-lista .adm-plato-destbtn:hover{opacity:1}
     .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
     .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
-    .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:1}
+    .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:var(--lh-control)}
     .adm-cat-bento-lista .adm-sw-agotado{grid-area:agotado}
     .adm-cat-bento-lista .adm-mas{grid-area:mas;justify-self:end}
   }
@@ -6822,7 +6918,7 @@ $CUENTAS = [
      prototipo (overflow-x-auto + scrollbar-none). Envolviendo, los cuatro chips
      apilaban la barra hasta 202px de alto en 320, y eso es una pantalla de platos
      menos antes de empezar a trabajar. */
-  @media (max-width:1023px){
+  @media (max-width:1023.98px){
     /* `flex-wrap:nowrap` NO es decorativo: en columna, un contenedor flex que envuelve
        reparte los hijos en varias COLUMNAS y `align-items:stretch` los estira al ancho de
        su linea, no al del contenedor. Medido: buscador y chips salian a 470px dentro de
@@ -6922,7 +7018,7 @@ $CUENTAS = [
   /* ---------- bloques ---------- */
   h2{
     font-family:var(--title-font);
-    font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    font-size:var(--t4);font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:var(--ink);
     margin:var(--s4) 0 var(--s2);
   }
@@ -6932,7 +7028,7 @@ $CUENTAS = [
     padding:var(--s2) 0 0;
     margin-bottom:var(--s3);
   }
-  .hint{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 var(--s3)}
+  .hint{color:var(--muted);font-size:var(--t2);line-height:var(--lh-corrido);margin:0 0 var(--s3)}
   .hint strong{color:var(--ink);font-weight:600;font-family:var(--title-font)}
   /* V5: el aviso compartido, al sistema. Radio 12 (usaba --r-sheet, 21px, de la carta
      publica) y cuerpo 14. Ok y error usan la pareja fondo+tinta de su estado, no una
@@ -6942,7 +7038,7 @@ $CUENTAS = [
     border-radius:var(--radius-lg);
     padding:var(--space-3) var(--space-4);
     margin-bottom:var(--space-4);
-    font-size:var(--t2);line-height:1.45;
+    font-size:var(--t2);line-height:var(--lh-corrido);
   }
   .msg.ok{background:var(--sc-ok-bg);color:var(--sc-ok-ink)}
   .msg.bad{background:var(--sc-bad-bg);color:var(--ui-state-error)}
@@ -6974,7 +7070,7 @@ $CUENTAS = [
   .res-val{
     grid-column:1;
     font-family:var(--title-font);
-    font-size:26px;font-weight:800;line-height:1.1;
+    font-size:26px;font-weight:600;line-height:var(--lh-cifra);
     font-variant-numeric:tabular-nums;
   }
   .res-line .ghost{grid-column:2;grid-row:1 / span 2}
@@ -6994,13 +7090,13 @@ $CUENTAS = [
   .tick:has(input:focus-visible){outline:var(--focus-anillo);outline-offset:-2px;border-radius:var(--r-sheet)}
   .num{
     flex:0 0 auto;min-width:34px;
-    font-family:var(--title-font);font-size:12px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--t4);font-weight:600;
     color:var(--muted);font-variant-numeric:tabular-nums;
   }
-  .nm{flex:1 1 auto;min-width:0;font-family:var(--title-font);font-size:16px;font-weight:600;line-height:1.3}
+  .nm{flex:1 1 auto;min-width:0;font-family:var(--title-font);font-size:var(--tb);font-weight:600;line-height:var(--lh-compacto)}
   .nm small{
     display:block;margin-top:2px;
-    font-family:var(--body-font);font-size:13px;font-weight:400;color:var(--muted);
+    font-family:var(--body-font);font-size:var(--t3);font-weight:400;color:var(--muted);
   }
   /* ---------- foto del plato ----------
      El botón de cámara vive al final de la fila, con los mismos 44 px de área táctil que la
@@ -7048,7 +7144,7 @@ $CUENTAS = [
     background:var(--surface);box-shadow:var(--lift-card);
   }
   .recorte h3{margin:0 0 var(--s1);font-family:var(--title-font);font-size:18px}
-  .recorte .quien{margin:0 0 var(--s2);color:var(--muted);font-size:14px}
+  .recorte .quien{margin:0 0 var(--s2);color:var(--muted);font-size:var(--t2)}
   .lienzo-caja{
     position:relative;width:100%;aspect-ratio:1/1;
     border-radius:var(--r-sheet);overflow:hidden;background:var(--chip);
@@ -7056,11 +7152,11 @@ $CUENTAS = [
   }
   .lienzo-caja:active{cursor:grabbing}
   .lienzo-caja canvas{display:block;width:100%;height:100%}
-  .recorte .pista{margin:var(--s2) 0 0;color:var(--muted);font-size:13px;text-align:center}
+  .recorte .pista{margin:var(--s2) 0 0;color:var(--muted);font-size:var(--t3);text-align:center}
   .recorte .fila-b{display:flex;gap:var(--s2);margin-top:var(--s2)}
   .recorte .fila-b button{flex:1}
   .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent)}
-  .recorte .err{margin:var(--s2) 0 0;color:var(--ui-state-error);font-size:14px}
+  .recorte .err{margin:var(--s2) 0 0;color:var(--ui-state-error);font-size:var(--t2)}
   .recorte .err:empty{display:none}
   .camara.cargando{opacity:1;color:var(--p-accent-stroke)}
   .camara.cargando svg{animation:latir 900ms ease-in-out infinite}
@@ -7075,7 +7171,7 @@ $CUENTAS = [
   .fld{
     display:block;margin-bottom:var(--s3);
     font-family:var(--title-font);
-    font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    font-size:var(--t3);font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:var(--ink);
   }
   .fld input,.fld select,.fld textarea{
@@ -7085,7 +7181,7 @@ $CUENTAS = [
     border-radius:var(--ui-radius-control);
     background:var(--chip);
     color:var(--ink);
-    font-family:inherit;font-size:16px;font-weight:400;letter-spacing:0;text-transform:none;
+    font-family:inherit;font-size:var(--tb);font-weight:400;letter-spacing:0;text-transform:none;
     transition:box-shadow var(--t-fast) ease;
   }
   .fld select{
@@ -7102,7 +7198,7 @@ $CUENTAS = [
   .fld textarea{
     min-height:0;
     padding:var(--s2) var(--s3);
-    line-height:1.5;
+    line-height:var(--lh-corrido);
     resize:vertical;
   }
   .fld input:focus-visible,.fld select:focus-visible,.fld textarea:focus-visible{
@@ -7119,7 +7215,7 @@ $CUENTAS = [
     display:block;width:100%;min-height:56px;padding:0 var(--s3);
     border:1px solid var(--border);border-radius:12px;
     background:var(--chip);color:var(--ink);
-    font-family:inherit;font-size:16px;
+    font-family:inherit;font-size:var(--tb);
     transition:box-shadow var(--t-fast) ease;
   }
   .combo-q:focus-visible{outline:none;border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow)}
@@ -7138,10 +7234,10 @@ $CUENTAS = [
   .combo-op.is-activo{background:var(--chip)}
   @media (hover:hover) and (pointer:fine){ .combo-op:hover{background:var(--chip)} }
   .combo-op.ya{opacity:.45;cursor:default}
-  .combo-num{flex:0 0 auto;min-width:30px;font-family:var(--title-font);font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-  .combo-txt{flex:1 1 auto;min-width:0;font-family:var(--title-font);font-size:15px;font-weight:600;line-height:1.25}
-  .combo-txt small{display:block;font-family:var(--body-font);font-size:13px;font-weight:400;color:var(--muted)}
-  .combo-vacio{padding:12px 10px;color:var(--muted);font-size:14px}
+  .combo-num{flex:0 0 auto;min-width:30px;font-family:var(--title-font);font-size:var(--t3);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+  .combo-txt{flex:1 1 auto;min-width:0;font-family:var(--title-font);font-size:var(--tb);font-weight:600;line-height:var(--lh-titulo)}
+  .combo-txt small{display:block;font-family:var(--body-font);font-size:var(--t3);font-weight:400;color:var(--muted)}
+  .combo-vacio{padding:12px 10px;color:var(--muted);font-size:var(--t2)}
 
   /* Dos o tres campos cortos por fila cuando hay sitio, uno debajo de otro cuando no. */
   .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 var(--s3)}
@@ -7183,7 +7279,7 @@ $CUENTAS = [
     transition:transform var(--t-fast) var(--ease-out);
   }
   .switch-txt{
-    font-family:var(--title-font);font-size:16px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--tb);font-weight:600;
     color:var(--muted);
   }
   .switch-on{display:none}
@@ -7203,7 +7299,7 @@ $CUENTAS = [
     background:var(--chip);
     color:var(--muted);
     cursor:pointer;
-    font-family:var(--title-font);font-size:15px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--t2);font-weight:600;
     transition:background-color var(--t-fast) ease,color var(--t-fast) ease,transform var(--t-press) var(--ease-out);
   }
   .marca:active{transform:scale(.97)}
@@ -7232,10 +7328,10 @@ $CUENTAS = [
     break-inside:avoid;cursor:pointer;
   }
   .cats input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent);cursor:pointer}
-  .cats span{font-family:var(--title-font);font-size:15px;font-weight:600;line-height:1.25}
+  .cats span{font-family:var(--title-font);font-size:var(--tb);font-weight:600;line-height:var(--lh-titulo)}
   .cats em{
     display:block;margin-top:1px;
-    color:var(--muted);font-style:normal;font-family:var(--body-font);font-size:13px;font-weight:400;
+    color:var(--muted);font-style:normal;font-family:var(--body-font);font-size:var(--t3);font-weight:400;
   }
   .cats label:has(input:checked) span{color:var(--ink)}
 
@@ -7248,7 +7344,7 @@ $CUENTAS = [
     min-height:72px;padding:0 var(--s1);
     border-radius:var(--r-sheet);
     background:var(--chip);color:var(--ink);
-    font-family:var(--title-font);font-size:24px;font-weight:800;letter-spacing:-0.02em;
+    font-family:var(--title-font);font-size:var(--t0);font-weight:600;letter-spacing:-0.02em;
     font-variant-numeric:tabular-nums;
   }
   @media (hover:hover) and (pointer:fine){
@@ -7264,16 +7360,16 @@ $CUENTAS = [
   }
   .podio-admin li:first-child{border-top:0}
   .pod-pts{
-    font-family:var(--title-font);font-size:22px;font-weight:700;color:var(--ink);
+    font-family:var(--title-font);font-size:22px;font-weight:600;color:var(--ink);
     font-variant-numeric:tabular-nums;min-width:2.6em;
   }
   .pod-quien{font-family:var(--title-font);font-weight:600;color:var(--ink)}
   .pod-quien.anon{color:var(--muted);font-weight:400;font-style:italic}
   .pod-bandera{border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.2);flex:0 0 auto}
-  .pod-fecha{margin-left:auto;color:var(--muted);font-size:12px;
+  .pod-fecha{margin-left:auto;color:var(--muted);font-size:var(--t4);
     font-variant-numeric:tabular-nums;white-space:nowrap}
   .pod-x{flex:0 0 auto}
-  @media (max-width:520px){
+  @media (max-width:560px){
     .podio-admin li{flex-wrap:wrap}
     .pod-fecha{margin-left:auto}
     .pod-x{width:100%;margin-top:4px}
@@ -7285,9 +7381,10 @@ $CUENTAS = [
     min-height:56px;padding:var(--s1) 0;border-bottom:1px solid var(--hairline);
   }
   .prow:last-child{border-bottom:0}
-  .prow .nm{font-size:15px}
+  /* DS-2026: el nombre del plato es CONTENIDO: sube de 15 (fuera de escala) a 16. */
+  .prow .nm{font-size:var(--tb)}
   .pviejo{
-    color:var(--muted);font-family:var(--title-font);font-size:14px;
+    color:var(--muted);font-family:var(--title-font);font-size:var(--t2);
     font-variant-numeric:tabular-nums;
     text-decoration:line-through;text-decoration-thickness:1px;
   }
@@ -7295,11 +7392,11 @@ $CUENTAS = [
     width:96px;min-height:48px;padding:0 var(--s2);
     border:1px solid var(--border);border-radius:var(--r-sheet);
     background:var(--sc-input-bg);color:var(--ink);
-    font-family:var(--title-font);font-size:16px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--tb);font-weight:600;
     text-align:right;font-variant-numeric:tabular-nums;
   }
   .pnuevo:focus{outline:var(--focus-anillo);outline-offset:1px;border-color:transparent}
-  .pfijo{font-family:var(--title-font);font-weight:700;font-variant-numeric:tabular-nums}
+  .pfijo{font-family:var(--title-font);font-weight:600;font-variant-numeric:tabular-nums}
   .badge{
     display:inline-block;padding:2px 9px;border-radius:var(--r-pill);
     /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
@@ -7331,7 +7428,10 @@ $CUENTAS = [
      entrar. Los dos primeros pasan a la geometría del sistema; el de entrar declara la
      suya, más abajo, porque la recepción sigue en el lenguaje antiguo. */
   button{
-    font-family:var(--title-font);font-size:15px;font-weight:600;
+    /* DS-2026: 15px era el tamano mas frecuente del panel y no estaba en la escala. Venia
+       de aqui, del reset de <button>, y lo heredaban tambien los SVG de dentro: 3.860
+       elementos. Un boton es CROMO, no contenido: su sitio es --t2. */
+    font-family:var(--title-font);font-size:var(--t2);font-weight:600;
     border:0;border-radius:var(--r-pill);
     cursor:pointer;touch-action:manipulation;
     transition:transform var(--t-press) var(--ease-out),background-color var(--t-fast) ease;
@@ -7424,7 +7524,7 @@ $CUENTAS = [
   .vp-per button{
     min-height:34px;padding:0 var(--s2);border:0;border-radius:var(--r-pill);
     background:transparent;color:var(--muted);
-    font-family:var(--title-font);font-size:14px;font-weight:600;cursor:pointer;
+    font-family:var(--title-font);font-size:var(--t2);font-weight:600;cursor:pointer;
   }
   .vp-per button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--lift-fab)}
   .vp-lista{margin-top:var(--s2);display:grid;gap:2px}
@@ -7441,34 +7541,35 @@ $CUENTAS = [
      reparto —position:relative la devolvía al flujo— y se comía la fila entera: el nombre se
      quedaba en cero y la fila se leía «1 · 20 · 17%», sin plato. */
   .vp-pos,.vp-nom,.vp-n,.vp-pct{position:relative}
-  .vp-pos{width:1.4em;color:var(--muted);font-family:var(--title-font);font-size:13px;
+  .vp-pos{width:1.4em;color:var(--muted);font-family:var(--title-font);font-size:var(--t3);
     font-weight:600;font-variant-numeric:tabular-nums}
   .vp-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    font-family:var(--title-font);font-size:15px;font-weight:600}
-  .vp-n{font-family:var(--title-font);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+    font-family:var(--title-font);font-size:var(--t2);font-weight:600}
+  .vp-n{font-family:var(--title-font);font-size:var(--t2);font-weight:600;font-variant-numeric:tabular-nums}
   .vp-pct{width:3.6em;text-align:right;color:var(--ink);
-    font-family:var(--title-font);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
-  .vp-vacio{margin:var(--s2) 0 0;color:var(--muted);font-size:15px}
+    font-family:var(--title-font);font-size:var(--t2);font-weight:600;font-variant-numeric:tabular-nums}
+    /* DS-2026: el vacio de Analitica hablaba otro idioma que el del resto del panel -- un
+     parrafo gris suelto, sin caja. Ahora es la misma pieza que `.adm-vacio`: recuadro
+     punteado, centrado y con aire. Un hueco sin explicacion parece un fallo de carga; uno
+     con marco parece lo que es, una lista que todavia no tiene datos. */
+  .vp-vacio{
+    margin:var(--space-2) 0 0;
+    display:flex;flex-direction:column;align-items:center;gap:var(--space-2);text-align:center;
+    padding:var(--space-6) var(--space-4);
+    border:1px dashed var(--sc-input-border);border-radius:var(--radius-lg);
+    color:var(--sc-text-2);font-size:var(--t3);line-height:var(--lh-corrido);
+  }
   .vp-mas{margin-top:var(--s2)}
   .vp-mas summary{cursor:pointer;color:var(--ink);font-family:var(--title-font);
-    font-size:14px;font-weight:600}
-  .vp-pie{margin:var(--s2) 0 0;color:var(--muted);font-size:13px;line-height:1.5}
-  .dt-bento{display:grid;gap:var(--s2);grid-template-columns:1fr;margin-top:var(--s3)}
-  @media (min-width:720px){.dt-bento{grid-template-columns:repeat(3,1fr)}
-    .dt-baldosa.ancha{grid-column:1 / -1}}
-  .dt-baldosa{
-    position:relative;padding:var(--s3) var(--s3) var(--s2);
-    border-radius:var(--p-radius-card);
-    background:color-mix(in srgb,var(--ink) 3%,var(--surface));
-    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 9%,transparent);
-  }
-  @media (prefers-reduced-motion: no-preference){
-    .dt-baldosa{transition:background-color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out)}
-  }
-  .dt-baldosa.tocando{
-    background:color-mix(in srgb,var(--ink) 5%,var(--surface));
-    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 15%,transparent);
-  }
+    font-size:var(--t2);font-weight:600}
+  .vp-pie{margin:var(--s2) 0 0;color:var(--muted);font-size:var(--t3);line-height:var(--lh-corrido)}
+  /* DS-2026: aqui vivian `.dt-bento` y `.dt-baldosa` -- la rejilla y las baldosas propias
+     que trajo Analitica cuando nacio -- y con ellas el breakpoint de 720 px, que existia SOLO
+     para ponerlas a tres columnas. Estan muertas: el comentario de mas abajo ya dice que «las
+     dos se han ido y usa las del panel», y se ha comprobado que no aparecen ni una vez en el
+     HTML servido ni las emite ningun PHP del motor. Sus hijas -- `.dt-cab`, `.dt-vivo`,
+     `.dt-lectura`, `.dt-barras`, `.dt-cifra-n` -- siguen vivas y se quedan. Un breakpoint
+     menos y nueve reglas menos que no pintaban nada en ninguna pantalla. */
   .dt-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
     min-height:26px;margin-bottom:var(--s3)}
   .dt-cab .rotulo{display:flex;align-items:center;gap:6px}
@@ -7480,10 +7581,9 @@ $CUENTAS = [
   }
   @keyframes dt-late{0%,100%{opacity:1}50%{opacity:.35}}
   /* El numero de la cabecera: apagado en reposo, encendido mientras se recorre. */
-  .dt-lectura{font-family:var(--title-font);font-size:19px;font-weight:700;
+  .dt-lectura{font-family:var(--title-font);font-size:19px;font-weight:600;
     font-variant-numeric:tabular-nums;color:var(--muted);opacity:.55;white-space:nowrap}
-  .dt-lectura em{font-style:normal;font-size:12px;font-weight:600;margin-left:4px;opacity:.75}
-  .dt-baldosa.tocando .dt-lectura{color:var(--ink);opacity:1}
+  .dt-lectura em{font-style:normal;font-size:var(--t4);font-weight:600;margin-left:4px;opacity:.75}
   @media (prefers-reduced-motion: no-preference){
     .dt-lectura{transition:color var(--t-fast) var(--ease-out),opacity var(--t-fast) var(--ease-out)}
   }
@@ -7512,7 +7612,7 @@ $CUENTAS = [
     position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
     padding:5px 9px;border-radius:var(--r-pill);
     background:var(--ink);color:var(--surface);
-    font-family:var(--title-font);font-size:12px;font-weight:600;line-height:1.2;
+    font-family:var(--title-font);font-size:var(--t4);font-weight:600;line-height:var(--lh-titulo);
     white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none;
     opacity:0;visibility:hidden;
   }
@@ -7543,7 +7643,7 @@ $CUENTAS = [
     display:inline-flex;align-items:center;gap:3px;
     padding:2px 7px 2px 5px;border-radius:var(--r-pill);
     background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted);
-    font-family:var(--title-font);font-size:12px;font-weight:700;
+    font-family:var(--title-font);font-size:var(--t4);font-weight:600;
     font-variant-numeric:tabular-nums;letter-spacing:0;text-transform:none;
   }
   .dt-chip.sube{color:var(--ink);background:color-mix(in srgb,var(--ink) 12%,transparent)}
@@ -7573,20 +7673,20 @@ $CUENTAS = [
   /* A todo el ancho y sin medida acotada. Con dos avisos en dos columnas la medida era la
      comoda de leer; con uno solo, acotarlo dejaba media nota vacia al lado. Y el texto que
      queda son ciento cincuenta caracteres: a todo el ancho son dos lineas, no un parrafo. */
-  .dt-nota-lista p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+  .dt-nota-lista p{margin:0;color:var(--muted);font-size:var(--t2);line-height:var(--lh-corrido)}
   .dt-nota-lista b{color:var(--ink);font-family:var(--title-font);font-weight:600}
   .dt-nota-pie{
     display:flex;flex-wrap:wrap;gap:4px var(--s3);
     margin-top:var(--s3);padding-top:var(--s3);
     border-top:1px dotted color-mix(in srgb,var(--ink) 22%,transparent);
-    color:var(--muted);font-family:var(--title-font);font-size:12px;
+    color:var(--muted);font-family:var(--title-font);font-size:var(--t4);
     font-variant-numeric:tabular-nums;
   }
   /* ---- las baldosas de cifra ---- */
-  .dt-cifra-n{font-family:var(--title-font);font-size:30px;font-weight:700;line-height:1.05;
+  .dt-cifra-n{font-family:var(--title-font);font-size:30px;font-weight:600;line-height:var(--lh-cifra);
     font-variant-numeric:tabular-nums;color:var(--ink);margin:2px 0 4px}
-  .dt-contra{color:var(--muted);font-size:13px;line-height:1.4}
-  .dt-pct{font-family:var(--title-font);font-weight:700;white-space:nowrap;color:var(--ink)}
+  .dt-contra{color:var(--muted);font-size:var(--t3);line-height:var(--lh-compacto)}
+  .dt-pct{font-family:var(--title-font);font-weight:600;white-space:nowrap;color:var(--ink)}
   .copias{margin-top:var(--s3)}
   .copia{
     display:grid;
@@ -7599,7 +7699,7 @@ $CUENTAS = [
   .copia-txt{display:block}
   .copia-que{display:block;font-family:var(--title-font);font-weight:600}
   .copia-dato{
-    display:block;color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums;
+    display:block;color:var(--muted);font-size:var(--t2);font-variant-numeric:tabular-nums;
   }
   @media (max-width:560px){
     .copia{grid-template-columns:1fr 1fr}
@@ -7629,7 +7729,7 @@ $CUENTAS = [
   .page-login.page-login--puerta{display:block;min-height:100dvh;padding:0;max-width:none;margin:0}
   .login{max-width:380px}
   .login .card-main{padding:var(--s4) var(--s3)}
-  .login h1{margin:0 0 4px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--sc-text)}
+  .login h1{margin:0 0 4px;font-size:26px;font-weight:600;letter-spacing:-0.02em;color:var(--sc-text)}
   .login input{
     width:100%;min-height:40px;padding:0 14px;margin-bottom:var(--s2);
     border:1px solid var(--sc-border);border-radius:var(--ui-radius-control);
@@ -7662,11 +7762,11 @@ $CUENTAS = [
      columna centrada: dos columnas con la izquierda vacía se leería como un fallo del panel,
      no como diseño. */
   .login-puerta{
-    --sc-canvas:#14110F; --sc-surface:#1F1B18;
-    --sc-text:#F5EFE8; --sc-text-2:#B8ADA3; --sc-border:#332C26;
-    --sc-primary:#FF8A3D; --sc-primary-ink:#FFFDFB;
-    --sc-muted-bg:#262119; --sc-input-bg:#14110F; --sc-input-border:#605245;
-    --sc-bad-bg:#3B2320; --sc-bad-ink:#FF8D87; --ui-state-error:#FF8D87;
+    --sc-canvas:var(--c-n-950); --sc-surface:var(--c-n-850);
+    --sc-text:var(--c-n-25); --sc-text-2:var(--c-n-400); --sc-border:var(--c-n-750);
+    --sc-primary:var(--c-naranja-400); --sc-primary-ink:var(--c-n-0);
+    --sc-muted-bg:var(--c-n-820); --sc-input-bg:var(--c-n-950); --sc-input-border:var(--c-n-600);
+    --sc-bad-bg:var(--c-rojo-900); --sc-bad-ink:var(--c-rojo-300); --ui-state-error:var(--c-rojo-300);
     /* .msg (el aviso de error) es del sistema general y pide --t2: sin .card-main como
        ancestro esa variable no existe aquí, así que se declara también en este ámbito. */
     --t2:14px;
@@ -7707,7 +7807,7 @@ $CUENTAS = [
   .login-puerta-foto-texto h1{margin:0;font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.02em}
   /* La chapa de versión, integrada bajo el nombre en vez de como pie aparte -- ver el PHP,
      mas abajo en este fichero, que la suprime ahí para esta pantalla. */
-  .login-puerta-chapa{margin:4px 0 0;font-size:11px;line-height:1.4;color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
+  .login-puerta-chapa{margin:4px 0 0;font-size:11px;line-height:var(--lh-compacto);color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
   .login-puerta-chapa--sinfoto{color:var(--sc-text-2);opacity:1}
   /* --login-puerta-campo-fondo va IGUAL que el `background` de esta regla en los dos casos:
      lo usa el truco de :-webkit-autofill de mas abajo para que el relleno del campo se
@@ -7728,7 +7828,7 @@ $CUENTAS = [
     margin:0 0 6px;font-size:32px;line-height:1.15;font-weight:700;letter-spacing:-.02em;
     color:var(--sc-text);font-family:inherit;text-transform:none;
   }
-  .login-puerta-sub{margin:0 0 var(--s4);font-size:14px;color:var(--sc-text-2)}
+  .login-puerta-sub{margin:0 0 var(--s4);font-size:var(--t2);color:var(--sc-text-2)}
   .login-puerta form{display:flex;flex-direction:column}
   /* El campo pierde la caja: sólo queda la línea de abajo, y una segunda línea del color de
      acento que crece desde el centro (transform-origin:center) al enfocar. El padding es
@@ -7738,7 +7838,7 @@ $CUENTAS = [
   .login-puerta-campo{margin-bottom:var(--space-3)}
   .login-puerta-campo input{
     width:100%;min-height:40px;padding:0 2px;border:none;background:transparent;
-    color:var(--sc-text);font-family:inherit;font-size:16px;
+    color:var(--sc-text);font-family:inherit;font-size:var(--tb);
   }
   .login-puerta-campo input::placeholder{color:var(--sc-text-2)}
   .login-puerta-campo input:focus,.login-puerta-campo input:focus-visible{outline:none}
@@ -7759,7 +7859,7 @@ $CUENTAS = [
     position:relative;align-self:flex-end;
     display:inline-flex;align-items:center;gap:6px;
     background:transparent;border:none;color:var(--sc-primary);
-    font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;padding:6px 2px;
+    font-family:inherit;font-size:var(--t2);font-weight:700;cursor:pointer;padding:6px 2px;
   }
   .login-puerta-entrar::before{content:"";position:absolute;top:-9px;bottom:-9px;left:-8px;right:-8px}
   .login-puerta-entrar:hover{color:color-mix(in srgb, var(--sc-primary) 82%, #fff)}
@@ -7872,7 +7972,7 @@ $CUENTAS = [
     flex:0 0 auto;
     min-width:22px;
     color:var(--muted);
-    font-family:var(--title-font);font-size:12px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--t4);font-weight:600;
     font-variant-numeric:tabular-nums;
   }
   .foto .hueco{flex:1 1 auto}
@@ -7900,14 +8000,14 @@ $CUENTAS = [
   .subir{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
   .subir input[type=file]{
     flex:1 1 200px;min-width:0;
-    font-family:var(--body-font);font-size:14px;color:var(--muted);
+    font-family:var(--body-font);font-size:var(--t2);color:var(--muted);
   }
   .subir input[type=file]::file-selector-button{
     margin-right:var(--s2);
     min-height:40px;padding:0 var(--s3);
     border:1px solid var(--border);border-radius:var(--r-pill);
     background:transparent;color:var(--ink);
-    font-family:var(--title-font);font-size:13px;font-weight:600;
+    font-family:var(--title-font);font-size:var(--t3);font-weight:600;
     cursor:pointer;
   }
 
@@ -7936,12 +8036,12 @@ $CUENTAS = [
     flex:none;width:92px;min-height:36px;padding:0 8px;
     border:1px solid transparent;border-radius:var(--r-sheet);
     background:var(--sc-input-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 10%,transparent);
-    color:var(--ink);font-family:var(--body-font);font-size:13px;
+    color:var(--ink);font-family:var(--body-font);font-size:var(--t3);
     text-transform:uppercase;font-variant-numeric:tabular-nums;
   }
   .colores-fila input[type=text]:focus{outline:var(--focus-anillo);outline-offset:1px}
   .colores-fila input[type=text]:invalid:not(:placeholder-shown){box-shadow:inset 0 0 0 2px var(--offer)}
-  .colores-fila .ghost{flex:none;white-space:nowrap;padding:0 var(--s2);min-height:36px;font-size:12px}
+  .colores-fila .ghost{flex:none;white-space:nowrap;padding:0 var(--s2);min-height:36px;font-size:var(--t4)}
   /* Los tres fijos: circulo + hex, compactos -- el nombre (Secundario/Oscuro/Neutro) no
      va como texto visible aqui, sino en aria-label del grupo (role="group"), para que un
      lector de pantalla lo siga anunciando sin que ocupe ancho en la fila. */
@@ -7972,7 +8072,7 @@ $CUENTAS = [
   .insignia{
     display:inline-block;padding:4px 10px;
     border-radius:var(--r-pill);
-    font-family:var(--title-font);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    font-family:var(--title-font);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;   /* DS-2026: el peso fuerte se queda; es la insignia de marca, no interfaz. */
     box-shadow:0 1px 3px color-mix(in srgb,var(--ink) 25%,transparent);
   }
   .insignia.is-demo{background:var(--ui-badge-demo);color:var(--surface)}
@@ -8009,7 +8109,7 @@ $CUENTAS = [
        temas sin una regla por tema. */
     background:var(--ink);color:var(--surface);
     box-shadow:var(--e-3);
-    font-size:var(--t2);line-height:1.4;
+    font-size:var(--t2);line-height:var(--lh-compacto);
     pointer-events:auto;
     opacity:0;transform:translateY(12px) scale(.98);
     transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
@@ -8243,7 +8343,7 @@ $CUENTAS = [
   }
   .adm-f-cab .der{margin-left:auto;display:flex;align-items:center;gap:var(--space-2);flex:none}
   .adm-f-nota{font-size:var(--t3);color:var(--muted);white-space:nowrap}
-  .adm-f-txt{margin:0 0 var(--s2);font-size:var(--t3);line-height:1.5;color:var(--muted)}
+  .adm-f-txt{margin:0 0 var(--s2);font-size:var(--t3);line-height:var(--lh-corrido);color:var(--muted)}
 
   /* ---- estado ---- */
   /* SocialCard V4: la insignia del prototipo, medida — radio 8.4 (rounded-md),
@@ -8406,15 +8506,15 @@ $CUENTAS = [
     opacity:0;pointer-events:none;overflow:hidden;
   }
 
-  .adm-periodo{margin:var(--space-2) 0 0;font-size:var(--t3);color:var(--sc-text-2);line-height:1.45}
-  .adm-periodo .cuando{display:block;font-size:var(--t2);font-weight:650;color:var(--ink)}
+  .adm-periodo{margin:var(--space-2) 0 0;font-size:var(--t3);color:var(--sc-text-2);line-height:var(--lh-corrido)}
+  .adm-periodo .cuando{display:block;font-size:var(--t2);font-weight:600;color:var(--ink)}
   .adm-periodo .dura{display:block}
 
   /* ---- duracion: fichas con icono, como la referencia ---- */
   .adm-cuando-pie{margin:0 0 var(--space-2);color:var(--sc-text-2);font-size:var(--t3)}
   .adm-atajos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
-  @media (max-width:900px){ .adm-atajos{grid-template-columns:repeat(2,minmax(0,1fr))} }
-  @media (max-width:520px){ .adm-atajos{grid-template-columns:minmax(0,1fr)} }
+  @media (max-width:899.98px){ .adm-atajos{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:560px){ .adm-atajos{grid-template-columns:minmax(0,1fr)} }
   /* Los atajos de duracion son una seleccion: usan el lenguaje de seleccion del sistema
      —pastilla suave— en vez del naranja de la marca del restaurante. Bordes de 1px y
      radio de tarjeta; el icono a 16, como el resto del panel. */
@@ -8428,8 +8528,8 @@ $CUENTAS = [
   .adm-atajo:active{transform:scale(.97)}
   .adm-atajo .ico{display:block;color:var(--sc-text-2);margin-bottom:var(--space-2)}
   .adm-atajo .ico svg{width:16px;height:16px;stroke-width:2}
-  .adm-atajo .t{font-size:var(--t2);font-weight:600;line-height:1.25}
-  .adm-atajo .s{font-size:var(--t3);color:var(--sc-text-2);line-height:1.35}
+  .adm-atajo .t{font-size:var(--t2);font-weight:600;line-height:var(--lh-titulo)}
+  .adm-atajo .s{font-size:var(--t3);color:var(--sc-text-2);line-height:var(--lh-compacto)}
   .adm-atajo .punto{
     position:absolute;top:var(--space-3);right:var(--space-4);width:14px;height:14px;
     border-radius:var(--radius-pill);
@@ -8444,7 +8544,7 @@ $CUENTAS = [
   /* ---- horas ---- */
   .adm-horas{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s2)}
   .adm-horas label{
-    display:block;font-size:var(--t3);font-weight:650;
+    display:block;font-size:var(--t3);font-weight:600;
     color:var(--muted);margin-bottom:8px;
   }
   .adm-hora-caja{position:relative;display:block}
@@ -8522,7 +8622,7 @@ $CUENTAS = [
   .adm-f-acc{display:grid;gap:var(--s2);align-content:start}
   .adm-acciones{display:grid;gap:10px}
   .adm-acciones-txt{
-    font-size:var(--t3);font-weight:700;letter-spacing:.05em;
+    font-size:var(--t3);font-weight:600;letter-spacing:.05em;
     color:var(--muted);
   }
   .adm-btn-ver{width:100%}
@@ -8534,7 +8634,7 @@ $CUENTAS = [
        primary + primary-ink, que es la que usa el prototipo: 5,9:1.
        No se ha tocado ningun token del prototipo; estaban mal emparejados. */
     width:100%;min-height:40px;background:var(--ok);border-color:var(--ok);color:var(--sc-primary-ink);
-    font-weight:700;font-size:var(--t2);
+    font-weight:600;font-size:var(--t2);
   }
   .adm-btn-guardar:hover{background:color-mix(in srgb, var(--sc-primary) 88%, #FFF);border-color:color-mix(in srgb, var(--sc-primary) 88%, #FFF)}
 
@@ -8556,19 +8656,19 @@ $CUENTAS = [
      contenido, y los dos meses sacaban scroll horizontal a toda la pagina. */
   .adm-cal-meses{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s2)}
   .adm-cal-mes{min-width:0}
-  @media (max-width:760px){ .adm-cal-meses{grid-template-columns:minmax(0,1fr)} .adm-cal-mes:last-child{display:none} }
+  @media (max-width:767.98px){ .adm-cal-meses{grid-template-columns:minmax(0,1fr)} .adm-cal-mes:last-child{display:none} }
   /* Una cabecera para los DOS meses, con las flechas en los extremos. Antes cada
      mes llevaba la suya y el segundo tenia dos huecos vacios donde el primero
      tenia botones: la fila quedaba coja. */
   .adm-cal-cab{display:flex;align-items:center;gap:var(--s2);padding:2px 2px var(--s2)}
   .adm-cal-rango{
-    flex:1;text-align:center;font-size:var(--t2);font-weight:650;
+    flex:1;text-align:center;font-size:var(--t2);font-weight:600;
     text-transform:capitalize;letter-spacing:-.005em;
   }
   .adm-cal-rango .ano{color:var(--muted);font-weight:500}
   .adm-cal-mes-rot{
     text-align:center;padding-bottom:9px;
-    font-size:var(--t3);font-weight:650;text-transform:capitalize;color:var(--muted);
+    font-size:var(--t3);font-weight:600;text-transform:capitalize;color:var(--muted);
   }
   .adm-cal-nav{
     width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:transparent;
@@ -8600,7 +8700,7 @@ $CUENTAS = [
   }
   .adm-quitar-fechas button:hover{color:var(--p-accent-stroke)}
   .adm-cal-rejilla{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
-  .adm-cal-dow{height:28px;display:grid;place-items:center;font-size:var(--t3);font-weight:650;color:var(--muted)}
+  .adm-cal-dow{height:28px;display:grid;place-items:center;font-size:var(--t3);font-weight:600;color:var(--muted)}
   .adm-cal-d{
     /* 44 de alto: el objetivo tactil minimo. En siete columnas el ancho sobra. */
     position:relative;height:44px;border:0;background:transparent;border-radius:10px;color:var(--ink);
@@ -8611,7 +8711,7 @@ $CUENTAS = [
   .adm-cal-d.fuera{visibility:hidden}
   .adm-cal-d.hoy::after{content:"";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);width:5px;height:5px;border-radius:999px;background:var(--accent)}
   .adm-cal-d.dentro{background:color-mix(in srgb, var(--accent) 18%, var(--surface));border-radius:0}
-  .adm-cal-d.extremo{background:var(--ok);color:var(--sc-primary-ink);font-weight:700}
+  .adm-cal-d.extremo{background:var(--ok);color:var(--sc-primary-ink);font-weight:600}
   .adm-cal-d.ini{border-radius:10px 0 0 10px}
   .adm-cal-d.fin{border-radius:0 10px 10px 0}
   .adm-cal-d.ini.fin{border-radius:10px}
@@ -8635,11 +8735,11 @@ $CUENTAS = [
     position:absolute;max-width:330px;pointer-events:auto;background:var(--sc-surface);color:var(--sc-text);
     border:1px solid var(--sc-border);
     border-radius:var(--radius-lg);padding:14px 17px;
-    font-size:var(--t3);line-height:1.5;
+    font-size:var(--t3);line-height:var(--lh-corrido);
     box-shadow:0 16px 44px -16px rgba(0,0,0,.8);
     animation:adm-globo-in 150ms var(--ease-out) forwards;
   }
-  .adm-globo b{display:block;font-size:var(--t3);font-weight:700;margin-bottom:4px}
+  .adm-globo b{display:block;font-size:var(--t3);font-weight:600;margin-bottom:4px}
   @keyframes adm-globo-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
   .adm-js .hint[data-adm-ayuda]{display:none}
 
@@ -8738,7 +8838,7 @@ $CUENTAS = [
     flex:0 0 auto;min-width:212px;min-height:40px;margin-left:var(--space-2);font-size:var(--t2);
   }
   .adm-ajustar-precios-mano svg{color:var(--sc-primary)}
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     /* Al envolver, el campo del porcentaje libre y "a mano" ocupan su linea entera: en
        media fila se leerian como sobras de la de arriba. */
     .adm-pct-otro{flex:1 1 100%}
@@ -8953,7 +9053,7 @@ $CUENTAS = [
   @media (min-width:700px){ .adm-alta-cols{grid-template-columns:1fr 1fr} }
   .adm-alta-g{display:grid;gap:6px;min-width:0}
   .adm-alta-g2{display:grid;gap:6px;min-width:0}
-  .adm-alta-et{font-size:var(--t3);font-weight:600;color:var(--sc-text);line-height:1.2}
+  .adm-alta-et{font-size:var(--t3);font-weight:600;color:var(--sc-text);line-height:var(--lh-titulo)}
   .adm-alta-op{font-weight:400;color:var(--sc-text-2)}
   /* El rotulo a la izquierda y la nota a la derecha, en la MISMA linea: «IVA incluido» o
      «Opcional» son de ese campo y no merecen un renglon propio. */
@@ -8988,12 +9088,12 @@ $CUENTAS = [
   .adm-alta-idi-tab:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   .adm-alta-idi-panel{display:grid;gap:var(--space-3);min-width:0}
   .adm-alta-idi-panel[hidden]{display:none}
-  .adm-alta-area{resize:vertical;min-height:62px;line-height:1.4;padding-top:7px;padding-bottom:7px}
+  .adm-alta-area{resize:vertical;min-height:62px;line-height:var(--lh-compacto);padding-top:7px;padding-bottom:7px}
   .adm-alta-precio{position:relative;min-width:0}
   .adm-alta-precio .adm-campo{padding-right:30px;font-weight:600}
   .adm-alta-euro{
     position:absolute;right:12px;top:50%;transform:translateY(-50%);
-    font-size:var(--t3);font-weight:700;color:var(--sc-text-2);pointer-events:none;
+    font-size:var(--t3);font-weight:600;color:var(--sc-text-2);pointer-events:none;
   }
   /* Los tres idiomas de un mismo campo, pegados: un hilo de 1px entre ellos dice «esto es una
      lista» sin gastar el aire que separa un grupo del siguiente. */
@@ -9018,7 +9118,7 @@ $CUENTAS = [
     margin:0;display:flex;align-items:flex-start;gap:8px;
     padding:9px 10px;border-radius:var(--radius-lg);
     border:1px solid var(--sc-border);background:var(--sc-muted-bg);
-    font-size:var(--t4);line-height:1.4;color:var(--sc-text-2);
+    font-size:var(--t4);line-height:var(--lh-compacto);color:var(--sc-text-2);
   }
   .adm-alta-pista svg{flex:none;width:15px;height:15px;margin-top:1px}
   /* Catorce casillas en dos columnas: en una sola serian catorce renglones y la hoja pasaria
@@ -9067,8 +9167,8 @@ $CUENTAS = [
     border:1px solid var(--sc-border);border-radius:50%;background:var(--sc-surface);
   }
   .adm-alta-suelta-ico svg{width:22px;height:22px}
-  .adm-alta-suelta-t{font-size:var(--t3);font-weight:600;color:var(--sc-text);line-height:1.3}
-  .adm-alta-suelta-p{font-size:var(--t4);color:var(--sc-text-2);line-height:1.3}
+  .adm-alta-suelta-t{font-size:var(--t3);font-weight:600;color:var(--sc-text);line-height:var(--lh-compacto)}
+  .adm-alta-suelta-p{font-size:var(--t4);color:var(--sc-text-2);line-height:var(--lh-compacto)}
   .adm-alta-foto-vista{
     width:118px;height:118px;border-radius:var(--radius-lg);object-fit:cover;display:block;
   }
@@ -9102,13 +9202,17 @@ $CUENTAS = [
     border-style:dashed;
     border-color:color-mix(in srgb, var(--sc-primary) 55%, var(--sc-border));
   }
+  /* DS-2026: este 700 NO baja a 600. Aqui el peso NO es decoracion: es lo unico que
+     distingue un alergeno SUGERIDO por el motor de uno cualquiera de la lista. Bajarlo sin
+     darle otro indicador seria perder un dato, no ganar coherencia. Tarea aparte: decir ese
+     estado con algo mas que el grosor de la letra. */
   .adm-alergeno[data-sugerido]:not(:has(input:checked)) .adm-alergeno-txt{font-weight:700}
   .adm-alergeno[data-sugerido]:not(:has(input:checked)) .adm-alergeno-ico{color:var(--sc-primary)}
   .adm-ale-sug{
     margin:0;display:flex;align-items:flex-start;gap:8px;
     padding:8px 10px;border-radius:var(--radius-lg);
     border:1px dashed color-mix(in srgb, var(--sc-primary) 45%, var(--sc-border));
-    font-size:var(--t4);line-height:1.4;color:var(--sc-text-2);
+    font-size:var(--t4);line-height:var(--lh-compacto);color:var(--sc-text-2);
   }
   .adm-ale-sug[hidden]{display:none}
   .adm-ale-sug b{color:var(--sc-text)}
@@ -9123,7 +9227,7 @@ $CUENTAS = [
   .adm-alta-fila{grid-template-columns:1fr 1fr;gap:var(--space-3)}
   .adm-alta-nota{
     margin:0;padding-top:var(--space-3);border-top:1px solid var(--sc-border);
-    font-size:var(--t4);line-height:1.4;color:var(--sc-text-2);
+    font-size:var(--t4);line-height:var(--lh-compacto);color:var(--sc-text-2);
   }
   /* Ventanas bajas —un portatil de 13 pulgadas con la barra del navegador— aprietan lo que
      se puede apretar sin quitar nada: la zona de la foto, el aire entre grupos y los pies de
@@ -9212,10 +9316,10 @@ $CUENTAS = [
     animation:adm-modal-caja var(--t-modal-in) var(--ease-out);
   }
   .adm-modal-t{
-    margin:0;font-family:inherit;font-size:var(--t1);font-weight:600;line-height:1.3;
+    margin:0;font-family:inherit;font-size:var(--t1);font-weight:600;line-height:var(--lh-compacto);
     letter-spacing:-.01em;text-transform:none;color:var(--sc-text);
   }
-  .adm-modal-txt{margin:0;font-size:var(--t2);line-height:1.45;color:var(--sc-text-2)}
+  .adm-modal-txt{margin:0;font-size:var(--t2);line-height:var(--lh-corrido);color:var(--sc-text-2)}
   .adm-modal-txt:empty{display:none}
   .adm-modal-pie{display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-2)}
   /* El boton que confirma algo que quita cosas de la carta se pinta como lo que es.
@@ -9298,7 +9402,7 @@ $CUENTAS = [
   .adm-cat-nombre-l{display:grid;gap:4px}
   .adm-cat-nombre-idioma{font-size:var(--t4);font-weight:600;color:var(--sc-text-2)}
   .adm-cat-nombre-pie{display:grid;gap:var(--space-2)}
-  .adm-cat-nombre-nota{font-size:var(--t4);line-height:1.35;color:var(--sc-text-2)}
+  .adm-cat-nombre-nota{font-size:var(--t4);line-height:var(--lh-compacto);color:var(--sc-text-2)}
   /* Sin JavaScript el <details> se abre igual y el formulario se manda igual; ahi si empuja
      la lista, y esta bien: es la unica forma de verlo. */
   html:not(.adm-con-js) .adm-cat-nombre-f{position:static;width:auto;box-shadow:none;max-height:none}
@@ -9448,7 +9552,7 @@ $CUENTAS = [
     flex:0 0 auto;min-width:2.6em;
     color:var(--sc-text-2);font-size:var(--t3);font-weight:500;font-variant-numeric:tabular-nums;
   }
-  .adm-prow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);font-weight:600;line-height:1.5}
+  .adm-prow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);font-weight:600;line-height:var(--lh-corrido)}
   .adm-prow-viejo{
     flex:0 0 auto;color:var(--muted);font-size:var(--t3);
     font-variant-numeric:tabular-nums;white-space:nowrap;
@@ -9547,7 +9651,7 @@ $CUENTAS = [
   .adm-dia-semanal[aria-pressed="true"] .adm-dia-semanal-ok{display:block}
   /* La linea que separa "esto esta configurado" de "esto se ve en la carta". */
   .adm-dias-nota{
-    margin:var(--space-2) 0 0;font-size:var(--t4);line-height:1.45;color:var(--sc-text-2);
+    margin:var(--space-2) 0 0;font-size:var(--t4);line-height:var(--lh-corrido);color:var(--sc-text-2);
   }
   /* Oferta apagada: la configuracion se conserva y se sigue pudiendo tocar, pero deja de
      pintarse como si estuviera corriendo. Sin esto, siete dias en el naranja de "activo"
@@ -9600,6 +9704,18 @@ $CUENTAS = [
     cursor:pointer;
   }
   .adm-orow:first-child{border-top:0}
+  /* DS-2026: la fila reacciona al puntero. La fila entera es pulsable -- lleva
+     `cursor:pointer` desde siempre -- pero no daba ni una senal de estarlo: en una lista de
+     312, recorrerla con la vista y el raton sin que nada se encienda obliga a apuntar al
+     control pequeno para saber en que linea estas. Era la unica pieza pulsable del panel sin
+     `:hover`. Solo con raton: con el dedo el hover se queda pegado despues del toque. La fila
+     que no se puede tocar (ya incluida por su categoria) no se enciende, que seria mentir. */
+  @media (hover:hover) and (pointer:fine){
+    .adm-orow:not(.por-categoria):hover{background:var(--sc-hover-bg)}
+  }
+  /* Y con teclado: al entrar el foco en cualquier control de la fila, la fila se marca. Sin
+     esto, tabulando por una lista larga se ve el anillo de un boton pero no en que plato. */
+  .adm-orow:not(.por-categoria):focus-within{background:var(--sc-hover-bg)}
   .adm-orow[hidden]{display:none}
   /* appearance:none, además de opacity:0: a 1x1px la casilla nativa no debía verse, pero
      el control seguía "vivo" para el navegador (appearance:auto) — reportado un marcado
@@ -9613,10 +9729,15 @@ $CUENTAS = [
      contenido minimo y se recortaba en estrecho —«Especialidades · Mango C…»—. En bloque
      envuelve solo, que es lo que hace el texto desde siempre. */
   /* Nombre 14/600 y apunte 13/400 apagado: la pareja del prototipo. */
-  .adm-orow-nm{flex:1 1 auto;min-width:0;font-size:var(--t2);font-weight:600;line-height:1.5;display:block}
+  /* DS-2026: el nombre del plato pasa de 14 a 16 (--tb) SIN que la fila crezca. Es el dato
+     que se busca con la vista en una lista de 312, y competia en tamano con su propio apunte
+     y con los rotulos de los botones de al lado; ahora hay dos escalones entre el contenido
+     (16) y el cromo (14/13). La altura se paga con el interlineado, no con la densidad:
+     20 + 1 + 17,5 = 38,5 mas 8 de relleno = 46,5, por debajo de los 48 de min-height. */
+  .adm-orow-nm{flex:1 1 auto;min-width:0;font-size:var(--tb);font-weight:600;line-height:var(--lh-titulo);display:block}
   .adm-orow-nm small{
-    display:block;margin-top:2px;
-    font-size:var(--t3);color:var(--sc-text-2);font-weight:400;line-height:1.5;
+    display:block;margin-top:1px;
+    font-size:var(--t3);color:var(--sc-text-2);font-weight:400;line-height:var(--lh-compacto);
   }
   /* Ya dentro por su categoria, o sin precio que rebajar: se ven, pero no se tocan. */
   .adm-orow.por-categoria{opacity:.5;cursor:default}
@@ -9661,7 +9782,7 @@ $CUENTAS = [
   .adm-tag{
     flex:none;padding:4px 10px;border-radius:var(--radius-pill);
     background:var(--marca-velo-mas);color:var(--ink);
-    font-size:var(--t3);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    font-size:var(--t3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;
     white-space:nowrap;
   }
 
@@ -9728,7 +9849,7 @@ $CUENTAS = [
   .adm-destet-b{
     min-height:40px;padding:0 15px;border-radius:999px;
     border:1px solid var(--marca-borde);background:transparent;color:var(--ink);
-    font-family:inherit;font-size:var(--t3);font-weight:700;cursor:pointer;
+    font-family:inherit;font-size:var(--t3);font-weight:600;cursor:pointer;
     transition:background var(--t-press) var(--ease-out),color var(--t-press) var(--ease-out);
   }
   .adm-destet-b:hover{background:var(--marca-fondo);color:var(--marca-ink)}
@@ -9750,7 +9871,7 @@ $CUENTAS = [
     box-shadow:none;font-family:inherit;font-size:var(--t2);
   }
   .adm-f .combo-q:focus-visible{border-color:var(--p-accent-stroke);box-shadow:0 0 0 3px var(--p-accent-glow);outline:none}
-  .adm-f .combo-q.is-ok{font-family:inherit;font-weight:700;border-color:var(--p-accent-stroke)}
+  .adm-f .combo-q.is-ok{font-family:inherit;font-weight:600;border-color:var(--p-accent-stroke)}
   .adm-f .combo-lista{background:var(--ficha);border-color:var(--border);box-shadow:0 16px 44px -16px rgba(0,0,0,.8)}
   .adm-f .combo-op.is-activo,.adm-f .combo-op:hover{background:var(--surface)}
   .adm-f .combo-num,.adm-f .combo-txt,.adm-f .combo-txt small,.adm-f .combo-vacio{font-family:inherit}
@@ -9761,7 +9882,7 @@ $CUENTAS = [
      linea, con lo que el nombre se lleva el ancho entero. Y por si aun asi aparece una
      palabra imposible, que se parta antes que salirse. */
   .adm-orow-nm,.adm-orow-nm small{overflow-wrap:anywhere}
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-orow{flex-wrap:wrap;row-gap:4px}
     .adm-orow-nm{flex:1 1 calc(100% - 5.6em)}
     .adm-orow .adm-prow-fijo{margin-left:auto}
@@ -9794,7 +9915,7 @@ $CUENTAS = [
   .adm-regla > .adm-regla-g:last-child{padding-right:0}
   /* Estrecho: se apilan y los filetes sobran — un filete vertical entre dos bloques que ya
      no estan uno al lado del otro no separa nada. */
-  @media (max-width:900px){
+  @media (max-width:899.98px){
     .adm-regla{grid-template-columns:1fr;gap:var(--space-4)}
     .adm-regla > .adm-regla-g{padding:0;border-left:0}
   }
@@ -9834,7 +9955,7 @@ $CUENTAS = [
     display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
     margin-top:var(--space-3);font-size:var(--t4);color:var(--sc-text-2);
   }
-  @media (min-width:901px){
+  @media (min-width:900px){
     .adm-f-ooferta .adm-regla-g:nth-child(3){display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--space-3);align-items:end}
     .adm-f-ooferta .adm-regla-g:nth-child(3) > .adm-lbl{grid-column:1 / -1}
     .adm-f-ooferta .adm-regla-g:nth-child(3) > .adm-dias{grid-column:1;flex-wrap:nowrap;gap:4px}
@@ -9858,7 +9979,7 @@ $CUENTAS = [
   .adm-osueltos-barra h2{flex:none}
   .adm-osueltos-barra .adm-buscar{flex:1 1 auto;min-width:0;margin:0}
   .adm-osueltos-barra .vp-per{flex:none}
-  @media (max-width:700px){
+  @media (max-width:699.98px){
     .adm-osueltos-barra{flex-wrap:wrap}
     .adm-osueltos-barra .adm-buscar{order:3;flex:1 1 100%}
   }
@@ -9871,7 +9992,7 @@ $CUENTAS = [
      tablet.
 
      La rejilla de la regla ya repartía el ancho entero —lo dice su propio comentario, más abajo—,
-     pero sólo por encima de 900: '@media (max-width:900px){grid-template-columns:1fr}' lo apilaba
+     pero sólo por encima de 900: '@media (max-width:899.98px){grid-template-columns:1fr}' lo apilaba
      todo, y de ahí salían esos 490 y 675. Aquí no se rehace la rejilla: se le quita la rendición.
 
      Y para que quepa sin apilarse cambian TRES componentes, que es lo que el propietario autorizó:
@@ -9898,7 +10019,7 @@ $CUENTAS = [
      tienen la misma especificidad y ésta llega después, así que ganaba. '.adm-orow',
      '.adm-prow-n', '.adm-orow-nm' y '.adm-prow-fijo' son de Platos y de Precios también, y ahí
      no se toca nada. Al ser rejilla, la regla de
-     '@media (max-width:699px){.adm-orow{flex-wrap:wrap}}' deja de aplicar sola —'flex-wrap' no
+     '@media (max-width:699.98px){.adm-orow{flex-wrap:wrap}}' deja de aplicar sola —'flex-wrap' no
      significa nada en un grid—; lo único que hay que anular de ella es el 'margin-left:auto' del
      precio, que en una rejilla lo empujaría dentro de su propia celda. */
   .pane[data-pane="ofertas"] .adm-orow{
@@ -9940,7 +10061,7 @@ $CUENTAS = [
   /* ---- la regla: tres campos, y el rótulo DELANTE ----
      Encima gastaba una línea entera por campo; delante, no. Sólo por debajo de 901, que es donde
      la ficha va justa: por encima manda la rejilla de tres columnas de siempre. */
-  @media (max-width:900px) and (min-width:700px){
+  @media (max-width:899.98px) and (min-width:700px){
     .adm-f-ooferta .adm-regla-g{
       flex-direction:row;align-items:center;gap:var(--space-3);flex-wrap:nowrap;
     }
@@ -9955,7 +10076,7 @@ $CUENTAS = [
      una ficha de 286, y eso sacaba 42 px de desplazamiento horizontal a la página entera. Encima
      cuesta una línea por campo y a cambio cada control ocupa los 286 de lado a lado, que es lo que
      se pedía. El botón «Semanal» baja a su propia línea por el mismo motivo. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-f-ooferta .adm-regla-g{flex-direction:column;align-items:stretch;gap:6px}
     .adm-f-ooferta .adm-regla-g > .adm-lbl{margin:0 0 2px}
     .adm-f-ooferta .adm-dto{flex:0 0 92px}
@@ -9969,7 +10090,7 @@ $CUENTAS = [
 
   /* Tablet: dos filas en vez de una columna. Descuento y horario arriba, los días cruzando las
      dos columnas debajo — medido, los tres campos no caben en una sola línea de 582. */
-  @media (max-width:900px) and (min-width:700px){
+  @media (max-width:899.98px) and (min-width:700px){
     .adm-regla{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-3) var(--space-4)}
     .adm-regla > .adm-regla-g{padding:0;border-left:0}
     .adm-regla > .adm-regla-g:nth-child(3){grid-column:1 / -1}
@@ -9980,7 +10101,7 @@ $CUENTAS = [
      descuento mide 150-229 y la caja (92) más los cuatro atajos (176) no caben en una línea, así
      que siguen en dos —y ahí la caja tiene que conservar su borde derecho y su radio, o se vería
      cortada contra nada—. */
-  @media (max-width:900px){
+  @media (max-width:899.98px){
     .adm-f-ooferta .adm-regla-g:first-child{gap:0}
     .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{margin-right:var(--space-3)}
     .adm-f-ooferta .adm-dto{
@@ -10009,14 +10130,14 @@ $CUENTAS = [
   /* Esta corrección va DESPUÉS de la geometría del segmentado: la regla general de arriba usa
      44 px para tablet, pero no puede ganar sobre el reparto elástico del móvil. Antes la
      cascada dejaba cuatro atajos rígidos en 320–699 px y despegaba la tira de la cifra. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-f-ooferta .adm-pct-atajos{flex:1 1 auto}
     .adm-f-ooferta .adm-pct-atajo{flex:1 1 0;min-width:0}
   }
   /* En tablet la columna de descuento mide 283 px: el rótulo, la cifra y cuatro segmentos
      suman más que eso. El rótulo ocupa su propia línea y deja debajo una tira compacta de
      92 + 180 px, sin invadir la columna de horario ni aumentar la ficha más de una línea. */
-  @media (min-width:700px) and (max-width:900px){
+  @media (min-width:700px) and (max-width:899.98px){
     .adm-f-ooferta .adm-regla-g:first-child{flex-wrap:wrap;align-content:center}
     .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{flex:1 0 100%;margin:0 0 2px}
   }
@@ -10064,7 +10185,7 @@ $CUENTAS = [
   .adm-f-ooferta .adm-dia-semanal{min-height:40px}
 
   /* Corrección final: las reglas del segmentado anterior no deben pisar el selector circular. */
-  @media (min-width:901px){
+  @media (min-width:900px){
     /* En escritorio, descuento y horario comparten la primera fila; días ocupa el
        ancho completo para que sus siete círculos y «Semanal» quepan en un solo renglón. */
     .adm-f-ooferta .adm-regla{grid-template-columns:minmax(340px,1fr) minmax(300px,1fr)}
@@ -10123,16 +10244,16 @@ $CUENTAS = [
      en los anchos que ya estaban bien (375, 768, 1280, 1920, medidos). Las dos horas de la
      oferta dejan de medir 120 fijos y se reparten el ancho; la cabecera de «Platos mas
      consultados» baja su grupo de periodos a una segunda linea en vez de empujar la caja. */
-  @media (max-width:359px){
+  @media (max-width:359.98px){
     .adm-rango .adm-campo{width:auto;flex:1 1 0;min-width:0}
     .adm-f-cab .der.adm-a-platos{margin-left:0;flex:1 0 100%;justify-content:flex-start}
   }
   /* La frase del reloj cierra la ficha: es un dato de lo que pasa, no el pie de un control. */
   .adm-regla-pie{
     margin:var(--space-4) 0 0;padding-top:var(--space-3);border-top:1px solid var(--sc-border);
-    font-size:var(--t3);line-height:1.5;color:var(--sc-text-2);
+    font-size:var(--t3);line-height:var(--lh-corrido);color:var(--sc-text-2);
   }
-  @media (max-width:900px){
+  @media (max-width:899.98px){
     .adm-regla-dias{flex:1 1 100%}
   }
 
@@ -10141,7 +10262,7 @@ $CUENTAS = [
   @media (max-width:560px){
     .adm-f-ooferta > .adm-f-cab{order:0}
     .adm-f-ooferta > .hint{order:1}
-    .adm-f-ooferta > .adm-regla-pie{order:2;margin-top:var(--space-2);line-height:1.5}
+    .adm-f-ooferta > .adm-regla-pie{order:2;margin-top:var(--space-2);line-height:var(--lh-corrido)}
     .adm-f-ooferta > .adm-oferta-config{order:3;margin-top:var(--space-3)}
 
     /* «La oferta» y «Platos sueltos» son puertas de trabajo, no tarjetas de presentación.
@@ -10182,8 +10303,10 @@ $CUENTAS = [
       padding-right:34px;
     }
   }
-  @media (max-width:900px){.adm-4col{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media (max-width:480px){.adm-4col{grid-template-columns:minmax(0,1fr)}}
+  /* DS-2026: aqui vivian las dos reglas de `.adm-4col` -- cuatro columnas que bajaban a dos
+     y luego a una. La clase esta MUERTA: no la emite ningun PHP del motor y no aparece en el
+     arbol del documento, comprobado con querySelector en las ocho pestanas. Se van las dos, y
+     con ellas el umbral de 480 px que solo existia para ella. */
 
   /* ---- prueba: fichas de categoría en bento, sin acordeón ----
      Las cuarenta categorías se pintan TODAS a la vez. Empezó tres por fila (2 de 6
@@ -10281,7 +10404,7 @@ $CUENTAS = [
   /* Al filtrar por Destacados/Agotados puede quedar vacía la primera columna aunque
      la ficha siga teniendo filas visibles en la segunda. En ese caso la columna restante
      vuelve a ocupar todo el ancho y no queda apiñada contra la derecha. */
-  @media (min-width:901px){
+  @media (min-width:900px){
     .adm-cat-bento-lista:has(> .adm-cat-bento-col:first-child .adm-orow:not([hidden])):not(:has(> .adm-cat-bento-col:nth-child(2) .adm-orow:not([hidden]))){
       grid-template-columns:1fr;
     }
@@ -10339,7 +10462,7 @@ $CUENTAS = [
      pegaba—; `clip` recorta exactamente igual las esquinas redondeadas pero no crea puerto, y
      con él la cabecera se queda clavada en 68. Es la misma lección que R3 acaba de pagar con
      la tira de secciones. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-cat-bento{overflow:clip}
     .adm-cat-bento-cab{
       flex-wrap:nowrap;row-gap:0;padding:0 var(--space-3);min-height:44px;
@@ -10352,7 +10475,7 @@ $CUENTAS = [
      42 px y «Salsa o encurtido a elegir» salia como «Sal…». La fila se parte en dos, con el
      numero y el nombre arriba y los dos precios debajo, el nuevo a la derecha. Igual que en
      el podio y en la lista de platos de Analitica: una sola forma de partir una fila. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-prow{flex-wrap:wrap;row-gap:6px;padding:9px 4px;column-gap:9px}
     .adm-prow-n{order:0}
     .adm-prow-nm{order:1;flex:1 1 calc(100% - 3.4em)}
@@ -10377,7 +10500,7 @@ $CUENTAS = [
   /* Los tres tamaños, también aquí. La cifra de cada ventana va a --t1: es lo mayor de su
      ficha, y una ficha con un título, un chip y un número no necesita un cuarto tamaño para
      que se sepa cuál de los tres es el dato. */
-  .adm-f .dt-cifra-n{font-size:var(--t1);font-weight:600;line-height:1.1;margin:0 0 var(--space-2);letter-spacing:-.01em;color:var(--sc-text);font-variant-numeric:tabular-nums}
+  .adm-f .dt-cifra-n{font-size:var(--t1);font-weight:600;line-height:var(--lh-cifra);margin:0 0 var(--space-2);letter-spacing:-.01em;color:var(--sc-text);font-variant-numeric:tabular-nums}
   .adm-f .dt-lectura{font-size:var(--t1)}
   .adm-f .dt-lectura em{font-size:var(--t3)}
   .adm-f .vp-nom,.adm-f .vp-n{font-size:var(--t2)}
@@ -10441,7 +10564,7 @@ $CUENTAS = [
      y sacaba 13 px de scroll a toda la página: se le deja envolver y se le quita relleno. Y
      el nombre del plato se quedaba en 89 px —«Arroz basmati hervido» recortado a «Arroz
      bas…»—: la fila envuelve y el nombre se lee entero, con las cifras debajo. */
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     .adm-f-cab .der{flex-wrap:wrap;min-width:0}
     .adm-f .vp-per{flex-wrap:wrap;padding:2px}
     .adm-f .vp-per button{padding:0 9px}
@@ -10451,7 +10574,7 @@ $CUENTAS = [
     .adm-f .vp-fila{flex-wrap:wrap;row-gap:1px;column-gap:9px}
     .adm-f .vp-nom{
       flex:1 1 calc(100% - 2.6em);white-space:normal;overflow:visible;text-overflow:clip;
-      line-height:1.35;
+      line-height:var(--lh-compacto);
     }
     .adm-f .vp-n{margin-left:auto}
   }
@@ -10491,7 +10614,7 @@ $CUENTAS = [
     display:flex;flex-direction:column;align-items:center;gap:var(--space-2);text-align:center;
     margin:0 0 var(--space-2);padding:var(--space-6) var(--space-4);
     border:1px dashed var(--sc-input-border);border-radius:var(--radius-lg);
-    color:var(--sc-text-2);font-size:var(--t3);line-height:1.5;
+    color:var(--sc-text-2);font-size:var(--t3);line-height:var(--lh-corrido);
   }
   .adm-vacio svg{width:24px;height:24px;flex:none;stroke-width:2}
 
@@ -10512,7 +10635,7 @@ $CUENTAS = [
   .adm-foto-pos{
     margin-right:auto;min-width:23px;height:23px;padding:0 6px;border-radius:7px;
     background:var(--surface);color:var(--muted);
-    font-size:var(--t3);font-weight:700;display:inline-grid;place-items:center;
+    font-size:var(--t3);font-weight:600;display:inline-grid;place-items:center;
     font-variant-numeric:tabular-nums;
   }
   .adm-foto-b{
@@ -10581,7 +10704,7 @@ $CUENTAS = [
   .adm-color-referencias .adm-color-rot{margin:0 0 var(--space-2)}
   .adm-color-referencias .adm-color-rot span{color:var(--muted)}
   @media (min-width:700px){.adm-google-datos{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}}
-  @media (max-width:699px){.adm-google-dato .adm-lbl{min-height:0}.adm-f-google #op-url{font-size:var(--t3)}}
+  @media (max-width:699.98px){.adm-google-dato .adm-lbl{min-height:0}.adm-f-google #op-url{font-size:var(--t3)}}
   /* Deshacer no es la acción principal de la ficha: a ancho completo pesaba lo mismo que
      Guardar. Vuelve a su ancho natural, alineado a la izquierda con los campos. */
   .adm-color-volver{display:block;width:100%;align-self:stretch;margin-top:var(--space-2)}
@@ -10599,7 +10722,7 @@ $CUENTAS = [
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
   }
   .adm-color-fijo b{font-size:var(--t3);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-  @media (max-width:699px){.adm-color-fijo b{font-size:11px}.adm-color-referencias{margin-top:var(--s3)}}
+  @media (max-width:699.98px){.adm-color-fijo b{font-size:11px}.adm-color-referencias{margin-top:var(--s3)}}
 
   /* ==================================================================== SocialCard V6
      Lo que faltaba para cerrar Marca y Ajustes. Cuatro piezas, todas construidas con
@@ -10728,7 +10851,7 @@ $CUENTAS = [
     background:var(--sc-warn-bg);
     border:1px solid color-mix(in srgb, var(--sc-warn-ink) 30%, transparent);
     border-radius:var(--radius-lg);
-    font-size:var(--t3);line-height:1.5;color:var(--sc-warn-ink);
+    font-size:var(--t3);line-height:var(--lh-corrido);color:var(--sc-warn-ink);
   }
   .adm-aviso-seg svg{width:16px;height:16px;flex:none;stroke-width:2;margin-top:2px}
   .adm-f-super .adm-btn{align-self:flex-start;margin-top:var(--space-3)}
@@ -10748,7 +10871,7 @@ $CUENTAS = [
   .adm-fila-txt{display:grid;gap:2px;min-width:0;flex:1 1 190px}
   .adm-fila-que{
     flex:1 1 190px;min-width:0;margin-right:auto;
-    font-size:var(--t3);font-weight:600;color:var(--ink);line-height:1.4;
+    font-size:var(--t3);font-weight:600;color:var(--ink);line-height:var(--lh-compacto);
   }
   .adm-fila-dato{font-size:var(--t3);color:var(--muted);font-variant-numeric:tabular-nums}
   /* Lo que borra sin vuelta atrás se separa de la lista y se pinta en rojo. */
@@ -10799,7 +10922,7 @@ $CUENTAS = [
      columna de numeros dejaba de ser una columna. */
   .adm-pod .adm-btn-fino{flex:0 0 128px}
   .adm-podio > li:not(:has(button))::after{content:"";flex:0 0 128px}
-  @media (max-width:699px){
+  @media (max-width:699.98px){
     /* Ahi la fila ya envuelve por su cuenta: reservar el hueco solo añadiria una
        linea vacia. Y la puntuacion deja de empujarse a la derecha: en la linea de
        abajo va pegada a la izquierda, con o sin boton detras, o la fila sin nombre
@@ -10881,7 +11004,7 @@ $CUENTAS = [
     .adm-mas-b::before{content:"";position:absolute;top:-8px;bottom:-8px;left:-1px;right:-8px}
   }
   /* Ajuste de distribución de escritorio: los días ocupan su carril y la frecuencia queda centrada. */
-  @media (min-width:901px){
+  @media (min-width:900px){
     .adm-f-ooferta .adm-regla-g.adm-regla-dias{grid-template-columns:minmax(0,1fr) minmax(180px,220px) !important}
     .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias{display:flex;justify-content:space-between;gap:clamp(8px,1.4vw,24px);width:100% !important}
     .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{width:100%;justify-content:center;text-align:center}
@@ -12355,7 +12478,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       (function () {
         var caja = document.querySelector('.adm-ajustar-precios-caja');
         if (!caja) return;
-        var mq = window.matchMedia('(max-width:699px)');
+        var mq = window.matchMedia('(max-width:699.98px)');
         function ajustar(m) { caja.open = !m.matches; }
         ajustar(mq);
         if (mq.addEventListener) mq.addEventListener('change', ajustar);
