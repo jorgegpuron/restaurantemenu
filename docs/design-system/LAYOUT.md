@@ -86,6 +86,28 @@ No hay un sistema de columnas global. Las pantallas usan:
 Es deliberado: un grid de 12 columnas no aporta nada a pantallas que son listas densas. Lo que
 sí es obligatorio es que **los huecos salgan de `--space-…`**.
 
+### La columna de orden: un solo eje
+
+La cabecera de una categoría y las filas de sus platos llevan el mismo control —dos flechas
+para mover— y **tenían que caer en la misma x, porque hacen lo mismo un nivel más arriba**. No
+caían: había **14 px de desvío**, medidos iguales a 320, 375, 768 y 1440 px y en las cuarenta
+fichas.
+
+La causa no era el control sino un relleno: `.adm-cat-bento-lista` llevaba `padding:0 14px`.
+Ese 14 valía dos cosas a la vez —meter las filas en la tarjeta y separarlas de su borde—, y la
+segunda ya la hace cada fila con su propio relleno, que **es el mismo que el de la cabecera**
+(16 en escritorio, 12 en móvil). Así que el 14 sólo desplazaba la lista. A cero, el desvío es
+**0 en los cuatro anchos y en las cuarenta fichas**, sin tocar el alto de la fila (48 / 100) ni
+provocar un píxel de desbordamiento. De paso se va el último valor a mano de esta rejilla: 14
+no está en la escala de espaciado.
+
+**Lo que NO se ha unificado, y es decisión del propietario:** el tamaño DIBUJADO de las
+flechas. Con el dedo, la de la categoría mide 44×44 y la del plato 26 con su halo táctil de
+28×44. Los bordes izquierdos ya coinciden, pero los centros de los dos dibujos no —9 px—, y
+alinearlos exige que las dos cajas midan lo mismo. Hacerlo bajaría el objetivo táctil de la
+cabecera de 44×44 a 28×44: sigue por encima del mínimo de WCAG 2.5.8 (24×24) pero por debajo
+del 44 que el encargo prefiere. **No se toca sin que el propietario lo diga.**
+
 ## 6. Pegajosos y scroll
 
 - La cabecera es `sticky` con fondo translúcido.

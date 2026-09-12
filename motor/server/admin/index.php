@@ -5119,7 +5119,10 @@ $CUENTAS = [
        El desvio NO se tokeniza: los tres valores en uso (2, 1 y -2) estan dimensionados
        al hueco real de cada pieza, y unificarlos solaparia anillos con el vecino. */
     --focus-grosor:2px;
-    --focus-color:var(--sc-primary);
+    /* El anillo es un indicador de foco, y eso lo cubre 1.4.11: 3:1 contra lo que tiene al
+       lado. Con el 500 daba 2.65 sobre la tarjeta en claro. Con el token grafico da 3.72,
+       y en oscuro no cambia nada porque alli grafico ES el primario. */
+    --focus-color:var(--sc-primary-grafico);
     --focus-anillo:var(--focus-grosor) solid var(--focus-color);
     --focus-desvio:2px;
   }
@@ -5212,6 +5215,15 @@ $CUENTAS = [
     --c-naranja-300:#FFB877;
     --c-naranja-400:#FF8A3D;
     --c-naranja-500:#FF7517;
+    /* FASE 6 — los dos naranjas que SI se leen sobre fondo claro. No es un capricho de
+       paleta: el 500 como TINTA sobre la crema da 2.65:1, y la norma pide 3:1 si es el
+       dibujo de un icono (WCAG 1.4.11) y 4.5:1 si es texto pequeno (1.4.3). El 600 es el
+       minimo que llega a 3 sobre los TRES fondos claros del panel —tarjeta #FFFDFB,
+       tablero #F5F1EC y apagado #EBE5DD— y el 700 el minimo que llega a 4.5.
+       Medidos: 600 -> 3.72 / 3.36 / 3.02 · 700 -> 5.61 / 5.06 / 4.55.
+       En oscuro no hacen falta: el 400 sobre esos fondos ya da 7.29 / 8.02 / 6.52. */
+    --c-naranja-600:#D36316;
+    --c-naranja-700:#A34F16;
     --c-naranja-800:#8A3F08;
     --c-naranja-900:#33231A;
 
@@ -5257,6 +5269,17 @@ $CUENTAS = [
        crema), asi que panel y carta dicen lo mismo. Queda escrito aqui para que nadie lo
        "arregle" dentro de seis meses creyendo que se coló. */
     --sc-primary-ink:var(--c-n-0);
+    /* El naranja cuando hace de TINTA y no de relleno. Son dos y no uno porque la norma
+       pide dos cosas distintas: 3:1 para un dibujo y 4.5:1 para texto pequeno.
+       Medido antes en claro, y los seis sitios estaban por debajo: el icono de la camara
+       encendida 2.65 (2.15 con el raton encima), el icono de la barra movil activa 2.25,
+       el de «A mano, uno a uno» 2.65, la ruta de categoria del alta 2.65, y los dos
+       rotulos de campo obligatorio 2.65 contra el 4.5 que les toca por ser texto.
+       El RELLENO no cambia: --sc-primary sigue siendo el 500, con su excepcion de tinta
+       crema aprobada y escrita justo arriba. Esto es solo para cuando el naranja ES el
+       dibujo o la letra. */
+    --sc-primary-grafico:var(--c-naranja-600);
+    --sc-primary-texto:var(--c-naranja-700);
     --sc-selected-bg:var(--c-naranja-50);
     --sc-selected-text:var(--c-naranja-800);
     --sc-muted-bg:var(--c-n-150);
@@ -5315,6 +5338,11 @@ $CUENTAS = [
     --sc-primary:var(--c-naranja-400);
     /* Misma decision en oscuro: crema sobre el naranja, 2.31:1. Ver el bloque claro. */
     --sc-primary-ink:var(--c-n-0);
+    /* En oscuro el primario ya se lee de sobra como tinta —7.29 sobre la tarjeta, 8.02
+       sobre el tablero, 6.52 sobre el apagado—, asi que los dos apuntan a el: el panel no
+       estrena un naranja distinto por tema sin necesitarlo. */
+    --sc-primary-grafico:var(--sc-primary);
+    --sc-primary-texto:var(--sc-primary);
     --sc-selected-bg:var(--c-naranja-900);
     --sc-selected-text:var(--c-naranja-300);
     --sc-muted-bg:var(--c-n-820);
@@ -6181,7 +6209,9 @@ $CUENTAS = [
   .adm-navmovil-item svg{width:20px;height:20px}
   .adm-navmovil-item:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
   .adm-navmovil-item.on{color:var(--sc-selected-text);font-weight:600}
-  .adm-navmovil-item.on svg{color:var(--sc-primary)}
+  /* 2.25:1 medido: es el peor de los seis, porque el carril de la barra movil es mas
+     oscuro que la tarjeta y come contraste. Y es el icono que dice DONDE estas. */
+  .adm-navmovil-item.on svg{color:var(--sc-primary-grafico)}
 
   /* ---- hoja «Más» ---- */
   #velo-sheet{
@@ -7120,10 +7150,13 @@ $CUENTAS = [
   }
   .camara svg{width:16px;height:16px}
   .camara:hover{opacity:1;background:var(--sc-muted-bg);color:var(--sc-text)}
-  .camara.tiene{color:var(--sc-primary);opacity:1}
+  /* El naranja aqui es el DIBUJO del icono, no un relleno: pide 3:1 contra la tarjeta
+     (WCAG 1.4.11) y con el 500 daba 2.65, y 2.15 con el raton encima, que oscurece el
+     fondo. Medido en el navegador con las capas compuestas, no a ojo. */
+  .camara.tiene{color:var(--sc-primary-grafico);opacity:1}
   .camara.tiene::after{
     content:"";position:absolute;right:3px;top:3px;
-    width:6px;height:6px;border-radius:50%;background:var(--sc-primary);
+    width:6px;height:6px;border-radius:50%;background:var(--sc-primary-grafico);
   }
   .camara:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
 
@@ -7158,7 +7191,7 @@ $CUENTAS = [
   .recorte .zoom{width:100%;margin:var(--s2) 0 0;accent-color:var(--accent)}
   .recorte .err{margin:var(--s2) 0 0;color:var(--ui-state-error);font-size:var(--t2)}
   .recorte .err:empty{display:none}
-  .camara.cargando{opacity:1;color:var(--p-accent-stroke)}
+  .camara.cargando{opacity:1;color:var(--sc-primary-grafico)}
   .camara.cargando svg{animation:latir 900ms ease-in-out infinite}
   @keyframes latir{0%,100%{opacity:.35}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){ .camara.cargando svg{animation:none} }
@@ -7765,6 +7798,10 @@ $CUENTAS = [
     --sc-canvas:var(--c-n-950); --sc-surface:var(--c-n-850);
     --sc-text:var(--c-n-25); --sc-text-2:var(--c-n-400); --sc-border:var(--c-n-750);
     --sc-primary:var(--c-naranja-400); --sc-primary-ink:var(--c-n-0);
+    /* La puerta es oscura fija, asi que sus dos tintas son el primario, como en el tema
+       oscuro. Se redeclaran aqui porque quien redefine --sc-primary tiene que redefinir
+       tambien lo que se derive de el, o el bloque queda diciendo dos cosas. */
+    --sc-primary-grafico:var(--sc-primary); --sc-primary-texto:var(--sc-primary);
     --sc-muted-bg:var(--c-n-820); --sc-input-bg:var(--c-n-950); --sc-input-border:var(--c-n-600);
     --sc-bad-bg:var(--c-rojo-900); --sc-bad-ink:var(--c-rojo-300); --ui-state-error:var(--c-rojo-300);
     /* .msg (el aviso de error) es del sistema general y pide --t2: sin .card-main como
@@ -8837,7 +8874,7 @@ $CUENTAS = [
        pero pegada a ellos, no en la otra punta de la fila. */
     flex:0 0 auto;min-width:212px;min-height:40px;margin-left:var(--space-2);font-size:var(--t2);
   }
-  .adm-ajustar-precios-mano svg{color:var(--sc-primary)}
+  .adm-ajustar-precios-mano svg{color:var(--sc-primary-grafico)}
   @media (max-width:699.98px){
     /* Al envolver, el campo del porcentaje libre y "a mano" ocupan su linea entera: en
        media fila se leerian como sobras de la de arriba. */
@@ -9010,7 +9047,9 @@ $CUENTAS = [
     font-size:var(--t4);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
     color:var(--sc-text-2);
   }
-  .adm-alta-ruta-cat{color:var(--sc-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Es texto —el nombre de la categoria en la que va a caer el plato—, asi que le toca el
+     4.5:1 de texto pequeno y no el 3:1 de dibujo. */
+  .adm-alta-ruta-cat{color:var(--sc-primary-texto);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .adm-alta-ruta-cat:empty{display:none}
   .adm-alta-ruta-cat:empty + *,.adm-alta-ruta span[aria-hidden]:has(+ .adm-alta-ruta-cat:empty){display:none}
   .adm-alta-x{
@@ -9059,8 +9098,11 @@ $CUENTAS = [
      «Opcional» son de ese campo y no merecen un renglon propio. */
   .adm-alta-et-fila{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3);min-width:0}
   .adm-alta-ayuda{font-size:var(--t4);font-weight:400;color:var(--sc-text-2)}
-  .adm-alta-obl{font-size:var(--t4);font-weight:600;color:var(--sc-primary)}
-  .adm-alta-req{color:var(--sc-primary)}
+  /* «Obligatorio» y su marca son texto de 12 y 13 px: 4.5:1. Con el 500 daban 2.65, que en
+     un rotulo que avisa de que un campo no se puede dejar vacio es justo donde no se puede
+     estar. */
+  .adm-alta-obl{font-size:var(--t4);font-weight:600;color:var(--sc-primary-texto)}
+  .adm-alta-req{color:var(--sc-primary-texto)}
   /* Las pestanas de idioma. Se ven las tres, se rellena una: la activa levanta con el fondo
      de la superficie sobre el carril gris, que es como se lee «esta es la que estas viendo»
      sin gastar un borde. */
@@ -10399,7 +10441,16 @@ $CUENTAS = [
      antes — se colapsa a una sola, y entonces es esa única columna la que usa el ancho
      completo. Sin tope de alto ni scroll propio: una ficha a todo lo ancho no le quita
      sitio a ninguna vecina por crecer, así que crece lo que le haga falta. */
-  .adm-cat-bento-lista{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;padding:0 14px}
+  /* FASE 6 — la columna de orden, una sola.
+     Este relleno de 14 valia dos cosas a la vez: meter las filas dentro de la tarjeta, y
+     separarlas de su borde. La segunda ya la hace la fila con su propio relleno (16 en
+     escritorio, 12 en movil, los mismos que la cabecera de la ficha), asi que este 14 solo
+     estaba desplazando la lista 14 px a la derecha de su cabecera — y con ella las flechas
+     de mover el plato, que asi no caian nunca en el mismo eje que las de mover la
+     categoria. Medido antes: 14 px de desvio a 320, 375, 768 y 1440, en las cuarenta
+     fichas. Y 14 no esta en la escala de espaciado: era el ultimo valor a mano de esta
+     rejilla. A cero, la fila y la cabecera comparten eje porque comparten relleno. */
+  .adm-cat-bento-lista{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;padding:0}
   .adm-cat-bento-lista:has(> .adm-cat-bento-col:nth-child(2):empty){grid-template-columns:1fr}
   /* Al filtrar por Destacados/Agotados puede quedar vacía la primera columna aunque
      la ficha siga teniendo filas visibles en la segunda. En ese caso la columna restante

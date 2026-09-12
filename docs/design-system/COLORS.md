@@ -109,4 +109,34 @@ Medido sobre las ocho pestañas en los dos temas, con composición de capas tran
 EXCEPTION — OWNER APPROVED*. La alternativa que sí cumplía —hundir el naranja a `#B44A08`— se
 descartó porque ese es el quemado que esta paleta vino a sustituir.
 
+### El naranja como relleno y el naranja como tinta son dos cosas
+
+La excepción de arriba es sobre el **relleno**: naranja de fondo, crema encima. Cuando el
+naranja es la **tinta** —el dibujo de un icono, una letra, el anillo de foco— no hay excepción
+que valga, porque lo que se mide es el naranja contra la crema, y ahí sale 2,65:1.
+
+Así que hay tres naranjas y cada uno tiene su trabajo:
+
+| Token | Claro | Oscuro | Para qué |
+|---|---|---|---|
+| `--sc-primary` | `#FF7517` | `#FF8A3D` | **relleno**: el botón primario, la pista del interruptor |
+| `--sc-primary-grafico` | `#D36316` | = primary | **dibujo**: iconos, el anillo de foco. ≥3:1 |
+| `--sc-primary-texto` | `#A34F16` | = primary | **letra pequeña**. ≥4,5:1 |
+
+Los dos derivados salen de acercar el primario a la tinta oscura **hasta el primer valor que
+cumple sobre los tres fondos claros del panel** (tarjeta `#FFFDFB`, tablero `#F5F1EC`, apagado
+`#EBE5DD`), no de elegir un tono a ojo. Medido: `#D36316` da 3,72 / 3,36 / 3,02 y `#A34F16` da
+5,61 / 5,06 / 4,55.
+
+En oscuro los dos apuntan al primario porque ya cumple de sobra: 7,29 / 8,02 / 6,52. **Un tema
+no estrena un color que no necesita.**
+
+**Y la regla que queda escrita:** si mañana el icono de la cámara —o cualquier otro— tuviera que
+seguir el color de marca del cliente, no puede usar `--accent` a pelo. Con la marca de Tinge se
+ve, pero un amarillo `#FFC107` da 1,61:1 sobre la tarjeta clara y un verde `#8BC34A` da 2,07:1:
+invisibles los dos. Haría falta derivar el equivalente de `--accent` por la misma regla, con las
+funciones de color que el panel ya tiene en PHP (`color_luz`, `color_contraste`,
+`color_mezcla`) — las mismas que ya derivan `--badge-ink`. **No está hecho, porque hoy ningún
+icono sigue la marca.** Está escrito aquí para que el día que se pida no se haga a ojo.
+
 Detalle en [ACCESSIBILITY.md](ACCESSIBILITY.md).

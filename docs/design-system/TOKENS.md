@@ -25,7 +25,11 @@ son parches heredados en retirada, listados al final.
 | `--c-n-400` | `#B8ADA3` | `--c-n-950` | `#14110F` |
 
 **Naranja** — `--c-naranja-50` `#FFE9D6` · `-300` `#FFB877` · `-400` `#FF8A3D` · `-500`
-`#FF7517` · `-800` `#8A3F08` · `-900` `#33231A`
+`#FF7517` · `-600` `#D36316` · `-700` `#A34F16` · `-800` `#8A3F08` · `-900` `#33231A`
+
+El 600 y el 700 no son relleno de escala: son **los dos naranjas que se leen sobre fondo
+claro**. El 600 es el primer valor que llega a 3:1 sobre los tres fondos claros del panel y el
+700 el primero que llega a 4,5:1. Ver [COLORS.md](COLORS.md#6-contraste).
 
 **Estados** — verde `50 #E6F2EC · 300 #6FD3A6 · 700 #20624A · 900 #1B3A2C` · ámbar
 `50 #FBEFD9 · 300 #EFC578 · 700 #84540A · 900 #3A3020` · rojo
@@ -47,8 +51,10 @@ son parches heredados en retirada, listados al final.
 | `--sc-input-border` | `n-350` | `n-600` | pista del interruptor apagado, borde fuerte |
 | `--sc-muted-bg` | `n-150` | `n-820` | fondo apagado (chip, contador) |
 | `--sc-hover-bg` | `n-200` | `n-800` | hover |
-| `--sc-primary` | `naranja-500` | `naranja-400` | **color de producto** |
+| `--sc-primary` | `naranja-500` | `naranja-400` | **color de producto**, como RELLENO |
 | `--sc-primary-ink` | `n-0` | `n-0` | tinta sobre el primario |
+| `--sc-primary-grafico` | `naranja-600` | = primary | el primario como DIBUJO: iconos, anillo de foco. ≥3:1 |
+| `--sc-primary-texto` | `naranja-700` | = primary | el primario como LETRA pequeña. ≥4,5:1 |
 | `--sc-selected-bg` | `naranja-50` | `naranja-900` | pastilla del destino activo |
 | `--sc-selected-text` | `naranja-800` | `naranja-300` | su texto |
 | `--sc-ok-bg` / `-ink` | `verde-50` / `-700` | `verde-900` / `-300` | éxito |
@@ -78,7 +84,7 @@ concretas y ya tenían valor correcto en los dos temas.
 
 ```css
 --focus-grosor:2px;
---focus-color:var(--sc-primary);
+--focus-color:var(--sc-primary-grafico);
 --focus-anillo:var(--focus-grosor) solid var(--focus-color);
 --focus-desvio:2px;
 ```

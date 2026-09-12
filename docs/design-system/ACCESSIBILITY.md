@@ -15,6 +15,36 @@ Umbrales: **4,5:1** texto normal · **3:1** texto grande (≥24 px, o ≥18,66 p
 | Botón primario naranja (`.save`, `.adm-btn-guardar`, `.adm-alta-si`) | 2,65:1 | 2,31:1 | **KNOWN EXCEPTION — OWNER APPROVED** |
 | Todo lo demás, ocho pestañas × dos temas | ≥ 4,5:1 | ≥ 4,5:1 | pasa |
 
+### Corrección: el naranja como TINTA también fallaba, en seis sitios
+
+Esa tabla sólo mira el naranja como **relleno**. Barriendo el documento por color computado
+—todo elemento cuyo `color` resuelve al primario, con las capas compuestas y el fondo efectivo
+de su ancestro pintado— aparecieron **seis usos del naranja como tinta, y los seis por debajo
+del umbral en tema claro**. Ninguno estaba en la auditoría anterior porque la tabla se hizo por
+piezas y no por barrido, y cuatro de los seis viven en pantallas que hay que abrir.
+
+| Pieza | Antes (claro) | Pide | Después |
+|---|---|---|---|
+| Icono de la barra móvil activa (`.adm-navmovil-item.on svg`) | **2,25:1** | 3:1 | 3,15:1 |
+| Icono de la cámara encendida (`.camara.tiene`) | 2,65:1 | 3:1 | 3,72:1 |
+| …el mismo, con el puntero encima (fondo apagado) | **2,15:1** | 3:1 | 3,02:1 |
+| Su punto indicador (`.camara.tiene::after`) | 2,65:1 | 3:1 | 3,72:1 |
+| Icono de «A mano, uno a uno» | 2,65:1 | 3:1 | 3,72:1 |
+| Ruta de categoría del alta (`.adm-alta-ruta-cat`, texto 12 px) | 2,65:1 | 4,5:1 | 5,61:1 |
+| «Obligatorio» y su marca (`.adm-alta-obl`, `.adm-alta-req`, texto 12 y 13 px) | 2,65:1 | 4,5:1 | 5,61:1 |
+| **El anillo de foco** (`--focus-color`) | 2,65:1 | 3:1 | 3,72:1 |
+
+El arreglo no es retocar ocho reglas: son **dos tokens nuevos**, `--sc-primary-grafico` (3:1) y
+`--sc-primary-texto` (4,5:1), y las ocho reglas apuntan a ellos. Ver
+[COLORS.md](COLORS.md) y [TOKENS.md](TOKENS.md).
+
+**En oscuro no hacía falta tocar nada** y no se ha tocado: los dos tokens apuntan al propio
+primario, y lo peor medido allí es 7,29:1.
+
+Y el anillo de foco importa aparte: un indicador de foco entra en 1.4.11, así que su 2,65:1 en
+claro era un fallo AA en el control de accesibilidad más usado del panel. Es el mismo anillo que
+en septiembre se unificó para que no dependiera del color de marca; ahora también se lee.
+
 Sobre la excepción: es **decisión expresa del propietario**, con el coste medido y aceptado. La
 alternativa que sí cumplía —hundir el relleno a `#B44A08` y quedarse la crema en 4,76— se
 descartó porque ese naranja quemado es el que esta paleta vino a sustituir. La carta pública
