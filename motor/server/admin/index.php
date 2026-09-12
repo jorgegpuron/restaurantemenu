@@ -4976,7 +4976,11 @@ $CUENTAS = [
          y se veria el parpadeo. Sin dependencias: lee localStorage y pone la clase. */ ?>
 <script>
   (function () {
-    var m = 'light';
+    /* Oscuro por defecto (12 Sep 2026, orden del propietario): la puerta ya era oscura fija
+       desde «Bienvenida» -- con esto el panel de dentro deja de contradecirla la primera
+       vez que alguien entra sin preferencia guardada. Quien ya eligió "Claro" a mano
+       (localStorage) lo sigue viendo: esto sólo cambia el valor de fábrica. */
+    var m = 'dark';
     try { var g = localStorage.getItem('socialcard-color-mode'); if (g === 'dark' || g === 'light') m = g; } catch (e) {}
     document.documentElement.classList.add(m);
     /* Aqui arriba y no en el script del final: si la barra se plegara despues de pintar, en
@@ -7750,7 +7754,11 @@ $CUENTAS = [
   .clave-mascara{
     position:absolute;
     inset:0;
-    display:flex;align-items:center;justify-content:center;
+    /* justify-content:flex-start, no center: la puerta escribe el título y el campo a la
+       izquierda (ver .login-puerta-inner, text-align:left) -- centrar sólo los asteriscos
+       los desalineaba del titular de encima, con el texto real (transparente, debajo)
+       empezando en el borde izquierdo como cualquier campo normal. */
+    display:flex;align-items:center;justify-content:flex-start;
     /* 2px, no --s3: tiene que medir EXACTAMENTE lo mismo que .login-puerta-campo input
        (mismo box, mismo padding) o los asteriscos se desalinean del texto real de debajo. */
     padding:0 2px;
@@ -9157,12 +9165,18 @@ $CUENTAS = [
      declaracion del fondo se caia entera —y el `color:#fff` de al lado no, porque es otra
      declaracion— y el boton salia con texto blanco sobre blanco: invisible. El cuadro se veia
      con un solo boton, «Cancelar», y no habia forma de confirmar nada. */
+  /* Rojo fijo, no var(--sc-bad-ink): ese token es la INK -- el texto que se pone ENCIMA de
+     un fondo, y se aclara a propósito en oscuro para seguir legible ahí (igual que
+     --sc-primary-ink). Usarlo como FONDO de un botón funcionaba en claro por casualidad
+     (#C62828, ya saturado) pero se rompía en oscuro (#FF8D87, aclarado): texto blanco a
+     2.23:1, casi invisible. El rojo de peligro no necesita cambiar de tono entre temas —
+     medido al poner oscuro por defecto el 12 Sep 2026 (E2E-UX-CONFIRMA-01). */
   .adm-modal[data-tono="peligro"] .adm-modal-si{
-    border-color:var(--sc-bad-ink);background:var(--sc-bad-ink);color:#fff;
+    border-color:#C62828;background:#C62828;color:#fff;
   }
   .adm-modal[data-tono="peligro"] .adm-modal-si:hover{
-    background:color-mix(in srgb, var(--sc-bad-ink) 88%, black);
-    border-color:color-mix(in srgb, var(--sc-bad-ink) 88%, black);
+    background:color-mix(in srgb, #C62828 88%, black);
+    border-color:color-mix(in srgb, #C62828 88%, black);
   }
   @keyframes adm-modal-fondo{from{opacity:0}to{opacity:1}}
   @keyframes adm-modal-caja{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}

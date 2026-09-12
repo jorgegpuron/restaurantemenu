@@ -2004,11 +2004,16 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
     await esperar(150);
   };
   const t0 = await leerTema();
-  informe.comprueba('E2E-TE-01', 'sin preferencia guardada el panel arranca en claro, con «Claro» marcado en las dos copias del selector',
-    t0.light && !t0.dark && t0.copias === 2 && t0.botones === 4 && t0.grupo === 'group'
-      && t0.pulsados.length === 2 && t0.pulsados.every((x) => x === 'light') && t0.guardado === null,
+  informe.comprueba('E2E-TE-01', 'sin preferencia guardada el panel arranca en oscuro (de fábrica desde el 12 Sep 2026, para no contradecir la puerta), con «Oscuro» marcado en las dos copias del selector',
+    t0.dark && !t0.light && t0.copias === 2 && t0.botones === 4 && t0.grupo === 'group'
+      && t0.pulsados.length === 2 && t0.pulsados.every((x) => x === 'dark') && t0.guardado === null,
     JSON.stringify(t0));
   pagina.limpiarRegistro();
+  /* Ya arranca en oscuro (de fábrica): pulsar «Oscuro» sobre lo que ya está activo NO escribe
+     en localStorage -- medido, no supuesto (el botón sólo persiste en una transición real).
+     Se pasa primero por «Claro» para que el segundo clic sea un cambio de verdad, y de paso
+     queda en oscuro para las pruebas de aquí abajo, que dan por hecho que lo está. */
+  await pulsaTema('light');
   await pulsaTema('dark');
   const t1 = await leerTema();
   informe.comprueba('E2E-TE-02', 'pulsar «Oscuro» cambia el tema, lo anuncia con aria-pressed en las dos copias y lo recuerda en localStorage',
@@ -2072,10 +2077,11 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
   const t4 = await leerTema();
   informe.comprueba('E2E-TE-10', 'pulsar «Claro» vuelve al tema claro y lo recuerda',
     t4.light && t4.guardado === 'light' && t4.pulsados.every((x) => x === 'light'), JSON.stringify(t4));
-  const otra = await nuevaPagina(navegador, { colorScheme: 'dark' });
+  const otra = await nuevaPagina(navegador, { colorScheme: 'light' });
   await otra.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
   const recepcion = await otra.evaluate(() => ({ clase: document.documentElement.className, fondo: getComputedStyle(document.body).backgroundColor }));
-  informe.pass('E2E-TE-11', 'una sesión nueva sin preferencia arranca en claro aunque el sistema prefiera oscuro (decisión del guion del <head>)', JSON.stringify(recepcion));
+  informe.comprueba('E2E-TE-11', 'una sesión nueva sin preferencia arranca en oscuro aunque el sistema prefiera claro (de fábrica desde el 12 Sep 2026, decisión del guion del <head>)',
+    /(^| )dark( |$)/.test(recepcion.clase) && !/(^| )light( |$)/.test(recepcion.clase), JSON.stringify(recepcion));
 
   /* ---- la excepción de contraste, registrada ----
    * La tinta crema sobre el naranja de marca NO llega al 4,5:1 de WCAG AA. Es una decisión
@@ -2117,6 +2123,12 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
   const rec = await nuevaPagina(navegador, { viewport: { width: 1440, height: 900 } });
   try {
     await entrarAlPanel(rec, url);
+    /* Explícito, los dos: desde el 12 Sep 2026 el panel arranca en oscuro sin preferencia
+       guardada (E2E-TE-01/11), así que sin este localStorage.setItem la medida "claro" de
+       aquí abajo mediría oscuro dos veces y la comparación dejaría de tener sentido. */
+    await rec.evaluate(() => localStorage.setItem('socialcard-color-mode', 'light'));
+    await rec.reload({ waitUntil: 'domcontentloaded' });
+    await esperar(300);
     const claroM = await razonInsignia(rec);
     await rec.evaluate(() => localStorage.setItem('socialcard-color-mode', 'dark'));
     await rec.reload({ waitUntil: 'domcontentloaded' });
