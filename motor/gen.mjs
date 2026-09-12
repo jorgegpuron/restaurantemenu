@@ -332,8 +332,11 @@ export const TOKENS = cssMarca(COLOR_PRINCIPAL) + `:root{
   --escala:1;
 
   /* El hueco de la linea de numero y etiquetas. Fijo, porque lo que va dentro tambien lo es:
-     las etiquetas no escalan. */
-  --tags-line:22px;   /* the number/flag line on phones — the price offsets by it */
+     las etiquetas no escalan. 18, el alto real de un badge -- no 22: .item-tags es flex
+     ahora, no un renglon de texto con line-height, y una sola linea de badges mide justo
+     eso. Solo se usa antes de que el ResizeObserver de --tags-h mida la real (ver el JS
+     junto a render()); con varias lineas ya no vale y por eso existe --tags-h. */
+  --tags-line:18px;   /* the number/flag line on phones — the price offsets by it */
 }
 `;
 
@@ -4135,18 +4138,31 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      with the highlight flag beside the number when a dish has one */
   .item-id{display:none}
   /* El número, en la misma línea que el nombre. La línea de etiquetas sólo existe cuando hay
-     una etiqueta que enseñar: la pone el runtime con .has-tags o con .is-sold-out. */
+     una etiqueta que enseñar: la pone el runtime con .has-tags o con .is-sold-out. Sin
+     width:max-content -- eso forzaba una sola línea y sacaba los badges sobrantes fuera de
+     la pantalla en vez de envolverlos: con destacado+dieta+agotado juntos a 320-390px no
+     caben en una línea, y así ES el caso que hay que resolver, no evitar.
+     flex + flex-wrap, no block con hijos inline: con texto envuelto por línea normal, el
+     hueco vertical entre líneas salía de 4px la mayoría de las veces pero de 2px justo al
+     salir de una línea que era solo .diet-marks (inline-flex, no inline-block como el resto
+     de .item-tag -- afecta a como cada línea envuelta calcula su alto). Medido y comprobado
+     en aislado: con flex+row-gap el hueco es 2px SIEMPRE, sea cual sea el badge de cada
+     línea. El espaciado horizontal entre badges de la misma línea lo siguen poniendo sus
+     propios margin-right (ver mas abajo), flex no lo cambia. */
   .item-tags{display:none}
   .has-tags .item-tags,
-  .is-sold-out .item-tags{display:block;width:max-content;margin:0 0 5px;line-height:var(--tags-line)}
+  .is-sold-out .item-tags{display:flex;flex-wrap:wrap;align-items:center;row-gap:2px;margin:0 0 5px}
   .item-badge{display:inline}
   .item-tag{vertical-align:1px}
   .diet-marks{vertical-align:1px}
   /* That line pushes the dish name down, so the price follows it rather than sitting up
      beside the number. The row carries the class from the generator instead of :has(),
-     so alignment does not depend on selector support. */
+     so alignment does not depend on selector support.
+     --tags-h la mide un ResizeObserver por fila (ver el JS junto a render()): con un badge de
+     mas la línea envuelve a una segunda y el valor fijo de una línea dejaba el precio encima,
+     tapado por el propio badge. Sin ResizeObserver cae al valor de una línea de siempre. */
   .single-menu-items.has-tags .price,
-  .single-menu-items.is-sold-out .price{padding-top:calc(var(--tags-line) + 5px)}
+  .single-menu-items.is-sold-out .price{padding-top:calc(var(--tags-h, var(--tags-line)) + 5px)}
   .item-badge-icon svg{vertical-align:-2px;width:15px;height:15px}
   .single-menu-items .details{gap:0}
   /* measured at 390px across all 326 names: 278 fit one line, 46 two, 2 three */
@@ -6217,6 +6233,22 @@ ${sheet}
   document.addEventListener('${CLIENTE.slug}:lang', render);
   setInterval(render, 30000);          // el reloj: abre y cierra la franja de oferta sola
   render();
+
+  /* --tags-h por fila: la altura real de su línea de badges en móvil, para que el precio
+     baje lo que haga falta cuando envuelve a una segunda línea (ver el CSS de .price mas
+     arriba). Un ResizeObserver por elemento en vez de recalcular a mano en cada render():
+     reacciona solo a giro de pantalla, cambio de idioma (textos mas largos envuelven antes)
+     y a que el propio has-tags/is-sold-out lo saque de display:none. Sin soporte, la regla
+     CSS cae sola al valor fijo de una línea de siempre -- no empeora. */
+  if ('ResizeObserver' in window) {
+    var roTags = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var fila = entry.target.closest('.single-menu-items');
+        if (fila) fila.style.setProperty('--tags-h', entry.target.offsetHeight + 'px');
+      });
+    });
+    document.querySelectorAll('.item-tags').forEach(function (el) { roTags.observe(el); });
+  }
 
   /* El estado se vuelve a pedir cada minuto y al volver a la pestaña. Sin esto, la cocina
      guarda un agotado o enciende una oferta y una carta ya abierta —la del cliente que está
