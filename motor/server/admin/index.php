@@ -7651,8 +7651,12 @@ $CUENTAS = [
      mas abajo en este fichero, que la suprime ahí para esta pantalla. */
   .login-puerta-chapa{margin:4px 0 0;font-size:11px;line-height:1.4;color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
   .login-puerta-chapa--sinfoto{color:var(--sc-text-2);opacity:1}
-  .login-puerta-panel{display:flex;align-items:center;justify-content:center;padding:var(--s4) var(--s3);background:var(--sc-surface)}
-  .login-puerta.sin-foto .login-puerta-panel{background:var(--sc-canvas)}
+  /* --login-puerta-campo-fondo va IGUAL que el `background` de esta regla en los dos casos:
+     lo usa el truco de :-webkit-autofill de mas abajo para que el relleno del campo se
+     confunda con lo que tiene detrás, no con un tono fijo que sólo acierta en uno de los
+     dos fondos posibles (con foto es --sc-surface; sin foto, --sc-canvas). */
+  .login-puerta-panel{display:flex;align-items:center;justify-content:center;padding:var(--s4) var(--s3);background:var(--sc-surface);--login-puerta-campo-fondo:var(--sc-surface)}
+  .login-puerta.sin-foto .login-puerta-panel{background:var(--sc-canvas);--login-puerta-campo-fondo:var(--sc-canvas)}
   .login-puerta-inner{width:100%;max-width:320px;text-align:left}
   @media (prefers-reduced-motion:no-preference){
     .login-puerta-inner{animation:login-puerta-form 320ms var(--ease-out) both}
@@ -7728,13 +7732,16 @@ $CUENTAS = [
   .clave-campo input.con-mascara:-webkit-autofill:hover,
   .clave-campo input.con-mascara:-webkit-autofill:focus{
     -webkit-text-fill-color:transparent;
-    /* var(--sc-input-bg), no #fff a secas: esta regla la usa SOLO el campo de la puerta
-       (.clave-campo no aparece en ningún otro formulario), y desde que la puerta es oscura
-       fija, un blanco fijo aquí pintaba una caja blanca encima del campo transparente en
-       cuanto el navegador tenía la contraseña recordada -- se ve incluso sin haber tecleado
-       nada, en el primer pintado con autorrelleno. */
-    -webkit-box-shadow:0 0 0 100px var(--sc-input-bg) inset;
-    box-shadow:0 0 0 100px var(--sc-input-bg) inset;
+    /* var(--login-puerta-campo-fondo), no #fff a secas: esta regla la usa SOLO el campo de la
+       puerta (.clave-campo no aparece en ningún otro formulario), y desde que la puerta es
+       oscura fija, un blanco fijo aquí pintaba una caja blanca encima del campo transparente
+       en cuanto el navegador tenía la contraseña recordada -- se ve incluso sin haber
+       tecleado nada, en el primer pintado con autorrelleno. Un solo tono oscuro fijo tampoco
+       vale: con foto el fondo detrás del campo es --sc-surface y sin foto es --sc-canvas, dos
+       grises distintos -- de ahí la variable, que ya vale lo correcto en cada caso (ver
+       .login-puerta-panel, mas arriba). */
+    -webkit-box-shadow:0 0 0 100px var(--login-puerta-campo-fondo) inset;
+    box-shadow:0 0 0 100px var(--login-puerta-campo-fondo) inset;
   }
   .clave-mascara{
     position:absolute;
