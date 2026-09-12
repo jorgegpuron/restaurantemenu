@@ -5563,3 +5563,22 @@ reapunta a `.save` (mismo `--sc-primary`/`--sc-primary-ink` que sigue usando el 
 panel — "Guardar cambios", etc.), que es el proxy real que queda. `E2E-RS-*` sólo comprobaba
 que el botón de la recepción no desbordaba: ahí el cambio es sólo de selector
 (`.login button` → `.login-puerta button`).
+
+## La puerta, tres retoques del propietario (12 Sep 2026)
+
+Tres cambios pequeños, pedidos ya con "Bienvenida" en producción:
+
+- **El titular ya no es "Bienvenido de nuevo": es "Consola de administración".** Sólo el
+  texto — la geometría, el tamaño (32px) y el resto de la puerta no cambian.
+- **Los asteriscos de `.clave-mascara` pasan de `var(--ink)` a `var(--sc-primary)`.**
+  `--ink` es un alias de `.card-main` (`--ink:var(--sc-text)`), que la puerta no tiene desde
+  que dejó de usarlo; sin ese ancestro el asterisco heredaba el color YA CALCULADO del
+  `<body>` claro (el `color` de un `var()` que apunta a nada cae al valor heredado, no al de
+  `:root` — la resolución de la variable pasa por el ancestro donde el `color` real se
+  declaró, y ese ancestro aquí es el `<body>` de fuera de la puerta). Apenas se leía sobre el
+  campo oscuro. El naranja es explícito y a propósito, no una herencia accidental.
+- **El icono de pestaña de Tinge** (`assets/titleIcon-accent.svg`, el que el motor NO toca
+  si el cliente ya trae el suyo — ver el comentario de `gen.mjs` junto al lector de
+  `assets/`) se sustituye por el que trajo el propietario. Mismo archivo, mismo nombre, sólo
+  cambia el contenido: cero cambios de código, lo sirven ya el `<link rel="icon">` de la
+  carta y el del panel, que apuntan a esa ruta desde siempre.

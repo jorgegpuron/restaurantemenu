@@ -7750,7 +7750,11 @@ $CUENTAS = [
     /* 2px, no --s3: tiene que medir EXACTAMENTE lo mismo que .login-puerta-campo input
        (mismo box, mismo padding) o los asteriscos se desalinean del texto real de debajo. */
     padding:0 2px;
-    color:var(--ink);
+    /* var(--sc-primary), no var(--ink): en la puerta --ink no existe (es alias de
+       .card-main, que aquí no hay) y el asterisco heredaba el color YA CALCULADO del
+       <body> claro -- apenas se leía sobre el campo oscuro. El acento naranja, a
+       propósito, es el mismo que ya lleva el resto de la puerta. */
+    color:var(--sc-primary);
     font-family:var(--body-font);font-size:17px;
     pointer-events:none;
     overflow:hidden;
@@ -10896,7 +10900,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <h1 class="login-puerta-nombre"><?= h(CLIENTE_NOMBRE) ?></h1>
           <p class="login-puerta-chapa login-puerta-chapa--sinfoto"><?= h($chapaPuerta) ?></p>
         <?php endif; ?>
-        <h2 class="login-puerta-titulo">Bienvenido de nuevo</h2>
+        <h2 class="login-puerta-titulo">Consola de administración</h2>
         <p class="login-puerta-sub">Introduce tu contraseña para entrar.</p>
         <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
         <form method="post">
