@@ -7550,30 +7550,21 @@ $CUENTAS = [
 
   a{color:var(--ink)}
 
-  /* ---------- entrar ----------
-     La puerta es la misma tarjeta que la carta, no un formulario aparte: la foto de portada
-     metida 8px con radio concéntrico —34 menos esos 8 arriba, radio de hoja abajo, igual que
-     en el hero—, el bloque de título centrado y el filete corto que allí separa los platos.
-     Quien abre el panel reconoce la pieza antes de leer nada.
-
-     La pantalla de primera configuración NO lleva foto: es texto largo y de un solo uso, así
-     que se queda con la tarjeta lisa de siempre. De ahí que lo nuevo vaya bajo .is-recepcion
-     en vez de sobre .login a secas. */
-  /* La puerta no tiene barra de acciones abajo, así que los 151px que .page reserva para ella
-     sobran: se centra la tarjeta en la pantalla. El margen automático —y no align-items:center—
-     porque cuando la tarjeta no cabe, centrar recorta por arriba sin poder llegar; con margin
-     auto sobra scroll por los dos lados. */
+  /* ---------- entrar: primera configuración ----------
+     Esta pantalla NO lleva foto: es texto largo y de un solo uso, así que se queda con la
+     tarjeta lisa de siempre (.login a secas, dentro de .card-main). La puerta real del
+     restaurante ya configurado es .login-puerta, más abajo: dejó de compartir tarjeta con
+     ésta el día que se convirtió en pantalla partida. */
+  /* Sin barra de acciones abajo, así que los 151px que .page reserva para ella sobran: se
+     centra la tarjeta en la pantalla. El margen automático —y no align-items:center— porque
+     cuando la tarjeta no cabe, centrar recorta por arriba sin poder llegar; con margin auto
+     sobra scroll por los dos lados. */
   .page-login{display:flex;min-height:100dvh;padding:var(--s3)}
   .page-login > .login{margin:auto}
-  /* ---------- la recepción, SocialCard V7 ----------
-     Era la última pantalla en el lenguaje anterior: tipografía de títulos distinta, campos
-     de 52 y 56 con radio de pastilla, y un botón negro de 48. Ahora es del sistema, como el
-     resto: Arimo —la hereda de `.card-main`, por eso se le quita el `font-family` propio—,
-     campo de 40 con el radio de control, y el botón en el primario del panel.
-
-     Lo que la sigue distinguiendo NO es la geometría: es la foto de la puerta, el
-     antetítulo, el nombre grande y el filete. Un campo más alto no la hacía más «puerta»,
-     sólo la sacaba del sistema. */
+  /* La puerta real (login-puerta, abajo) es pantalla completa, no una tarjeta centrada: la
+     regla base de arriba no le sirve, y --puerta la anula sin tocarla (la sigue usando esta
+     pantalla de alta). */
+  .page-login.page-login--puerta{display:block;min-height:100dvh;padding:0}
   .login{max-width:380px}
   .login .card-main{padding:var(--s4) var(--s3)}
   .login h1{margin:0 0 4px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--sc-text)}
@@ -7597,41 +7588,111 @@ $CUENTAS = [
   }
   .login button:hover{background:color-mix(in srgb, var(--sc-primary) 88%, #FFF);border-color:color-mix(in srgb, var(--sc-primary) 88%, #FFF)}
 
-  .login.is-recepcion{max-width:440px}
-  .login.is-recepcion .card-main{padding:var(--s1) var(--s1) var(--s5)}
-  /* Sin foto —estado.json todavía sin portadas, o el archivo ya no está— la tarjeta vuelve a
-     sus rellenos normales: un hueco gris en la puerta se lee como un fallo del panel. */
-  .login.is-recepcion.sin-foto .card-main{padding:var(--s5) var(--s3)}
-  .login.is-recepcion.sin-foto .login-cuerpo{padding:0}
-  .login-foto{
-    position:relative;
-    /* La misma caja 3:2 del hero: la foto puede venir como venga, recorta el navegador. */
-    aspect-ratio:3 / 2;
-    border-radius:calc(var(--p-radius-card) - var(--s1)) calc(var(--p-radius-card) - var(--s1)) var(--r-sheet) var(--r-sheet);
-    overflow:hidden;
-    /* El fondo mientras carga, no un gris que aparece y se va justo antes de la imagen.
-       V7: el neutro del sistema en vez de la tinta — en claro, un rectángulo negro de 3:2
-       durante la carga era lo más oscuro de la pantalla. */
-    background:var(--sc-muted-bg);
+  /* ---------- la recepción, SocialCard V8 «Bienvenida» ----------
+     Deja de ser una tarjeta flotando sobre el canvas: pasa a pantalla partida a sangre
+     (foto | formulario; se apilan bajo 820px) y a OSCURO FIJO — no sigue el interruptor
+     claro/oscuro del resto del panel. Los --sc-* de aquí son valores propios copiados de
+     :root.dark, no alias: la puerta no cambia aunque el propietario tenga el panel en claro,
+     ni al revés. Decisión expresa del propietario tras tres rondas de /prototype — medidas y
+     alternativas descartadas en SPEC.md, sección «Bienvenida».
+
+     Sin foto —estado.json todavía sin portadas, o el archivo ya no está— colapsa a una sola
+     columna centrada: dos columnas con la izquierda vacía se leería como un fallo del panel,
+     no como diseño. */
+  .login-puerta{
+    --sc-canvas:#14110F; --sc-surface:#1F1B18;
+    --sc-text:#F5EFE8; --sc-text-2:#B8ADA3; --sc-border:#332C26;
+    --sc-primary:#FF8A3D; --sc-primary-ink:#FFFDFB;
+    --sc-muted-bg:#262119; --sc-input-bg:#14110F; --sc-input-border:#605245;
+    --sc-bad-bg:#3B2320; --sc-bad-ink:#FF8D87; --ui-state-error:#FF8D87;
+    /* .msg (el aviso de error) es del sistema general y pide --t2: sin .card-main como
+       ancestro esa variable no existe aquí, así que se declara también en este ámbito. */
+    --t2:14px;
+    color-scheme:dark;
+    min-height:100dvh;display:grid;grid-template-columns:1fr;
+    background:var(--sc-canvas);color:var(--sc-text);
+    font-family:"Arimo",Arial,system-ui,sans-serif;font-size:var(--t2);
   }
-  .login-foto img{
-    width:100%;height:100%;object-fit:cover;display:block;
+  @media (min-width:820px){
+    .login-puerta:not(.sin-foto){grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+  }
+  .login-puerta-foto{
+    position:relative;min-height:220px;overflow:hidden;
+    background:var(--sc-muted-bg);display:flex;align-items:flex-end;
+  }
+  @media (min-width:820px){.login-puerta-foto{min-height:100dvh}}
+  .login-puerta-foto img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
     /* 420ms, por encima de los 180 del resto: esto no responde a un gesto, es una imagen
        apareciendo, y a 200 el recorte se lee como un tirón. */
-    animation:login-foto 420ms var(--ease-out) both;
+    animation:login-puerta-foto 420ms var(--ease-out) both;
   }
-  @keyframes login-foto{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
-  .login-cuerpo{padding:var(--s4) var(--s3) 0;text-align:center}
-  .login-eyebrow{
-    margin:0 0 var(--s2);
-    font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
-    color:var(--sc-text-2);
+  @keyframes login-puerta-foto{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
+  .login-puerta-foto::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(to top, rgba(8,6,5,.8), rgba(8,6,5,.1) 45%);
   }
-  .login.is-recepcion h1{margin:0 0 var(--s3);font-size:30px;line-height:1.1}
-  .login-filete{width:var(--s4);height:1px;margin:0 auto var(--s4);background:var(--sc-border)}
-  /* V7: la recepción ya no tiene un campo más alto que el resto del panel. Se le queda lo
-     que de verdad la distingue: el texto centrado. */
-  .login.is-recepcion input{text-align:center}
+  @media (min-width:820px){
+    /* El segundo degradado funde el borde derecho de la foto con el fondo del formulario:
+       sin él la costura entre las dos columnas se veía como un corte, no como una unión. */
+    .login-puerta-foto::after{
+      background:
+        linear-gradient(to top, rgba(8,6,5,.8), rgba(8,6,5,.1) 45%),
+        linear-gradient(to right, transparent 72%, var(--sc-surface) 100%);
+    }
+  }
+  .login-puerta-foto-texto{position:relative;z-index:1;padding:var(--s3) var(--s4) var(--s4);color:#FDF6EF}
+  .login-puerta-foto-texto h1{margin:0;font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.02em}
+  .login-puerta-panel{display:flex;align-items:center;justify-content:center;padding:var(--s4) var(--s3);background:var(--sc-surface)}
+  .login-puerta.sin-foto .login-puerta-panel{background:var(--sc-canvas)}
+  .login-puerta-inner{width:100%;max-width:320px;text-align:left}
+  @media (prefers-reduced-motion:no-preference){
+    .login-puerta-inner{animation:login-puerta-form 320ms var(--ease-out) both}
+  }
+  @keyframes login-puerta-form{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .login-puerta-nombre{margin:0 0 var(--s2);font-size:22px;font-weight:700;letter-spacing:-.01em;color:var(--sc-text)}
+  .login-puerta-titulo{margin:0 0 6px;font-size:32px;line-height:1.15;font-weight:700;letter-spacing:-.02em;color:var(--sc-text)}
+  .login-puerta-sub{margin:0 0 var(--s4);font-size:14px;color:var(--sc-text-2)}
+  .login-puerta form{display:flex;flex-direction:column}
+  /* El campo pierde la caja: sólo queda la línea de abajo, y una segunda línea del color de
+     acento que crece desde el centro (transform-origin:center) al enfocar. El padding es
+     simétrico (0 2px) y va IGUAL en el input real y en .clave-mascara, más abajo: los dos se
+     superponen con position:absolute;inset:0, así que si sus cajas no miden lo mismo los
+     asteriscos de la máscara se desalinean del texto real. */
+  .login-puerta-campo{margin-bottom:var(--space-3)}
+  .login-puerta-campo input{
+    width:100%;min-height:40px;padding:0 2px;border:none;background:transparent;
+    color:var(--sc-text);font-family:inherit;font-size:16px;
+  }
+  .login-puerta-campo input::placeholder{color:var(--sc-text-2)}
+  .login-puerta-campo input:focus,.login-puerta-campo input:focus-visible{outline:none}
+  .login-puerta-campo::before{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--sc-input-border)}
+  .login-puerta-campo::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--sc-primary);
+    transform:scaleX(0);transform-origin:center;transition:transform 200ms var(--ease-out);
+  }
+  .login-puerta-campo:focus-within::after{transform:scaleX(1)}
+  @media (prefers-reduced-motion:reduce){
+    .login-puerta-campo::after{transition:none}
+  }
+  /* Botón fantasma: texto y flecha, no píldora rellena — la puerta ya no tiene el naranja de
+     relleno que medía E2E-TE-CONTRASTE (ver SPEC.md; ese test se reapunta a .save). El área
+     de toque real queda por debajo de 44px si sólo se cuenta el texto, así que ::before la
+     estira igual que .adm-btn::before un poco más abajo en este mismo fichero. */
+  .login-puerta-entrar{
+    position:relative;align-self:flex-end;
+    display:inline-flex;align-items:center;gap:6px;
+    background:transparent;border:none;color:var(--sc-primary);
+    font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;padding:6px 2px;
+  }
+  .login-puerta-entrar::before{content:"";position:absolute;top:-9px;bottom:-9px;left:-8px;right:-8px}
+  .login-puerta-entrar:hover{color:color-mix(in srgb, var(--sc-primary) 82%, #fff)}
+  .login-puerta-flecha{display:inline-block;transition:transform 150ms var(--ease-out)}
+  .login-puerta-entrar:hover .login-puerta-flecha,
+  .login-puerta-entrar:focus-visible .login-puerta-flecha{transform:translateX(3px)}
+  @media (prefers-reduced-motion:reduce){
+    .login-puerta-flecha{transition:none}
+  }
 
   /* ---------- la contraseña, con asteriscos ----------
      El navegador pinta puntos y no hay forma de cambiarle el carácter desde CSS
@@ -7660,7 +7721,9 @@ $CUENTAS = [
     position:absolute;
     inset:0;
     display:flex;align-items:center;justify-content:center;
-    padding:0 var(--s3);
+    /* 2px, no --s3: tiene que medir EXACTAMENTE lo mismo que .login-puerta-campo input
+       (mismo box, mismo padding) o los asteriscos se desalinean del texto real de debajo. */
+    padding:0 2px;
     color:var(--ink);
     font-family:var(--body-font);font-size:17px;
     pointer-events:none;
@@ -7896,7 +7959,7 @@ $CUENTAS = [
     .adm-sheet.activo{opacity:1;visibility:visible;transition:opacity var(--t-fast) var(--ease-out),visibility 0s}
     /* globo de ayuda y foto del login: solo opacidad. adm-modal-fondo es el keyframe de
        opacidad pura del velo, definido mas abajo en este mismo fichero. */
-    .adm-globo,.login-foto img{animation-name:adm-modal-fondo}
+    .adm-globo,.login-puerta-foto img{animation-name:adm-modal-fondo}
   }
 
   /* ==========================================================================
@@ -10718,7 +10781,7 @@ $CUENTAS = [
   }</style>
 </head>
 <body<?= $dentro ? "" : ' class="sin-entrar"' ?>>
-<div class="page<?= $dentro ? "" : " page-login" ?>">
+<div class="page<?= $dentro ? "" : ($sin_configurar ? " page-login" : " page-login page-login--puerta") ?>">
 
 <?php if ($sin_configurar): ?>
   <div class="login"><div class="card-main">
@@ -10779,29 +10842,32 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     }
     $hay_foto = $foto_login !== '';
   ?>
-  <div class="login is-recepcion<?= $hay_foto ? '' : ' sin-foto' ?>"><div class="card-main">
+  <div class="login-puerta<?= $hay_foto ? '' : ' sin-foto' ?>">
     <?php if ($hay_foto): ?>
-      <div class="login-foto">
+      <div class="login-puerta-foto">
         <img src="<?= h($foto_login) ?>?v=<?= (int) filemtime(__DIR__ . '/' . $foto_login) ?>" alt="" fetchpriority="high">
+        <div class="login-puerta-foto-texto"><h1><?= h(CLIENTE_NOMBRE) ?></h1></div>
       </div>
     <?php endif; ?>
-    <div class="login-cuerpo">
-      <p class="login-eyebrow">Acceso privado</p>
-      <h1><?= h(CLIENTE_NOMBRE) ?></h1>
-      <div class="login-filete"></div>
-      <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
-      <form method="post">
-        <div class="clave-campo">
-          <?php /* La etiqueta de verdad, oculta a la vista: el placeholder desaparece al
-                   escribir y aria-label no cuenta como etiqueta para todas las herramientas. */ ?>
-          <label for="clave" class="sr">Contraseña</label>
-          <input type="password" id="clave" name="clave" placeholder="Contraseña" autocomplete="current-password" required autofocus>
-          <span class="clave-mascara" aria-hidden="true"></span>
-        </div>
-        <button type="submit">Entrar</button>
-      </form>
+    <div class="login-puerta-panel">
+      <div class="login-puerta-inner">
+        <?php if (!$hay_foto): ?><h1 class="login-puerta-nombre"><?= h(CLIENTE_NOMBRE) ?></h1><?php endif; ?>
+        <h2 class="login-puerta-titulo">Bienvenido de nuevo</h2>
+        <p class="login-puerta-sub">Introduce tu contraseña para entrar.</p>
+        <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
+        <form method="post">
+          <div class="clave-campo login-puerta-campo">
+            <?php /* La etiqueta de verdad, oculta a la vista: el placeholder desaparece al
+                     escribir y aria-label no cuenta como etiqueta para todas las herramientas. */ ?>
+            <label for="clave" class="sr">Contraseña</label>
+            <input type="password" id="clave" name="clave" placeholder="Contraseña" autocomplete="current-password" required autofocus>
+            <span class="clave-mascara" aria-hidden="true"></span>
+          </div>
+          <button type="submit" class="login-puerta-entrar">Entrar <span class="login-puerta-flecha" aria-hidden="true">→</span></button>
+        </form>
+      </div>
     </div>
-  </div></div>
+  </div>
 
   <script>
   /* Asteriscos en lugar de puntos. El campo no cambia de tipo: sigue siendo password, así que
