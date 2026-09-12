@@ -38,7 +38,7 @@ const BOMB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const ICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4l2 1l2 -1"/><path d="M12 2v6.5l3 1.72"/><path d="M17.928 6.268l.134 2.232l1.866 1.232"/><path d="M20.66 7l-5.629 3.25l.01 3.458"/><path d="M19.928 14.268l-1.866 1.232l-.134 2.232"/><path d="M20.66 17l-5.629 -3.25l-2.99 1.738"/><path d="M14 20l-2 -1l-2 1"/><path d="M12 22v-6.5l-3 -1.72"/><path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232"/><path d="M3.34 17l5.629 -3.25l-.01 -3.458"/><path d="M4.072 9.732l1.866 -1.232l.134 -2.232"/><path d="M3.34 7l5.629 3.25l2.99 -1.738"/></svg>';
 
 export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, titles,
-  INK, PRINCIPAL, CLIENTE, CLAVE, PAISES, ZONA, CORTE, BASE }) {
+  INK, PRINCIPAL, CLIENTE, CLAVE, PAISES, ZONA, CORTE, BASE, ICONO_PESTANA_V }) {
   /* Las opciones del selector de pais.
 
      Un <option> NO admite un <span> dentro: el navegador se lo come y el texto se queda en
@@ -61,7 +61,7 @@ export function buildGame({ T, TL, TL_TXT, TOKENS, FONTS, LANG_CODES, LANGS, tit
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="${INK}">
-<link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
+<link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg?v=${ICONO_PESTANA_V}">
 <title>${CLIENTE.tituloJuego}</title>
 ${FONTS}
 <style>

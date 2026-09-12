@@ -4944,8 +4944,12 @@ $CUENTAS = [
 <?php /* El icono de pestaña. Sin esta línea el navegador pide /favicon.ico por su cuenta y se lleva
          un 404: la carta sí declaraba el suyo y el panel no. Es el mismo SVG que ya genera el build
          con el color del cliente, así que no hay icono nuevo que mantener ni fichero que duplicar.
-         La ruta relativa vale igual desde /admin/ que desde /admin/index.php. */ ?>
-<link rel="icon" type="image/svg+xml" href="../assets/titleIcon-accent.svg">
+         La ruta relativa vale igual desde /admin/ que desde /admin/index.php.
+
+         ?v= con la fecha del archivo, igual que acceso.jpg mas abajo: sin esto, un restaurante
+         que sustituye su icono por FTP se queda viendo el anterior hasta que caduque la caché
+         de Cloudflare (30 días) -- medido en vivo el 12 Sep 2026 con este mismo icono. */ ?>
+<link rel="icon" type="image/svg+xml" href="../assets/titleIcon-accent.svg?v=<?= (int) @filemtime(__DIR__ . '/../assets/titleIcon-accent.svg') ?>">
 <?php /* Las mismas dos tipografías que la carta, escritas por el build. */ ?>
 <?php @include __DIR__ . '/fuentes.html'; ?>
 <?php /* La tipografia del PANEL, que no es la de la carta. Bricolage y Source Serif tienen
@@ -10900,8 +10904,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <h1 class="login-puerta-nombre"><?= h(CLIENTE_NOMBRE) ?></h1>
           <p class="login-puerta-chapa login-puerta-chapa--sinfoto"><?= h($chapaPuerta) ?></p>
         <?php endif; ?>
-        <h2 class="login-puerta-titulo">Consola de administración</h2>
-        <p class="login-puerta-sub">Introduce tu contraseña para entrar.</p>
+        <h2 class="login-puerta-titulo">Panel de administración</h2>
+        <p class="login-puerta-sub">Introduce tu contraseña para continuar.</p>
         <?php if ($error): ?><div class="msg bad"><?= h($error) ?></div><?php endif; ?>
         <form method="post">
           <div class="clave-campo login-puerta-campo">
@@ -10911,7 +10915,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             <input type="password" id="clave" name="clave" placeholder="Contraseña" autocomplete="current-password" required autofocus>
             <span class="clave-mascara" aria-hidden="true"></span>
           </div>
-          <button type="submit" class="login-puerta-entrar">Entrar <span class="login-puerta-flecha" aria-hidden="true">→</span></button>
+          <button type="submit" class="login-puerta-entrar">Acceder <span class="login-puerta-flecha" aria-hidden="true">→</span></button>
         </form>
       </div>
     </div>

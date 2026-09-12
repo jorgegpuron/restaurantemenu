@@ -393,6 +393,19 @@ const FECHA_BUILD = new Intl.DateTimeFormat('es-ES', {
   hour: '2-digit', minute: '2-digit', hour12: false,
 }).format(new Date(+BUILD)).replace(', ', ' · ');
 
+/* Cache-busting del icono de pestaña, por CONTENIDO y no por build. Si fuera BUILD -que
+   cambia en cada compilación- el icono entraría en la lista de "ficheros con sello" que
+   FAST-07 exige que sean solo tres (admin/cliente.php, index.html, version.json), y
+   juego.html y la página de error empezarían a diferir también en cada build sin haber
+   cambiado de verdad. Con el hash del propio SVG, la URL sólo cambia el día que alguien
+   sustituya el icono -- que es exactamente cuando Cloudflare (30 días de caché, medido en
+   vivo el 12 Sep 2026 sirviendo un icono de hace dos semanas) debe dejar de servir el
+   anterior, ni un día antes ni un día después. */
+const RUTA_ICONO_PESTANA = cliente('assets/titleIcon-accent.svg');
+const ICONO_PESTANA_V = existsSync(RUTA_ICONO_PESTANA)
+  ? createHash('sha256').update(readFileSync(RUTA_ICONO_PESTANA)).digest('hex').slice(0, 10)
+  : 'motor';
+
 /* El idioma base es el texto del documento; los extras viajan en data-<code>. Las banderas
    las declara el cliente idioma a idioma y estan validadas en el contrato: aqui solo se
    montan las etiquetas. */
@@ -1562,7 +1575,7 @@ window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${CLIENTE.titulo}</title>
 <meta name="description" content="${CLIENTE.descripcion}"${attrs(CLIENTE.descripcion, 'ui-cliente')}>
-<link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg">
+<link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg?v=${ICONO_PESTANA_V}">
 <meta name="theme-color" content="${OSCURO}">
 <link rel="canonical" href="${CLIENTE.base}">
 <meta property="og:type" content="website">
@@ -8167,6 +8180,7 @@ const juego = !CLIENTE.funciones.juego ? lapida() : buildGame({
   PAISES, imgBandera,
   T, TL, TL_TXT, TOKENS, FONTS, LANGS, LANG_CODES: LANGS.map((l) => l.code), CLIENTE, CLAVE,
   ZONA: CLIENTE.zonaHoraria, CORTE: CORTE_HORA, BASE: IDIOMA_BASE.code, INK: OSCURO,
+  ICONO_PESTANA_V,
   /* Para la excepcion de --rush-ink en el runtime del juego: el hex de fabrica sale de
      temas.mjs, no se escribe a mano alli. */
   PRINCIPAL: PRINCIPAL_DEFECTO,
@@ -8184,7 +8198,7 @@ writeFileSync(
      .htaccess sirve este fichero con un 200 y hay que corregirlo aqui. Un 404 que responde 200
      es lo que Google llama un soft 404, y es peor que no tener pagina de error. */
   '<' + '?php http_response_code(404); ?' + '>' + String.fromCharCode(10)
-  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE: IDIOMA_BASE.code, INK: OSCURO })),
+  + adelgazarDocumento(buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE: IDIOMA_BASE.code, INK: OSCURO, ICONO_PESTANA_V })),
 );
 
 /* El panel también bebe de aquí. Antes tenía su propia paleta y sus propias fuentes copiadas

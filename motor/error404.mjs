@@ -26,7 +26,7 @@
  *    turistas comparten. Sin JavaScript se queda el que sale del build, que es el de la casa.
  */
 
-export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE, INK }) {
+export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE, INK, ICONO_PESTANA_V }) {
   /* Los textos, uno por idioma. El inglés es el original y el que se queda si algo falla.
      El cuerpo va partido en dos porque la segunda mitad va en negrita: es lo que se quiere que
      se lleve el que sólo lee media frase —que la carta sigue ahí—, y partirlo permite seguir
@@ -77,7 +77,7 @@ export function buildError404({ TOKENS, FONTS, CLIENTE, CLAVE, LANGS, BASE, INK 
      veces y no cuesta nada. -->
 <meta name="robots" content="noindex,follow">
 <meta name="theme-color" content="${INK}">
-<link rel="icon" type="image/svg+xml" href="${ruta}assets/titleIcon-accent.svg">
+<link rel="icon" type="image/svg+xml" href="${ruta}assets/titleIcon-accent.svg?v=${ICONO_PESTANA_V}">
 <title>${base.pestana} · ${CLIENTE.nombre}</title>
 ${FONTS}
 <style>

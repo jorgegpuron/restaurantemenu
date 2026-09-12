@@ -5579,6 +5579,20 @@ Tres cambios pequeños, pedidos ya con "Bienvenida" en producción:
   campo oscuro. El naranja es explícito y a propósito, no una herencia accidental.
 - **El icono de pestaña de Tinge** (`assets/titleIcon-accent.svg`, el que el motor NO toca
   si el cliente ya trae el suyo — ver el comentario de `gen.mjs` junto al lector de
-  `assets/`) se sustituye por el que trajo el propietario. Mismo archivo, mismo nombre, sólo
-  cambia el contenido: cero cambios de código, lo sirven ya el `<link rel="icon">` de la
-  carta y el del panel, que apuntan a esa ruta desde siempre.
+  `assets/`) se sustituye por el que trajo el propietario. Mismo archivo, mismo nombre.
+
+  El primer despliegue de este cambio salió con Cloudflare sirviendo el icono VIEJO —
+  medido en vivo: `cf-cache-status: HIT`, `Age` de casi 5 días, `Cache-Control: max-age=2592000`
+  (30 días). El `<link rel="icon">` no llevaba cache-buster — a diferencia de `acceso.jpg`,
+  que sí lo tiene (`?v=<?= filemtime(...) ?>`) precisamente por esto. Se arregla de raíz, en
+  el motor, no sólo en Tinge: `gen.mjs` calcula `ICONO_PESTANA_V` (hash sha256 del propio
+  SVG, 10 caracteres) una vez, al principio del build, y lo añade como `?v=` al `<link>` de
+  la carta, del juego y de la página de error (`juego.mjs`/`error404.mjs` reciben el hash
+  como parámetro). El panel, que es PHP y corre por petición, usa `filemtime()` sobre el
+  mismo fichero — mismo efecto, mecanismo propio de PHP.
+
+  Por qué hash de CONTENIDO y no `BUILD` (el sello que cambia en cada compilación): `BUILD`
+  habría metido `juego.html` y la página de error en la lista de "ficheros con sello" que
+  `FAST-07` exige que sean sólo tres (`admin/cliente.php`, `index.html`, `version.json`) —
+  las dos páginas habrían diferido en cada build sin haber cambiado de verdad. Con el hash
+  del icono, la URL sólo cambia el día que alguien sustituya el icono — ni un build antes.
