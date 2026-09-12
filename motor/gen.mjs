@@ -4143,15 +4143,15 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      la pantalla en vez de envolverlos: con destacado+dieta+agotado juntos a 320-390px no
      caben en una línea, y así ES el caso que hay que resolver, no evitar.
      flex + flex-wrap, no block con hijos inline: con texto envuelto por línea normal, el
-     hueco vertical entre líneas salía de 4px la mayoría de las veces pero de 2px justo al
-     salir de una línea que era solo .diet-marks (inline-flex, no inline-block como el resto
-     de .item-tag -- afecta a como cada línea envuelta calcula su alto). Medido y comprobado
-     en aislado: con flex+row-gap el hueco es 2px SIEMPRE, sea cual sea el badge de cada
-     línea. El espaciado horizontal entre badges de la misma línea lo siguen poniendo sus
-     propios margin-right (ver mas abajo), flex no lo cambia. */
+     hueco vertical entre líneas salía de un valor la mayoría de las veces pero de otro
+     distinto justo al salir de una línea que era solo .diet-marks (inline-flex, no
+     inline-block como el resto de .item-tag -- afecta a como cada línea envuelta calcula su
+     alto). Medido y comprobado en aislado: con flex+row-gap el hueco es 4px SIEMPRE, sea cual
+     sea el badge de cada línea. El espaciado horizontal entre badges de la misma línea lo
+     siguen poniendo sus propios margin-right (ver mas abajo), flex no lo cambia. */
   .item-tags{display:none}
   .has-tags .item-tags,
-  .is-sold-out .item-tags{display:flex;flex-wrap:wrap;align-items:center;row-gap:2px;margin:0 0 5px}
+  .is-sold-out .item-tags{display:flex;flex-wrap:wrap;align-items:center;row-gap:4px;margin:0 0 5px}
   .item-badge{display:inline}
   .item-tag{vertical-align:1px}
   .diet-marks{vertical-align:1px}
