@@ -4994,6 +4994,86 @@ $CUENTAS = [
     try { if (localStorage.getItem('socialcard-barra-plegada') === '1') document.documentElement.classList.add('adm-riel'); } catch (e) {}
   })();
 </script>
+<?php /* ---- «¿se ha guardado?», una sola respuesta para todo el panel ----
+         El panel guarda solo: agotado, precio, oferta, etiqueta, orden, alta, foto, marca...
+         doce caminos distintos, y los doce son un POST a esta misma direccion. Cada uno
+         avisaba de un fallo con un aviso flotante, y ahi estaba el peligro: un aviso se
+         puede perder de vista —se cierra, se baja la pagina, se mira otra cosa— y entonces
+         quien usa el panel se queda creyendo que marco un plato agotado cuando no se guardo
+         nada. Con la carta en la mesa de un cliente.
+
+         Asi que hay UN indicador, en la barra de arriba, que no se va solo:
+           · «Guardando…» mientras algo viaja;
+           · «No se ha guardado» si algo acabo mal, y se queda hasta que se cierre a mano;
+           · «Sin conexion» mientras el navegador diga que no hay red.
+
+         Un 422 NO es un problema de red: es el servidor diciendo que no (un porcentaje fuera
+         de rango, una lista que no cuadra). Cuenta como «no se ha guardado» pero no como
+         «sin conexion»: son dos cosas distintas y piden dos remedios distintos.
+
+         Y el aviso de fallo se cierra a mano, no con el siguiente guardado bueno. Un cambio
+         que no se guardo no se recupera porque el siguiente si lo haga: decirle «ya esta»
+         seria mentir. Se cierra cuando quien lo lee dice que lo ha leido.
+
+         Vive en la CABECERA, antes que todo lo demas, porque los doce guardados la llaman y
+         alguno puede dispararse durante el arranque. El elemento se busca la primera vez que
+         hace falta: cuando este script corre todavia no existe. */ ?>
+<script>
+  (function () {
+    var enVuelo = 0, malos = 0;
+    var caja = null, texto = null, cerrar = null, buscado = false;
+
+    function elementos() {
+      if (!buscado && document.getElementById('adm-guardado')) {
+        buscado = true;
+        caja = document.getElementById('adm-guardado');
+        texto = document.getElementById('adm-guardado-txt');
+        cerrar = document.getElementById('adm-guardado-x');
+        if (cerrar) cerrar.addEventListener('click', function () { malos = 0; pintar(); });
+      }
+      return !!caja;
+    }
+    function sinRed() { return !!(window.navigator && navigator.onLine === false); }
+
+    function pintar() {
+      if (!elementos()) return;
+      var dice = '', estado = '';
+      if (sinRed()) { dice = 'Sin conexión'; estado = 'mal'; }
+      else if (malos > 0) { dice = malos === 1 ? 'No se ha guardado' : 'No se han guardado ' + malos + ' cambios'; estado = 'mal'; }
+      else if (enVuelo > 0) { dice = 'Guardando…'; estado = 'va'; }
+      caja.hidden = !dice;
+      if (cerrar) cerrar.hidden = estado !== 'mal';
+      if (!dice) { caja.removeAttribute('data-estado'); texto.textContent = ''; return; }
+      caja.setAttribute('data-estado', estado);
+      /* Sin reescribir el mismo texto: un `aria-live` que recibe el mismo valor lo vuelve a
+         leer en algunos lectores, y «Guardando…» en bucle no ayuda a nadie. */
+      if (texto.textContent !== dice) texto.textContent = dice;
+    }
+
+    window.admEstado = {
+      empieza: function () { enVuelo++; pintar(); },
+      bien: function () { if (enVuelo > 0) enVuelo--; pintar(); },
+      mal: function () { if (enVuelo > 0) enVuelo--; malos++; pintar(); },
+    };
+
+    /* La MISMA promesa y la MISMA respuesta que `fetch`: lo unico que hace de mas es contar.
+       El dia que deje de ser transparente, deja de servir. */
+    window.admFetch = function (url, opciones) {
+      window.admEstado.empieza();
+      return window.fetch(url, opciones).then(function (r) {
+        if (r && r.ok) window.admEstado.bien(); else window.admEstado.mal();
+        return r;
+      }, function (e) {
+        window.admEstado.mal();
+        throw e;
+      });
+    };
+
+    window.addEventListener('online', pintar);
+    window.addEventListener('offline', pintar);
+    document.addEventListener('DOMContentLoaded', pintar);
+  })();
+</script>
 <?php if ($colorPrincipalOverride !== null): ?>
 <style>
   /* El color que el propio restaurante guardo desde esta pestana, por encima del de
@@ -6114,6 +6194,47 @@ $CUENTAS = [
   }
 
   .adm-topbar-acciones{display:flex;align-items:center;gap:var(--space-2);flex:none}
+
+  /* ---- el indicador de guardado ----
+     Una pastilla en la barra de arriba, que es lo unico del panel que nunca se va de la
+     pantalla. Dos estados y dos colores: el que va, apagado y con el punto latiendo, y el que
+     acabo mal, con los colores de error del sistema. Nada nuevo: `--sc-bad-bg` y
+     `--sc-bad-ink` ya existen y ya estan medidos en los dos temas. */
+  .adm-guardado{
+    display:flex;align-items:center;gap:var(--space-2);flex:none;
+    min-height:32px;padding:0 var(--space-3);
+    border-radius:var(--radius-pill);
+    background:var(--sc-muted-bg);color:var(--sc-text-2);
+    font-size:var(--t4);font-weight:600;
+    white-space:nowrap;
+  }
+  .adm-guardado[data-estado="mal"]{background:var(--sc-bad-bg);color:var(--sc-bad-ink)}
+  .adm-guardado-punto{
+    flex:none;width:8px;height:8px;border-radius:50%;
+    background:currentColor;
+  }
+  .adm-guardado[data-estado="va"] .adm-guardado-punto{animation:adm-guardado-late 1s ease-in-out infinite}
+  @keyframes adm-guardado-late{0%,100%{opacity:.35}50%{opacity:1}}
+  .adm-guardado-x{
+    flex:none;min-height:24px;padding:0 var(--space-2);
+    border:1px solid currentColor;border-radius:var(--radius-pill);
+    background:transparent;color:inherit;
+    font-family:inherit;font-size:var(--t4);font-weight:600;cursor:pointer;
+  }
+  .adm-guardado-x:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
+  /* En movil la barra es estrecha y «Añadir plato» ya compite por el sitio: el texto se
+     recoge y queda el punto, que con el color de error se lee igual de lejos. El texto sigue
+     ahi para el lector de pantalla. */
+  @media (max-width:699.98px){
+    .adm-guardado-txt{
+      position:absolute;width:1px;height:1px;overflow:hidden;
+      clip-path:inset(50%);white-space:nowrap;
+    }
+    .adm-guardado-x{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .adm-guardado[data-estado="va"] .adm-guardado-punto{animation:none}
+  }
   .adm-ver-carta{flex:none;text-decoration:none}
   /* En movil la barra de arriba es estrecha y los dos iconos ya dicen a donde van: el rotulo
      se retira a la etiqueta accesible, que sigue ahi para quien la necesita. */
@@ -11534,6 +11655,19 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       <p class="adm-topbar-sub"><?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
     </div>
     <div class="adm-topbar-acciones">
+      <?php /* El indicador de guardado. Va PRIMERO en la tira de acciones, a la izquierda de
+               «Añadir plato» y del interruptor de tema: es informacion sobre lo que acaba de
+               pasar, no una accion mas, y a la izquierda es donde se lee sin buscarlo.
+               Nace escondido y lo enciende el script de la cabecera. El texto lleva su
+               `role="status"`, y el boton de cerrar queda FUERA de la region viva: si
+               estuviera dentro, el lector de pantalla leeria «Cerrar» cada vez que cambia el
+               estado. */ ?>
+      <div class="adm-guardado" id="adm-guardado" hidden>
+        <span class="adm-guardado-punto" aria-hidden="true"></span>
+        <span class="adm-guardado-txt" id="adm-guardado-txt" role="status" aria-live="polite"></span>
+        <button type="button" class="adm-guardado-x" id="adm-guardado-x" hidden
+                aria-label="Entendido, cerrar el aviso de guardado">Entendido</button>
+      </div>
       <?php /* La accion principal de Platos vive en la barra: es la unica que crea algo, y
                las otras seis pantallas no crean nada, asi que solo sale en Platos. El `+` de
                cada categoria hace lo mismo con la categoria ya elegida.
@@ -13102,7 +13236,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             datos.set('orden_guardar', cat);
             ahora.forEach(function (k) { datos.append('orden[]', k); });
             ficha.setAttribute('data-guardando', '');
-            fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+            admFetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
               .then(function (r) {
                 return r.text().then(function (texto) {
                   if (!r.ok) throw new Error(mensajeMaloOrden(texto) || 'No se ha podido guardar el orden.');
@@ -13229,6 +13363,35 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               caja.hidden = h.length < 2;
             });
           }
+          /* El orden de los chips de ANTES de la primera pulsacion de la ráfaga. Si el
+             servidor rechaza, se vuelve ahi: mover una seccion arrastra sus fichas y la
+             numeracion de toda la carta, asi que dejarlo a medias es dejar tres cosas
+             mintiendo a la vez. */
+          var antesDeLaRafaga = null;
+
+          function idsDeLosChips() {
+            return chips.map(function (c) { return c.dataset.tabId; });
+          }
+          /* Deja los chips en el orden que diga la lista y arrastra con ellos lo que depende
+             de ese orden: las fichas de abajo y los numeros. `appendChild` MUEVE, asi que
+             recorrer la lista en orden deja exactamente ese orden; lo que no venga en la
+             lista se queda al final y no se pierde. */
+          function colocarChips(ids) {
+            if (!ids || ids.length < 2) return;
+            var porId = {};
+            chips.forEach(function (c) { porId[c.dataset.tabId] = c; });
+            var puestos = [];
+            ids.forEach(function (id) {
+              var c = porId[id];
+              if (c) { tira.appendChild(c); puestos.push(c); }
+            });
+            chips.forEach(function (c) { if (puestos.indexOf(c) === -1) tira.appendChild(c); });
+            chips = [].slice.call(tira.querySelectorAll('.adm-pestana[data-tab-id]'));
+            pintarTopes();
+            recolocarFichas();
+            renumerarAmbito(pane.querySelector('.adm-platos-lista'));
+          }
+
           function guardar() {
             var cuerpo = new URLSearchParams();
             var csrf = document.querySelector('#agotados-form input[name="csrf"]');
@@ -13237,7 +13400,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             chips.forEach(function (c) { cuerpo.append('pest[]', c.dataset.tabId); });
             clearTimeout(enVuelo);
             enVuelo = setTimeout(function () {
-              fetch(location.pathname, {
+              var antes = antesDeLaRafaga;
+              antesDeLaRafaga = null;
+              admFetch(location.pathname, {
                 method: 'POST', body: cuerpo, credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
               }).then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
@@ -13246,17 +13411,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   /* Ya no se recarga: el orden nuevo y los numeros nuevos se pintaron al
                      mover, y esto solo confirma que el servidor se quedo con lo mismo. */
                 })
-                /* Antes, un fallo dejaba el chip movido y los numeros viejos; ahora deja el
-                   chip movido, las fichas movidas y los numeros nuevos. En los dos casos lo
-                   que se ve ya no es lo que hay guardado, asi que el aviso lo dice: el
-                   error se queda en pantalla hasta que se cierra, y recargar es lo unico
-                   que devuelve la verdad. No se recarga por nuestra cuenta encima de un
-                   aviso que esta pidiendo leerse. */
                 .catch(function (e) {
-                  if (window.toast) {
-                    toast(String(e && e.message ? e.message : e)
-                      + ' Recarga la página: lo que ves ya no es lo que está guardado.', 'bad');
-                  }
+                  /* Vuelta atras completa: chips, fichas y numeros. Por eso el aviso ya no
+                     pide recargar a mano — la pantalla vuelve sola a lo que hay guardado. */
+                  if (antes) colocarChips(antes);
+                  if (window.toast) toast(String(e && e.message ? e.message : e), 'bad');
                 });
             }, 500);
           }
@@ -13265,6 +13424,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             var i = h.indexOf(c);
             var j = i + paso;
             if (i < 0 || j < 0 || j >= h.length) return;
+            /* Antes de mover: si es la primera pulsacion de la ráfaga, se apunta de donde
+               salimos. Las siguientes no lo pisan, para volver al principio y no al paso
+               anterior. */
+            if (!antesDeLaRafaga) antesDeLaRafaga = idsDeLosChips();
             var otra = h[j];
             if (paso < 0) tira.insertBefore(c, otra);
             else tira.insertBefore(otra, c);
@@ -13356,16 +13519,49 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               }
             });
           }
+          /* El orden de ANTES de la primera pulsacion de la ráfaga, una entrada por seccion.
+             Si el servidor rechaza, se vuelve ahi y no a medio camino. Es el mismo patron que
+             el movedor de PLATOS ya tenia (`pendientes`, unas lineas mas arriba); aqui
+             faltaba, y lo unico que quedaba era un aviso pidiendo recargar a mano. Un orden
+             que el servidor no acepto no puede quedarse pintado. */
+          var pendientesCat = {};
+
+          function clavesDeSeccion(tid) {
+            return fichas.filter(function (o) { return o.dataset.tabId === tid; })
+                         .map(function (o) { return o.dataset.cat; });
+          }
+          /* Deja las fichas de una seccion en el orden que diga la lista de claves, y pone al
+             dia lo que depende de ese orden: los topes de las flechas y la numeracion, que
+             corre por toda la carta. Lo usan las flechas, la hoja de ordenar y la vuelta
+             atras: un solo sitio que sepa colocar. */
+          function colocarCategorias(claves) {
+            if (!claves || claves.length < 2) return;
+            var ancla = fichaDe(claves[0]);
+            if (!ancla) return;
+            for (var i = 1; i < claves.length; i++) {
+              var f = fichaDe(claves[i]);
+              if (!f) continue;
+              lista.insertBefore(f, ancla.nextSibling);
+              ancla = f;
+            }
+            fichas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-cat][data-tab-id]'));
+            pintarTopes();
+            renumerarAmbito(lista);
+          }
+
           function guardar(f) {
+            var tid = f.dataset.tabId;
             var h = hermanas(f);
             var cuerpo = new URLSearchParams();
             var csrf = document.querySelector('#agotados-form input[name="csrf"]');
             cuerpo.set('csrf', csrf ? csrf.value : '');
-            cuerpo.set('cats_orden', f.dataset.tabId);
+            cuerpo.set('cats_orden', tid);
             h.forEach(function (o) { cuerpo.append('cat[]', o.dataset.cat); });
             clearTimeout(enVuelo);
             enVuelo = setTimeout(function () {
-              fetch(location.pathname, {
+              var p = pendientesCat[tid];
+              delete pendientesCat[tid];
+              admFetch(location.pathname, {
                 method: 'POST', body: cuerpo, credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
               }).then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
@@ -13373,14 +13569,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar el orden.');
                   /* Ya no se recarga: los numeros nuevos se repartieron al mover. */
                 })
-                /* Mismo motivo que en las secciones: si el servidor no se quedo con este
-                   orden, la ficha movida y los numeros repartidos son optimistas y no
-                   tienen con que corregirse solos. */
                 .catch(function (e) {
-                  if (window.toast) {
-                    toast(String(e && e.message ? e.message : e)
-                      + ' Recarga la página: lo que ves ya no es lo que está guardado.', 'bad');
-                  }
+                  /* Vuelta atras completa, y por eso el aviso ya no pide recargar: la
+                     pantalla vuelve sola a lo que hay guardado. */
+                  if (p && p.antes) colocarCategorias(p.antes);
+                  if (window.toast) toast(String(e && e.message ? e.message : e), 'bad');
                 });
             }, 500);
           }
@@ -13389,6 +13582,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             var i = h.indexOf(f);
             var j = i + paso;
             if (i < 0 || j < 0 || j >= h.length) return;
+            /* Antes de mover nada: si esta es la primera pulsacion de la ráfaga, se apunta el
+               orden de partida. Las siguientes no lo pisan, para que la vuelta atras lleve al
+               principio de la ráfaga y no al paso anterior. */
+            var tid = f.dataset.tabId;
+            if (!pendientesCat[tid]) pendientesCat[tid] = { antes: clavesDeSeccion(tid) };
             var otra = h[j];
             if (paso < 0) lista.insertBefore(f, otra);
             else lista.insertBefore(otra, f);
@@ -13633,17 +13831,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
              Ni un endpoint nuevo ni una entrada nueva en el inventario. */
           function aplicarOrden() {
             if (!ordenTid || !ordenClaves.length) { cerrarOrden(); return; }
-            var ancla = fichaDe(ordenClaves[0]);
-            if (!ancla) { cerrarOrden(); return; }
-            for (var i = 1; i < ordenClaves.length; i++) {
-              var f = fichaDe(ordenClaves[i]);
-              if (!f) continue;
-              lista.insertBefore(f, ancla.nextSibling);
-              ancla = f;
-            }
-            fichas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-cat][data-tab-id]'));
-            pintarTopes();
-            renumerarAmbito(lista);
+            /* El orden de partida, por si el servidor lo rechaza: la hoja tambien se deshace,
+               igual que las flechas. Se apunta ANTES de colocar nada. */
+            if (!pendientesCat[ordenTid]) pendientesCat[ordenTid] = { antes: clavesDeSeccion(ordenTid) };
+            colocarCategorias(ordenClaves);
             var primera = fichaDe(ordenClaves[0]);
             if (primera) guardar(primera);
             cerrarOrden();
@@ -13760,7 +13951,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           /* Respuesta corta, y se LEE. Las dos cosas hacen falta: la cabecera para que el
              servidor no mande la pagina entera, y leer el cuerpo para que la conexion se
              cierre. Un fetch cuyo cuerpo no se lee deja al servidor escribiendo. */
-          fetch(location.pathname, {
+          admFetch(location.pathname, {
             method: 'POST', body: datos, credentials: 'same-origin',
             headers: { 'X-Sin-Pagina': '1' },
           })
@@ -14064,7 +14255,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         function enviar(datos) {
           datos.append('csrf', csrf);
-          return fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+          return admFetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (j) {
               if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar.');
@@ -14294,7 +14485,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         }
         function guardarDestacado(datos, boton) {
           if (boton) boton.disabled = true;
-          fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+          admFetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
             .then(function (r) {
               return r.text().then(function (t) {
                 if (!r.ok) throw new Error('http');
@@ -14944,7 +15135,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               else { datos.append(k, v); }
             });
             datos.set('csrf', csrfOferta());
-            return fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+            return admFetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
               .then(function (r) {
                 return r.text().then(function (texto) {
                   if (!r.ok) {
@@ -15449,7 +15640,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               datos.set('guardar_juego', '1');
               if (marcar) datos.set('juego_on', '1');   // sin marcar no se manda: es como lo manda el <form>
               sw.disabled = true;
-              enVuelo = fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+              enVuelo = admFetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
                 .then(function (r) {
                   return r.text().then(function (texto) {
                     if (!r.ok) { throw new Error(mensajeMalo(texto) || 'No se ha podido guardar. Comprueba la conexión.'); }
@@ -16633,7 +16824,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         cuerpo.append('ordenar_fotos', '1');
         orden.forEach(function (f) { cuerpo.append('orden[]', f); });
         decir('Guardando el orden…', false);
-        fetch(location.pathname + '?t=marca', {
+        admFetch(location.pathname + '?t=marca', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
           body: cuerpo.toString(),
@@ -17791,7 +17982,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     d.set('csrf', csrf);
     d.set('plato_datos', b.getAttribute('data-editar'));
     b.disabled = true;
-    fetch(location.pathname, {
+    admFetch(location.pathname, {
       method: 'POST', body: d, credentials: 'same-origin',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }).then(function (r) { return r.json(); }).then(function (j) {
@@ -17876,7 +18067,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     var antes = boton ? boton.textContent : '';
     if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
     var datos = new URLSearchParams(new FormData(form));
-    fetch(location.pathname, {
+    admFetch(location.pathname, {
       method: 'POST', body: datos, credentials: 'same-origin',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Sin-Pagina': '1' },
     }).then(function (r) { return r.json(); }).then(function (j) {
@@ -17887,7 +18078,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       /* Al crear, la clave la devuelve el servidor; al editar ya la teniamos puesta. */
       fd.append('foto_plato', j.key || datos.get('plato_editar'));
       fd.append('foto', fotoPendiente, 'plato.webp');
-      return fetch(location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' })
+      return admFetch(location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function (r) { return r.json(); });
     }).then(function () {
       /* Se recarga y ya: el plato nuevo hay que verlo en su ficha, con su numero y su sitio,
