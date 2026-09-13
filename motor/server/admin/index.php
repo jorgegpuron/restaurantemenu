@@ -9240,6 +9240,15 @@ $CUENTAS = [
     position:fixed;inset:0;z-index:88;display:grid;place-items:center;padding:var(--space-4);
   }
   .adm-alta[hidden]{display:none}
+  /* Con una capa abierta, la pagina de DETRAS no rueda. El propietario vio dos barras en el
+     movil: una era la de la lista de la hoja y la otra la de la pagina, que no tiene nada que
+     hacer ahi —la hoja es modal, lo de detras no se puede usar—. Y ademas evita arrastrar la
+     hoja y que se mueva el fondo, que es lo que hace que una hoja parezca una parte mas de la
+     pagina en vez de algo que hay que cerrar.
+     `overflow:hidden` en las dos, html y body: en Chrome basta con html, en Safari de iOS no.
+     Chrome conserva la posicion de desplazamiento, asi que al cerrar se vuelve a donde estaba
+     sin guardar nada. */
+  html.adm-sin-rodar, html.adm-sin-rodar body{overflow:hidden}
   .adm-alta-fondo{
     position:absolute;inset:0;
     background:color-mix(in srgb, var(--sc-canvas) 72%, transparent);
@@ -9563,14 +9572,31 @@ $CUENTAS = [
      arrastre sea exacta —todas las filas miden lo mismo, asi que el destino es una division
      entera y no una busqueda—. La caja se estrecha respecto a la hoja de alta porque aqui
      no hay dos columnas que meter: son nombres. */
-  .adm-ordencats-caja{width:min(420px,100%)}
+  /* UN SOLO scroller, y el unico es la lista.
+     `.adm-alta-caja` trae `overflow:auto` para las hojas largas de dos columnas, y aqui sobra:
+     con la lista rodando por dentro salian DOS barras, una pegada a la otra, y el propietario
+     las vio en el movil. Columna flexible con `overflow:hidden` en la caja: el titulo, la
+     pista y el pie no se mueven, y lo que se queda con el alto que sobra es la lista. */
+  .adm-ordencats-caja{
+    width:min(420px,100%);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .adm-ordencats-caja > .adm-alta-t,
+  .adm-ordencats-caja > .adm-alta-pista,
+  .adm-ordencats-caja > .adm-ordencats-pie{flex:none}
   .adm-ordencats-lista{
     list-style:none;margin:var(--space-3) 0 0;padding:0;
     display:flex;flex-direction:column;gap:var(--space-1);
     /* Doce categorias —la seccion mas larga de esta carta— son 572 px con sus huecos: caben
        enteras y la lista no rueda. El tope sigue existiendo para una ventana baja o para una
-       seccion mas larga en otro cliente. */
+       seccion mas larga en otro cliente.
+       `flex:1 1 auto` con `min-height:0` es lo que le deja ENCOGER cuando la ventana es mas
+       baja que eso: sin el, la lista se quedaba a su alto y empujaba el pie fuera de la caja,
+       o sacaba la segunda barra. */
+    flex:1 1 auto;min-height:0;
     max-height:min(70dvh,620px);overflow:auto;
+    /* Que el rebote de la lista no se propague a la pagina de detras. */
+    overscroll-behavior:contain;
   }
   .adm-ordencats-fila{
     display:flex;align-items:center;gap:var(--space-3);
@@ -13218,20 +13244,37 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var hojas = [].slice.call(pane.querySelectorAll('.adm-cat-nombre'));
           if (!hojas.length) return;
 
+          /* CENTRADA en pantallas estrechas, anclada al lapiz en las anchas.
+             En un movil la hoja mide casi el ancho de la pantalla —`min(320px, 100vw - 24px)`—
+             y es mas alta que el hueco que deja el lapiz, asi que el anclaje no colocaba nada:
+             el tope de pantalla la empujaba arriba o abajo y acababa en una esquina distinta
+             segun donde estuviera el lapiz, que es justo lo que el propietario describio como
+             «salen en las esquinas, en el centro, no hay un orden». Centrada cae SIEMPRE en el
+             mismo sitio, y eso es lo que permite aprenderse el panel. De 560 para arriba el
+             anclaje si dice algo —la hoja es estrecha al lado de la pantalla— y se queda. */
+          var ESTRECHO = 560;
           function colocar(det) {
             var f = det.querySelector('.adm-cat-nombre-f');
             var b = det.querySelector('.adm-cat-nombre-b');
             if (!f || !b) return;
-            var r = b.getBoundingClientRect();
             f.style.left = '0px'; f.style.top = '0px';      // medir sin arrastrar la posicion de antes
             var w = f.offsetWidth;
             var h = f.offsetHeight;
-            var x = Math.min(Math.max(8, r.right - w), innerWidth - w - 8);
-            /* Debajo del lapiz si cabe; encima si no. Y acotada a la pantalla en los dos
-               sentidos: si la ficha esta fuera del pliegue —al abrirla con el teclado, o
-               desde una prueba— sin este tope la hoja se colocaba donde nadie la ve. */
-            var y = r.bottom + 6;
-            if (y + h > innerHeight - 8) y = r.top - h - 6;
+            var x, y;
+            if (innerWidth < ESTRECHO) {
+              x = (innerWidth - w) / 2;
+              y = (innerHeight - h) / 2;
+            } else {
+              var r = b.getBoundingClientRect();
+              x = r.right - w;
+              /* Debajo del lapiz si cabe; encima si no. */
+              y = r.bottom + 6;
+              if (y + h > innerHeight - 8) y = r.top - h - 6;
+            }
+            /* Y acotada a la pantalla en los dos sentidos: si la ficha esta fuera del pliegue
+               —al abrirla con el teclado, o desde una prueba— sin este tope la hoja se
+               colocaba donde nadie la ve. */
+            x = Math.min(Math.max(8, x), Math.max(8, innerWidth - w - 8));
             y = Math.min(Math.max(8, y), Math.max(8, innerHeight - h - 8));
             f.style.left = Math.round(x) + 'px';
             f.style.top = Math.round(y) + 'px';
@@ -13256,8 +13299,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               cerrarTodas(det);              // una abierta a la vez
               recordar(det);
               colocar(det);
-              var primero = det.querySelector('input[name^="nombre["]');
-              if (primero) primero.focus();
+              /* NO se enfoca el primer campo, y es una decision con motivo: en un movil,
+                 enfocar un <input> abre el teclado, y el teclado tapa media pantalla justo
+                 cuando el usuario todavia esta mirando donde ha caido la hoja. Se pierde el
+                 sitio y hay que cerrar el teclado para seguir. Lo pidio el propietario despues
+                 de usarlo en produccion: que el teclado salga al tocar el campo, que es lo que
+                 hace cualquier formulario de una pagina normal.
+                 El foco va a la CAJA de la hoja (`tabindex="-1"`) y no a ningun sitio: asi
+                 Escape sigue cerrando, el tabulador entra en el primer campo con una pulsacion
+                 y quien usa lector de pantalla oye que se ha abierto algo. */
+              var cajaHoja = det.querySelector('.adm-cat-nombre-f');
+              if (cajaHoja) { cajaHoja.tabIndex = -1; cajaHoja.focus({ preventScroll: true }); }
             });
           });
 
@@ -17796,6 +17848,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
      movimiento» la salida es un fundido de opacidad y termina igual; si por lo que sea no llega
      ningun animationend (sin JS de animaciones, una CSS que alguien apago), el temporizador de
      respaldo esconde de todas formas. Abrir cancela un cierre a medias. */
+  /* Y mientras haya alguna capa abierta, la pagina de detras no rueda. Se cuenta en vez de
+     poner y quitar la clase: hay capas que se abren encima de otra —confirmar sobre una hoja—
+     y la primera que se cierre no puede desbloquear el fondo de la que sigue abierta. La marca
+     por capa (`_bloqueando`) evita contar dos veces si se abre lo que ya estaba abierto. */
+  var admCapasAbiertas = 0;
+  function admFondoQuieto(delta) {
+    admCapasAbiertas = Math.max(0, admCapasAbiertas + delta);
+    document.documentElement.classList.toggle('adm-sin-rodar', admCapasAbiertas > 0);
+  }
   function admCerrarConSalida(capa) {
     if (!capa || capa.hidden || capa.hasAttribute('data-cerrando')) return;
     var hecho = false;
@@ -17806,6 +17867,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       capa.removeEventListener('animationend', fin);
       capa.removeAttribute('data-cerrando');
       capa.hidden = true;
+      if (capa._bloqueando) { capa._bloqueando = false; admFondoQuieto(-1); }
     }
     capa.setAttribute('data-cerrando', '');
     capa.addEventListener('animationend', fin);
@@ -17818,6 +17880,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       capa.removeAttribute('data-cerrando');
     }
     capa.hidden = false;
+    if (!capa._bloqueando) { capa._bloqueando = true; admFondoQuieto(1); }
   }
 (function () {
 
