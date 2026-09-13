@@ -18274,11 +18274,15 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     if (cual && cat) cat.value = cual;
     pintarRuta();
     admAbrirCancelandoSalida(hoja);
-    /* El foco al primer campo que hay que escribir, no al desplegable: si se ha entrado por
-       el `+` de una ficha, la categoria ya esta elegida y volver a ella es un paso de mas. */
-    var visible = caja.querySelector('.adm-alta-idi-panel:not([hidden]) input[type="text"]');
-    var primero = cual || (cat && cat.disabled) ? visible : (cat || visible);
-    if (primero) primero.focus();
+    /* El foco a la CAJA, no al primer campo. Aqui habia un foco al primer campo que hay que
+       escribir —con su razon: si se entra por el `+` de una ficha, la categoria ya esta
+       elegida y volver a ella es un paso de mas—, y en un movil eso abre el teclado encima de
+       la hoja en el momento en que se abre. El propietario lo cazo en «Anadir plato» y en
+       «Modificar plato», que son esta misma hoja.
+       Con el foco en la caja (`tabindex="-1"`) no se pierde nada de lo que importa: Escape
+       cierra, un Tab entra en el primer campo, y el lector de pantalla anuncia el dialogo. El
+       teclado sale al TOCAR el campo, como en cualquier formulario. */
+    if (caja) { caja.tabIndex = -1; caja.focus({ preventScroll: true }); }
   }
 
   document.addEventListener('click', function (e) {
@@ -18492,8 +18496,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     if (!hoja) return;
     devolverFoco = b;
     admAbrirCancelandoSalida(hoja);
-    var primero = hoja.querySelector('input[type="text"]');
-    if (primero) primero.focus();
+    /* A la caja y no al campo: enfocar el campo abre el teclado del movil al abrir la hoja.
+       Mismo criterio que en «Anadir plato» y que en el popover de renombrar. */
+    var cajaSec = hoja.querySelector('.adm-alta-caja');
+    if (cajaSec) { cajaSec.tabIndex = -1; cajaSec.focus({ preventScroll: true }); }
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && hoja && !hoja.hidden) { e.preventDefault(); cerrar(); }

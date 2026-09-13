@@ -5302,7 +5302,9 @@ export async function e2eOrdenPlatos(informe, { navegador, servidor, docroot }) 
           campos: h.querySelectorAll('input[name^="nombre["]').length,
           requeridos: h.querySelectorAll('input[name^="nombre["][required]').length,
           desviacionX: Math.abs(Math.round(r.left + r.width / 2) - Math.round(innerWidth / 2)),
-          foco: document.activeElement.name || '',
+          /* Dos cosas distintas: DÓNDE está el foco, y si eso abriría el teclado del móvil. */
+          foco: (document.activeElement.className || document.activeElement.tagName || '').split(' ')[0],
+          focoEnCampo: document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA',
         };
       });
       if (!boton.hay) informe.blocked('E2E-SEC-20', 'crear una sección', 'no está el botón + de la tira');
@@ -5311,9 +5313,17 @@ export async function e2eOrdenPlatos(informe, { navegador, servidor, docroot }) 
            derecho, la fila se leería «pasa página / crea / pasa página». */
         const iMas = boton.orden.indexOf('adm-secciones-mas');
         const iDer = boton.orden.lastIndexOf('adm-secciones-flecha');
-        informe.comprueba('E2E-SEC-20', 'el + de crear sección está al final de la tira, detrás de los dos manejadores, y abre una hoja centrada con un campo por idioma y sólo el base obligatorio',
+        /* Y el foco entra en la CAJA, no en el primer campo. Este test contrataba lo contrario
+           —«el foco en el primer campo»— y se cambió el 13 sep 2026 por orden del propietario:
+           en un móvil, enfocar un <input> despliega el teclado encima de la hoja en el momento
+           de abrirla, y hay que cerrarlo para ver dónde ha caído. Lo que se contrata ahora es
+           lo que de verdad importa: que el foco ENTRE en la hoja —para que Escape cierre, un
+           Tab llegue al primer campo y el lector de pantalla la anuncie— y que NO sea un campo
+           de escritura. */
+        informe.comprueba('E2E-SEC-20', 'el + de crear sección está al final de la tira, detrás de los dos manejadores, y abre una hoja centrada con un campo por idioma, sólo el base obligatorio, y el foco dentro de la caja sin abrir el teclado',
           iMas > iDer && boton.abierta && boton.campos >= 2 && boton.requeridos === 1
-            && boton.desviacionX <= 1 && /^nombre\[/.test(boton.foco), JSON.stringify(boton));
+            && boton.desviacionX <= 1 && boton.foco === 'adm-alta-caja' && boton.focoEnCampo === false,
+          JSON.stringify(boton));
         await p.keyboard.press('Escape');
 
         const enviar = (pares) => postCrudo(p, '/admin/index.php', pares);
@@ -5490,14 +5500,25 @@ export async function e2eOrdenPlatos(informe, { navegador, servidor, docroot }) 
           secciones: sel.querySelectorAll('optgroup').length, enBarra,
           desviacionX: Math.abs(Math.round(caja.left + caja.width / 2) - Math.round(innerWidth / 2)),
           desviacionY: Math.abs(Math.round(caja.top + caja.height / 2) - Math.round(innerHeight / 2)),
-          foco: document.activeElement.name || '',
+          /* Dos cosas distintas: DÓNDE está el foco, y si eso abriría el teclado del móvil. */
+          foco: (document.activeElement.className || document.activeElement.tagName || '').split(' ')[0],
+          focoEnCampo: document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA',
         };
       }, cat);
       if (!hoja.hay || !hoja.conMas) informe.blocked('E2E-ALTA-01', 'la hoja de alta', 'no está la hoja o el botón + de la ficha');
-      else informe.comprueba('E2E-ALTA-01', 'el + de una categoría abre la hoja de alta centrada, con esa categoría ya elegida, el foco en el primer campo y todas las categorías agrupadas por sección',
+      /* El foco entra en la CAJA y no en el primer campo. Este test contrataba «el foco en el
+         primer campo» —tenía su razón: con la categoría ya elegida, lo siguiente que hay que
+         hacer es escribir el nombre— y se cambió el 13 sep 2026 por orden del propietario: en
+         un móvil eso despliega el teclado encima de la hoja justo al abrirla, y hay que
+         cerrarlo para ver dónde ha caído. Vale para «Añadir plato» y para «Modificar plato»,
+         que son esta misma hoja. Lo que se contrata ahora es que el foco ENTRE en la hoja
+         —Escape cierra, un Tab llega dentro, el lector de pantalla la anuncia— y que NO sea un
+         campo de escritura. */
+      else informe.comprueba('E2E-ALTA-01', 'el + de una categoría abre la hoja de alta centrada, con esa categoría ya elegida, el foco dentro de la caja sin abrir el teclado, y todas las categorías agrupadas por sección',
         hoja.cerradaAlEntrar && hoja.abierta && hoja.catElegida && hoja.enBarra
           && hoja.opciones >= 10 && hoja.secciones >= 2
-          && hoja.desviacionX <= 1 && hoja.desviacionY <= 1 && /^nombre\[/.test(hoja.foco),
+          && hoja.desviacionX <= 1 && hoja.desviacionY <= 1
+          && hoja.foco === 'adm-alta-caja' && hoja.focoEnCampo === false,
         JSON.stringify(hoja));
       /* La hoja tiene que CABER. Es la queja que la rehizo: seis campos de texto seguidos la
          hacían más alta que el navegador y para llegar al botón de guardar había que
