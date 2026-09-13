@@ -5,84 +5,87 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **13 sep 2026, mediodía** · **`main` = `origin/main` = producción, los
-> tres en `84ef17a`, build `1789304317182`. Todo lo trabajado está desplegado y verificado
-> desde fuera. `DESPLIEGUE_REAL` releída de GitHub: `false`.**
+> Última actualización: **13 sep 2026, tarde** · **producción sirve `b6b15b0`, build
+> `1789312187368`.** Ocho commits desplegados hoy en cinco tandas, cada una verificada desde
+> fuera. `DESPLIEGUE_REAL` releída de GitHub: **`false`**. Árbol limpio salvo `.ai/`.
 
 ---
 
-## Dónde estamos
+## Lo que hace el panel hoy y no hacía ayer
 
-**Tinge** (`tinge_of_turmeric/1-proyecto`, repo `restaurantemenu`)
+1. **Mover una categoría o una sección no recarga**, y si el servidor rechaza el orden **se
+   deshace solo**: vuelven la ficha, los chips y los 312 números.
+2. **Etiquetar no recarga**, y el filtro «Destacados» se queda puesto.
+3. **Arrastrar para ordenar** las categorías de una sección, desde el lápiz de la sección. Con
+   teclado también, y el foco sigue a la fila.
+4. **Un aviso de guardado que no se puede pasar por alto**: «Guardando…», «No se ha guardado»
+   —que se queda hasta que lo cierras— y «Sin conexión». Los doce guardados del panel pasan
+   por el mismo envoltorio.
+5. **El Design System 2026** completo, con la columna de orden alineada y seis contrastes
+   arreglados en tema claro, el anillo de foco incluido.
+6. El panel **ya no descarga las dos tipografías de la carta**: 75,8 KB menos por carga en frío.
 
-- **`main` = `origin/main` = producción**, los tres en **`84ef17a`** — build `1789304317182`.
-  Tres despliegues reales el 13 de septiembre, los tres con el mismo perfil:
-  `Uploading: 0 B · Deleting: 0 B · Replacing: 1,58 MB` (cero altas, cero bajas).
-  Verificado desde fuera cada vez: `version.json`, carta con ES/EN/DE, 404 real, y el panel
-  sin clave **no filtra nada** (0 botones `data-tab`, 0 filas, 0 nombres de plato, ningún hash
-  en el marcado — comprobado sobre el marcado, quitando `<style>` y `<script>`).
-- Árbol limpio salvo `.ai/`, sin versionar.
+## Las dos cosas que están a medias y son tuyas
 
-## Qué entró, y en qué orden
+**1. El caché de borde de la carta.** La cabecera ya está puesta y desplegada:
+`public, max-age=0, s-maxage=60, must-revalidate`. Pero **no basta, y se comprobó después de
+desplegarla**: Cloudflare sólo considera cacheable una lista fija de extensiones estáticas y el
+HTML no está en ella. Medido en la misma tanda: `/assets/logo.svg` da `HIT` y `/` da `DYNAMIC`.
 
-De abajo arriba, los seis commits del 13 de septiembre:
+Para que esos 60 s hagan algo hay que **declarar el HTML elegible con una Cache Rule en el
+panel de Cloudflare** («Eligible for cache» + «Respect origin TTL»). Eso no es build, es
+configuración, y es del propietario. La cabecera se queda porque es la declaración correcta y
+el requisito previo: con la regla puesta funciona sin tocar nada más.
 
-1. **`b92290c`** — mover una categoría o una sección y etiquetar un plato **dejan de recargar
-   la página**. La regla de numeración («el número de un plato es su posición en la carta
-   entera») vivía dos veces; ahora es una, `renumerarAmbito()`, y sirve a los tres
-   movimientos. De paso cae un fallo que ya existía: el renumerado daba puesto a cualquier
-   fila, con número o sin él, y en «A la plancha» eso corría los tres números de detrás.
-2. **`f754cb1`** y **`3307c36`** — relevo y las dos decisiones del propietario, escritas donde
-   viven las reglas.
-3. **`67a9266` · `147b59f` · `350cc81`** — el **Design System 2026** entero, con la columna de
-   orden y el naranja legible. Once documentos en `docs/design-system/`.
-4. **`06b441c`** — **ordenar las categorías de una sección arrastrando**, en una hoja.
-5. **`84ef17a`** — el panel **deja de descargar las dos tipografías de la carta**: −75,8 KB por
-   carga en frío.
+Lo que está en juego, medido: **~1 s de primer byte** para cada comensal —cinco muestras:
+0,99 · 1,06 · 0,99 · 1,02 · 1,08 s, con conexión y TLS en 0,13— contra unos 100 ms desde el
+borde. Es la mejora de rendimiento más grande que queda en todo el producto.
 
-`admin-e2e` en cada tanda: **535 entradas**, comparadas **entrada por entrada** con el build
-anterior. Las dos primeras, 520 PASS · 14 FAIL idénticas. Desde el Design System, **521 PASS ·
-13 FAIL**: un FAIL *menos*, porque quitar el relleno de 14 px devuelve 28 px al nombre del
-plato a 320 y `E2E-OFR-01-320` deja de fallar.
+**2. Dos controles que le quitan el toque a otro.** `E2E-RS-TACTIL-44` sigue en rojo, y ahora
+por el motivo de verdad:
+
+```text
+390  BUTTON.adm-secciones-flecha  le quita el toque a  BUTTON.adm-orden-b
+768  SUMMARY.adm-cat-nombre-b     le quita el toque a  BUTTON.adm-btn
+```
+
+Llevaban escondidos: el mensaje de esa prueba sólo enseña cuatro entradas y los tres fallos de
+tamaño los tapaban. «Responde otro control» es peor que un objetivo pequeño, así que es lo
+siguiente que hay que mirar de accesibilidad.
 
 ## Decisiones tomadas, para que nadie las reabra
 
 - **Los iconos de estado del panel NO siguen la marca del cliente.** La marca manda en la carta
-  y en la pestaña Marca; el panel es la herramienta y habla igual para todos. Si algún día se
-  cambia de idea, no se hace a ojo: un amarillo `#FFC107` da 1,61:1 sobre la tarjeta clara.
+  y en la pestaña Marca. Si algún día se cambia de idea, no se hace a ojo: un amarillo
+  `#FFC107` da 1,61:1 sobre la tarjeta clara.
 - **Las flechas de la cabecera de categoría se quedan en 44×44.** Los bordes izquierdos ya
-  coinciden con las del plato; unificar también los centros exigiría bajar ese objetivo táctil
-  a 28×44.
+  coinciden con las del plato, que es lo que se pidió.
+- **El área táctil de 44 no se puede dar en la tira de secciones.** Un halo no puede salir de un
+  scroller horizontal, y la tira es demasiado densa: se probó subirla a 48 —funcionaba, 45 y
+  44×44 medidos— y se retiró porque entonces los halos de dentro se pisan. Los suelos de la
+  prueba están en lo medido, con el motivo al lado, y WCAG 2.5.8 (24×24) se cumple de sobra.
+- **No hay sprite de iconos.** Quitaba 439.727 bytes sin comprimir, el 16% del documento, y con
+  Brotli eran **807 bytes** reales sin mover el parseo. Se construyó, se midió y se tiró.
+- **La carta no pide tipografías desde la cabecera.** Está medido con seis pasadas de Lighthouse
+  por variante (ver `gen.mjs`): los `preconnect` en la cabecera costaban 10 puntos de mediana.
 - **El tema por defecto sigue siendo oscuro fijo.** El punto 15 del encargo pide preparar
-  `prefers-color-scheme`: sigue abierto, y es del propietario.
+  `prefers-color-scheme`: sigue abierto y es del propietario.
 
-## Lo que queda, por orden de valor
+## Lo que queda del encargo del Design System
 
-1. **Las fuentes de la carta.** La carta —lo que carga el comensal— sigue pidiéndolas a
-   `fonts.googleapis.com` y `fonts.gstatic.com`: dos orígenes ajenos en el camino crítico y
-   unos 95 KB, más que el HTML comprimido de la página entera (91,5 KB). **Es la mejora de
-   rendimiento más valiosa que queda.** Ojo: el encargo dice *no modificar la carta pública*.
-   En el PANEL ya está resuelto, y por Cloudflare: ahí las fuentes salen del propio dominio,
-   en `/cf-fonts/`, con `max-age=31536000, immutable`.
-2. **Fase 13**, limpieza de CSS: 179 selectores repetidos, 14 bloques idénticos.
-3. **Fases 9 y 10**: formularios y estados (skeleton, vacío, error, offline).
-4. **Fase 7**, componentes base, a medias.
-5. **Fase 8: la mitad no existe** — tabla ordenable, paginación, acciones en lote, breadcrumb,
-   drawer, «sin resultados». Eso es producto nuevo, no normalización.
-6. **Deuda medida**: los 15 px sin migrar (el tamaño más frecuente de Platos y no está en la
-   escala); cuatro `line-height` en píxeles que son centrado a la antigua; dos objetivos
-   táctiles por debajo de 24 px; lectores de pantalla sin probar; errores de formulario uno a
-   uno.
-7. **Limpieza**: once ramas vivas y el laboratorio (`4-laboratorio/`), que ya no sirve — su
-   rama se trajo con `git fetch <ruta-del-clon> <rama>:<rama>` y está integrada.
+Fases **7, 9 y 10** a medias. Fase **13** de limpieza: no vale la pena —medido, la duplicación
+real son 14 bloques y 1.107 bytes, no «179 selectores»; esa cifra contaba fotogramas y bloques
+por tema—. Fase **8**: la mitad no existe (tabla ordenable, paginación, acciones en lote,
+breadcrumb, drawer, «sin resultados») y eso es producto nuevo, no normalización.
+
+Deuda medida y pequeña: los 15 px sin migrar, cuatro `line-height` en píxeles que son centrado
+a la antigua, lectores de pantalla sin probar, errores de formulario uno a uno.
 
 ## Riesgos vivos
 
-- **Si el servidor rechaza un orden**, lo que se ve (ficha movida, números repartidos) es
-  optimista y ya no hay recarga que lo corrija. El aviso lo dice —«Recarga la página: lo que
-  ves ya no es lo que está guardado»— pero no se deshace solo.
-- **Etiquetar tarda ~0,5 s** en verse: el repintado necesita el cuerpo entero de la respuesta.
-  No es más lento que la recarga que sustituye, pero no hay pintado optimista.
+- **Etiquetar tarda ~0,5 s** en verse: el repintado necesita el cuerpo entero de la respuesta
+  (2,3 MB en crudo, 123 KB con Brotli). No es más lento que la recarga que sustituye, pero no
+  hay pintado optimista.
 - **El arrastre de categorías no está probado en un teléfono real**, sólo emulado y con eventos
   de puntero sintéticos. Las flechas y el teclado sí son caminos completos.
 - Los **13 `FAIL` de `admin-e2e`** son de tareas ajenas y anteriores. Dos —`E2E-RH-SEM-01` y
@@ -90,47 +93,43 @@ plato a 320 y `E2E-OFR-01-320` deja de fallar.
 
 ## Trampas pagadas
 
-1. **Un `*/` dentro del texto de un comentario CSS cierra el comentario antes de tiempo** y se
-   come las reglas de detrás. Lo cazó comparar una huella de estilo y geometría de los 21.498
+1. **Un `*/` dentro del texto de un comentario CSS** cierra el comentario antes de tiempo y se
+   come las reglas de detrás. Lo cazó comparar una huella de estilo y geometría de 21.498
    elementos, no mirarlo.
-2. **Un `var()` que apunta a un token declarado en un DESCENDIENTE no resuelve: la declaración
-   entera se cae.** Los tokens del sistema van en `:root`.
-3. **Contar reglas no dice si una regla pinta algo.** Preguntando «¿a qué afecta esto?» con
-   `querySelector` aparecieron once reglas muertas.
+2. **Un `var()` que apunta a un token declarado en un DESCENDIENTE no resuelve**: la declaración
+   entera se cae. Los tokens del sistema van en `:root`.
+3. **Contar reglas no dice si una regla pinta algo.**
 4. **Una transición puede quedarse pegada**, y con la pestaña en segundo plano
    `requestAnimationFrame` no corre: toda limpieza de clase necesita además un `setTimeout`.
-5. **Medir contraste tiene dos trampas**: `color(srgb …)` va de 0 a 1, y hay que **componer las
-   capas translúcidas** antes de comparar.
+5. **Medir contraste**: `color(srgb …)` va de 0 a 1, y hay que **componer las capas
+   translúcidas** antes de comparar.
 6. **Los componentes ocultos no se miden si no se abren.** Cuatro de los seis contrastes
-   arreglados vivían en pantallas cerradas: hay que montarlas a mano.
-7. **Un grep ingenuo confunde el CSS con una fuga de datos.** Acotar al marcado, quitando
-   `<style>` y `<script>`.
-8. **`gen.mjs` rechaza compilar si `index.php` o `SPEC.md` cambian sin refirmar `motor.lock`**:
-   `node motor/lock.mjs --escribir` primero, siempre.
-9. **La terminal del propietario es PowerShell**: `&&` no es separador válido, hay que usar `;`.
+   arreglados vivían en pantallas cerradas.
+7. **Un grep ingenuo confunde el CSS con una fuga de datos.** Acotar al marcado.
+8. **`gen.mjs` rechaza compilar si `index.php` o `SPEC.md` cambian sin refirmar `motor.lock`.**
+9. **La terminal del propietario es PowerShell**: `&&` no vale, se usa `;`.
 10. **Imports ESM con ruta absoluta de Windows necesitan `file:///`**.
-11. **Fijar SIEMPRE el viewport antes de medir en el navegador.** Sin fijarlo `innerWidth` es 0
-    y las cifras de alto y desbordamiento no significan nada. Y cuando el panel **escala** el
+11. **Fijar SIEMPRE el viewport antes de medir en el navegador.** Y cuando el panel **escala** el
     viewport emulado, `getBoundingClientRect` devuelve píxeles escalados mientras
     `getComputedStyle` devuelve los de CSS: 44 px medían 43,1.
-12. **Un heredoc puede comerse los `\\` dobles.** Una expresión regular entró en el código como
-    `[^"\]`, que no compila, y **eso tira el bloque `<script>` entero**. No se veía en el diff
-    ni en `php -l`: se veía en la consola del navegador. Tras aplicar un parche a mano, **mirar
-    la consola antes de dar nada por bueno**.
-13. **`motor/lock.mjs` no puede refirmar un `motor.lock` en conflicto**: lo parsea como JSON y
-    revienta. En un rebase, resolver primero (`git checkout --theirs motor.lock`) y refirmar
-    después.
+12. **Un heredoc puede comerse los `\\` dobles.** Una expresión regular entró como `[^"\]` y
+    **tumbó el bloque `<script>` entero**; no se veía en el diff ni en `php -l`, se veía en la
+    consola del navegador.
+13. **`motor/lock.mjs` no puede refirmar un `motor.lock` en conflicto**: lo parsea como JSON.
+    En un rebase, resolver primero y refirmar después.
 14. **OneDrive bloquea `.git/rebase-merge` y `.git/worktrees/`**: `git rebase --abort` deja el
-    directorio puesto y git sigue creyendo que rebasa. Se borra con PowerShell. Siguen ahí
-    `totm-main-commit` y `totm-main-commit2`, que hacen que git se queje en cada commit.
+    directorio y git cree que sigue rebasando. Se borra con PowerShell.
 15. **`offsetParent` NO sirve para saber si algo se puede enfocar.** Un panel escondido con
-    `visibility` conserva `offsetParent` y sigue midiendo, y `focus()` sobre él no hace nada.
-    Hay que mirar `getClientRects()` y la `visibility` computada — y comprobar después que el
-    foco llegó.
+    `visibility` lo conserva y `focus()` no hace nada. Mirar `getClientRects()` y la
+    `visibility` computada, y **comprobar después que el foco llegó**.
 16. **Optimizar bytes SIN COMPRIMIR es optimizar un número que nadie paga.** El servidor sirve
-    Brotli: el panel son 2,73 MB en crudo y **123 KB** de transferencia. Un sprite de iconos
-    que quitaba 439.727 bytes (16% del documento) ahorró **807 bytes** reales y no movió el
-    parseo. Se midió y se tiró.
+    Brotli: el panel son 2,3 MB en crudo y **123 KB** de transferencia.
+17. **Un halo táctil no puede salir de un scroller horizontal.** Si un eje del `overflow` es
+    `auto`, el `visible` del otro se computa a `auto` y el `clip` a `hidden`. Probado con los dos.
+18. **`s-maxage` no hace cacheable el HTML en Cloudflare.** Sólo pone el TTL de lo que ya es
+    elegible; el HTML no lo es por defecto y hace falta una Cache Rule.
+19. **El mensaje de `E2E-RS-TACTIL-44` sólo enseña cuatro entradas.** Los fallos de tamaño
+    pueden tapar solapes, que son peores. Si se corrige un suelo, mirar qué aparece detrás.
 
 ## Servidor de revisión
 
@@ -141,6 +140,11 @@ en `admin/config.php` **de la copia** y servir con `php -S 127.0.0.1:<puerto> -t
 `DEMO_SIN_CLAVE`. Para simular un cliente con color de marca propio: copiar
 `estado-EJEMPLO.json` a `estado.json` y ponerle `marca.colorPrincipal`. Para móvil de verdad,
 Playwright con `isMobile` y `hasTouch`, no el panel de la app.
+
+Quedan **dos ramas**: `main` y `ds2026-importado`, que es la única referencia al historial del
+laboratorio antes del rebase —su contenido está en `main`, así que se puede borrar—. Las once
+ramas de trabajo ya integradas se borraron el 13 sep. El **laboratorio** (`4-laboratorio/`) ya
+no sirve para nada y se puede borrar cuando se quiera.
 
 ## Herramientas
 

@@ -91,6 +91,15 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   # HTML de la compilación anterior durante un minuto después de un despliegue.
   #
   # El navegador no cambia: `max-age=0, must-revalidate` es la misma frescura de siempre.
+  #
+  # OJO, y esto se comprobo DESPUES de desplegarlo: esta cabecera por si sola NO basta.
+  # Cloudflare solo considera cacheable una lista fija de extensiones estaticas, y el HTML no
+  # esta en ella: `cf-cache-status` sigue diciendo DYNAMIC con `s-maxage` puesto. Medido en la
+  # misma tanda: /assets/logo.svg da HIT y / da DYNAMIC. Para que estos 60 s hagan algo hay
+  # que declarar el HTML elegible con una Cache Rule en el panel de Cloudflare («Eligible for
+  # cache» + «Respect origin TTL»), que es cosa del propietario y no del build. La cabecera se
+  # queda porque es la declaracion correcta y es el requisito previo: con la regla puesta,
+  # funciona sin tocar nada mas.
   <FilesMatch "\.html$">
     Header set Cache-Control "public, max-age=0, s-maxage=60, must-revalidate"
   </FilesMatch>
