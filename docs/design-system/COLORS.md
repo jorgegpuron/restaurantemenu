@@ -16,20 +16,29 @@ Se eligen con una clase en `<html>`: `light` o `dark`. La decide, por este orden
 
 1. lo que el usuario haya elegido en el selector, guardado en
    `localStorage['socialcard-color-mode']`;
-2. si no ha elegido nada, **`prefers-color-scheme` del sistema**;
-3. si el navegador no lo soporta, claro.
+2. si no ha elegido nada, **oscuro**.
+
+Y ese segundo punto es una **decisión del propietario, no una carencia** — confirmada el
+13 sep 2026, y antes tomada el 12 en `4095a46`. El panel entra en oscuro aunque el sistema esté
+en claro. La razón: la puerta de acceso ya es oscura fija, y encadenar puerta oscura con panel
+claro era un fogonazo en cada entrada; y esto se usa de pie, en un servicio, donde el oscuro
+cansa menos.
+
+**El punto 15 del encargo pedía preparar `prefers-color-scheme` y queda descartado a
+propósito.** Este documento decía durante un tiempo que se consultaba, con el código de abajo
+incluido, y era falso: en el código pone `var m = 'dark'`. Un documento que promete un
+comportamiento que no existe es peor que no tenerlo, así que se corrige aquí y no se toca el
+código.
+
+Quien quiera claro lo tiene a un toque en el selector, y su elección manda para siempre.
 
 El script va **en el `<head>`, antes de que se pinte nada**. Si viajara al final del documento
 se vería el parpadeo del tema por defecto en cada carga.
 
 ```js
-var m = null;
+var m = 'dark';                       // decisión del propietario, no un respaldo
 try { var g = localStorage.getItem('socialcard-color-mode');
       if (g === 'dark' || g === 'light') m = g; } catch (e) {}
-if (m === null) {
-  try { m = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
-  catch (e) { m = 'light'; }
-}
 document.documentElement.classList.add(m);
 ```
 

@@ -3409,6 +3409,63 @@ if ($csrfOk) {
     if (guardar_estado($estado)) $aviso = 'Destacado quitado.';
     else $error = 'No se ha podido escribir estado.json.';
   }
+  /* --- destacados EN LOTE ---
+   * Poner o quitar la MISMA etiqueta a varios platos de una vez. Nace de lo que el propietario
+   * dijo que hace mas veces al dia. Los agotados ya eran en lote —un formulario, 312 casillas,
+   * un guardado— pero etiquetar era de uno en uno: ocho platos eran ocho veces abrir el
+   * selector, elegir y esperar.
+   *
+   * `hl_label` VACIA significa quitar, y no es un atajo perezoso: es lo que hace innecesario un
+   * «deshacer» con su hueco en estado.json y su migracion de esquema. Despues de aplicar, el
+   * filtro sigue puesto en la pantalla, asi que quitarsela a los mismos platos es la misma
+   * accion al reves y esta a un toque.
+   *
+   * UN solo guardado para los N, no N guardados: escribiendo plato a plato, un fallo a mitad
+   * dejaria media lista etiquetada y la otra no, y eso es justo lo que no se puede explicar a
+   * quien esta de pie en un servicio.
+   *
+   * Las claves se cruzan contra `$validas` —las que existen en la carta de AHORA— y las que no
+   * estan se ignoran diciendolo, en vez de rechazar el lote entero: entre que se pinto la
+   * pantalla y se pulso el boton puede haberse recompilado la carta, y castigar los doce por
+   * uno que ya no existe seria perder el trabajo de quien pulsa.
+   *
+   * 422 cuando el rechazo es de negocio y 500 cuando es el disco, que es la regla del resto
+   * del panel: un `fetch` que solo mire `r.ok` no podria distinguirlos. */
+  if (isset($_POST['destacado_lote'])) {
+    $pestana = 'platos';
+    $e = (string) ($_POST['hl_label'] ?? '');
+    $quitar = $e === '';
+    $pedidas = array_values(array_unique(array_filter(
+      (array) ($_POST['hl_keys'] ?? []),
+      function ($k) { return is_string($k) && $k !== ''; }
+    )));
+    $buenas = array_values(array_intersect($pedidas, $validas));
+    if (!$quitar && !in_array($e, ETIQUETAS, true)) {
+      http_response_code(422);
+      $error = 'Esa etiqueta no existe.';
+    } elseif (!$pedidas) {
+      http_response_code(422);
+      $error = 'No has elegido ningún plato.';
+    } elseif (!$buenas) {
+      http_response_code(422);
+      $error = 'Ninguno de esos platos está en la carta.';
+    } else {
+      foreach ($buenas as $k) {
+        if ($quitar) unset($estado['tags'][$k]);
+        else $estado['tags'][$k] = $e;
+      }
+      if (guardar_estado($estado)) {
+        $n = count($buenas);
+        $fuera = count($pedidas) - $n;
+        $aviso = ($quitar ? 'Etiqueta quitada a ' : 'Etiqueta puesta en ') . $n . ' plato' . ($n === 1 ? '' : 's')
+          . ($fuera > 0 ? ' (' . $fuera . ($fuera === 1 ? ' ya no está' : ' ya no están') . ' en la carta y se '
+             . ($fuera === 1 ? 'ha' : 'han') . ' ignorado)' : '') . '.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
 
   /* --- oferta --- */
   if (isset($_POST['guardar_oferta'])) {
@@ -7074,6 +7131,24 @@ $CUENTAS = [
      a 560px la barra envuelve a 158px de alto y, pegada, se comia una quinta parte de la
      pantalla de forma permanente. El prototipo tampoco la fija, y la version anterior de
      este panel tampoco — era idea mia y estaba mal. */
+  /* ---- acciones en lote ----
+     Una tira que aparece bajo los filtros cuando hay algo filtrado. Usa los botones finos que
+     el panel ya tiene: no estrena ningun componente. */
+  .adm-lote{
+    display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;
+    margin:0 0 var(--space-3);padding:var(--space-2) var(--space-3);
+    border:1px solid var(--sc-border);border-radius:var(--radius-lg);
+    background:var(--sc-muted-bg);
+  }
+  .adm-lote-n{
+    flex:1 1 auto;min-width:0;
+    font-size:var(--t3);font-weight:600;color:var(--sc-text);
+  }
+  .adm-lote .adm-btn{flex:none}
+  @media (max-width:559.98px){
+    .adm-lote-n{flex:1 1 100%}
+  }
+
   .adm-platos-filtros{
     display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);
     margin:0 0 var(--space-4);padding:var(--space-3);
@@ -9640,8 +9715,24 @@ $CUENTAS = [
   .adm-cat-nombre-b:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   @media (pointer:coarse){ .adm-cat-nombre-b{opacity:1} }
   @media (pointer:coarse){
-    /* El icono conserva su cuerpo compacto, pero toda la caja del encabezado es táctil. */
-    .adm-cat-bento-cab .adm-cat-nombre-b{width:44px;height:44px;min-height:44px;min-width:44px;margin-block:-8px}
+    /* El icono conserva su cuerpo compacto, pero toda la caja del encabezado es táctil.
+       ANCHO 40 y no 44 por higiene medida: dentro de `.adm-cat-bento-acc` el hueco entre
+       controles es de 2 px, y el boton de al lado —el «+» de añadir plato, que comparte esta
+       misma clase— lleva halo hasta 1 px por su derecha. Una caja de 44 sobre un dibujo de 24
+       se come 10 px por lado y no deja sitio; con 40 se come 8 y quedan 4. El ALTO se queda en
+       44: lo que se toca aqui es horizontal.
+       ESTO SI LO CIERRA: E2E-RS-TACTIL-44 llevaba en rojo desde antes de esta ronda y ahora
+       esta verde. Hicieron falta DOS cosas, y el orden confundio: con solo estos 40 px la
+       bateria seguia cantando «SUMMARY.adm-cat-nombre-b le quita el toque a BUTTON.adm-btn» a
+       768. Lo que faltaba estaba en la sonda del test, que media tambien controles recortados
+       por un scroller; los fantasmas de la tira de secciones tapaban a este, que si era real,
+       porque el mensaje solo enseña cuatro entradas. Con las dos, verde.
+       Aqui estuvo escrito un rato que el cambio «no lo arreglaba», leyendo una bateria que
+       solo tenia la mitad del arreglo. Se anota porque la leccion sirve: un cambio puede estar
+       bien y parecer inutil si lo que lo mide esta mal.
+       40x44 sigue muy por encima de los 24x24 que obliga WCAG 2.5.8, y la caja es
+       transparente: esto no cambia nada de lo que se ve, solo la zona que recibe el dedo. */
+    .adm-cat-bento-cab .adm-cat-nombre-b{width:40px;height:44px;min-height:44px;min-width:40px;margin-block:-8px}
   }
   /* El formulario cuelga de la cabecera, por encima de la lista: es una hoja pequeña, no una
      seccion mas de la ficha — abrirla no puede empujar los platos hacia abajo. */
@@ -12009,6 +12100,20 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
       </div>
 
 
+      <?php /* Acciones en lote. Salen SOLO cuando hay una busqueda o un filtro puesto, y eso
+               no es un detalle: sin filtro «los 312» no es una seleccion, es la carta entera, y
+               una accion que toca 312 filas no puede estar a un toque de distancia por
+               descuido. El buscador hace de seleccion —ya esta ahi y ya se usa— asi que no
+               entran 312 casillas nuevas a ensuciar la pantalla mas usada del panel.
+               Sin JavaScript no aparece: no hay forma de filtrar sin el, asi que una barra que
+               dijera «los que se ven» no querria decir nada. */ ?>
+      <div class="adm-lote" id="adm-lote" hidden>
+        <span class="adm-lote-n" id="adm-lote-n" role="status" aria-live="polite"></span>
+        <button type="button" class="adm-btn adm-btn-fino" id="adm-lote-poner">Etiquetar</button>
+        <button type="button" class="adm-btn adm-btn-fino adm-btn-quitar" id="adm-lote-quitar"
+                data-confirmar-tono="peligro">Quitar etiqueta</button>
+      </div>
+
       <div class="adm-platos-filtros">
         <label class="adm-buscar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>
@@ -12138,18 +12243,36 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     <span class="adm-cat-nombre-nota">Cambia el rótulo de arriba de la carta y la lista de secciones del móvil.</span>
                     <button class="adm-btn adm-btn-fino" type="submit">Guardar el nombre</button>
                   </div>
-                </form>
-                <?php if (($catsPorTab[(string) $tid] ?? 0) >= 2): ?>
                   <?php /* Ordenar las categorias de ESTA seccion. Vive aqui, en el panel de la
                            seccion, y no en las cuarenta fichas: es una accion sobre la seccion,
-                           como cambiarle el nombre o borrarla, y ponerla en cada ficha seria
-                           repetir cuarenta veces un boton que hace lo mismo.
-                           La hoja se llena desde el DOM —los nombres ya estan en las fichas—,
-                           asi que este boton no arrastra ningun dato: solo dice de quien. */ ?>
-                  <button type="button" class="adm-btn adm-btn-fino adm-ordencats-abre"
-                          data-ordencats="<?= h((string) $tid) ?>"
-                          data-ordencats-nombre="<?= h($tNombre) ?>">Ordenar sus categorías</button>
-                <?php endif; ?>
+                           como cambiarle el nombre, y ponerla en cada ficha seria repetir
+                           cuarenta veces un boton que hace lo mismo. La hoja se llena desde el
+                           DOM —los nombres ya estan en las fichas—, asi que este boton no
+                           arrastra ningun dato: solo dice de quien.
+
+                           Y va DENTRO del <form>, que es lo que de verdad importa aqui: la
+                           caja flotante del popover ES este formulario (`.adm-cat-nombre-f`
+                           lleva la posicion absoluta, la sombra y el fondo). Puesto detras de
+                           </form> quedaba como hermano del popover dentro de un <details> de
+                           24x24, y se dibujaba FUERA de la caja, desbordando sobre la tira.
+                           Lo cazo el propietario en produccion, con captura.
+                           `type="button"` no envia el formulario, asi que estar dentro no le
+                           cambia nada al guardado del nombre.
+
+                           MISMO FALLO, SIN ARREGLAR, y conviene saberlo: el formulario de
+                           «Borrar la seccion» de mas abajo tambien esta detras de </form> y
+                           tambien se dibujaria fuera. No se ha movido porque es un <form> y
+                           anidar formularios es HTML invalido —el navegador lo descarta—, y
+                           colgar su boton del formulario de renombrar mandaria los dos POST
+                           juntos: renombrar Y borrar en el mismo gesto. Pide su propia
+                           solucion. Hoy no se ve porque solo sale en secciones creadas por el
+                           restaurante, y esta carta no tiene ninguna. */ ?>
+                  <?php if (($catsPorTab[(string) $tid] ?? 0) >= 2): ?>
+                    <button type="button" class="adm-btn adm-btn-fino adm-ordencats-abre"
+                            data-ordencats="<?= h((string) $tid) ?>"
+                            data-ordencats-nombre="<?= h($tNombre) ?>">Ordenar sus categorías</button>
+                  <?php endif; ?>
+                </form>
                 <?php if (isset($tabsPropias[$tid])): ?>
                   <?php /* Borrar solo lo que nacio aqui, y solo si esta vacio: una seccion de
                            la carta compilada volveria en la siguiente compilacion, y una con
@@ -12859,6 +12982,28 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             total += visibles;
           });
           vacio.hidden = total > 0;
+          /* La tira de acciones en lote sigue al filtro. Sin filtro no se enseña: «los 312» no
+             es una selección, es la carta entera, y eso no puede estar a un toque. Con filtro
+             pero cero resultados tampoco: no hay nada que etiquetar.
+             El texto de la confirmación se reescribe aquí con el número de ahora, porque el
+             ayudante genérico de confirmar lee el atributo en el momento del clic. */
+          var lote = document.getElementById('adm-lote');
+          if (lote) {
+            var filtrando = !!t || filtro !== 'todos';
+            lote.hidden = !(filtrando && total > 0);
+            if (!lote.hidden) {
+              var cuantos = total === 1 ? '1 plato a la vista' : total + ' platos a la vista';
+              var n = document.getElementById('adm-lote-n');
+              if (n && n.textContent !== cuantos) n.textContent = cuantos;
+              var quitar = document.getElementById('adm-lote-quitar');
+              if (quitar) {
+                quitar.setAttribute('data-confirmar',
+                  total === 1 ? '¿Quitar la etiqueta a ese plato?' : '¿Quitar la etiqueta a los ' + total + ' platos que se ven?');
+                quitar.setAttribute('data-confirmar-nota', 'Sólo a los que se ven ahora con este filtro. Los demás no se tocan.');
+                quitar.setAttribute('data-confirmar-si', total === 1 ? 'Quitarla' : 'Quitarlas');
+              }
+            }
+          }
           /* Buscando o filtrando se levanta el recorte de tres por columna: un plato que
              coincide no puede quedarse escondido detras de un "Ver mas". Es una clase en
              el contenedor, no un cambio fila a fila: el recorte lo hace el CSS. */
@@ -14396,14 +14541,79 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         function etiquetasForm() { return document.getElementById('dest-et'); }
         function cerrarEtiquetas() {
           var etForm = etiquetasForm();
-          if (etForm) etForm.hidden = true;
+          if (etForm) { etForm.hidden = true; etForm.removeAttribute('data-lote'); }
           pane.querySelectorAll('.adm-destpick.es-elegido').forEach(function (o) {
             o.classList.remove('es-elegido');
             o.setAttribute('aria-expanded', 'false');
           });
         }
+
+        /* ---- etiquetar en lote ----
+           Las claves de los platos que se ven AHORA. El buscador sólo esconde filas, así que
+           «lo que se ve» es exactamente lo que hay que tocar, sin inventar una selección
+           aparte ni meter 312 casillas en la pantalla más usada del panel.
+           Se cuenta por FILA y no por plato: el mismo Papadum en Aperitivos y en Vegano son
+           dos claves distintas y cada una lleva su etiqueta, igual que ya pasa al etiquetar
+           de uno en uno. */
+        function clavesALaVista() {
+          var out = [];
+          [].slice.call(pane.querySelectorAll('.adm-orow')).forEach(function (f) {
+            if (f.hidden) return;
+            var ficha = f.closest('[data-cat-bento]');
+            if (ficha && ficha.hidden) return;
+            var c = f.querySelector('.camara[data-k]');
+            if (c && c.dataset.k && out.indexOf(c.dataset.k) === -1) out.push(c.dataset.k);
+          });
+          return out;
+        }
+
+        /* Etiqueta vacía = quitar. Es el mismo camino de servidor y por eso no hace falta un
+           «deshacer»: el filtro sigue puesto después de aplicar, así que desandar es pulsar el
+           otro botón de la misma tira. */
+        function guardarLote(etiqueta, claves, boton) {
+          var datos = new URLSearchParams();
+          var csrf = document.querySelector('#agotados-form input[name="csrf"]');
+          datos.set('csrf', csrf ? csrf.value : '');
+          datos.set('destacado_lote', '1');
+          datos.set('hl_label', etiqueta || '');
+          claves.forEach(function (k) { datos.append('hl_keys[]', k); });
+          guardarDestacado(datos, boton || null);
+        }
+
+        pane.addEventListener('click', function (e) {
+          if (!e.target.closest) return;
+          var poner = e.target.closest('#adm-lote-poner');
+          if (poner) {
+            e.preventDefault();
+            var cl = clavesALaVista();
+            var etForm = etiquetasForm();
+            if (!cl.length || !etForm) return;
+            /* El MISMO selector de etiquetas que se usa fila a fila, movido debajo de la tira
+               de lote y marcado. Así no hay una segunda lista de etiquetas que mantener. */
+            cerrarEtiquetas();
+            etForm.setAttribute('data-lote', '1');
+            var campoK = document.getElementById('dest-et-key');
+            if (campoK) campoK.value = '';
+            var tira = document.getElementById('adm-lote');
+            if (tira) tira.insertAdjacentElement('afterend', etForm);
+            etForm.hidden = false;
+            var primera = etForm.querySelector('.adm-destet-b');
+            if (primera) primera.focus({ preventScroll: true });
+            return;
+          }
+          var quita = e.target.closest('#adm-lote-quitar');
+          if (quita) {
+            e.preventDefault();
+            var cl2 = clavesALaVista();
+            if (cl2.length) guardarLote('', cl2, quita);
+          }
+        });
         pane.addEventListener('click', function (e) {
           if (e.target.closest('#dest-et')) return;
+          /* Ni la tira de acciones en lote: su boton ABRE este mismo selector, y si aqui se
+             contara como «un clic fuera» lo cerraria en el mismo gesto. Se noto al probarlo:
+             el selector se movia junto a la tira y aparecia cerrado. */
+          if (e.target.closest('#adm-lote')) return;
           var b = e.target.closest('.adm-destpick');
           if (!b) { cerrarEtiquetas(); return; }
           var yaAbierto = b.classList.contains('es-elegido');
@@ -14536,6 +14746,18 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var esBaja = !!(boton && boton.name === 'destacado_del');
           if (!esAlta && !esBaja) return;
           if (!window.fetch || !window.FormData || !boton) return;
+          /* El selector abierto EN MODO LOTE manda otra cosa: la misma etiqueta a todas las
+             claves que se ven, por `destacado_lote`, en un solo guardado. El formulario y su
+             marcado no cambian —es el mismo selector— y sin JavaScript nunca entra aquí,
+             porque sin JavaScript no hay filtro y la tira de lote no se pinta. */
+          if (esAlta && form.hasAttribute('data-lote')) {
+            e.preventDefault();
+            var clavesLote = clavesALaVista();
+            var etiqueta = boton.value;
+            cerrarEtiquetas();
+            if (clavesLote.length) guardarLote(etiqueta, clavesLote, null);
+            return;
+          }
           var datos;
           try { datos = new FormData(form, boton); } catch (err) { return; }
           if (!datos.has(esAlta ? 'hl_label' : 'destacado_del')) return;

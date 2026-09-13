@@ -956,6 +956,88 @@ export async function e2eDestacados(informe, { pagina, servidor, docroot }) {
     /no existe/.test(mala.mensaje) && /no está en la carta/.test(malaClave.mensaje) && Object.keys(leerEstado(docroot).tags || {}).length === 0, `${mala.mensaje} | ${malaClave.mensaje}`);
   const delRaro = await postCrudo(pagina, '/admin/index.php', [['destacado_del', 'clave-inexistente']]);
   informe.comprueba('E2E-DS-10', 'quitar un destacado inexistente no rompe', delRaro.status === 200 && servidor.avisos().length === 0);
+  /* ---- etiquetar en LOTE ----
+     Lo que de verdad hay que contratar aquí no es «se guarda», es «se guarda UNA vez para los
+     N». Si el servidor escribiera plato a plato, un fallo a mitad dejaría media lista
+     etiquetada, y eso no se puede explicar a quien está de pie en un servicio. Se comprueba
+     contando las peticiones del navegador y leyendo estado.json después. */
+  await irA(pagina, url, 'platos');
+  await abrirTodo(pagina);
+  const cl = await pagina.evaluate(() => {
+    const pane = document.querySelector('.pane[data-pane="platos"]');
+    const q = document.getElementById('q');
+    q.value = 'biryani';
+    q.dispatchEvent(new Event('input'));
+    const vis = [].slice.call(pane.querySelectorAll('.adm-orow')).filter((f) => {
+      const ficha = f.closest('[data-cat-bento]');
+      return !f.hidden && !(ficha && ficha.hidden);
+    });
+    const bar = document.getElementById('adm-lote');
+    return {
+      visibles: vis.length,
+      barraVisible: !!bar && !bar.hidden,
+      rotulo: bar ? (document.getElementById('adm-lote-n') || {}).textContent : '',
+      claves: vis.map((f) => { const c = f.querySelector('.camara[data-k]'); return c ? c.dataset.k : ''; }).filter(Boolean),
+    };
+  });
+  informe.comprueba('E2E-DS-11', 'con un filtro puesto sale la tira de lote y dice cuántos platos se ven',
+    cl.barraVisible && cl.visibles > 1 && new RegExp(cl.visibles + ' platos a la vista').test(cl.rotulo || ''),
+    `${cl.visibles} visibles · «${cl.rotulo}»`);
+
+  /* Sin filtro NO sale: «los 312» no es una selección, y una acción que toca la carta entera
+     no puede estar a un toque de distancia por descuido. */
+  const sinFiltro = await pagina.evaluate(() => {
+    const q = document.getElementById('q');
+    q.value = '';
+    q.dispatchEvent(new Event('input'));
+    const bar = document.getElementById('adm-lote');
+    return !!bar && bar.hidden;
+  });
+  informe.comprueba('E2E-DS-12', 'sin filtro la tira de lote no se enseña', sinFiltro);
+
+  const etiquetaLote = abierto.etiquetas[0];
+  const peticiones = [];
+  const contar = (r) => { if (r.request().method() === 'POST') peticiones.push(1); };
+  pagina.on('response', contar);
+  await pagina.evaluate(() => {
+    const q = document.getElementById('q');
+    q.value = 'biryani';
+    q.dispatchEvent(new Event('input'));
+    document.getElementById('adm-lote-poner').click();
+  });
+  await esperar(200);
+  await pagina.evaluate((et) => {
+    const f = document.getElementById('dest-et');
+    const b = [].slice.call(f.querySelectorAll('.adm-destet-b')).find((x) => x.value === et);
+    if (b) b.click();
+  }, etiquetaLote);
+  const puestas = await esperarA(async () => {
+    const t = leerEstado(docroot).tags || {};
+    const n = cl.claves.filter((k) => t[k] === etiquetaLote).length;
+    return n === cl.claves.length ? n : null;
+  }, 8000);
+  pagina.off('response', contar);
+  informe.comprueba('E2E-DS-13', `etiquetar en lote pone la etiqueta a los ${cl.claves.length} de golpe y en UNA sola petición`,
+    puestas === cl.claves.length && peticiones.length === 1,
+    `${puestas}/${cl.claves.length} en estado.tags · ${peticiones.length} POST`);
+
+  /* Y la vuelta: etiqueta vacía SIGNIFICA quitar, que es lo que hace innecesario un deshacer
+     con su hueco en el estado. Se manda en crudo porque el botón pasa por la confirmación. */
+  const quitadas = await postCrudo(pagina, '/admin/index.php',
+    [['destacado_lote', '1'], ['hl_label', '']].concat(cl.claves.map((k) => ['hl_keys[]', k])));
+  const tagsTrasQuitar = leerEstado(docroot).tags || {};
+  informe.comprueba('E2E-DS-14', 'etiqueta vacía quita el lote entero',
+    quitadas.status === 200 && cl.claves.every((k) => !(k in tagsTrasQuitar)),
+    `HTTP ${quitadas.status} · ${cl.claves.filter((k) => k in tagsTrasQuitar).length} sobran`);
+
+  /* Y lo que no puede pasar: que una etiqueta inventada o una lista vacía escriban algo. */
+  const loteMalo = await postCrudo(pagina, '/admin/index.php',
+    [['destacado_lote', '1'], ['hl_label', 'Etiqueta que no existe'], ['hl_keys[]', cl.claves[0]]]);
+  const loteVacio = await postCrudo(pagina, '/admin/index.php', [['destacado_lote', '1'], ['hl_label', 'Popular']]);
+  informe.comprueba('E2E-DS-15', 'lote con etiqueta fuera del catálogo o sin platos se rechaza con 422 y sin escribir',
+    loteMalo.status === 422 && loteVacio.status === 422
+    && Object.keys(leerEstado(docroot).tags || {}).length === 0,
+    `${loteMalo.status} / ${loteVacio.status} · ${Object.keys(leerEstado(docroot).tags || {}).length} etiquetas en disco`);
 }
 
 /* ================================================================== 7. cámara: foto de plato */
@@ -2424,15 +2506,38 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
        nadie: es contenido al que se llega rodando la pagina. Se deja fuera de la cuenta. */
     const barra = document.querySelector('.adm-navmovil');
     const rb = barra && barra.getBoundingClientRect().height > 0 ? barra.getBoundingClientRect() : null;
-    const sondeable = (b) => b.width > 5 && b.height > 5 && b.top > 4 && b.left > 4
-      && b.bottom < innerHeight - 4 && b.right < innerWidth - 4 && !(rb && b.bottom > rb.top - 24);
+    /* Y lo que ESTA RECORTADO por un ancestro que rueda tampoco se mide, aunque su rectangulo
+       caiga dentro de la ventana. Sin esto la sonda preguntaba «quien recibe el toque aqui»
+       en las coordenadas de un chip que estaba scrolleado FUERA de la tira de secciones, y
+       claro: alli lo pintado era otra cosa. La prueba cantaba «la flecha del paginador le
+       quita el toque a la flecha de orden» a 390 px, y era mentira —medido: la tira ocupa 236
+       px de ancho visible con 2.234 de contenido dentro, y esas dos flechas estaban en x=288 y
+       x=316, fuera de la ventana—. Un control scrolleado fuera no recibe toques, y hace bien.
+       Esto no afloja la prueba: la aprieta. Cualquier carrusel del panel podia producir
+       solapes fantasma, y los fantasmas tapan los de verdad —el mensaje solo enseña cuatro—. */
+    const recortado = (el, b) => {
+      for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+        const s = getComputedStyle(n);
+        if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+        const r = n.getBoundingClientRect();
+        if (b.right < r.left - 1 || b.left > r.right + 1
+          || b.bottom < r.top - 1 || b.top > r.bottom + 1) return true;
+        /* Y tambien si asoma a medias: un control cortado por el borde del carrusel no es un
+           objetivo tactil entero, y medirlo da una cifra que nadie recibe. */
+        if (b.left < r.left - 1 || b.right > r.right + 1) return true;
+      }
+      return false;
+    };
+    const sondeable = (b, el) => b.width > 5 && b.height > 5 && b.top > 4 && b.left > 4
+      && b.bottom < innerHeight - 4 && b.right < innerWidth - 4 && !(rb && b.bottom > rb.top - 24)
+      && !(el && recortado(el, b));
 
     const fallos = [];
     for (const [sel, [minW, minH]] of Object.entries(MIN)) {
       let peorW = null, peorH = null;
       for (const el of document.querySelectorAll(sel)) {
         const b = el.getBoundingClientRect();
-        if (!sondeable(b)) continue;
+        if (!sondeable(b, el)) continue;
         const e = efectiva(el);
         if (!e) continue;
         peorW = peorW === null ? e.w : Math.min(peorW, e.w);
@@ -2451,7 +2556,7 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
     for (const el of document.querySelectorAll('button, a[href], input, select, textarea, [role="switch"], [role="tab"]')) {
       if (solapes.length >= 4) break;
       const b = el.getBoundingClientRect();
-      if (!sondeable(b)) continue;
+      if (!sondeable(b, el)) continue;
       const puntos = [[b.left + b.width / 2, b.top + b.height / 2],
         [b.left + 2, b.top + 2], [b.right - 2, b.top + 2],
         [b.left + 2, b.bottom - 2], [b.right - 2, b.bottom - 2]];

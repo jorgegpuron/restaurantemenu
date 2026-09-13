@@ -78,7 +78,7 @@ La regla operativa, para no pensarlo cada vez:
 | 2 · Foundations | **hecha**: capa primitiva de 29 colores; los 24 semánticos la referencian |
 | 3 · Tokens | **hecha en color, elevación, foco, radio y espaciado**; queda migrar consumidores |
 | 4 · Tipografía | **escala a `rem` y jerarquía nombrada**; queda resolver los 15 px fuera de escala |
-| 5 · Color / claro / oscuro | **hecha**, más `prefers-color-scheme` y el fallo de transición |
+| 5 · Color / claro / oscuro | **hecha**, más el fallo de transición. `prefers-color-scheme` **descartado** por decisión del propietario: el panel entra en oscuro (ver [COLORS.md](COLORS.md)) |
 | 6 · Layout | pendiente |
 | 7-8 · Componentes | pendiente |
 | 9 · Formularios | pendiente |

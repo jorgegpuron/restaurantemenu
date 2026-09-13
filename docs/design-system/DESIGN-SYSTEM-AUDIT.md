@@ -293,7 +293,7 @@ error de pantalla, estado «sin resultados» diferenciado del vacío, y estado o
 | A2 | Sombra crema sobre crema: popover de renombrar y toast sin elevación en claro | `color-mix(… var(--sc-canvas) 55% …)` líneas 2815 y 4084 | bajo |
 | A3 | El botón «Retirar» del cuadro de confirmación destructiva, a 2,23:1 en oscuro | medido montando el modal a mano | bajo |
 | A3b | La flecha desactivada de la tira de secciones se queda a `opacity:1`: parece activa | misma causa que A1, transición pegada al arrancar | bajo |
-| A4 | Sin `prefers-color-scheme`: el sistema en oscuro entra en claro | 0 apariciones en la hoja | bajo, pero **cambia el estreno** para usuarios actuales |
+| A4 | ~~Sin `prefers-color-scheme`: el sistema en oscuro entra en claro~~ · **CERRADO 13 sep 2026: no era un hallazgo, es una decision.** El panel entra en OSCURO por orden del propietario y `prefers-color-scheme` queda descartado — ver COLORS.md. Esta fila se conserva porque la auditoria es un documento fechado y lo medido entonces era cierto: en aquel momento se entraba en claro. | — | cerrado |
 | A5 | Controles de formulario que no heredan tipografía (13,3333 px) | 4 visibles | bajo |
 | A6 | 3 objetivos por debajo de 24 px | `.adm-pct-num` y dos de Publicidad | medio (layout apretado) |
 

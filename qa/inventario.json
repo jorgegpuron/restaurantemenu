@@ -117,6 +117,31 @@
       "estado": "cubierto"
     },
     {
+      "id": "AC-DESTACADO-LOTE",
+      "clave": "destacado_lote",
+      "donde": "tira de acciones en lote de Platos, con un filtro o una busqueda puesta",
+      "prueba": "admin-e2e.mjs::e2eDestacados",
+      "esperado": "'Etiqueta puesta en N platos' o 'Etiqueta quitada a N platos'",
+      "caso_positivo": "varias claves validas + etiqueta del catalogo en UN solo guardado",
+      "entrada_invalida": "etiqueta fuera del catalogo -> 422; lista vacia -> 422; claves que ya no estan en la carta -> se ignoran y se dice cuantas",
+      "persistencia": "estado.tags, una escritura para las N",
+      "reflejo_publico": "las insignias de esos platos en la carta",
+      "nota": "hl_label vacia SIGNIFICA quitar: es el mismo camino al reves, y por eso no hay un deshacer con hueco en el estado",
+      "estado": "cubierto"
+    },
+    {
+      "id": "AC-HL-KEYS",
+      "clave": "hl_keys",
+      "donde": "tira de acciones en lote de Platos",
+      "prueba": "admin-e2e.mjs::e2eDestacados",
+      "esperado": "las claves que se ven con el filtro puesto",
+      "caso_positivo": "se cruzan contra las de la carta actual",
+      "entrada_invalida": "no cadena o vacia -> descartada antes de validar",
+      "persistencia": "estado.tags",
+      "reflejo_publico": "ninguno por si sola",
+      "estado": "cubierto"
+    },
+    {
       "id": "AC-HL-KEY",
       "clave": "hl_key",
       "donde": "buscador de Destacados",
