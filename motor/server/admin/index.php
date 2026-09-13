@@ -10600,8 +10600,29 @@ $CUENTAS = [
   }
   .adm-ofr-escalones .adm-pct-atajo:last-child{border-radius:var(--radius-md)}
   .adm-ofr-escalones .adm-pct-atajo[aria-pressed="true"]{border-color:var(--sc-primary-grafico)}
+  /* «Otro» + la casilla, y la casilla LLEGA AL BORDE de la rejilla de escalones. Antes acababa
+     a media fila y el resto lo ocupaba un «del 1 al 90» que el propietario mandó quitar: la
+     fila se leía cortada y no se sabía dónde acababa el campo. Con la casilla elástica, el
+     bloque entero tiene un solo borde derecho —el de la rejilla— y el ojo lo encuentra solo. */
   .adm-ofr-otro{display:flex;align-items:center;gap:var(--space-2);min-width:0}
   .adm-ofr-otro-r{flex:none;font-size:var(--t4);color:var(--sc-text-2)}
+  /* TRES clases, y cada una desarma una regla del diseño anterior que aquí ya no vale:
+       · `.adm-ofr-mod .adm-pct-otro{flex:none}` —misma especificidad que la mía y escrita
+         después, así que ganaba— dejaba la casilla a su ancho fijo a media rejilla;
+       · `.adm-dto{max-width:150px}` le ponía techo;
+       · y `@media (max-width:899.98px){.adm-f-ooferta .adm-dto{border-right:0;border-radius
+         izquierdo}}` le quitaba el borde derecho, porque en el segmentado viejo la casilla
+         iba pegada a los atajos y ese lado lo cerraba el vecino. Sin vecino, la caja se veía
+         abierta por la derecha: es lo que el propietario señaló en la captura. */
+  .adm-f-ooferta .adm-ofr-otro .adm-pct-otro{
+    flex:1 1 auto;width:auto;max-width:none;min-width:0;
+    /* 44 como los escalones de arriba y como las cajas de hora de abajo: los tres controles
+       del bloque miden lo mismo y la columna se lee recta. Se quedaba en 40 por el mínimo
+       general del control, que es el de un panel de ratón. */
+    min-height:44px;padding:0 12px;
+    border-right:1px solid var(--sc-border);
+    border-radius:var(--ui-radius-control);
+  }
   .adm-ofr-otro-h{flex:1 1 auto;min-width:0;font-size:var(--t4);color:var(--sc-text-2)}
   .adm-ofr-mod .adm-pct-otro{flex:none;width:auto}
 
@@ -15242,12 +15263,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               <div class="adm-ofr-otro">
                 <label class="adm-ofr-otro-r" for="of-pct">Otro</label>
                 <div class="adm-pct-otro adm-dto">
+                  <?php /* El «del 1 al 90» dejó de escribirse al lado: lo pidió el propietario
+                           viéndolo en el móvil, porque dejaba la fila cortada a media rejilla y
+                           el ojo no encontraba dónde acababa la caja. El límite NO se pierde:
+                           sigue en `min`/`max` —el navegador no deja salir de ahí y el servidor
+                           lo valida igual— y ahora se dice en el `aria-label`, que es donde lo
+                           necesita quien no ve la casilla. */ ?>
                   <input class="adm-pct-num" id="of-pct" type="number" name="pct" form="ofertas-form"
                          min="1" max="90" step="1" size="3" required
-                         value="<?= (int) $oferta['percent'] ?>" aria-label="Descuento en porcentaje">
+                         value="<?= (int) $oferta['percent'] ?>" aria-label="Otro descuento en porcentaje, del 1 al 90">
                   <span class="adm-pct-pc" aria-hidden="true">%</span>
                 </div>
-                <span class="adm-ofr-otro-h">del 1 al 90</span>
               </div>
             </div>
 
