@@ -12624,6 +12624,58 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           });
         }());
 
+        /* ---- la numeracion de la carta, en el navegador ----
+           El numero de un plato es su posicion en la carta ENTERA: la baraja son los numeros
+           que la carta ya tiene, ordenada, repartida en orden de lectura entre las filas que
+           se sirven. Es la misma regla que `numeros_de_carta()` en PHP.
+
+           Antes esa regla vivia dos veces: en PHP, y aqui pero solo para UNA ficha. Lo que
+           quedaba fuera —mover una categoria, mover una seccion— se resolvia RECARGANDO la
+           pagina entera solo para traer los numeros nuevos, y eso costaba el viaje y el sitio
+           del scroll cada vez que se cambiaba una ficha de sitio. Esta funcion no anade una
+           tercera verdad: SUSTITUYE la que ya habia en JavaScript, y con una sola escritura de
+           la regla sirve a los tres movimientos.
+
+           `ambito` es una ficha (mover un plato dentro de su categoria) o la lista entera
+           (mover una categoria o una seccion). Idempotente: pasarla dos veces da lo mismo.
+
+           Una fila SIN numero se queda sin numero y NO consume puesto en el reparto. Es la
+           condicion que hace falta a escala de carta —las veintitres fichas de las secciones
+           espejo repiten platos y no numeran; si sus filas cogieran puesto correrian la
+           numeracion de todo lo que va detras—, y de paso arregla un fallo que ya existia a
+           escala de ficha: el renumerado anterior daba puesto a CUALQUIER fila no retirada,
+           con numero o sin el. Medido en esta carta hay una ficha mixta —«A la plancha», 13
+           filas con numero y 1 sin— y ahi el fallo era real: subir esa fila sin numero corria
+           los tres numeros que le quedaban detras. Se veia bien hasta recargar. */
+        function comparaNumero(a, b) {
+          var na = /^\d/.test(a) ? parseInt(a, 10) : Infinity;
+          var nb = /^\d/.test(b) ? parseInt(b, 10) : Infinity;
+          if (na !== nb) return na - nb;
+          return a < b ? -1 : (a > b ? 1 : 0);      // 24a antes que 24b
+        }
+        function renumerarAmbito(ambito) {
+          if (!ambito) return;
+          var baraja = [];
+          var huecos = [];
+          [].slice.call(ambito.querySelectorAll('.adm-platorow[data-k]')).forEach(function (f) {
+            var e = f.querySelector('.adm-prow-n');
+            if (!e) return;
+            var t = e.textContent.trim();
+            if (t === '') return;                    // espejo o selector: ni baraja ni puesto
+            baraja.push(t);
+            /* Un plato retirado pone su numero en la baraja y no coge puesto: la lista
+               COMPACTA en vez de dejar el salto donde estaba. Igual que PHP. */
+            if (f.hasAttribute('data-retirado')) return;
+            huecos.push(e);
+          });
+          if (baraja.length < 2) return;
+          baraja.sort(comparaNumero);
+          huecos.forEach(function (e, i) {
+            var v = baraja[i] !== undefined ? baraja[i] : '';
+            if (e.textContent.trim() !== v) e.textContent = v;
+          });
+        }
+
         /* ---- reordenar los platos dentro de su categoria ----
            Dos flechas por fila, el mismo control que el panel ya usa para las fotos de
            portada. Tres decisiones que conviene dejar escritas:
@@ -12660,39 +12712,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               var f = porClave[k];
               if (f) cols[i < mitad ? 0 : 1].appendChild(f);
             });
-            renumerar(ficha);
+            renumerarAmbito(ficha);
             pintarExtremos(ficha);
-          }
-
-          /* Renumerar POR POSICION. El servidor ya lo hace al pintar la pagina, pero sin esto
-             el numero nuevo no aparecia hasta recargar. Es la MISMA baraja de numeros de la
-             categoria, repartida a las filas en el orden en que se ven: ni se inventa uno ni
-             se pierde ninguno. Las filas sin numero se quedan sin numero. Idempotente. */
-          function comparaNumero(a, b) {
-            var na = /^\d/.test(a) ? parseInt(a, 10) : Infinity;
-            var nb = /^\d/.test(b) ? parseInt(b, 10) : Infinity;
-            if (na !== nb) return na - nb;
-            return a < b ? -1 : (a > b ? 1 : 0);      // 24a antes que 24b
-          }
-          function renumerar(ficha) {
-            /* La baraja sale de TODA la categoria; el reparto, solo entre los que se sirven.
-               Asi retirar un plato compacta la lista en vez de dejar un salto donde estaba. */
-            var baraja = [];
-            var huecos = [];
-            filasDe(ficha).forEach(function (f) {
-              var e = f.querySelector('.adm-prow-n');
-              if (!e) return;
-              var t = e.textContent.trim();
-              if (t !== '') baraja.push(t);
-              if (f.hasAttribute('data-retirado')) return;
-              huecos.push(e);
-            });
-            if (baraja.length < 2) return;
-            baraja.sort(comparaNumero);
-            huecos.forEach(function (e, i) {
-              var v = baraja[i] !== undefined ? baraja[i] : '';
-              if (e.textContent.trim() !== v) e.textContent = v;
-            });
           }
 
           /* La primera no puede subir y la ultima no puede bajar. Se recalcula tras cada
@@ -12854,8 +12875,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
         /* ---- mover una SECCION de sitio ----
            Las mismas dos flechas, tumbadas: la tira es horizontal y subir y bajar no significan
-           nada ahi. Y la misma recarga al guardar, por el mismo motivo que las categorias: el
-           numero de un plato es su posicion en la carta entera. */
+           nada ahi. Mover una seccion arrastra DOS cosas: su chip en la tira, y sus fichas en
+           la lista de abajo —el orden de ahi es seccion y luego categoria, y de ese orden sale
+           la numeracion—. Antes las fichas no se movian y los numeros nuevos los traia una
+           recarga; ahora se mueven en bloque y se renumera en el sitio. */
         (function () {
           var tira = pane.querySelector('.adm-secciones-tira');
           if (!tira) return;
@@ -12866,6 +12889,30 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           var enVuelo = null;
 
           function bloqueDe(c) { return chips.filter(function (o) { return o.dataset.bloque === c.dataset.bloque; }); }
+          /* Las fichas de la lista de abajo, puestas en el orden nuevo de los chips. Se
+             mueven en BLOQUE —appendChild MUEVE, no copia—, y las de una seccion mantienen
+             entre ellas el orden que ya tenian: aqui se ordenan secciones, no categorias.
+             Una ficha cuya seccion no tenga chip se queda al final y no se pierde. */
+          function recolocarFichas() {
+            var lista = pane.querySelector('.adm-platos-lista');
+            if (!lista) return;
+            var porTab = {};
+            var todas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-tab-id]'));
+            todas.forEach(function (f) {
+              var k = f.dataset.tabId;
+              (porTab[k] = porTab[k] || []).push(f);
+            });
+            var colocadas = [];
+            chips.forEach(function (c) {
+              (porTab[c.dataset.tabId] || []).forEach(function (f) {
+                lista.appendChild(f);
+                colocadas.push(f);
+              });
+            });
+            todas.forEach(function (f) {
+              if (colocadas.indexOf(f) === -1) lista.appendChild(f);
+            });
+          }
           function pintarTopes() {
             chips.forEach(function (c) {
               var h = bloqueDe(c);
@@ -12893,9 +12940,21 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               }).then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
                 .then(function (j) {
                   if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar el orden.');
-                  location.reload();
+                  /* Ya no se recarga: el orden nuevo y los numeros nuevos se pintaron al
+                     mover, y esto solo confirma que el servidor se quedo con lo mismo. */
                 })
-                .catch(function (e) { if (window.toast) toast(String(e && e.message ? e.message : e), 'bad'); });
+                /* Antes, un fallo dejaba el chip movido y los numeros viejos; ahora deja el
+                   chip movido, las fichas movidas y los numeros nuevos. En los dos casos lo
+                   que se ve ya no es lo que hay guardado, asi que el aviso lo dice: el
+                   error se queda en pantalla hasta que se cierra, y recargar es lo unico
+                   que devuelve la verdad. No se recarga por nuestra cuenta encima de un
+                   aviso que esta pidiendo leerse. */
+                .catch(function (e) {
+                  if (window.toast) {
+                    toast(String(e && e.message ? e.message : e)
+                      + ' Recarga la página: lo que ves ya no es lo que está guardado.', 'bad');
+                  }
+                });
             }, 500);
           }
           function mover(c, paso) {
@@ -12911,6 +12970,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             var b = c.querySelector('[data-mover-pest="' + (paso < 0 ? 'izq' : 'der') + '"]');
             if (b && !b.disabled) b.focus();
             if (c.scrollIntoView) c.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            recolocarFichas();
+            renumerarAmbito(pane.querySelector('.adm-platos-lista'));
             guardar();
           }
 
@@ -12947,10 +13008,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
              · una categoria solo se intercambia con otra de SU seccion. La primera de una
                seccion no puede subir: subiria dentro de la anterior, y eso no es moverla de
                sitio, es cambiarla de seccion;
-             · al guardar se RECARGA. El numero de un plato es su posicion en la carta entera,
-               asi que mover una categoria corre los numeros de todo lo que va detras. Los
-               platos se renumeran aqui mismo porque una categoria se lleva su propia baraja;
-               esto no, y repetir la regla en JavaScript seria tener dos verdades. */
+             · mover una categoria corre los numeros de todo lo que va detras, porque el
+               numero de un plato es su posicion en la carta entera. Eso lo traia una
+               RECARGA, y ya no: lo reparte `renumerarAmbito()` sobre la lista entera, que
+               es la misma regla de siempre escrita una sola vez para los tres
+               movimientos. */
         (function () {
           var lista = pane.querySelector('.adm-platos-lista');
           if (!lista) return;
@@ -13006,11 +13068,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
               }).then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
                 .then(function (j) {
                   if (!j || !j.ok) throw new Error((j && j.error) || 'No se ha podido guardar el orden.');
-                  /* Recargar es lo que trae los numeros nuevos. */
-                  location.reload();
+                  /* Ya no se recarga: los numeros nuevos se repartieron al mover. */
                 })
+                /* Mismo motivo que en las secciones: si el servidor no se quedo con este
+                   orden, la ficha movida y los numeros repartidos son optimistas y no
+                   tienen con que corregirse solos. */
                 .catch(function (e) {
-                  if (window.toast) toast(String(e && e.message ? e.message : e), 'bad');
+                  if (window.toast) {
+                    toast(String(e && e.message ? e.message : e)
+                      + ' Recarga la página: lo que ves ya no es lo que está guardado.', 'bad');
+                  }
                 });
             }, 500);
           }
@@ -13024,6 +13091,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             else lista.insertBefore(otra, f);
             fichas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-cat][data-tab-id]'));
             pintarTopes();
+            renumerarAmbito(lista);
             var b = f.querySelector('[data-mover-cat="' + (paso < 0 ? 'arriba' : 'abajo') + '"]');
             if (b && !b.disabled) b.focus();
             var nm = f.querySelector('.adm-cat-bento-nm');
@@ -13577,6 +13645,124 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         });
         pane.addEventListener('click', function (e) {
           if (e.target.id === 'dest-et-x') cerrarEtiquetas();
+        });
+
+        /* ---- destacar sin recargar ----
+           Poner o quitar una etiqueta era un `submit` normal: la pagina entera volvia a
+           cargarse por cada plato, y con 312 filas eso es perder el sitio del scroll y lo
+           que hubiera escrito en el buscador. Ahora va por `fetch`, como ya iban agotados,
+           el precio en linea y la oferta. El formulario y sus `name` NO cambian: sin
+           JavaScript el submit de siempre sigue siendo el camino, y es el unico.
+
+           No se fabrica marcado. La respuesta del guardado ES la pagina recien pintada por
+           el MISMO PHP, asi que se le copia solo lo que cambia —la pastilla de la etiqueta
+           o el boton «Destacar», la clase `es-destacado` de la fila y el contador del
+           KPI—, indexando por la clave real del plato (`data-k` de la camara, no el
+           nombre: un plato se repite en varias categorias y sus filas tienen que quedar
+           iguales). Mismo patron que `repintarPlatosDesdeOferta` en Ofertas.
+
+           Y ese repintado hace de deshacer: si el servidor rechaza el cambio, su pagina
+           trae el estado de ANTES y la interfaz vuelve ahi sola, sin tener que guardar
+           aparte lo que habia. */
+        /* El aviso que el servidor ya escribio en su propia pagina, para repetirlo aqui en
+           vez de inventar un texto nuevo: PHP emite literalmente `toast(<json>, 'ok');` o
+           `, 'bad');` al final de ese bloque. Se busca por el cierre y se parsea con
+           `JSON.parse` lo que hay delante —lo escribio `json_encode`, y solo JSON.parse
+           sabe deshacerlo bien con acentos y comillas dentro—. El error va primero: si el
+           servidor manda los dos, el que hay que leer es el malo. */
+        function avisoDeRespuesta(doc) {
+          var sc = doc.getElementById('toasts');
+          sc = sc ? sc.nextElementSibling : null;
+          if (!sc || sc.tagName !== 'SCRIPT') return null;
+          var txt = sc.textContent;
+          var tipos = ['bad', 'ok'];
+          for (var i = 0; i < tipos.length; i++) {
+            var cierre = ", '" + tipos[i] + "');";
+            var fin = txt.lastIndexOf(cierre);
+            if (fin === -1) continue;
+            var abre = txt.lastIndexOf('toast(', fin);
+            if (abre === -1) continue;
+            try {
+              return { texto: JSON.parse(txt.slice(abre + 6, fin)), tipo: tipos[i] };
+            } catch (e) { return null; }
+          }
+          return null;
+        }
+        function claveDeFila(fila) {
+          var c = fila.querySelector('.camara[data-k]');
+          return c ? c.dataset.k : null;
+        }
+        function repintarDestacados(html) {
+          if (typeof html !== 'string') return null;
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var fresco = doc.querySelector('.pane[data-pane="platos"]');
+          if (!fresco) return null;
+          var porClave = {};
+          [].slice.call(fresco.querySelectorAll('.adm-orow')).forEach(function (f) {
+            var k = claveDeFila(f);
+            if (k) porClave[k] = f;
+          });
+          [].slice.call(pane.querySelectorAll('.adm-orow')).forEach(function (viva) {
+            var k = claveDeFila(viva);
+            var nueva = k ? porClave[k] : null;
+            if (!nueva) return;
+            viva.classList.toggle('es-destacado', nueva.classList.contains('es-destacado'));
+            var viejo = viva.querySelector('.adm-tag-destacado, .adm-plato-destbtn');
+            var nuevo = nueva.querySelector('.adm-tag-destacado, .adm-plato-destbtn');
+            if (viejo && nuevo) viejo.replaceWith(nuevo.cloneNode(true));
+          });
+          /* El contador se COPIA, no se cuenta: un plato destacado puede tener varias filas
+             —Vegano y Sin gluten repiten platos— y contar filas daria de mas. */
+          var nVivo = pane.querySelector('[data-filter="destacados"] .adm-kpi-n');
+          var nNuevo = doc.querySelector('[data-filter="destacados"] .adm-kpi-n');
+          if (nVivo && nNuevo) nVivo.textContent = nNuevo.textContent;
+          /* Con el filtro «Destacados» puesto, quitar una etiqueta tiene que sacar la fila
+             de la vista. El filtro vive en otro bloque y no se saca de ahi para esto: se le
+             pide que vuelva a pasar por donde ya sabe, con un `input` en el buscador. Antes
+             lo hacia la recarga, que ademas perdia el filtro entero. */
+          var q = document.getElementById('q');
+          if (q) q.dispatchEvent(new Event('input'));
+          return avisoDeRespuesta(doc);
+        }
+        function guardarDestacado(datos, boton) {
+          if (boton) boton.disabled = true;
+          fetch(location.pathname, { method: 'POST', body: datos, credentials: 'same-origin' })
+            .then(function (r) {
+              return r.text().then(function (t) {
+                if (!r.ok) throw new Error('http');
+                return t;
+              });
+            })
+            .then(function (html) {
+              var aviso = repintarDestacados(html);
+              if (aviso && window.toast) toast(aviso.texto, aviso.tipo);
+            })
+            .catch(function () {
+              if (window.toast) toast('No se ha podido guardar. Comprueba la conexión.', 'bad');
+            })
+            .then(function () { if (boton) boton.disabled = false; });
+        }
+        /* Los dos formularios: el selector de etiqueta (`destacado_add`, uno compartido que
+           el JavaScript mueve junto a la fila) y la × de la pastilla (`destacado_del`, uno
+           por fila). Se intercepta el `submit` y no el `click` porque el dato viaja en el
+           BOTON pulsado —`hl_label` y `destacado_del` son `name` del boton, no campos
+           aparte—, y `new FormData(form, boton)` es lo que lo mete. Si el navegador no
+           trae `submitter`, `fetch` o el segundo argumento de `FormData`, no se previene
+           nada y baja el submit de siempre. */
+        pane.addEventListener('submit', function (e) {
+          var form = e.target;
+          if (!form || form.tagName !== 'FORM') return;
+          var boton = e.submitter;
+          var esAlta = form.id === 'dest-et';
+          var esBaja = !!(boton && boton.name === 'destacado_del');
+          if (!esAlta && !esBaja) return;
+          if (!window.fetch || !window.FormData || !boton) return;
+          var datos;
+          try { datos = new FormData(form, boton); } catch (err) { return; }
+          if (!datos.has(esAlta ? 'hl_label' : 'destacado_del')) return;
+          e.preventDefault();
+          if (esAlta) cerrarEtiquetas();
+          guardarDestacado(datos, boton);
         });
         document.addEventListener('keydown', function (e) {
           var etForm = etiquetasForm();

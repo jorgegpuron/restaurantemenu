@@ -882,6 +882,12 @@ export async function e2eDestacados(informe, { pagina, servidor, docroot }) {
   await abrirPicker(boton.k);
   await clicNav(pagina, `#dest-et .adm-destet-b[value="${primera}"]`);
   await abrirTodo(pagina);
+  /* Poner la etiqueta ya NO navega: va por `fetch`, y la fila se repinta con el trozo que
+     trae la respuesta —que es la pagina entera, ~2,7 MB que hay que descargar y parsear—.
+     Esta comprobacion pasaba por los pelos, apoyada en lo que tardaba `abrirTodo`; se
+     sondea hasta que la pastilla esta, que es lo que de verdad se quiere esperar. Si no
+     llegara, `esperarA` agota el plazo y el assert falla con lo ultimo leido. */
+  await esperarA(() => pagina.evaluate((k) => !!document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"]) .adm-tag-destacado-cambiar`), boton.k), 6000);
   const puesto = await pagina.evaluate((k) => { const fila = document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"])`); if (!fila) return { error: 'sin fila para ' + k, pane: (document.querySelector('section.pane:not([hidden])') || {}).dataset?.pane }; return { destacado: fila.classList.contains('es-destacado'), etiqueta: (fila.querySelector('.adm-tag-destacado-cambiar') || {}).textContent?.trim(), quitar: !!fila.querySelector('.adm-tag-destacado-quitar'), pane: (document.querySelector('section.pane:not([hidden])') || {}).dataset?.pane }; }, boton.k);
   informe.comprueba('E2E-DS-04', `elegir «${primera}» deja la fila destacada, con su etiqueta, y vuelve a Platos`,
     puesto.destacado && !!puesto.etiqueta && puesto.quitar && puesto.pane === 'platos' && leerEstado(docroot).tags[boton.k] === primera, JSON.stringify(puesto));
@@ -937,8 +943,12 @@ export async function e2eDestacados(informe, { pagina, servidor, docroot }) {
   await limpiarToasts(pagina);
   await clicNav(pagina, `.adm-platorow:has(.camara[data-k="${boton.k}"]) .adm-tag-destacado-quitar`);
   await abrirTodo(pagina);
-  const quitado = await pagina.evaluate((k) => document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"])`).classList.contains('es-destacado'), boton.k);
-  informe.comprueba('E2E-DS-08', 'Quitar destacado retira la etiqueta de la fila y del estado', !quitado && !(boton.k in (leerEstado(docroot).tags || {})));
+  /* Mismo motivo que en E2E-DS-04, y aqui era un FAIL y no un aprobado por los pelos:
+     `clicNav` lee 300 ms despues del POST y a los 301 ms la fila todavia llevaba su
+     etiqueta; a los 1801 ya no. Lo que hay que esperar es el repintado, no un plazo. */
+  const yaNoDestacada = await esperarA(() => pagina.evaluate((k) => !document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"])`).classList.contains('es-destacado'), boton.k), 6000);
+  informe.comprueba('E2E-DS-08', 'Quitar destacado retira la etiqueta de la fila y del estado',
+    yaNoDestacada === true && !(boton.k in (leerEstado(docroot).tags || {})));
 
   const mala = await postCrudo(pagina, '/admin/index.php', [['destacado_add', '1'], ['hl_key', boton.k], ['hl_label', 'Etiqueta que no existe']]);
   const malaClave = await postCrudo(pagina, '/admin/index.php', [['destacado_add', '1'], ['hl_key', 'no-existe'], ['hl_label', primera]]);
