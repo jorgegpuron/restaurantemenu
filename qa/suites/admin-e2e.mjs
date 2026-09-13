@@ -1442,7 +1442,13 @@ export async function e2eOfertas(informe, { pagina, servidor, docroot }) {
   await esperar(250);
   /* El interruptor maestro vive en la cabecera y la configuración queda siempre disponible:
      descuento, horario y días son parte de una misma decisión, también a 390 px. */
-  const h3 = await pagina.evaluate(() => { const caja = document.querySelector('.adm-oferta-config'); const regla = caja ? caja.querySelector('.adm-regla').getBoundingClientRect() : null; const maestro = document.querySelector('.adm-f-ooferta .adm-f-cab input[name="oferta_on"]').closest('.adm-sw').getBoundingClientRect(); const badge = document.querySelector('.adm-f-ooferta .adm-estado').getBoundingClientRect(); return { configVisible: !!(caja && regla && regla.width > 0 && regla.height > 0), sinDesplegable: !document.querySelector('.adm-oferta-config summary'), maestroVis: maestro.width > 0 && maestro.right <= innerWidth, badgeVis: badge.width > 0 }; });
+  /* La configuración se mide por SU caja y por lo que tenga dentro, sea lo que sea. Aquí había
+     un `caja.querySelector('.adm-regla')` sin comprobar el null, y cuando el rediseño de la
+     rejilla retiró esa clase del marcado, esta línea tiró el bloque ENTERO de Ofertas: OF-24,
+     OF-25 y OF-26 dejaron de correr, el fixture de la oferta no se restauró y cinco pruebas de
+     pantallas posteriores fallaron por arrastre. Un test no puede depender del nombre interno
+     de una rejilla para comprobar que algo se ve. */
+  const h3 = await pagina.evaluate(() => { const caja = document.querySelector('.adm-oferta-config'); const dentro = caja && caja.firstElementChild; const regla = dentro ? dentro.getBoundingClientRect() : null; const sw = document.querySelector('.adm-f-ooferta input[name="oferta_on"]'); const maestro = sw ? sw.closest('.adm-sw').getBoundingClientRect() : null; const badge = document.querySelector('.adm-f-ooferta .adm-estado').getBoundingClientRect(); return { configVisible: !!(caja && regla && regla.width > 0 && regla.height > 0), sinDesplegable: !document.querySelector('.adm-oferta-config summary'), maestroVis: !!maestro && maestro.width > 0 && maestro.right <= innerWidth, badgeVis: badge.width > 0 }; });
   informe.comprueba('E2E-OF-24', 'a 390 px la configuración de la oferta siempre está visible, sin desplegable; maestro e insignia siguen visibles', h3.configVisible && h3.sinDesplegable && h3.maestroVis && h3.badgeVis, JSON.stringify(h3));
   await pagina.setViewportSize({ width: 1280, height: 900 });
 
@@ -4118,18 +4124,46 @@ export async function e2eOfertasLinea(informe, { navegador, servidor }) {
       await entrarAlPanel(p, url);
       await irA(p, url, 'ofertas', 300);
       await abrir(p);
+      /* CAMBIO DE CONTRATO, 13 sep 2026, y hay que leerlo entero antes de tocarlo.
+         Esto contrataba «cuatro atajos pegados a la caja del número formando un segmentado»,
+         que fue una decisión autorizada por el propietario en su día. El rediseño de la
+         rejilla la REVIERTE: ahora son SEIS escalones (10/15/20/25/30/50), cada uno un botón
+         entero con su borde y su radio, repartidos en rejilla debajo del número. Eso ya no es
+         un segmentado y esta prueba no puede fingir que sí.
+         Lo que se contrata ahora es lo que protege a quien lo usa, y no la forma: que estén
+         los seis, que midan todos lo mismo, que ninguno baje del objetivo táctil de 44 de
+         alto, y —lo que costó el fallo— que NINGUNO le robe el toque a otro. Ese robo era
+         real: el halo táctil de ±8 px de cada escalón caía sobre el de la fila de arriba
+         porque el hueco entre filas se quedaba en 0 por una colisión de especificidad con el
+         CSS del segmentado viejo. Elegir 20 % y que se aplique 25 % es un precio equivocado en
+         la carta de un restaurante abierto.
+         Si el propietario decide volver al segmentado pegado, esta prueba vuelve con él. */
       const m = await p.evaluate(() => {
-        const caja = document.querySelector('.adm-f-ooferta .adm-dto').getBoundingClientRect();
-        const at = [...document.querySelectorAll('.adm-f-ooferta .adm-pct-atajo')].map((a) => a.getBoundingClientRect());
+        const at = [...document.querySelectorAll('.adm-f-ooferta .adm-pct-atajo')];
+        const r = at.map((a) => a.getBoundingClientRect());
+        const robos = [];
+        at.forEach((el, i) => {
+          const b = r[i];
+          const puntos = [[b.left + 2, b.top + 2], [b.right - 2, b.top + 2],
+            [b.left + 2, b.bottom - 2], [b.right - 2, b.bottom - 2]];
+          for (const [x, y] of puntos) {
+            const t = document.elementFromPoint(Math.round(x), Math.round(y));
+            if (t && t !== el && !el.contains(t) && !t.contains(el) && t.classList.contains('adm-pct-atajo')) {
+              robos.push(el.textContent.trim() + ' <- ' + t.textContent.trim()); break;
+            }
+          }
+        });
         return {
           n: at.length,
-          pegadoALaCaja: at.length ? Math.round(at[0].left - caja.right) <= 1 : false,
-          entreSi: at.slice(1).every((b, i) => Math.round(b.left - at[i].right) <= 1),
-          mismaAltura: at.every((b) => Math.abs(Math.round(b.height) - Math.round(caja.height)) <= 1),
+          mismoTamano: r.every((b) => Math.round(b.width) === Math.round(r[0].width)
+            && Math.round(b.height) === Math.round(r[0].height)),
+          caja: r.length ? Math.round(r[0].width) + 'x' + Math.round(r[0].height) : null,
+          alto44: r.every((b) => Math.round(b.height) >= 44),
+          robos,
         };
       });
-      informe.comprueba('E2E-OFR-03', 'los cuatro atajos de descuento son un segmentado pegado a la caja del número, no cuatro pastillas sueltas',
-        m.n === 4 && m.pegadoALaCaja && m.entreSi && m.mismaAltura, JSON.stringify(m));
+      informe.comprueba('E2E-OFR-03', 'los seis escalones de descuento están todos, miden lo mismo, llegan a 44 de alto y ninguno le quita el toque a otro',
+        m.n === 6 && m.mismoTamano && m.alto44 && m.robos.length === 0, JSON.stringify(m));
     } finally { await p.contextoQa.close().catch(() => {}); }
   }
 

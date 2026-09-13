@@ -10574,6 +10574,18 @@ $CUENTAS = [
 
   /* Los seis escalones, en rejilla: seis huecos iguales, no seis cajas que se reparten lo
      que sobra. Asi el 10 y el 50 miden lo mismo y la fila no baila al cambiar de valor. */
+  /* CON `.adm-f-ooferta` DELANTE, y no es adorno: la tira de escalones sigue llevando la clase
+     `.adm-pct-atajos` del segmentado anterior, y aquella regla —`.adm-f-ooferta
+     .adm-pct-atajos{gap:0}`, dos clases contra una— gana a esta por especificidad, pase lo que
+     pase con el orden. Resultado medido a 390 y a 768: el hueco entre las dos filas se quedaba
+     en 0, y como cada escalon lleva un halo tactil de 8 px por arriba y por abajo
+     (`.adm-pct-atajo::before`, escrito cuando los atajos eran UNA fila), el halo de la fila de
+     abajo caia sobre el boton de arriba. Con elementFromPoint: los dos pixeles inferiores de
+     «10 %» los recibia «25 %», los de «15 %» los recibia «30 %» y los de «20 %», «50 %». Elegir
+     un descuento y que salga otro es un precio equivocado en la carta.
+     Con el hueco puesto, el halo de abajo llega justo al borde del de arriba y ninguno invade:
+     8 px de hueco contra 8 de halo. */
+  .adm-f-ooferta .adm-ofr-escalones,
   .adm-ofr-escalones{
     display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
     gap:var(--space-1);margin:0;
@@ -10636,6 +10648,7 @@ $CUENTAS = [
     .adm-ofr-aviso{display:none}
     /* Seis escalones en media ficha dan 42 de ancho —medido a 768—, por debajo del objetivo
        tactil de la casa, y una tablet se toca con el dedo. En dos filas de tres son 78×44. */
+    .adm-f-ooferta .adm-ofr-escalones,
     .adm-ofr-escalones{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2)}
     .adm-ofr-escalones .adm-pct-atajo{min-height:44px}
   }
@@ -10657,6 +10670,7 @@ $CUENTAS = [
     }
     /* Seis columnas a 320 dan celdas de 42 px y «10%» no entra. En dos filas de tres son
        88 de ancho por 44 de alto, que ademas es el objetivo tactil. */
+    .adm-f-ooferta .adm-ofr-escalones,
     .adm-ofr-escalones{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2)}
     .adm-ofr-escalones .adm-pct-atajo{min-height:44px}
     .adm-ofr-horas{gap:var(--space-2)}
