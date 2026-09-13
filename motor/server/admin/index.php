@@ -9312,6 +9312,61 @@ $CUENTAS = [
   }
   .adm-alta-caja:not(.adm-alta-hoja) .adm-alta-si{width:100%}
   .adm-alta-no{min-height:44px;padding-left:var(--space-4);padding-right:var(--space-4)}
+
+  /* ---- ordenar las categorias de una seccion ----
+     Filas de 44: es el objetivo tactil de la casa y ademas hace que la aritmetica del
+     arrastre sea exacta —todas las filas miden lo mismo, asi que el destino es una division
+     entera y no una busqueda—. La caja se estrecha respecto a la hoja de alta porque aqui
+     no hay dos columnas que meter: son nombres. */
+  .adm-ordencats-caja{width:min(420px,100%)}
+  .adm-ordencats-lista{
+    list-style:none;margin:var(--space-3) 0 0;padding:0;
+    display:flex;flex-direction:column;gap:var(--space-1);
+    /* Doce categorias —la seccion mas larga de esta carta— son 572 px con sus huecos: caben
+       enteras y la lista no rueda. El tope sigue existiendo para una ventana baja o para una
+       seccion mas larga en otro cliente. */
+    max-height:min(70dvh,620px);overflow:auto;
+  }
+  .adm-ordencats-fila{
+    display:flex;align-items:center;gap:var(--space-3);
+    /* `flex:none` y no solo `min-height`: en una columna flexible con tope de alto, doce
+       filas de 44 no caben en 560 y el navegador las ENCOGE —medido: 43,1 px, y con ellas el
+       paso real pasaba de 48 a 47—. La aritmetica del arrastre se apoya en que todas las
+       filas midan exactamente lo mismo, asi que aqui encoger no es un detalle estetico. */
+    flex:none;
+    min-height:44px;padding:0 var(--space-3);
+    border:1px solid var(--sc-border);border-radius:var(--radius-md);
+    background:var(--sc-surface);color:var(--sc-text);
+    font-size:var(--t2);font-weight:500;
+    cursor:grab;
+    /* El dedo tiene que poder arrastrar la fila, no desplazar la hoja. Solo en la fila: la
+       lista de fuera sigue rodando con el dedo si hay mas filas de las que caben. */
+    touch-action:none;user-select:none;
+    /* La posicion la lleva una transformada, nunca el orden del DOM: mover el nodo durante el
+       arrastre es lo que hacia perder la captura del puntero en el intento anterior. */
+    transition:transform var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out);
+  }
+  .adm-ordencats-fila:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
+  .adm-ordencats-fila[data-arrastrando]{
+    cursor:grabbing;box-shadow:var(--e-3);border-color:var(--sc-primary-grafico);
+    /* Mientras se arrastra NO se interpola: la transformada sigue al dedo. */
+    transition:none;position:relative;z-index:2;
+  }
+  .adm-ordencats-tira{
+    flex:none;display:grid;place-items:center;width:20px;height:20px;
+    color:var(--sc-text-2);
+  }
+  .adm-ordencats-tira svg{width:16px;height:16px;pointer-events:none}
+  .adm-ordencats-n{
+    flex:none;min-width:2ch;text-align:right;
+    font-size:var(--t4);font-variant-numeric:tabular-nums;color:var(--sc-text-2);
+  }
+  .adm-ordencats-nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .adm-ordencats-pie{display:flex;gap:var(--space-2);margin-top:var(--space-4)}
+  .adm-ordencats-pie .adm-btn{flex:1}
+  @media (prefers-reduced-motion:reduce){
+    .adm-ordencats-fila{transition:none}
+  }
   .adm-alta-si:hover{
     background:color-mix(in srgb, var(--sc-primary) 88%, black);
     border-color:color-mix(in srgb, var(--sc-primary) 88%, black);
@@ -11854,6 +11909,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         }
         /* Y en el orden que haya elegido el restaurante. */
         $porTab = ordenar_pestanas($porTab, $estado);
+        /* Cuantas categorias tiene cada seccion. Solo para decidir si se pinta el boton de
+           ordenarlas: con una sola no hay nada que ordenar, y un boton que abre una lista de
+           un elemento es un boton que miente. Cuatro de las trece secciones estan en ese
+           caso. */
+        $catsPorTab = [];
+        foreach (pestana_de_categoria($lista, $estado) as $cidCuenta => $suTabCuenta) {
+          $tCuenta = (string) $suTabCuenta;
+          if ($tCuenta === '') continue;
+          $catsPorTab[$tCuenta] = ($catsPorTab[$tCuenta] ?? 0) + 1;
+        }
       ?>
       <?php if ($porTab): ?>
         <div class="adm-secciones">
@@ -11895,6 +11960,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     <button class="adm-btn adm-btn-fino" type="submit">Guardar el nombre</button>
                   </div>
                 </form>
+                <?php if (($catsPorTab[(string) $tid] ?? 0) >= 2): ?>
+                  <?php /* Ordenar las categorias de ESTA seccion. Vive aqui, en el panel de la
+                           seccion, y no en las cuarenta fichas: es una accion sobre la seccion,
+                           como cambiarle el nombre o borrarla, y ponerla en cada ficha seria
+                           repetir cuarenta veces un boton que hace lo mismo.
+                           La hoja se llena desde el DOM —los nombres ya estan en las fichas—,
+                           asi que este boton no arrastra ningun dato: solo dice de quien. */ ?>
+                  <button type="button" class="adm-btn adm-btn-fino adm-ordencats-abre"
+                          data-ordencats="<?= h((string) $tid) ?>"
+                          data-ordencats-nombre="<?= h($tNombre) ?>">Ordenar sus categorías</button>
+                <?php endif; ?>
                 <?php if (isset($tabsPropias[$tid])): ?>
                   <?php /* Borrar solo lo que nacio aqui, y solo si esta vacio: una seccion de
                            la carta compilada volveria en la siguiente compilacion, y una con
@@ -11917,6 +11993,34 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   title="Añadir una categoría principal" aria-label="Añadir una categoría principal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           </button>
+        </div>
+
+        <?php /* La hoja de ordenar las categorias de una seccion.
+                 Por que una hoja y no arrastrar las fichas en su sitio: la lista de
+                 categorias NO es una lista, es una rejilla bento de hasta seis columnas con
+                 fichas de altura variable —medido: entre 94 y 230 px— sobre una pagina de
+                 9.300 px a 1440 y unos 28.400 a 390. Arrastrar ahi es un calculo de destino
+                 en dos dimensiones con recolocacion en cada movimiento, y con el dedo hay que
+                 robarle el gesto al scroll de la pagina. Ya se intentó con los platos y se
+                 retiró por dos fallos que aqui serian peores: la captura del puntero se perdia
+                 al cambiar el nodo de sitio, y el destino se escondia bajo la cabecera fija.
+                 Doce filas de 44 px son 530: caben en pantalla, el arrastre es de UNA
+                 dimension y el destino nunca se esconde.
+                 La lista la llena el JavaScript desde las propias fichas: los nombres ya estan
+                 en el documento y repetirlos aqui seria tener dos verdades. Sin JavaScript la
+                 hoja no se abre y las flechas de cada ficha siguen siendo el camino completo. */ ?>
+        <div class="adm-alta" id="adm-ordencats" hidden>
+          <div class="adm-alta-fondo" data-ordencats-cierra></div>
+          <div class="adm-alta-caja adm-ordencats-caja" role="dialog" aria-modal="true" aria-labelledby="adm-ordencats-t">
+            <h2 class="adm-alta-t" id="adm-ordencats-t">Ordenar las categorías</h2>
+            <p class="adm-alta-pista" id="adm-ordencats-pista">Arrástralas para cambiarlas de sitio.
+               Con el teclado, las flechas arriba y abajo mueven la que esté enfocada.</p>
+            <ol class="adm-ordencats-lista" id="adm-ordencats-lista"></ol>
+            <div class="adm-ordencats-pie">
+              <button type="button" class="adm-btn adm-btn-fino" data-ordencats-cierra>Cancelar</button>
+              <button type="button" class="adm-btn adm-alta-si" id="adm-ordencats-ok">Guardar el orden</button>
+            </div>
+          </div>
         </div>
 
         <?php /* La hoja de crear seccion. Mismo patron que la del alta de plato: capa
@@ -13291,6 +13395,271 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             });
           });
           pintarTopes();
+
+          /* ---- ordenar las categorias de una seccion, arrastrando ----
+             Vive DENTRO de este bloque a proposito: reordenar categorias ya tenia aqui su
+             estado (`fichas`), su regla de con quien se puede intercambiar (`hermanas`) y su
+             guardado (`guardar`). Sacarlo fuera habria significado repetir las tres.
+
+             Por que una hoja y no arrastrar las fichas en su sitio: la lista de categorias no
+             es una lista, es una rejilla de hasta seis columnas con fichas de altura variable
+             sobre una pagina de 9.300 px. Ahi el destino es un calculo en dos dimensiones y
+             con el dedo hay que robarle el gesto al scroll. Aqui son filas de 44 en una sola
+             columna.
+
+             El arrastre NO mueve el nodo: lo levanta con una transformada y aparta a los demas
+             con otra. Esa es la diferencia con el intento que se retiró en los platos —alli el
+             nodo cambiaba de sitio en el DOM y el navegador soltaba la captura del puntero a
+             mitad del gesto—. El DOM solo se toca al soltar.
+
+             Y no se guarda al soltar: se guarda al pulsar «Guardar el orden». Una hoja que
+             escribe mientras la mueves no se puede cancelar, y cancelar es lo que se espera de
+             una hoja. */
+          var TIRA = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+          var ALTO_FILA = 44;
+          var HUECO_FILA = 4;                      /* --space-1, el hueco de la lista */
+          var PASO = ALTO_FILA + HUECO_FILA;
+
+          var hojaOrden = null, listaOrden = null, tituloOrden = null;
+          var ordenTid = null, ordenClaves = [], devolverFocoOrden = null;
+
+          function fichaDe(cat) {
+            for (var i = 0; i < fichas.length; i++) {
+              if (fichas[i].dataset.cat === cat) return fichas[i];
+            }
+            return null;
+          }
+
+          /* Pinta la lista desde `ordenClaves`. Se repinta entera en cada cambio: son doce
+             filas como mucho, y repintar es mas barato de razonar que parchear posiciones. */
+          function pintarOrden(focoEn) {
+            listaOrden.innerHTML = '';
+            ordenClaves.forEach(function (cat, i) {
+              var f = fichaDe(cat);
+              var nm = f ? f.querySelector('.adm-cat-bento-nm') : null;
+              var comoSeLlama = nm ? nm.textContent.trim() : cat;
+              var li = document.createElement('li');
+              li.className = 'adm-ordencats-fila';
+              li.dataset.cat = cat;
+              li.tabIndex = 0;
+              li.setAttribute('aria-label', comoSeLlama + ', posición ' + (i + 1) + ' de ' + ordenClaves.length);
+              li.innerHTML = '<span class="adm-ordencats-tira" aria-hidden="true">' + TIRA + '</span>'
+                + '<span class="adm-ordencats-n" aria-hidden="true">' + (i + 1) + '</span>'
+                + '<span class="adm-ordencats-nm"></span>';
+              li.querySelector('.adm-ordencats-nm').textContent = comoSeLlama;
+              listaOrden.appendChild(li);
+            });
+            if (focoEn) {
+              var vuelve = null;
+              [].slice.call(listaOrden.children).forEach(function (o) {
+                if (o.dataset.cat === focoEn) vuelve = o;
+              });
+              if (vuelve) vuelve.focus();
+            }
+          }
+
+          /* Arrastre. Todas las filas miden lo mismo, asi que el destino sale de una division y
+             no de medir ninguna caja: el desplazamiento en filas es el desplazamiento en
+             pixeles partido por el paso, redondeado. */
+          function arrastrar(li, e0) {
+            var desde = ordenClaves.indexOf(li.dataset.cat);
+            if (desde < 0) return;
+            var filas = [].slice.call(listaOrden.children);
+            var y0 = e0.clientY, destino = desde;
+            /* Si la lista rueda —doce filas no caben en una pantalla de movil: medido, a 320
+               se ven diez— el desplazamiento del dedo no es el unico que cuenta. Se apunta
+               desde donde estaba rodada para poder sumarle lo que ruede durante el gesto; sin
+               esto, en cuanto la lista se mueve bajo el dedo, el destino calculado se va. */
+            var scroll0 = listaOrden.scrollTop;
+            var ultimoY = e0.clientY, tirando = 0;
+            li.setAttribute('data-arrastrando', '');
+            try { li.setPointerCapture(e0.pointerId); } catch (err) { /* sin captura sigue valiendo */ }
+
+            function recolocar() {
+              var dy = (ultimoY - y0) + (listaOrden.scrollTop - scroll0);
+              /* No se puede salir de la lista: arrastrar mas alla del primero o del ultimo no
+                 hace nada, en vez de dejar la fila flotando fuera. */
+              var tope = -desde * PASO, suelo = (ordenClaves.length - 1 - desde) * PASO;
+              var dyLimitado = Math.max(tope, Math.min(suelo, dy));
+              li.style.transform = 'translateY(' + dyLimitado + 'px)';
+              destino = desde + Math.round(dyLimitado / PASO);
+              filas.forEach(function (otra, i) {
+                if (otra === li) return;
+                var corrida = 0;
+                if (destino > desde && i > desde && i <= destino) corrida = -PASO;
+                else if (destino < desde && i >= destino && i < desde) corrida = PASO;
+                otra.style.transform = corrida ? 'translateY(' + corrida + 'px)' : '';
+              });
+            }
+
+            /* Arrastrar hasta el borde de una lista que rueda tiene que seguir rodando sola, o
+               el ultimo puesto es inalcanzable de un gesto. Se tira de 8 px cada 16 ms, que es
+               un renglon cada medio segundo: suficiente para llegar, lento para no pasarse. */
+            var BORDE = 32, TIRON = 8;
+            var tiraT = null;
+            function pararTiron() { if (tiraT) { clearInterval(tiraT); tiraT = null; } tirando = 0; }
+            function vigilarBorde() {
+              var r = listaOrden.getBoundingClientRect();
+              var arriba = ultimoY - r.top, abajo = r.bottom - ultimoY;
+              var quiere = 0;
+              if (arriba < BORDE && listaOrden.scrollTop > 0) quiere = -TIRON;
+              else if (abajo < BORDE && listaOrden.scrollTop + listaOrden.clientHeight < listaOrden.scrollHeight) quiere = TIRON;
+              if (quiere === tirando) return;
+              pararTiron();
+              if (!quiere) return;
+              tirando = quiere;
+              tiraT = setInterval(function () {
+                var antes = listaOrden.scrollTop;
+                listaOrden.scrollTop += tirando;
+                if (listaOrden.scrollTop === antes) { pararTiron(); return; }
+                recolocar();
+              }, 16);
+            }
+
+            function mueve(e) {
+              ultimoY = e.clientY;
+              recolocar();
+              vigilarBorde();
+            }
+            function suelta() {
+              pararTiron();
+              li.removeEventListener('pointermove', mueve);
+              li.removeEventListener('pointerup', suelta);
+              li.removeEventListener('pointercancel', suelta);
+              li.removeAttribute('data-arrastrando');
+              filas.forEach(function (o) { o.style.transform = ''; });
+              if (destino !== desde) {
+                ordenClaves.splice(destino, 0, ordenClaves.splice(desde, 1)[0]);
+              }
+              pintarOrden(li.dataset.cat);
+            }
+            li.addEventListener('pointermove', mueve);
+            li.addEventListener('pointerup', suelta);
+            li.addEventListener('pointercancel', suelta);
+          }
+
+          function abrirOrden(tid, nombre, boton) {
+            hojaOrden = hojaOrden || document.getElementById('adm-ordencats');
+            if (!hojaOrden) return;
+            listaOrden = listaOrden || document.getElementById('adm-ordencats-lista');
+            tituloOrden = tituloOrden || document.getElementById('adm-ordencats-t');
+            if (!listaOrden || !tituloOrden) return;
+            /* El orden de partida es el que se ve AHORA, no el que habia al cargar: si se movio
+               algo con las flechas hace un momento, la hoja tiene que abrirse con eso. */
+            ordenClaves = fichas.filter(function (f) { return f.dataset.tabId === tid; })
+                                .map(function (f) { return f.dataset.cat; });
+            if (ordenClaves.length < 2) return;
+            ordenTid = tid;
+            tituloOrden.textContent = 'Ordenar las categorías de «' + nombre + '»';
+            pintarOrden(null);
+            devolverFocoOrden = boton || null;
+            admAbrirCancelandoSalida(hojaOrden);
+            var primera = listaOrden.querySelector('.adm-ordencats-fila');
+            if (primera) primera.focus();
+          }
+
+          /* El boton que abre la hoja vive dentro del panel desplegable de su seccion, y ese
+             panel se cierra solo en cuanto pierde el foco. Devolverselo a un boton que ya no se
+             dibuja no hace nada, y el foco se queda donde estaba: dentro de una hoja oculta.
+             Medido: tras cerrar con Escape, `document.activeElement` seguia siendo la fila de
+             la lista. Para quien navega con teclado eso es quedarse sin sitio.
+             Asi que si el boton ya no se ve, el foco vuelve al lapiz de esa seccion, que
+             siempre esta en la tira. */
+          /* `offsetParent` NO sirve para saber si algo se puede enfocar. El panel de la
+             seccion se esconde con `visibility`, no con `display`, asi que su boton sigue
+             teniendo `offsetParent` y sigue midiendo — y aun asi `focus()` sobre el no hace
+             nada, porque un elemento invisible no es enfocable. Medido: el foco se quedaba en
+             la fila de la hoja ya cerrada.
+             Asi que se pregunta por lo que de verdad importa —que tenga cajas dibujadas y que
+             su `visibility` sea `visible`— y, por si acaso, se COMPRUEBA despues: si el foco
+             no acabo donde se pidio, se manda al lapiz de esa seccion, que siempre esta en la
+             tira. */
+          function sePuedeEnfocar(el) {
+            if (!el || !document.contains(el) || !el.focus) return false;
+            if (!el.getClientRects().length) return false;
+            var s = getComputedStyle(el);
+            return s.visibility === 'visible' && s.display !== 'none';
+          }
+          function lapizDeLaSeccion(tid) {
+            var chip = tid ? document.querySelector('.adm-pestana[data-tab-id="' + tid + '"]') : null;
+            return chip ? chip.querySelector('.adm-cat-nombre-b') : null;
+          }
+          function devolverElFoco(tid) {
+            var destino = sePuedeEnfocar(devolverFocoOrden) ? devolverFocoOrden : lapizDeLaSeccion(tid);
+            if (destino) destino.focus();
+            if (document.activeElement === destino) return;
+            var respaldo = lapizDeLaSeccion(tid);
+            if (respaldo && respaldo !== destino) respaldo.focus();
+          }
+
+          function cerrarOrden() {
+            if (!hojaOrden || hojaOrden.hidden) return;
+            var tidQueEra = ordenTid;
+            admCerrarConSalida(hojaOrden);
+            devolverElFoco(tidQueEra);
+            devolverFocoOrden = null;
+            ordenTid = null;
+          }
+
+          /* Aplicar. Se mueven las fichas de verdad al orden elegido, se repintan los topes de
+             las flechas, se reparten los numeros —mover una categoria corre los de todo lo que
+             va detras— y se manda la permutacion por el MISMO camino que las flechas:
+             `cats_orden`, que ya valida que el conjunto sea exactamente el de esa seccion.
+             Ni un endpoint nuevo ni una entrada nueva en el inventario. */
+          function aplicarOrden() {
+            if (!ordenTid || !ordenClaves.length) { cerrarOrden(); return; }
+            var ancla = fichaDe(ordenClaves[0]);
+            if (!ancla) { cerrarOrden(); return; }
+            for (var i = 1; i < ordenClaves.length; i++) {
+              var f = fichaDe(ordenClaves[i]);
+              if (!f) continue;
+              lista.insertBefore(f, ancla.nextSibling);
+              ancla = f;
+            }
+            fichas = [].slice.call(lista.querySelectorAll('.adm-cat-bento[data-cat][data-tab-id]'));
+            pintarTopes();
+            renumerarAmbito(lista);
+            var primera = fichaDe(ordenClaves[0]);
+            if (primera) guardar(primera);
+            cerrarOrden();
+          }
+
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest) return;
+            if (e.target.closest('[data-ordencats-cierra]')) { e.preventDefault(); cerrarOrden(); return; }
+            if (e.target.closest('#adm-ordencats-ok')) { e.preventDefault(); aplicarOrden(); return; }
+            var abre = e.target.closest('[data-ordencats]');
+            if (!abre) return;
+            e.preventDefault();
+            abrirOrden(abre.dataset.ordencats, abre.dataset.ordencatsNombre || 'esta sección', abre);
+          });
+
+          document.addEventListener('pointerdown', function (e) {
+            if (!e.target.closest) return;
+            if (e.button !== undefined && e.button !== 0) return;
+            var li = e.target.closest('.adm-ordencats-fila');
+            if (!li || !listaOrden || !listaOrden.contains(li)) return;
+            e.preventDefault();
+            li.focus();
+            arrastrar(li, e);
+          });
+
+          /* Teclado: las mismas flechas que mueven una ficha en la pantalla mueven aqui la
+             fila. Sin esto la hoja seria solo para quien pueda arrastrar, y el panel entero se
+             puede usar con teclado. */
+          document.addEventListener('keydown', function (e) {
+            if (!hojaOrden || hojaOrden.hidden) return;
+            if (e.key === 'Escape') { e.preventDefault(); cerrarOrden(); return; }
+            var li = e.target && e.target.closest ? e.target.closest('.adm-ordencats-fila') : null;
+            if (!li) return;
+            var paso = e.key === 'ArrowUp' ? -1 : (e.key === 'ArrowDown' ? 1 : 0);
+            if (!paso) return;
+            e.preventDefault();
+            var i = ordenClaves.indexOf(li.dataset.cat), j = i + paso;
+            if (i < 0 || j < 0 || j >= ordenClaves.length) return;
+            ordenClaves.splice(j, 0, ordenClaves.splice(i, 1)[0]);
+            pintarOrden(li.dataset.cat);
+          });
         }());
 
         pane.querySelectorAll('.adm-chips-estado [data-filter]').forEach(function (b) {
