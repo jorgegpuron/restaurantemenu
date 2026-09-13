@@ -1898,6 +1898,23 @@ cambia al compilar, y de eso avisa `version.json`, que tambien es `no-store`. As
 caso de estos 60 s es ver el HTML de la compilacion anterior durante un minuto despues de un
 despliegue, no un precio viejo en la mesa de un cliente.
 
+**Y la cabecera sola no bastaba: hizo falta una regla en Cloudflare, y ya esta puesta.** Esto se
+descubrio DESPUES de desplegar la cabecera, midiendo: Cloudflare solo considera cacheable una
+lista fija de extensiones estaticas y el HTML no esta en ella, asi que `s-maxage` no cambiaba
+nada por si solo —en la misma tanda, `/assets/logo.svg` daba `HIT` y `/` daba `DYNAMIC`—. La
+regla la creo el propietario el 13 sep 2026 en *Caching > Cache Rules*, se llama «cache del HTML
+de Tinge», va la ultima y declara elegible para cache todo `/tinge_of_turmeric/menu2/` **menos**
+`/admin/`, `estado.json` y `record.json`, sin Edge TTL propio para que el TTL lo siga mandando el
+`.htaccess` y no viva en dos sitios.
+
+Medido al acabar, cinco muestras seguidas: **0,138 · 0,153 · 0,141 · 0,127 · 0,143 s** contra el
+segundo entero de antes, con `cf-cache-status: HIT` y su `Age`. Siete veces mas rapido para quien
+escanea el QR. Y las exclusiones aguantan: el panel sigue `DYNAMIC` con `no-store` y `estado.json`
+tambien, que es lo que hace que un agotado se vea al momento.
+
+Si algun dia esa regla desaparece, esto vuelve solo a `DYNAMIC` **sin avisar de nada**: el sintoma
+es el segundo de espera, y se comprueba con `curl -sI` mirando `cf-cache-status`.
+
 **2. La marca de compilacion.** Las cabeceras solo mandan sobre la proxima descarga, y un movil
 que ya tiene la carta guardada **no va a hacer ninguna**, precisamente porque cree que la suya
 vale. Ese caso —el que se describe arriba— no lo arregla ninguna cabecera.

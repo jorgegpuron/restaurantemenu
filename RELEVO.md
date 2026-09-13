@@ -5,17 +5,21 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **13 sep 2026, tarde** · **producción sirve `b6b15b0`, build
-> `1789312187368`.** Ocho commits desplegados hoy en cinco tandas, cada una verificada desde
-> fuera. `DESPLIEGUE_REAL` releída de GitHub: **`false`**. Árbol limpio salvo `.ai/`.
+> Última actualización: **13 sep 2026, noche** · **producción sirve `d9072a6`, build
+> `1789323369451`.** Diez commits desplegados hoy en siete tandas, cada una verificada desde
+> fuera. `DESPLIEGUE_REAL` releída de GitHub: **`false`**. Árbol limpio salvo `.ai/`, que son
+> encargos entre agentes escritos desde la OTRA máquina (rutas `C:\Users\info\…`): no se han
+> tocado ni borrado.
 
 ---
 
 ## Lo que hace el panel hoy y no hacía ayer
 
-1. **Mover una categoría o una sección no recarga**, y si el servidor rechaza el orden **se
+1. **Etiquetar EN LOTE.** Con una búsqueda o un filtro puesto sale una tira que dice cuántos
+   platos se ven y ofrece «Etiquetar» y «Quitar etiqueta» para todos ellos, en **un solo
+   guardado**. Es lo que el propietario dijo que más hace al día.
+2. **Mover una categoría o una sección no recarga**, y si el servidor rechaza el orden **se
    deshace solo**: vuelven la ficha, los chips y los 312 números.
-2. **Etiquetar no recarga**, y el filtro «Destacados» se queda puesto.
 3. **Arrastrar para ordenar** las categorías de una sección, desde el lápiz de la sección. Con
    teclado también, y el foco sigue a la fila.
 4. **Un aviso de guardado que no se puede pasar por alto**: «Guardando…», «No se ha guardado»
@@ -24,34 +28,23 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 5. **El Design System 2026** completo, con la columna de orden alineada y seis contrastes
    arreglados en tema claro, el anillo de foco incluido.
 6. El panel **ya no descarga las dos tipografías de la carta**: 75,8 KB menos por carga en frío.
+7. **La carta llega en ~0,14 s en vez de ~1 s** desde que el borde de Cloudflare la guarda.
 
-## Las dos cosas que están a medias y son tuyas
+## Nada está a medias en manos del propietario
 
-**1. El caché de borde de la carta.** La cabecera ya está puesta y desplegada:
-`public, max-age=0, s-maxage=60, must-revalidate`. Pero **no basta, y se comprobó después de
-desplegarla**: Cloudflare sólo considera cacheable una lista fija de extensiones estáticas y el
-HTML no está en ella. Medido en la misma tanda: `/assets/logo.svg` da `HIT` y `/` da `DYNAMIC`.
+Las dos cosas que estaban aquí el 13 sep por la tarde se cerraron esa misma noche:
 
-Para que esos 60 s hagan algo hay que **declarar el HTML elegible con una Cache Rule en el
-panel de Cloudflare** («Eligible for cache» + «Respect origin TTL»). Eso no es build, es
-configuración, y es del propietario. La cabecera se queda porque es la declaración correcta y
-el requisito previo: con la regla puesta funciona sin tocar nada más.
-
-Lo que está en juego, medido: **~1 s de primer byte** para cada comensal —cinco muestras:
-0,99 · 1,06 · 0,99 · 1,02 · 1,08 s, con conexión y TLS en 0,13— contra unos 100 ms desde el
-borde. Es la mejora de rendimiento más grande que queda en todo el producto.
-
-**2. Dos controles que le quitan el toque a otro.** `E2E-RS-TACTIL-44` sigue en rojo, y ahora
-por el motivo de verdad:
-
-```text
-390  BUTTON.adm-secciones-flecha  le quita el toque a  BUTTON.adm-orden-b
-768  SUMMARY.adm-cat-nombre-b     le quita el toque a  BUTTON.adm-btn
-```
-
-Llevaban escondidos: el mensaje de esa prueba sólo enseña cuatro entradas y los tres fallos de
-tamaño los tapaban. «Responde otro control» es peor que un objetivo pequeño, así que es lo
-siguiente que hay que mirar de accesibilidad.
+- **El caché de borde**, que necesitaba una Cache Rule en Cloudflare y no era build. El
+  propietario la creó: «cache del HTML de Tinge», la última de la lista, declara elegible todo
+  `/tinge_of_turmeric/menu2/` **menos** `/admin/`, `estado.json` y `record.json`, y **sin Edge
+  TTL propio** para que el TTL lo siga mandando el `.htaccess` y no viva en dos sitios. Medido
+  al acabar: primer byte **0,138 · 0,153 · 0,141 · 0,127 · 0,143 s** contra 0,99-1,08 antes, con
+  `cf-cache-status: HIT`. El panel sigue `DYNAMIC` con `no-store` y `estado.json` también.
+  Si esa regla desaparece, esto vuelve solo a `DYNAMIC` **sin avisar de nada**.
+- **`E2E-RS-TACTIL-44`, que llevaba en rojo desde antes de esta ronda, está verde.** Hicieron
+  falta dos cosas y el orden confundió: estrechar el lápiz de la cabecera a 40×44 en punteros
+  gruesos, y arreglar la sonda de la prueba, que medía también controles recortados por un
+  scroller —los fantasmas de la tira de secciones tapaban un solape que sí era real—.
 
 ## Decisiones tomadas, para que nadie las reabra
 
@@ -68,15 +61,21 @@ siguiente que hay que mirar de accesibilidad.
   Brotli eran **807 bytes** reales sin mover el parseo. Se construyó, se midió y se tiró.
 - **La carta no pide tipografías desde la cabecera.** Está medido con seis pasadas de Lighthouse
   por variante (ver `gen.mjs`): los `preconnect` en la cabecera costaban 10 puntos de mediana.
-- **El tema por defecto sigue siendo oscuro fijo.** El punto 15 del encargo pide preparar
-  `prefers-color-scheme`: sigue abierto y es del propietario.
+- **El panel entra en OSCURO**, y `prefers-color-scheme` queda **descartado** por decisión del
+  propietario (13 sep). La puerta de acceso es oscura fija y encadenarla con un panel claro era
+  un fogonazo en cada entrada. Quien quiera claro lo tiene a un toque y su elección manda para
+  siempre. `COLORS.md` decía lo contrario con código que no existía: corregido.
+- **«Ordenar sus categorías» se pinta en TODAS las secciones**, desactivado y con el motivo
+  debajo donde hay una sola categoría. Antes se escondía, y como cuatro de las trece secciones
+  tienen una sola, aparecía y desaparecía y se leía como un fallo.
 
 ## Lo que queda del encargo del Design System
 
 Fases **7, 9 y 10** a medias. Fase **13** de limpieza: no vale la pena —medido, la duplicación
 real son 14 bloques y 1.107 bytes, no «179 selectores»; esa cifra contaba fotogramas y bloques
-por tema—. Fase **8**: la mitad no existe (tabla ordenable, paginación, acciones en lote,
-breadcrumb, drawer, «sin resultados») y eso es producto nuevo, no normalización.
+por tema—. Fase **8**: la mitad no existe (tabla ordenable, paginación, breadcrumb, drawer,
+«sin resultados») y eso es producto nuevo, no normalización. Las **acciones en lote** de esa
+fase sí están hechas, y son las de etiquetar.
 
 Deuda medida y pequeña: los 15 px sin migrar, cuatro `line-height` en píxeles que son centrado
 a la antigua, lectores de pantalla sin probar, errores de formulario uno a uno.
@@ -85,11 +84,14 @@ a la antigua, lectores de pantalla sin probar, errores de formulario uno a uno.
 
 - **Etiquetar tarda ~0,5 s** en verse: el repintado necesita el cuerpo entero de la respuesta
   (2,3 MB en crudo, 123 KB con Brotli). No es más lento que la recarga que sustituye, pero no
-  hay pintado optimista.
+  hay pintado optimista. Dos pruebas esperan **al hecho** y no a un tiempo fijo por esto.
 - **El arrastre de categorías no está probado en un teléfono real**, sólo emulado y con eventos
   de puntero sintéticos. Las flechas y el teclado sí son caminos completos.
-- Los **13 `FAIL` de `admin-e2e`** son de tareas ajenas y anteriores. Dos —`E2E-RH-SEM-01` y
-  `E2E-OFR-02`— miden el diseño ANTERIOR de la ficha de oferta.
+- Los **12 `FAIL` de `admin-e2e`** (de 540 entradas) son de tareas ajenas y anteriores. Dos
+  —`E2E-RH-SEM-01` y `E2E-OFR-02`— miden el diseño ANTERIOR de la ficha de oferta.
+- **El formulario de «Borrar la sección» sólo sale en secciones creadas desde el panel**, y esta
+  carta no tiene ninguna: su arreglo se verificó fabricando una a propósito en local, no en
+  producción.
 
 ## Trampas pagadas
 
@@ -127,9 +129,23 @@ a la antigua, lectores de pantalla sin probar, errores de formulario uno a uno.
 17. **Un halo táctil no puede salir de un scroller horizontal.** Si un eje del `overflow` es
     `auto`, el `visible` del otro se computa a `auto` y el `clip` a `hidden`. Probado con los dos.
 18. **`s-maxage` no hace cacheable el HTML en Cloudflare.** Sólo pone el TTL de lo que ya es
-    elegible; el HTML no lo es por defecto y hace falta una Cache Rule.
+    elegible; el HTML no lo es por defecto y hace falta una Cache Rule (ya creada, arriba).
 19. **El mensaje de `E2E-RS-TACTIL-44` sólo enseña cuatro entradas.** Los fallos de tamaño
     pueden tapar solapes, que son peores. Si se corrige un suelo, mirar qué aparece detrás.
+20. **Levantar una regla RE-DECLARANDO `display` pisa composiciones que viven en un
+    `@container`.** Así salía la búsqueda descolocada en el móvil: una regla con cuatro clases
+    devolvía las filas escondidas con `display:flex` y machacaba el `display:grid` de dos
+    líneas. Para levantar una regla, que no se aplique; no re-declarar el valor.
+21. **Un `<button>` puede pertenecer a un formulario que NO lo contiene**, con `form="id"`, y su
+    `name`/`value` viaja igual por ser el que manda. Es la salida cuando hay que meter un botón
+    dentro de otro formulario sin anidarlos. Funciona con el ayudante de confirmar **porque ese
+    ayudante vuelve a pulsar el botón** en vez de llamar a `form.submit()`, que perdería el
+    `name`/`value`.
+22. **La caja flotante de renombrar una sección ES el `<form>`.** Cualquier cosa puesta detrás
+    de `</form>` se dibuja FUERA de la caja, desbordando sobre la tira. Pasó dos veces.
+23. **`entrarAlPanel()` no puede pasar la primera configuración de un panel recién compilado**:
+    pide también el token de activación. Para una prueba de mano, escribir `admin/clave.php` en
+    el docroot con un `password_hash` y entrar por `#clave`.
 
 ## Servidor de revisión
 
@@ -141,10 +157,11 @@ en `admin/config.php` **de la copia** y servir con `php -S 127.0.0.1:<puerto> -t
 `estado-EJEMPLO.json` a `estado.json` y ponerle `marca.colorPrincipal`. Para móvil de verdad,
 Playwright con `isMobile` y `hasTouch`, no el panel de la app.
 
-Quedan **dos ramas**: `main` y `ds2026-importado`, que es la única referencia al historial del
-laboratorio antes del rebase —su contenido está en `main`, así que se puede borrar—. Las once
-ramas de trabajo ya integradas se borraron el 13 sep. El **laboratorio** (`4-laboratorio/`) ya
-no sirve para nada y se puede borrar cuando se quiera.
+Quedan **dos ramas** en remoto: `main` y `ds2026-importado`, que es la única referencia al
+historial del laboratorio antes del rebase —su contenido está en `main`, así que se puede
+borrar—. Las once ramas de trabajo ya integradas se borraron el 13 sep; las dos de ese día
+(`feat/lote-etiquetas-y-popover`, `fix/busqueda-y-popovers`) están contenidas en `main`. El
+**laboratorio** (`4-laboratorio/`) ya no sirve para nada y se puede borrar cuando se quiera.
 
 ## Herramientas
 
