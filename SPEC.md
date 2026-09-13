@@ -1874,13 +1874,29 @@ index.html**: un HTML viejo en cache no es una hoja de estilos desfasada, es la 
 
 Dos piezas, y hacen falta las dos.
 
-**1. Cabeceras (`.htaccess`).** El HTML va con `no-cache, must-revalidate`, que NO es lo mismo
+**1. Cabeceras (`.htaccess`).** El HTML va con `max-age=0, must-revalidate`, que NO es lo mismo
 que no guardar nada: el navegador guarda, pero pregunta siempre si ha cambiado. Si no ha
 cambiado el servidor contesta 304 y no se descarga nada —unos cientos de bytes en vez de 77 KB—
 y si ha cambiado se ve al momento. `no-store` daria exactamente la misma frescura descargando
 77 KB cada vez que alguien abre la carta, que en la wifi de un restaurante lleno son segundos
 regalados a cambio de nada. `estado.json` y `version.json` si van con `no-store`. Las imagenes,
 un mes: las que sube el panel llevan nombre aleatorio, asi que una foto nueva es una URL nueva.
+
+Y desde el **13 sep 2026** lleva ademas `public, s-maxage=60`, para que ese 304 lo de el BORDE
+y no el origen. La medida que lo pidio: cinco muestras seguidas del primer byte de la carta en
+produccion —0,99 · 1,06 · 0,99 · 1,02 · 1,08 s— con la conexion y el TLS en 0,13. El resto era
+el origen pensando, y `cf-cache-status` decia `DYNAMIC` en todas: Cloudflare no guardaba la
+pagina nunca, asi que **cada comensal pagaba ese segundo entero**. Con 60 s de borde el origen
+se toca una vez por minuto y los demas reciben la carta en unos 100 ms; para un menu que
+escanean diez moviles en el mismo minuto, eso es el caso normal.
+
+Lo que hacia esto seguro, y se comprobo antes de tocarlo: **lo que cambia durante el servicio no
+esta en el HTML**. Agotados, etiquetas, precios nuevos y ofertas viven en `estado.json`, que es
+`no-store` y se pide en cada carga —el HTML trae siete referencias a el—; los precios
+compilados (293 `data-price`) son solo la base sobre la que ese fichero manda. El HTML unicamente
+cambia al compilar, y de eso avisa `version.json`, que tambien es `no-store`. Asi que el peor
+caso de estos 60 s es ver el HTML de la compilacion anterior durante un minuto despues de un
+despliegue, no un precio viejo en la mesa de un cliente.
 
 **2. La marca de compilacion.** Las cabeceras solo mandan sobre la proxima descarga, y un movil
 que ya tiene la carta guardada **no va a hacer ninguna**, precisamente porque cree que la suya

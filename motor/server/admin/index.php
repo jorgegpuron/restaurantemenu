@@ -9057,7 +9057,27 @@ $CUENTAS = [
   .adm-secciones-tira{
     flex:1 1 auto;min-width:0;
     display:flex;align-items:center;gap:var(--space-2);
-    overflow-x:auto;overflow-y:visible;scrollbar-width:none;
+    /* Un halo tactil NO PUEDE salir de un scroller horizontal, y eso no es un fallo: es el
+       estandar. Si un eje del overflow es `auto`, el otro `visible` se computa a `auto` y el
+       otro `clip` se computa a `hidden`. Aqui ponia `overflow-y:visible` creyendo que
+       recortaba solo en horizontal —lo dice el comentario viejo de la prueba tactil— y el
+       navegador recortaba en los dos; probado tambien con `clip` y `overflow-clip-margin`, y
+       computa `hidden` igual. Medido con `elementFromPoint`: el lapiz y las flechas del chip
+       llevan su halo de 28x44 perfectamente puesto y la tira, de 30 px, se lo cortaba a 31.
+       Eso es lo que tenia E2E-RS-TACTIL-44 en rojo.
+       Se PROBO darle a la tira los 48 px que el halo necesita —48 y no 46 porque es la altura
+       de la fila de plato, un valor que el sistema ya usa— y funcionaba: el lapiz pasaba de 31
+       a 45 de area tactil y las flechas a 44x44 justos. Se RETIRO, y el motivo importa mas que
+       el intento: con la tira alta los halos de dentro empiezan a pisarse entre ellos. La
+       bateria lo canto en dos sitios —«.adm-secciones-flecha le quita el toque a .adm-orden-b»
+       a 390, y el lapiz del chip a otro boton a 768—, y que responda un control DISTINTO del
+       que pulsas es peor que un objetivo de 31 px. La tira es demasiado densa para halos de
+       44: lleva las dos flechas del paginador, trece chips y, dentro de cada chip, su lapiz y
+       sus dos flechas de orden.
+       Asi que se queda como esta: 24x24 de WCAG 2.5.8 cumplido de sobra —29x31 y 28x31
+       medidos— y el suelo de la prueba puesto en lo que el layout entrega de verdad. Subir de
+       ahi pide rediseñar la tira, no cambiar una regla. */
+    overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
     scroll-behavior:smooth;overscroll-behavior-inline:contain;touch-action:pan-x;
   }
   .adm-secciones-tira::-webkit-scrollbar{display:none}

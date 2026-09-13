@@ -76,8 +76,23 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
 
   # El HTML se guarda pero se pregunta siempre: si no cambió, un 304 de cientos de bytes;
   # si cambió, se ve al momento. no-store daría la misma frescura pagando 77 KB por visita.
+  #
+  # Y `s-maxage` para que ese 304 lo dé el BORDE y no el origen. Medido en producción, cinco
+  # muestras seguidas: el primer byte de la carta tarda ~1 s y sólo 0,13 s son conexión y TLS
+  # — el resto es el origen pensando, y con `cf-cache-status: DYNAMIC` cada comensal lo pagaba
+  # entero. Con 60 s de borde el origen se toca una vez por minuto y los demás reciben la
+  # carta en ~100 ms. Para un menú que escanean diez móviles en el mismo minuto, eso es el
+  # caso normal, no el excepcional.
+  #
+  # Y no retrasa NADA de lo que se cambia desde el panel: agotados, etiquetas, precios nuevos
+  # y ofertas viajan en `estado.json`, que es `no-store` y se pide en cada carga (comprobado:
+  # el HTML trae siete referencias a él). El HTML sólo cambia al compilar, y de eso avisa
+  # `version.json`, que también es `no-store`. Así que el peor caso de estos 60 s es ver el
+  # HTML de la compilación anterior durante un minuto después de un despliegue.
+  #
+  # El navegador no cambia: `max-age=0, must-revalidate` es la misma frescura de siempre.
   <FilesMatch "\.html$">
-    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Cache-Control "public, max-age=0, s-maxage=60, must-revalidate"
   </FilesMatch>
 
   # estado.json, pedido ANTES de que termine de bajar el HTML.

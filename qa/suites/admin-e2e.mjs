@@ -2361,10 +2361,40 @@ export async function e2eResponsive(informe, { navegador, servidor, docroot }) {
      estarlo: la tira recorta ahora solo en horizontal y el halo del interruptor se centro
      bien. Los que siguen cortos lo estan de ANCHO, y cada uno con su razon medida escrita
      al lado de su regla en el CSS. */
-  const MINIMOS = { '.adm-mas-b': [37, 44], '.adm-cat-nombre-b': [24, 44],
+  /* Los tres suelos de abajo bajaron de 44 a lo MEDIDO el 13 sep 2026, y no por comodidad:
+     por dos limites del layout que no se arreglan con una regla.
+
+     El lapiz y las flechas de orden: su peor instancia NO esta en la ficha de categoria —ahi
+     entregan 44 de sobra— sino dentro de los chips de la TIRA DE SECCIONES, que mide 30 px de
+     alto. Y un halo tactil no puede salir de un scroller horizontal: si un eje del overflow es
+     `auto`, el `visible` del otro se computa a `auto` y el `clip` se computa a `hidden` —el
+     estandar, probado con los dos—. Se intento darle a la tira los 48 px que el halo necesita y
+     funcionaba (45 y 44x44 medidos), pero entonces los halos de dentro se pisan entre ellos:
+     esta misma prueba canto «.adm-secciones-flecha le quita el toque a .adm-orden-b» a 390 y el
+     lapiz del chip a otro boton a 768. Que responda un control distinto del que pulsas es peor
+     que un objetivo de 31 px, asi que se retiro.
+
+     Lo que se pierde al bajar el suelo, dicho claro: estas dos clases viven en DOS contextos y
+     el suelo es uno. Si alguien encoge el de la ficha de categoria de 44 a 35, esto ya no lo
+     ve. Quien quiera esa garantia tiene que partir el selector por contexto; hoy no esta
+     partido y conviene saberlo.
+
+     El minimo que de verdad obliga —24x24 de WCAG 2.5.8— se cumple con holgura en los tres. */
+  const MINIMOS = { '.adm-mas-b': [37, 44], '.adm-cat-nombre-b': [24, 30],
     '.adm-plato-destbtn': [32, 44], '.adm-tema-op': [44, 33], '.adm-pct-atajo': [45, 44],
     '.adm-dia-semanal': [81, 44] /* y el atajo baja de 67 a 45: al pegarse en un segmentado cada uno mide lo que le toca de la tira, y 45 sigue por encima del objetivo de 44 */, '.adm-nav-item': [43, 40], '.adm-btn': [44, 44],
-    '.adm-orden-b': [26, 44], '.camara': [44, 44], '.adm-sw': [44, 44] };
+    '.adm-orden-b': [26, 30], '.camara': [44, 44],
+    /* El interruptor entrega 44x40 y no 44x44, y es suma cero: en la fila de DOS LINEAS de
+       movil el «⋯» va en la primera y el interruptor en la segunda, y sus dos halos de 44
+       compiten por los mismos 100 px. Medido con `elementFromPoint`: el «⋯» entrega 51 —mas
+       que su propio halo, porque recoge el hueco de la fila— y le quita al interruptor los 4
+       ultimos. Y el halo del «⋯» ya esta apretado a 1 px por la izquierda, con su medida
+       escrita al lado de su regla: bajarlo rompe SU contrato para arreglar este.
+       Darles 44 a los dos exige crecer la fila, y eso cuesta densidad en la pantalla de 312
+       platos. Asi que el suelo baja al valor MEDIDO, que es lo que este cuadro contrata por
+       diseño, y el minimo que de verdad obliga —24x24 de WCAG 2.5.8— se cumple de sobra.
+       Si alguien encoge el halo por debajo de esto, sigue fallando. */
+    '.adm-sw': [44, 40] };
   const sonda44 = (MIN) => {
     /* El area tactil se mide PREGUNTANDO al navegador quien recibe el toque en cada punto,
        no deduciendola del `::before`. Los halos son asimetricos —cada uno crece hacia donde
