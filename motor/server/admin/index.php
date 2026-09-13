@@ -9194,7 +9194,11 @@ $CUENTAS = [
   .adm-secciones-mas svg{width:15px;height:15px;pointer-events:none}
   .adm-secciones-mas:hover{background:var(--sc-muted-bg);color:var(--sc-text);border-color:var(--sc-input-border)}
   .adm-secciones-mas:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
-  .adm-cat-nombre-borrar{display:grid;margin-top:2px}
+  /* El formulario de borrar la seccion ya NO pinta nada: su boton vive dentro del popover y
+     apunta aqui con el atributo `form`, asi que esto es solo un destino de POST con el csrf.
+     `display:none` y no `grid` con margen: dos pixeles de caja detras del popover engordaban
+     el <details> de 24x24 y empujaban la tira de secciones. */
+  .adm-cat-nombre-borrar{display:none}
   /* Los chips REPARTEN el sobrante en vez de dejarlo muerto a la derecha.
      La tira pagina y solo enseña las secciones que caben ENTERAS —una seccion cortada por la
      mitad se lee como un fallo, no como «hay mas»—, y el precio de esa regla era un hueco de
@@ -10781,10 +10785,19 @@ $CUENTAS = [
      Se recorta por CSS y no quitando filas del HTML: los 312 platos siguen estando en el
      documento, asi que el buscador y los filtros los siguen encontrando aunque la ficha
      este plegada — el JavaScript de arriba (aplicarFiltro) no se entera de nada. */
-  .adm-cat-bento:not([data-abierto]) .adm-cat-bento-col > .adm-orow:nth-child(n+4){display:none}
-  /* Buscando o filtrando, el recorte se levanta: si no, un plato que coincide podria
-     quedarse escondido detras del "Ver mas" y pareceria que no existe. */
-  .esta-filtrando .adm-cat-bento .adm-cat-bento-col > .adm-orow:nth-child(n+4){display:flex}
+  /* El recorte NO se aplica mientras se filtra, y eso es lo que hay que leer aqui: la clase
+     va en el contenedor y apaga la regla de recortar, en vez de haber una segunda regla que
+     vuelva a encender las filas.
+     Antes eran dos: esta escondia de la cuarta en adelante, y otra —
+     `.esta-filtrando … .adm-orow:nth-child(n+4){display:flex}` — las devolvia al filtrar. El
+     `display:flex` de esa segunda es el fallo que el propietario vio en el movil: PISABA la
+     composicion de dos lineas (`display:grid`, que vive en un @container y por tanto pierde
+     ante cuatro clases), asi que en una busqueda las tres primeras filas de cada columna
+     salian en dos lineas y de la cuarta en adelante en una. Filas de alturas distintas, y el
+     grupo de acciones empezando cada vez en una x diferente: 76, 135, 163, 175.
+     Levantar una regla vale `display:none` o nada; no vale re-declarar el display, porque
+     quien lo re-declara tiene que acertar con la composicion de cada tamaño y no puede. */
+  .adm-bento:not(.esta-filtrando) .adm-cat-bento:not([data-abierto]) .adm-cat-bento-col > .adm-orow:nth-child(n+4){display:none}
   .esta-filtrando .adm-vermas{display:none}
 
   .adm-vermas{
@@ -12259,30 +12272,59 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                            `type="button"` no envia el formulario, asi que estar dentro no le
                            cambia nada al guardado del nombre.
 
-                           MISMO FALLO, SIN ARREGLAR, y conviene saberlo: el formulario de
-                           «Borrar la seccion» de mas abajo tambien esta detras de </form> y
-                           tambien se dibujaria fuera. No se ha movido porque es un <form> y
-                           anidar formularios es HTML invalido —el navegador lo descarta—, y
-                           colgar su boton del formulario de renombrar mandaria los dos POST
-                           juntos: renombrar Y borrar en el mismo gesto. Pide su propia
-                           solucion. Hoy no se ve porque solo sale en secciones creadas por el
-                           restaurante, y esta carta no tiene ninguna. */ ?>
-                  <?php if (($catsPorTab[(string) $tid] ?? 0) >= 2): ?>
+                           MISMO FALLO, YA ARREGLADO, y el como importa: el boton de «Borrar
+                           la seccion» estaba detras de </form> por la misma razon y se dibujaba
+                           igual de fuera. No se podia meter dentro sin mas —era un <form>, y
+                           anidar formularios es HTML invalido; el navegador descarta el de
+                           dentro— ni colgarlo del formulario de renombrar, que mandaria
+                           renombrar Y borrar en el mismo gesto. La salida es el atributo
+                           `form`: el boton vive dentro del popover y MANDA otro formulario,
+                           uno vacio que se queda detras de </form> con el csrf y nada mas. Un
+                           boton puede pertenecer a un formulario que no lo contiene, y su
+                           name/value viaja igual por ser el que manda.
+                           Lo que lo hace seguro con el ayudante de confirmar: ese ayudante no
+                           llama a form.submit() —que perderia el name/value del boton— sino
+                           que vuelve a pulsar el boton con el pestillo puesto. */ ?>
+                  <?php /* SIEMPRE, aunque la seccion tenga una sola categoria; entonces sale
+                           desactivado y con el motivo debajo. Antes solo se pintaba con dos o
+                           mas, y cuatro de las trece secciones de esta carta tienen una
+                           —Ensaladas, A la plancha, Especialidades y Niños—: el boton aparecia
+                           y desaparecia segun la seccion y se leia como un fallo. Lo cazo el
+                           propietario. Un control desactivado CON su razon al lado no miente y
+                           deja todos los popover con la misma forma, que es lo que hace que se
+                           pueda aprender uno y valgan todos.
+                           No se pinta habilitado con una sola porque la hoja de ordenar de un
+                           elemento si seria un boton que miente. */
+                     $cuantasCats = (int) ($catsPorTab[(string) $tid] ?? 0);
+                     $puedeOrdenar = $cuantasCats >= 2; ?>
+                  <div class="adm-cat-nombre-pie">
                     <button type="button" class="adm-btn adm-btn-fino adm-ordencats-abre"
                             data-ordencats="<?= h((string) $tid) ?>"
-                            data-ordencats-nombre="<?= h($tNombre) ?>">Ordenar sus categorías</button>
-                  <?php endif; ?>
-                </form>
-                <?php if (isset($tabsPropias[$tid])): ?>
-                  <?php /* Borrar solo lo que nacio aqui, y solo si esta vacio: una seccion de
-                           la carta compilada volveria en la siguiente compilacion, y una con
-                           platos dentro se llevaria los platos de rebote. */ ?>
-                  <form method="post" class="adm-cat-nombre-borrar">
-                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                    <button class="adm-btn adm-btn-fino adm-btn-quitar" name="seccion_borrar" value="<?= h((string) $tid) ?>" type="submit"
+                            data-ordencats-nombre="<?= h($tNombre) ?>"
+                            <?= $puedeOrdenar ? '' : 'disabled' ?>>Ordenar sus categorías</button>
+                    <?php if (!$puedeOrdenar): ?>
+                      <span class="adm-cat-nombre-nota">Esta sección tiene <?= $cuantasCats === 1 ? 'una sola categoría' : 'ninguna categoría' ?>: no hay nada que ordenar.</span>
+                    <?php endif; ?>
+                  </div>
+                  <?php if (isset($tabsPropias[$tid])): ?>
+                    <?php /* Borrar solo lo que nacio aqui, y solo si esta vacio: una seccion de
+                             la carta compilada volveria en la siguiente compilacion, y una con
+                             platos dentro se llevaria los platos de rebote. */ ?>
+                    <button class="adm-btn adm-btn-fino adm-btn-quitar" type="submit"
+                            form="adm-borrar-tab-<?= h((string) $tid) ?>"
+                            name="seccion_borrar" value="<?= h((string) $tid) ?>"
                             data-confirmar="¿Borrar la sección «<?= h($tNombre) ?>»?"
                             data-confirmar-nota="La creaste tú. Sólo se puede borrar si no tiene ningún plato dentro."
                             data-confirmar-si="Borrar la sección" data-confirmar-tono="peligro">Borrar la sección</button>
+                  <?php endif; ?>
+                </form>
+                <?php if (isset($tabsPropias[$tid])): ?>
+                  <?php /* El formulario al que apunta ese boton: solo el csrf. Vacio de
+                           controles visibles, asi que no pinta nada ni se alcanza con el
+                           tabulador; lo unico que aporta es un destino de POST separado del de
+                           renombrar. */ ?>
+                  <form method="post" id="adm-borrar-tab-<?= h((string) $tid) ?>" class="adm-cat-nombre-borrar">
+                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                   </form>
                 <?php endif; ?>
               </details>
