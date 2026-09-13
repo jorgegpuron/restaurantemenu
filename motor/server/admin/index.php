@@ -4951,7 +4951,13 @@ $CUENTAS = [
          de Cloudflare (30 días) -- medido en vivo el 12 Sep 2026 con este mismo icono. */ ?>
 <link rel="icon" type="image/svg+xml" href="../assets/titleIcon-accent.svg?v=<?= (int) @filemtime(__DIR__ . '/../assets/titleIcon-accent.svg') ?>">
 <?php /* Las mismas dos tipografías que la carta, escritas por el build. */ ?>
-<?php @include __DIR__ . '/fuentes.html'; ?>
+<?php /* `fuentes.html` NO se incluye aqui, y es a proposito. Lo escribe gen.mjs con las dos
+         familias de la CARTA —Bricolage Grotesque y Source Serif 4— y el panel no usa
+         ninguna: medido, 3.760 elementos en Arimo, cero en Source Serif y tres en Bricolage,
+         que ahora resuelven a Arimo por los tokens de arriba.
+         Se ahorra la peticion del CSS de fuentes y, sobre todo, la descarga de las familias:
+         76.888 bytes solo del subconjunto latino de Bricolage, medidos en produccion. La
+         carta sigue incluyendolo por su cuenta; esto es unicamente la cabecera del panel. */ ?>
 <?php /* La tipografia del PANEL, que no es la de la carta. Bricolage y Source Serif tienen
          voz —son las de la carta del restaurante— y aqui estorban: esto es una herramienta que
          se usa de pie y con prisa.
@@ -5168,6 +5174,25 @@ $CUENTAS = [
    * el zoom, una preferencia que en px se ignora y que en un panel que usan personas de mas
    * de 45 anos no es un detalle. El suelo sigue siendo 12: nada baja de ahi. */
   :root{
+    /* Las dos familias de la CARTA, apuntadas a la del panel.
+       `tokens.css` las escribe gen.mjs para los dos —carta y panel— y ahi valen
+       "Bricolage Grotesque" y "Source Serif 4". El panel decidio ser Arimo entero («Arimo
+       para todo el panel. La de la carta se queda en la carta», mas abajo en .card-main),
+       pero quedaban decenas de reglas heredadas de la V1 escritas como
+       `font-family:var(--title-font)`. Casi todas apuntan ya a selectores muertos, y por eso
+       no se veian; sobrevivian TRES: el titulo «Foto del plato» del recortador y dos
+       `<strong>` de Publicidad. Medido en el panel entero: 3.760 elementos en Arimo, 4 en
+       Bricolage y CERO en Source Serif.
+       Tres elementos no justifican descargar dos familias completas. Apuntando los dos
+       tokens aqui, cada una de esas reglas resuelve a la familia del panel sin tocarlas una
+       por una, y el navegador deja de pedir las de la carta: 76.888 bytes del subconjunto
+       latino de Bricolage, medidos en el propio dominio (`/cf-fonts/`), mas lo que pese
+       Source Serif, mas un bloque de `@font-face` en cada carga.
+       En la carta NO cambia nada: tokens.css sigue diciendo lo mismo y esto solo vive en el
+       panel. */
+    --title-font:"Arimo",Arial,system-ui,sans-serif;
+    --body-font:"Arimo",Arial,system-ui,sans-serif;
+
     --t0:1.5rem;      /* 24 · Display: el titulo de pantalla, uno por pagina */
     --t1:1.25rem;     /* 20 · Titulo L: la cifra que se mira de lejos */
     --tb:1rem;        /* 16 · Titulo M / cuerpo largo: nombre de plato */
