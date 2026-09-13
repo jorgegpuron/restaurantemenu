@@ -5145,48 +5145,10 @@ $CUENTAS = [
     --badge-ink:<?= h($colorPrincipalOverride['--badge-ink']) ?>;
   }
 
-  /* Rejilla final de la oferta: cada bloque tiene un encabezado y una zona de
-     controles propia. Los días ganan una fila completa en tablet/escritorio;
-     así nunca compiten por el mismo ancho con descuento u horario. */
-  .adm-f-ooferta .adm-regla{display:grid !important;grid-template-columns:repeat(12,minmax(0,1fr)) !important;gap:var(--space-4) !important;align-items:start !important}
-  .adm-f-ooferta .adm-regla > .adm-regla-g{grid-column:span 4;padding:0;border:0;min-width:0}
-  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1 / -1}
-  .adm-f-ooferta .adm-regla > .adm-regla-g > .adm-lbl{margin:0 0 var(--space-2);display:flex;align-items:center;gap:var(--space-2);justify-content:space-between}
-  .adm-f-ooferta .adm-regla > .adm-regla-g > .adm-lbl .adm-regla-ico{display:inline-flex}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto 40px;gap:var(--space-2);align-items:center}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-lbl{grid-column:1 / -1;grid-row:1}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-dto{grid-column:1;grid-row:2;width:auto;min-width:0}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-pct-atajos{grid-column:2;grid-row:2;min-width:0;width:100%;margin:0}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2){display:grid;grid-template-rows:auto 40px;gap:var(--space-2)}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-lbl{grid-row:1}
-  .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-rango{grid-row:2;min-width:0;width:100%}
-  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;grid-template-rows:auto 40px !important;gap:var(--space-2) var(--space-3);height:auto !important;min-height:0}
-  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-lbl{grid-column:1 / -1;grid-row:1}
-  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias{grid-column:1;grid-row:2;display:flex;flex-wrap:nowrap;gap:var(--space-2);width:100%;min-width:0;align-self:start}
-  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias-frec{grid-column:2;grid-row:2;margin:0;align-self:start;white-space:nowrap}
-  .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias .adm-dia{flex:1 1 0;width:auto;min-width:0;max-width:40px;aspect-ratio:1;height:auto;border-radius:50%}
-  @media (min-width:700px) and (max-width:1099px){
-    .adm-f-ooferta .adm-regla > .adm-regla-g{grid-column:span 6}
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1 / -1}
-  }
-  @media (max-width:699.98px){
-    .adm-f-ooferta .adm-regla{grid-template-columns:1fr !important;gap:var(--space-4) !important}
-    .adm-f-ooferta .adm-regla > .adm-regla-g,
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-column:1;display:grid !important;grid-template-columns:1fr !important;grid-template-rows:auto auto auto !important;gap:6px}
-    .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-lbl,
-    .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-lbl,
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-lbl{grid-column:1;grid-row:1}
-    .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-dto{grid-column:1;grid-row:2}
-    .adm-f-ooferta .adm-regla > .adm-regla-g:first-child > .adm-pct-atajos{grid-column:1;grid-row:3}
-    .adm-f-ooferta .adm-regla > .adm-regla-g:nth-child(2) > .adm-rango{grid-column:1;grid-row:2}
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias{grid-template-rows:auto auto auto !important}
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias{grid-column:1;grid-row:2;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-1);width:100%}
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias > .adm-dias-frec{grid-column:1;grid-row:3;justify-content:center;text-align:center}
-    .adm-f-ooferta .adm-regla > .adm-regla-g.adm-regla-dias .adm-dia{min-width:0}
-  }
-  /* El ajuste de escritorio para los días (columna 220px, «Semanal» centrada) vive una sola
-     vez, al final de la hoja: aquí no hace falta repetirlo, y duplicarlo abría otra vía de
-     divergencia entre esta hoja (con color de marca) y la de siempre. */
+  /* Aqui vivia una SEGUNDA copia de la rejilla de la oferta, con !important, que solo se
+     servia a un cliente con color de marca propio: el mismo reparto escrito dos veces y
+     divergiendo por su cuenta. La rejilla vive ahora una sola vez, en la hoja de siempre.
+     Esta hoja se queda para lo unico que le toca: el color. */
 </style>
 <?php endif; ?>
 <style>
@@ -10294,47 +10256,15 @@ $CUENTAS = [
      Los cuatro datos en una fila y en el orden en que se dicen: cuanto, cuando (horas),
      cuando (dias) y, al final, encendida o no. Encender es lo ultimo que se hace.
      Los dias se llevan el hueco que sobre; el interruptor se va al borde derecho. */
-  /* La regla de la oferta, a TODO EL ANCHO y en tres bloques.
-     Era una fila flexible en la que «Días» se quedaba con todo el sobrante: los tres controles
-     se apelotonaban a la izquierda y media ficha quedaba vacía en cualquier monitor. Ahora es
-     una rejilla que reparte el ancho entero, con un filete fino separando bloque de bloque —
-     el mismo recurso que ya usa la cabecera de categoría en Platos.
-     El reparto NO es a partes iguales: el descuento son tres cifras, el horario dos listas y
-     los días siete círculos más un botón. Cada bloque pide lo que ocupa.
-     El interruptor maestro NO baja aquí: vive en la cabecera desde SocialCard V4, y por un
-     motivo que sigue vigente — en móvil la configuración se pliega, y encender la oferta es
-     la acción más frecuente de esta pantalla. */
-  .adm-regla{
-    display:grid;grid-template-columns:minmax(150px,.8fr) minmax(250px,1.3fr) minmax(280px,1.7fr);
-    gap:0;align-items:start;margin-bottom:var(--space-2);
-  }
-  .adm-regla > .adm-regla-g{
-    padding:0 var(--space-4);border-left:1px solid var(--sc-border);
-  }
-  .adm-regla > .adm-regla-g:first-child{padding-left:0;border-left:0}
-  .adm-regla > .adm-regla-g:last-child{padding-right:0}
-  /* Estrecho: se apilan y los filetes sobran — un filete vertical entre dos bloques que ya
-     no estan uno al lado del otro no separa nada. */
-  @media (max-width:899.98px){
-    .adm-regla{grid-template-columns:1fr;gap:var(--space-4)}
-    .adm-regla > .adm-regla-g{padding:0;border-left:0}
-  }
-  .adm-regla-g{display:flex;flex-direction:column;min-width:0}
-  .adm-regla-g .adm-lbl{margin-top:0}
-  /* El rotulo de cada bloque, en versales pequenas con su icono al otro extremo: dice de que
-     es la columna sin competir con el dato, que es lo que de verdad se lee. El icono no
-     informa por si solo -- va decorativo y el rotulo sigue siendo el nombre. */
-  .adm-regla-g > .adm-lbl{
-    display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
-    margin-bottom:var(--space-3);
-    font-size:var(--t4);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--sc-text-2);
-  }
-  .adm-regla-ico{flex:none;width:16px;height:16px;color:var(--sc-text-2);opacity:.7}
-  .adm-regla-ico svg{width:16px;height:16px;display:block}
-  .adm-regla-g > .adm-lbl .opt{text-transform:none;letter-spacing:0;font-weight:400}
-  /* Los atajos del descuento. Son los cuatro que se usan; el campo sigue admitiendo
-     cualquiera del 1 al 90, asi que esto no cierra nada: ahorra teclear lo habitual. */
+  /* Aquí vivía `.adm-regla`: tres bloques separados por un filete vertical, con el reparto
+     escrito tres veces —aquí, otra vez en el bloque de la marca propia y otra en un
+     `@media` de 900— y `!important` para desempatar entre ellas. Se retira entera: el grid
+     de la oferta es ahora `.adm-ofr-mods`, una sola rejilla de doce columnas declarada una
+     sola vez y en la hoja de siempre, no en la que solo se sirve a un cliente con color de
+     marca propio. Lo que sobrevive de aquí abajo son los controles, que no cambian de
+     aspecto: los escalones del descuento, los días y «Semanal». */
+  /* Los escalones del descuento. El campo sigue admitiendo cualquiera del 1 al 90, así que
+     esto no cierra nada: ahorra teclear lo habitual. */
   .adm-pct-atajos{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--space-3)}
   .adm-pct-atajo{
     flex:1 1 0;min-width:52px;min-height:30px;padding:0 8px;
@@ -10354,13 +10284,6 @@ $CUENTAS = [
   .adm-dias-frec{
     display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
     margin-top:var(--space-3);font-size:var(--t4);color:var(--sc-text-2);
-  }
-  @media (min-width:900px){
-    .adm-f-ooferta .adm-regla-g:nth-child(3){display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--space-3);align-items:end}
-    .adm-f-ooferta .adm-regla-g:nth-child(3) > .adm-lbl{grid-column:1 / -1}
-    .adm-f-ooferta .adm-regla-g:nth-child(3) > .adm-dias{grid-column:1;flex-wrap:nowrap;gap:4px}
-    .adm-f-ooferta .adm-regla-g:nth-child(3) > .adm-dias .adm-dia{width:auto;min-width:0;flex:1 1 0}
-    .adm-f-ooferta .adm-regla-g:nth-child(3) > .adm-dias-frec{grid-column:2;margin-top:0;white-space:nowrap}
   }
   .adm-sw-alto{min-height:44px;padding:0}
   /* SocialCard V4: el interruptor maestro, ya fuera del plegado. Una fila propia
@@ -10458,42 +10381,16 @@ $CUENTAS = [
   /* La fila de una categoría entera se lee apagada: el interruptor no se puede tocar. */
   .pane[data-pane="ofertas"] .adm-orow.por-categoria > .adm-orow-nm{color:var(--sc-text-2)}
 
-  /* ---- la regla: tres campos, y el rótulo DELANTE ----
-     Encima gastaba una línea entera por campo; delante, no. Sólo por debajo de 901, que es donde
-     la ficha va justa: por encima manda la rejilla de tres columnas de siempre. */
-  @media (max-width:899.98px) and (min-width:700px){
-    .adm-f-ooferta .adm-regla-g{
-      flex-direction:row;align-items:center;gap:var(--space-3);flex-wrap:nowrap;
-    }
-    .adm-f-ooferta .adm-regla-g > .adm-lbl{flex:none;margin:0}
-    .adm-f-ooferta .adm-regla-g > .adm-lbl .adm-regla-ico{display:none}
-    /* Y los controles se llevan lo que sobre, que es de lo que se quejaba el propietario. */
-    .adm-f-ooferta .adm-regla-g > .adm-dias,
-    .adm-f-ooferta .adm-regla-g > .adm-rango{flex:1 1 auto;min-width:0}
-  }
   /* Móvil: el rótulo vuelve ENCIMA y el control se lleva el ancho entero. Con el rótulo delante
      no cabía: medido a 390, «Descuento» (68) + la caja (92) + los cuatro atajos (176) piden 348 en
      una ficha de 286, y eso sacaba 42 px de desplazamiento horizontal a la página entera. Encima
      cuesta una línea por campo y a cambio cada control ocupa los 286 de lado a lado, que es lo que
      se pedía. El botón «Semanal» baja a su propia línea por el mismo motivo. */
   @media (max-width:699.98px){
-    .adm-f-ooferta .adm-regla-g{flex-direction:column;align-items:stretch;gap:6px}
-    .adm-f-ooferta .adm-regla-g > .adm-lbl{margin:0 0 2px}
     .adm-f-ooferta .adm-dto{flex:0 0 92px}
     .adm-f-ooferta .adm-pct-atajos{flex:1 1 auto}
     .adm-f-ooferta .adm-pct-atajo{min-width:0;flex:1 1 0}
-    /* La caja y sus atajos, en una tira sola a todo el ancho. */
-    .adm-f-ooferta .adm-regla-g:first-child{flex-direction:row;flex-wrap:wrap;align-items:center}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{flex:1 0 100%}
     .adm-f-ooferta .adm-dias-frec{margin-top:2px}
-  }
-
-  /* Tablet: dos filas en vez de una columna. Descuento y horario arriba, los días cruzando las
-     dos columnas debajo — medido, los tres campos no caben en una sola línea de 582. */
-  @media (max-width:899.98px) and (min-width:700px){
-    .adm-regla{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-3) var(--space-4)}
-    .adm-regla > .adm-regla-g{padding:0;border-left:0}
-    .adm-regla > .adm-regla-g:nth-child(3){grid-column:1 / -1}
   }
 
   /* ---- componente 1: el descuento y sus atajos, pegados ----
@@ -10502,8 +10399,6 @@ $CUENTAS = [
      que siguen en dos —y ahí la caja tiene que conservar su borde derecho y su radio, o se vería
      cortada contra nada—. */
   @media (max-width:899.98px){
-    .adm-f-ooferta .adm-regla-g:first-child{gap:0}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{margin-right:var(--space-3)}
     .adm-f-ooferta .adm-dto{
       flex:0 0 auto;width:92px;padding:0 8px 0 12px;
       border-radius:var(--radius-md) 0 0 var(--radius-md);border-right:0;
@@ -10534,14 +10429,6 @@ $CUENTAS = [
     .adm-f-ooferta .adm-pct-atajos{flex:1 1 auto}
     .adm-f-ooferta .adm-pct-atajo{flex:1 1 0;min-width:0}
   }
-  /* En tablet la columna de descuento mide 283 px: el rótulo, la cifra y cuatro segmentos
-     suman más que eso. El rótulo ocupa su propia línea y deja debajo una tira compacta de
-     92 + 180 px, sin invadir la columna de horario ni aumentar la ficha más de una línea. */
-  @media (min-width:700px) and (max-width:899.98px){
-    .adm-f-ooferta .adm-regla-g:first-child{flex-wrap:wrap;align-content:center}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{flex:1 0 100%;margin:0 0 2px}
-  }
-
   /* ---- componente 2: los siete días, un segmentado que se estira ---- */
   .adm-dias{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
   /* El borde va en la CAJA y los separadores dentro, con sombra interior: un día no puede tener
@@ -10584,37 +10471,21 @@ $CUENTAS = [
      segmentado subieron a 40 mientras el boton se quedaba en 36. */
   .adm-f-ooferta .adm-dia-semanal{min-height:40px}
 
-  /* Corrección final: las reglas del segmentado anterior no deben pisar el selector circular. */
-  @media (min-width:900px){
-    /* En escritorio, descuento y horario comparten la primera fila; días ocupa el
-       ancho completo para que sus siete círculos y «Semanal» quepan en un solo renglón. */
-    .adm-f-ooferta .adm-regla{grid-template-columns:minmax(340px,1fr) minmax(300px,1fr)}
-    .adm-f-ooferta .adm-regla-g:first-child{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;column-gap:var(--space-2);row-gap:var(--space-2)}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl{display:flex;align-items:center;gap:var(--space-2);margin:0;grid-column:1 / -1;grid-row:1}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-lbl .adm-regla-ico{display:inline-flex}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-dto{grid-column:1;grid-row:2}
-    .adm-f-ooferta .adm-regla-g:first-child > .adm-pct-atajos{grid-column:2;grid-row:2;margin:0}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias{grid-column:1 / -1;display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;grid-template-rows:auto 40px !important;align-items:center;column-gap:var(--space-3);row-gap:var(--space-2);height:auto !important;min-height:0}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-lbl{grid-column:1 / -1;grid-row:1;display:flex;align-items:center;gap:var(--space-2);margin:0}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-lbl .adm-regla-ico{display:inline-flex}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias{grid-column:1;grid-row:2;width:auto;min-width:0;flex:1 1 auto}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{grid-column:2;grid-row:2;margin:0;flex:0 0 auto}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias,
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{align-self:start}
-  }
-  .adm-f-ooferta .adm-dias{
-    display:flex;flex-wrap:nowrap;gap:var(--space-2);padding:0;
-    background:transparent;border-radius:0;
-  }
-  /* Círculos, como se pidió (84dcaca) — pero el diámetro se reparte con la fila en vez de
-     fijarse en un valor fijo: así caben en cualquier ancho por construcción, en vez de
-     depender de que sobre sitio. El techo es 40px, igual que «Semanal» —E2E-RH-SEM-01 exige
-     la misma altura en los dos—, así que en tablet/escritorio se ven igual que antes; sólo
-     se encogen cuando el hueco real es menor (320 px). */
+  /* Aquí vivía el reparto de `.adm-regla` en escritorio: dos columnas arriba y los días a
+     fila entera. Se retira con la propia `.adm-regla`, que ya no existe en el marcado — el
+     reparto lo lleva `.adm-ofr-mods` con sus doce columnas. */
+  .adm-f-ooferta .adm-dias{padding:0;background:transparent;border-radius:0}
+  /* Círculos, como se pidió (84dcaca). El diámetro se reparte con la fila en vez de fijarse
+     en un valor: así caben en cualquier ancho por construcción, en vez de depender de que
+     sobre sitio.
+     El `:first-of-type` / `:last-of-type` se queda —lo puso el segmentado anterior, que
+     redondeaba los extremos de otra manera— pero AQUÍ SOLO PINTA: la geometría la lleva la
+     rejilla de siete de `.adm-ofr-mod-dias`, y dejar el `flex:1 1 0` y el `max-width` en un
+     selector más específico que el suyo aplastaba el lunes y el domingo a 8×20 mientras los
+     cinco de en medio salían a 43×43. Medido. */
   .adm-f-ooferta .adm-dia,
   .adm-f-ooferta .adm-dia:first-of-type,
   .adm-f-ooferta .adm-dia:last-of-type{
-    flex:1 1 0;width:auto;min-width:0;max-width:40px;aspect-ratio:1;height:auto;
     border-radius:50%;background:var(--sc-muted-bg);
   }
   .adm-f-ooferta .adm-dia:has(input:checked){background:var(--sc-selected-bg);color:var(--sc-selected-text)}
@@ -10623,38 +10494,181 @@ $CUENTAS = [
      segunda columna antes de aplicar el KPI. */
   .adm-cat-bento-col:not(:has(> .adm-orow:not([hidden]))){display:none}
 
-  /* ---- componente 3: el horario, una sola caja ---- */
-  .adm-f-ooferta .adm-rango{
-    border:1px solid var(--sc-input-border,var(--sc-border));border-radius:var(--radius-md);
-    background:var(--sc-input-bg,var(--sc-surface));
-    gap:0;padding:0 var(--space-2);min-height:40px;
-  }
-  .adm-f-ooferta .adm-rango .adm-campo{
-    width:auto;flex:1 1 0;min-width:0;min-height:38px;
-    border:0;background:transparent;padding:0 4px;
-  }
-  .adm-f-ooferta .adm-rango .adm-campo:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
-
-  .adm-rango{display:flex;align-items:center;gap:var(--space-2)}
-  /* Las horas son campos: 40 de alto, como el resto de campos migrados. */
-  .adm-rango .adm-campo{width:120px;flex:none;min-height:40px}
-  .adm-rango-f{flex:none;color:var(--sc-text-2);display:grid;place-items:center}
-  .adm-rango-f svg{width:16px;height:16px}
+  /* Aquí vivía `.adm-rango`: las dos horas dentro de UNA caja con una flecha en medio. Se
+     retira con ella — ahora cada hora tiene su caja y su icono en `.adm-ofr-horas`. */
   /* ---- 320 px: los dos sitios que no cabian. Solo por debajo de 360 para no mover nada
      en los anchos que ya estaban bien (375, 768, 1280, 1920, medidos). Las dos horas de la
      oferta dejan de medir 120 fijos y se reparten el ancho; la cabecera de «Platos mas
      consultados» baja su grupo de periodos a una segunda linea en vez de empujar la caja. */
   @media (max-width:359.98px){
-    .adm-rango .adm-campo{width:auto;flex:1 1 0;min-width:0}
     .adm-f-cab .der.adm-a-platos{margin-left:0;flex:1 0 100%;justify-content:flex-start}
   }
+  /* ================================================================= la oferta, el grid
+     Dos pisos. Arriba, la cabecera: quien, como esta, que pasa y cuanto abarca, con un
+     filete debajo. Abajo, los tres modulos en doce columnas repartidas 5 / 3 / 4.
+     La escala de alturas NO es la del boceto de origen, que usaba 32: aqui los controles
+     miden 40 con raton y 44 con el dedo, que es el suelo de la casa. */
+  .adm-ofr-cab{
+    display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap;
+    padding-bottom:var(--space-3);border-bottom:1px solid var(--sc-border);
+  }
+  .adm-ofr-id{display:flex;align-items:center;gap:var(--space-3);flex:none}
+  .adm-ofr-id h2{margin:0;font-size:var(--t2);letter-spacing:.04em;text-transform:uppercase}
+  /* El punto de estado. El color lo pone el estado, no la decoracion: es la unica manera de
+     que un punto sirva para algo. Late solo cuando la oferta esta corriendo de verdad. */
+  .adm-ofr-punto{
+    flex:none;width:9px;height:9px;border-radius:50%;
+    background:var(--sc-text-2);
+  }
+  .adm-f-ooferta:not([data-apagada]) .adm-ofr-punto{background:var(--sc-primary-grafico)}
+  .adm-ofr-aviso{
+    flex:1 1 auto;min-width:0;margin:0;
+    display:flex;align-items:center;gap:var(--space-2);
+    font-size:var(--t3);line-height:var(--lh-compacto);color:var(--sc-text-2);
+  }
+  .adm-ofr-aviso-ico{flex:none;display:grid;place-items:center;color:var(--sc-primary-grafico)}
+  .adm-ofr-aviso-ico svg{width:16px;height:16px;display:block}
+  .adm-ofr-kpis{display:flex;align-items:center;gap:var(--space-2);flex:none;margin-left:auto}
+  .adm-ofr-kpi{
+    display:inline-flex;align-items:baseline;gap:var(--space-2);
+    padding:var(--space-1) var(--space-3);
+    border-radius:var(--radius-md);background:var(--sc-muted-bg);
+  }
+  .adm-ofr-kpi-r{font-size:var(--t4);color:var(--sc-text-2)}
+  .adm-ofr-kpi-n{
+    font-size:var(--t2);font-weight:700;font-variant-numeric:tabular-nums;
+    line-height:var(--lh-cifra);color:var(--sc-text);
+  }
+  .adm-ofr-kpi-n.es-dentro{color:var(--sc-primary-texto)}
+  .adm-ofr-kpi-n.es-suave{color:var(--sc-text-medio,var(--sc-text-2))}
+
+  .adm-ofr-mods{
+    display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
+    gap:var(--space-3);align-items:stretch;
+  }
+  .adm-ofr-mod{
+    display:flex;flex-direction:column;gap:var(--space-2);min-width:0;
+    padding:var(--space-3);
+    border:1px solid var(--sc-border);border-radius:var(--radius-md);
+    background:var(--sc-canvas);
+  }
+  .adm-ofr-mod-dto{grid-column:span 5}
+  .adm-ofr-mod-hora{grid-column:span 3}
+  .adm-ofr-mod-dias{grid-column:span 4}
+  /* La fila del rotulo: el nombre del modulo a la izquierda, SU dato a la derecha. El dato
+     es lo que se lee de un vistazo, asi que va con la tinta del texto; el rotulo, en
+     versales pequenas, solo dice de que es la columna. */
+  .adm-ofr-mod-cab{
+    display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);
+    min-height:20px;
+  }
+  .adm-ofr-mod-rot{
+    font-size:var(--t4);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--sc-text-2);
+  }
+  .adm-ofr-mod-dato{
+    font-size:var(--t4);font-weight:700;font-variant-numeric:tabular-nums;
+    color:var(--sc-primary-texto);white-space:nowrap;
+  }
+  .adm-ofr-mod-dato.es-suave{font-weight:400;color:var(--sc-text-2)}
+
+  /* Los seis escalones, en rejilla: seis huecos iguales, no seis cajas que se reparten lo
+     que sobra. Asi el 10 y el 50 miden lo mismo y la fila no baila al cambiar de valor. */
+  .adm-ofr-escalones{
+    display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:var(--space-1);margin:0;
+  }
+  /* Los escalones dejan de ser un segmentado pegado. Aquella tira quitaba el borde izquierdo
+     y el radio a cada boton para que los cuatro se vieran como una pieza; con hueco entre
+     celdas eso deja seis cajas sin lado izquierdo y con las esquinas cuadradas. Aqui cada
+     escalon vuelve a ser un boton entero. */
+  .adm-ofr-escalones .adm-pct-atajo{
+    flex:none;min-width:0;min-height:40px;padding:0 2px;
+    border:1px solid var(--sc-border);border-radius:var(--radius-md);
+  }
+  .adm-ofr-escalones .adm-pct-atajo:last-child{border-radius:var(--radius-md)}
+  .adm-ofr-escalones .adm-pct-atajo[aria-pressed="true"]{border-color:var(--sc-primary-grafico)}
+  .adm-ofr-otro{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+  .adm-ofr-otro-r{flex:none;font-size:var(--t4);color:var(--sc-text-2)}
+  .adm-ofr-otro-h{flex:1 1 auto;min-width:0;font-size:var(--t4);color:var(--sc-text-2)}
+  .adm-ofr-mod .adm-pct-otro{flex:none;width:auto}
+
+  /* Cada hora en su caja, con su icono dentro. El `select` pierde su borde porque el borde
+     ya lo pone la caja: dos bordes concentricos son un error de dibujo, no un relieve. */
+  .adm-ofr-horas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-1)}
+  .adm-ofr-hora{
+    display:flex;align-items:center;gap:var(--space-1);min-width:0;min-height:40px;
+    padding:0 var(--space-2);
+    border:1px solid var(--sc-input-border,var(--sc-border));border-radius:var(--radius-md);
+    background:var(--sc-input-bg,var(--sc-surface));
+  }
+  .adm-ofr-hora-ico{flex:none;display:grid;place-items:center;color:var(--sc-text-2)}
+  .adm-ofr-hora-ico svg{width:15px;height:15px;display:block}
+  .adm-ofr-hora .adm-campo{
+    width:auto;flex:1 1 0;min-width:0;min-height:38px;
+    border:0;background:transparent;padding:0 2px;
+  }
+  .adm-ofr-hora .adm-campo:focus-visible{outline:var(--focus-anillo);outline-offset:-2px}
+
+  /* Los siete dias, en rejilla de siete. El circulo es elastico —ancho de carril, alto por
+     `aspect-ratio`— con un techo para que en un monitor ancho no se conviertan en lunas. */
+  .adm-ofr-mod-dias .adm-dias{
+    display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:var(--space-1);width:100%;
+  }
+  .adm-ofr-mod-dias .adm-dia{
+    /* `width:auto` NO vale aqui: el dia es un `inline-flex` y como celda de rejilla se
+       encoge a su contenido —una letra— y el circulo se convierte en una raya de 9 px.
+       Medido: 8x20, 11x20… El ancho tiene que ser el del carril. */
+    width:100%;min-width:0;max-width:44px;height:auto;aspect-ratio:1;
+    border-radius:50%;flex:none;justify-self:center;
+  }
+  .adm-ofr-mod-dias .adm-dias-frec{
+    display:inline-flex;align-items:center;gap:var(--space-2);margin:0;
+  }
+
+  @media (min-width:700px) and (max-width:1099.98px){
+    /* Siete circulos en cuatro de doce columnas caen por debajo del suelo tactil: los dias
+       se llevan la fila entera y los otros dos se parten la de arriba. */
+    .adm-ofr-mod-dto{grid-column:span 6}
+    .adm-ofr-mod-hora{grid-column:span 6}
+    .adm-ofr-mod-dias{grid-column:1 / -1}
+    .adm-ofr-aviso{display:none}
+    /* Seis escalones en media ficha dan 42 de ancho —medido a 768—, por debajo del objetivo
+       tactil de la casa, y una tablet se toca con el dedo. En dos filas de tres son 78×44. */
+    .adm-ofr-escalones{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2)}
+    .adm-ofr-escalones .adm-pct-atajo{min-height:44px}
+  }
+  @media (max-width:699.98px){
+    .adm-ofr-mods{grid-template-columns:1fr;gap:var(--space-3)}
+    .adm-ofr-mod-dto,.adm-ofr-mod-hora,.adm-ofr-mod-dias{grid-column:1}
+    .adm-ofr-aviso{display:none}
+    /* Los tres numeros no caben en la cabecera al lado del interruptor: bajan a su propio
+       renglon, a tres partes iguales, y ahi siguen leyendose. */
+    .adm-ofr-cab{gap:var(--space-3)}
+    .adm-ofr-id{flex:1 1 100%;justify-content:space-between}
+    .adm-ofr-kpis{flex:1 1 100%;margin-left:0}
+    /* El rotulo encima de la cifra, no al lado. A 320 el chip mide 70 y «En oferta» parte en
+       dos lineas: ese chip salia de 44 de alto y los otros dos de 26, con la fila descuadrada.
+       Apilados, los tres miden lo mismo digan lo que digan. Medido. */
+    .adm-ofr-kpi{
+      flex:1 1 0;flex-direction:column;align-items:center;justify-content:center;gap:0;
+      padding:var(--space-1) var(--space-2);
+    }
+    /* Seis columnas a 320 dan celdas de 42 px y «10%» no entra. En dos filas de tres son
+       88 de ancho por 44 de alto, que ademas es el objetivo tactil. */
+    .adm-ofr-escalones{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2)}
+    .adm-ofr-escalones .adm-pct-atajo{min-height:44px}
+    .adm-ofr-horas{gap:var(--space-2)}
+    .adm-ofr-hora{min-height:44px}
+    .adm-ofr-hora .adm-campo{min-height:42px}
+    .adm-ofr-mod-dias .adm-dias{gap:var(--space-1)}
+  }
+
   /* La frase del reloj cierra la ficha: es un dato de lo que pasa, no el pie de un control. */
   .adm-regla-pie{
     margin:var(--space-4) 0 0;padding-top:var(--space-3);border-top:1px solid var(--sc-border);
     font-size:var(--t3);line-height:var(--lh-corrido);color:var(--sc-text-2);
-  }
-  @media (max-width:899.98px){
-    .adm-regla-dias{flex:1 1 100%}
   }
 
   /* La configuración es parte de la acción principal de Ofertas. No se esconde detrás de
@@ -11421,12 +11435,7 @@ $CUENTAS = [
        Filas de 48: dos halos de 44 no se tocan. */
     .adm-mas-b::before{content:"";position:absolute;top:-8px;bottom:-8px;left:-1px;right:-8px}
   }
-  /* Ajuste de distribución de escritorio: los días ocupan su carril y la frecuencia queda centrada. */
-  @media (min-width:900px){
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias{grid-template-columns:minmax(0,1fr) minmax(180px,220px) !important}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias{display:flex;justify-content:space-between;gap:clamp(8px,1.4vw,24px);width:100% !important}
-    .adm-f-ooferta .adm-regla-g.adm-regla-dias > .adm-dias-frec{width:100%;justify-content:center;text-align:center}
-  }</style>
+</style>
 </head>
 <body<?= $dentro ? "" : ' class="sin-entrar"' ?>>
 <div class="page<?= $dentro ? "" : ($sin_configurar ? " page-login" : " page-login page-login--puerta") ?>">
@@ -14917,6 +14926,27 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
   <?php
     $ofEstado = !$oferta['on'] ? 'APAGADA' : ($oferta_corriendo ? 'CORRIENDO' : 'PROGRAMADA');
     $ofClase  = !$oferta['on'] ? 'adm-e-desactivado' : ($oferta_corriendo ? 'adm-e-activo' : 'adm-e-programado');
+
+    /* Los tres numeros de la cabecera de la oferta. La cuenta es la MISMA regla que ya se
+       hace categoria a categoria mas abajo ($enOferta): un plato esta dentro si su
+       categoria esta marcada o si su clave esta suelta en la oferta; y el denominador son
+       los platos con precio, porque sin precio no hay nada que descontar.
+       No se mira $oferta['on']: esto cuenta lo que la oferta ABARCA, que es un dato de
+       configuracion y no cambia al apagarla. Si esta corriendo o no lo dice la insignia,
+       que es su trabajo y no el de un contador.
+       Multicliente: sale del estado y de la carta del cliente, sin una sola cifra fija. */
+    $ofrTotal = 0;
+    $ofrDentro = 0;
+    foreach ($lista as $pOfr) {
+      if ($pOfr['price'] === '') continue;
+      $ofrTotal++;
+      $cidOfr = (string) ($pOfr['catId'] ?? $pOfr['cat']);
+      if (in_array($cidOfr, (array) $oferta['cats'], true)
+          || in_array($pOfr['key'], (array) $oferta['keys'], true)) $ofrDentro++;
+    }
+    $ofrRatio = $ofrTotal > 0
+      ? number_format($ofrDentro * 100 / $ofrTotal, 1, ',', '.') . '%'
+      : '—';
   ?>
   <?php /* --------------------------------------------------------------------- precios
    * Subir la carta entera de un porcentaje es una accion de vez en cuando —no la tarea
@@ -15085,17 +15115,52 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                    lado de la insignia no hay ninguna duda de que enciende y apaga. Se va con
                    el la caja gris `.adm-oferta-maestro`, que eran 56px de alto para repetir
                    una palabra. */ ?>
-          <div class="adm-f-cab">
-            <span class="adm-f-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg></span>
-            <h2>La oferta</h2>
-            <span class="der adm-a-oferta adm-oferta-mando">
-              <span class="adm-estado <?= $ofClase ?>"><?= $ofEstado ?></span>
-              <label class="adm-sw adm-sw-alto" title="Encender o apagar la oferta">
-                <input type="checkbox" name="oferta_on" value="1" form="ofertas-form" aria-label="Oferta encendida"<?= $oferta['on'] ? ' checked' : '' ?>>
-                <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
-                <span class="sr adm-sw-txt" data-on="Encendida" data-off="Apagada"><?= $oferta['on'] ? 'Encendida' : 'Apagada' ?></span>
-              </label>
-            </span>
+          <?php /* La cabecera, en un solo piso y con filete debajo: quien es (punto de
+                   estado + nombre), como esta (insignia + interruptor), que esta pasando
+                   (una frase) y cuanto abarca (tres cifras).
+                   El punto sustituye al icono generico de ficha: aqui el hueco de la
+                   izquierda puede decir algo —el color del punto sigue al estado— y un
+                   icono decorativo no dice nada.
+                   El interruptor y la insignia NO cambian: mismo <input name="oferta_on">,
+                   mismo `.adm-sw` alrededor, mismo `.adm-estado` con su clase, que es lo
+                   que repintarEstadoOferta busca. */ ?>
+          <div class="adm-ofr-cab">
+            <div class="adm-ofr-id">
+              <span class="adm-ofr-punto" aria-hidden="true"></span>
+              <h2>La oferta</h2>
+              <span class="adm-a-oferta adm-oferta-mando">
+                <span class="adm-estado <?= $ofClase ?>"><?= $ofEstado ?></span>
+                <label class="adm-sw adm-sw-alto" title="Encender o apagar la oferta">
+                  <input type="checkbox" name="oferta_on" value="1" form="ofertas-form" aria-label="Oferta encendida"<?= $oferta['on'] ? ' checked' : '' ?>>
+                  <span class="adm-sw-pista"><span class="adm-sw-bola"></span></span>
+                  <span class="sr adm-sw-txt" data-on="Encendida" data-off="Apagada"><?= $oferta['on'] ? 'Encendida' : 'Apagada' ?></span>
+                </label>
+              </span>
+            </div>
+
+            <?php /* La misma verdad que el pie, en una frase. No la sustituye: el pie sigue
+                     siendo el unico sitio donde se explica lo de «hasta las 23:59», y por
+                     debajo de 1100 esta linea se esconde porque ahi el pie ya se lee sin
+                     bajar. Se marca `aria-hidden` cuando esta oculta no: se oculta con
+                     `display`, asi que el lector tampoco la ve dos veces. */ ?>
+            <p class="adm-ofr-aviso">
+              <span class="adm-ofr-aviso-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/><path d="M12 15v2"/></svg></span>
+              <?php if (!$oferta['on']): ?>
+                Apagada en carta: no hay ningún descuento activo.
+              <?php elseif ($oferta_corriendo): ?>
+                Corriendo ahora mismo en la carta.
+              <?php else: ?>
+                Fuera de su horario: ahora no se ve en la carta.
+              <?php endif; ?>
+            </p>
+
+            <?php /* Cuanto abarca la oferta. «En oferta» es el unico de los tres que se
+                     mueve al trabajar, asi que es el que va en naranja. */ ?>
+            <div class="adm-ofr-kpis">
+              <span class="adm-ofr-kpi"><span class="adm-ofr-kpi-r">En oferta</span><b class="adm-ofr-kpi-n es-dentro"><?= (int) $ofrDentro ?></b></span>
+              <span class="adm-ofr-kpi"><span class="adm-ofr-kpi-r">Total</span><b class="adm-ofr-kpi-n"><?= (int) $ofrTotal ?></b></span>
+              <span class="adm-ofr-kpi"><span class="adm-ofr-kpi-r">Ratio</span><b class="adm-ofr-kpi-n es-suave"><?= h($ofrRatio) ?></b></span>
+            </div>
           </div>
 
           <?php /* SocialCard V4: el interruptor maestro sale del <details>.
@@ -15132,49 +15197,85 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
                    La configuración es una acción principal: se mantiene visible también en
                    móvil, sin un desplegable que obligue a abrirla antes de usarla. */ ?>
+          <?php /* Los tres modulos de la regla, en una rejilla de doce columnas repartida
+                   5 / 3 / 4. Cada uno es una sub-tarjeta con dos filas: arriba el rotulo a
+                   la izquierda y SU dato a la derecha —el descuento que hay puesto, el huso,
+                   la frecuencia—, y debajo los controles a una altura fija.
+                   Por que sub-tarjetas y no tres columnas separadas por un filete: un filete
+                   separa, pero no agrupa. El rotulo y su dato pertenecen al control que
+                   tienen debajo, y con borde propio eso se ve sin leer nada.
+                   El reparto no es a partes iguales porque los tres no ocupan lo mismo: seis
+                   escalones mas un campo, dos listas de hora, siete circulos. */ ?>
           <div class="adm-oferta-config">
-          <div class="adm-regla">
-            <div class="adm-regla-g">
-              <label class="adm-lbl" for="of-pct">Descuento
-                <span class="adm-regla-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
-              </label>
-              <div class="adm-pct-otro adm-dto">
-                <input class="adm-pct-num" id="of-pct" type="number" name="pct" form="ofertas-form"
-                       min="1" max="90" step="1" size="3" required
-                       value="<?= (int) $oferta['percent'] ?>" aria-label="Descuento en porcentaje">
-                <span class="adm-pct-pc" aria-hidden="true">%</span>
+          <div class="adm-ofr-mods">
+
+            <div class="adm-ofr-mod adm-ofr-mod-dto">
+              <div class="adm-ofr-mod-cab">
+                <span class="adm-ofr-mod-rot" id="of-rot-dto">Descuento</span>
+                <span class="adm-ofr-mod-dato">−<?= (int) $oferta['percent'] ?>%</span>
               </div>
-              <?php /* Los cuatro descuentos que se usan de verdad. No sustituyen al campo:
-                       lo RELLENAN, y el guardado sigue siendo el de siempre —el mismo
-                       `change` sobre #of-pct que ya escuchaba el autoguardado—, asi que
-                       esto no anade ni una puerta nueva al servidor. */ ?>
-              <div class="adm-pct-atajos" role="group" aria-label="Descuentos habituales">
-                <?php foreach ([10, 15, 20, 30] as $atajo): ?>
+              <?php /* Los seis escalones que se usan de verdad. NO sustituyen al campo: lo
+                       RELLENAN, y el guardado sigue siendo el mismo `change` sobre #of-pct
+                       que ya escuchaba el autoguardado — ni una puerta nueva al servidor.
+                       Son seis y no cuatro porque el 25 y el 50 aparecian a mano en el campo
+                       libre; el campo se queda debajo para cualquier otro del 1 al 90. */ ?>
+              <div class="adm-pct-atajos adm-ofr-escalones" role="group" aria-labelledby="of-rot-dto">
+                <?php foreach ([10, 15, 20, 25, 30, 50] as $atajo): ?>
                   <button type="button" class="adm-pct-atajo" data-pct="<?= $atajo ?>"
-                          aria-pressed="<?= (int) $oferta['percent'] === $atajo ? 'true' : 'false' ?>">-<?= $atajo ?>%</button>
+                          aria-pressed="<?= (int) $oferta['percent'] === $atajo ? 'true' : 'false' ?>"><?= $atajo ?>%</button>
                 <?php endforeach; ?>
               </div>
-            </div>
-
-            <div class="adm-regla-g">
-              <span class="adm-lbl" id="of-rot-horas">Horario <span class="opt">(hora de Canarias)</span>
-                <span class="adm-regla-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-              </span>
-              <div class="adm-rango" role="group" aria-labelledby="of-rot-horas">
-                <select class="adm-campo adm-hora-sel" id="of-desde" name="desde" form="ofertas-form"
-                        required aria-label="Desde"><?= horas_de_cuarto((int) $oferta['from'], 0, 1425) ?></select>
-                <span class="adm-rango-f" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/></svg></span>
-                <select class="adm-campo adm-hora-sel" id="of-hasta" name="hasta" form="ofertas-form"
-                        required aria-label="Hasta"><?= horas_de_cuarto((int) $oferta['to'], 15, 1440) ?></select>
+              <div class="adm-ofr-otro">
+                <label class="adm-ofr-otro-r" for="of-pct">Otro</label>
+                <div class="adm-pct-otro adm-dto">
+                  <input class="adm-pct-num" id="of-pct" type="number" name="pct" form="ofertas-form"
+                         min="1" max="90" step="1" size="3" required
+                         value="<?= (int) $oferta['percent'] ?>" aria-label="Descuento en porcentaje">
+                  <span class="adm-pct-pc" aria-hidden="true">%</span>
+                </div>
+                <span class="adm-ofr-otro-h">del 1 al 90</span>
               </div>
             </div>
 
-            <?php /* Siete círculos con la inicial y, al final, «Semanal»: el atajo de la
-                     oferta que corre todos los días, que es la mitad de los casos. */ ?>
-            <div class="adm-regla-g adm-regla-dias">
-              <span class="adm-lbl" id="of-rot-dias">Días
-                <span class="adm-regla-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
-              </span>
+            <div class="adm-ofr-mod adm-ofr-mod-hora">
+              <div class="adm-ofr-mod-cab">
+                <span class="adm-ofr-mod-rot" id="of-rot-horas">Horario</span>
+                <span class="adm-ofr-mod-dato es-suave">hora de Canarias</span>
+              </div>
+              <?php /* Las dos horas son UN dato, un rango. La flecha de en medio se va: con
+                       cada hora en su propia caja y su propio icono —empieza, termina— el
+                       orden ya lo dice la lectura, y la flecha ocupaba el ancho de un
+                       tercer campo que no existe. Los `select` y sus clases no cambian. */ ?>
+              <div class="adm-ofr-horas" role="group" aria-labelledby="of-rot-horas">
+                <span class="adm-ofr-hora">
+                  <span class="adm-ofr-hora-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                  <select class="adm-campo adm-hora-sel" id="of-desde" name="desde" form="ofertas-form"
+                          required aria-label="Desde"><?= horas_de_cuarto((int) $oferta['from'], 0, 1425) ?></select>
+                </span>
+                <span class="adm-ofr-hora">
+                  <span class="adm-ofr-hora-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5"/><path d="m3 3 18 18"/></svg></span>
+                  <select class="adm-campo adm-hora-sel" id="of-hasta" name="hasta" form="ofertas-form"
+                          required aria-label="Hasta"><?= horas_de_cuarto((int) $oferta['to'], 15, 1440) ?></select>
+                </span>
+              </div>
+            </div>
+
+            <?php /* Siete círculos con la inicial. «Semanal» —el atajo de la oferta que
+                     corre todos los días, que es la mitad de los casos— sube a la fila del
+                     rotulo: es el dato de este modulo, igual que el huso lo es del horario,
+                     y detras del domingo se leia como un octavo dia. */ ?>
+            <div class="adm-ofr-mod adm-ofr-mod-dias">
+              <div class="adm-ofr-mod-cab">
+                <span class="adm-ofr-mod-rot" id="of-rot-dias">Días</span>
+                <span class="adm-ofr-mod-dato es-suave adm-dias-frec">
+                  <span>Frecuencia</span>
+                  <button type="button" class="adm-dia-semanal" id="of-semanal"
+                          aria-pressed="<?= count((array) $oferta['days']) === count(DIAS) ? 'true' : 'false' ?>">
+                    <svg class="adm-dia-semanal-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span>Semanal</span>
+                  </button>
+                </span>
+              </div>
               <div class="adm-dias" role="group" aria-labelledby="of-rot-dias">
                 <?php foreach (DIAS as $n => $nombre): ?>
                   <label class="adm-dia">
@@ -15184,20 +15285,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   </label>
                 <?php endforeach; ?>
               </div>
-              <div class="adm-dias-frec">
-                <span>Frecuencia</span>
-                <button type="button" class="adm-dia-semanal" id="of-semanal"
-                        aria-pressed="<?= count((array) $oferta['days']) === count(DIAS) ? 'true' : 'false' ?>">
-                  <svg class="adm-dia-semanal-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span>Semanal</span>
-                </button>
-              </div>
-              <?php /* La nota de los dias decia lo mismo que la frase del pie —si esto se
-                       aplica o no en la carta— y ademas estiraba su columna 21px por encima
-                       de las otras dos, dejando la fila coja. Lo que hay que saber lo dice el
-                       pie, que es donde ya se cuenta lo que esta pasando ahora mismo. Se
-                       queda el elemento, vacio y oculto, porque el repintado del autoguardado
-                       lo busca por su clase. */ ?>
+              <?php /* La nota de los dias decia lo mismo que la frase del pie. Se queda el
+                       elemento, vacio y oculto, porque el repintado del autoguardado lo
+                       busca por su clase. */ ?>
               <p class="adm-dias-nota" hidden></p>
             </div>
 
@@ -15557,6 +15647,26 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           if (notaActual && notaNueva) {
             notaActual.textContent = notaNueva.textContent;
           }
+
+          repintarKpisOferta(doc);
+        }
+
+        /* Los tres numeros de la cabecera, del mismo sitio que todo lo demas: la pagina que
+           acaba de devolver el guardado. «En oferta» y «Ratio» se mueven cada vez que entra
+           o sale un plato o una categoria, y un contador que se queda con la cifra de antes
+           miente igual que una insignia que se queda con el estado de antes. Tambien la
+           frase corta de la cabecera, que dice lo mismo que el pie. */
+        function repintarKpisOferta(doc) {
+          var kpisActual = pane.querySelector('.adm-f-ooferta .adm-ofr-kpis');
+          var kpisNuevo = doc.querySelector('.adm-f-ooferta .adm-ofr-kpis');
+          if (kpisActual && kpisNuevo) {
+            kpisActual.innerHTML = kpisNuevo.innerHTML;
+          }
+          var avisoActual = pane.querySelector('.adm-f-ooferta .adm-ofr-aviso');
+          var avisoNuevo = doc.querySelector('.adm-f-ooferta .adm-ofr-aviso');
+          if (avisoActual && avisoNuevo) {
+            avisoActual.innerHTML = avisoNuevo.innerHTML;
+          }
         }
 
         /* Auditoría de uso real: Platos e Ofertas viven en el mismo documento pero cada
@@ -15574,9 +15684,12 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            misma que ya calcula PHP — aquí no se recalcula nada, sólo se copia. */
         function repintarPlatosDesdeOferta(html) {
           if (typeof html !== 'string') return;
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          /* Antes de las salidas de abajo: meter o sacar un plato mueve «En oferta» y
+             «Ratio» aunque la pestaña Platos no esté en el documento. */
+          repintarKpisOferta(doc);
           var platosPane = document.querySelector('.pane[data-pane="platos"]');
           if (!platosPane) return;
-          var doc = new DOMParser().parseFromString(html, 'text/html');
           var platosFresco = doc.querySelector('.pane[data-pane="platos"]');
           if (!platosFresco) return;
 
@@ -15635,11 +15748,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            que teclear el numero a mano, asi que la validacion, el bloqueo del campo mientras
            guarda y la vuelta atras si el servidor dice que no valen igual para los dos. */
         var atajos = [].slice.call(document.querySelectorAll('.adm-pct-atajo'));
+        /* El dato de la cabecera del modulo dice el descuento que hay puesto. Lo pinta PHP
+           al cargar; a partir de ahi lo mueve esto, con el mismo numero que el campo — si no,
+           el rotulo se queda diciendo el de antes en cuanto se toca un escalon. El signo es
+           el menos tipografico (U+2212), el mismo que escribe PHP. */
+        var pctDato = document.querySelector('.adm-f-ooferta .adm-ofr-mod-dto .adm-ofr-mod-dato');
         function pintarAtajos() {
           var n = parseInt(pctInput ? pctInput.value : '', 10);
           atajos.forEach(function (b) {
             b.setAttribute('aria-pressed', String(parseInt(b.dataset.pct, 10) === n));
           });
+          if (pctDato && !isNaN(n)) pctDato.textContent = '−' + n + '%';
         }
         atajos.forEach(function (b) {
           b.addEventListener('click', function () {
