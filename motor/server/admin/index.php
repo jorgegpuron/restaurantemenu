@@ -9584,9 +9584,16 @@ $CUENTAS = [
     background:var(--sc-surface);color:var(--sc-text);
     font-size:var(--t2);font-weight:500;
     cursor:grab;
-    /* El dedo tiene que poder arrastrar la fila, no desplazar la hoja. Solo en la fila: la
-       lista de fuera sigue rodando con el dedo si hay mas filas de las que caben. */
-    touch-action:none;user-select:none;
+    /* `pan-y` y NO `none`, y esto es el arreglo de un fallo real: con `none` en toda la fila,
+       el dedo no podia DESPLAZAR la lista. Las filas ocupan la lista entera —no hay margen
+       libre por donde tocar—, asi que cualquier intento de bajar a la fila doce arrancaba un
+       arrastre. El comentario que habia aqui decia que «la lista de fuera sigue rodando»: era
+       falso, no queda nada de fuera. Lo cazo el propietario en produccion.
+       Ahora el dedo arrastra SOLO desde el asa (`.adm-ordencats-tira`, que es la que lleva
+       `touch-action:none`) y toca donde quiera para desplazar. Con raton se sigue pudiendo
+       agarrar la fila entera, que es de donde viene el `cursor:grab`: un raton no compite con
+       el desplazamiento. */
+    touch-action:pan-y;user-select:none;
     /* La posicion la lleva una transformada, nunca el orden del DOM: mover el nodo durante el
        arrastre es lo que hacia perder la captura del puntero en el intento anterior. */
     transition:transform var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out);
@@ -9597,10 +9604,19 @@ $CUENTAS = [
     /* Mientras se arrastra NO se interpola: la transformada sigue al dedo. */
     transition:none;position:relative;z-index:2;
   }
+  /* EL ASA. Es lo unico que arrastra con el dedo, asi que tiene que ser un objetivo de
+     verdad: 32 de ancho por los 44 de la fila, no los 20x20 de cuando arrastraba la fila
+     entera. El dibujo se queda en 16 px; lo que crece es la zona que recibe el dedo, como en
+     el resto del panel. `touch-action:none` SOLO aqui: es lo que le dice al navegador que este
+     gesto no es un desplazamiento. */
   .adm-ordencats-tira{
-    flex:none;display:grid;place-items:center;width:20px;height:20px;
+    flex:none;display:grid;place-items:center;
+    width:32px;height:44px;margin-inline-start:-6px;
     color:var(--sc-text-2);
+    touch-action:none;cursor:grab;
+    border-radius:var(--radius-sm);
   }
+  .adm-ordencats-fila[data-arrastrando] .adm-ordencats-tira{cursor:grabbing;color:var(--sc-text)}
   .adm-ordencats-tira svg{width:16px;height:16px;pointer-events:none}
   .adm-ordencats-n{
     flex:none;min-width:2ch;text-align:right;
@@ -12357,7 +12373,9 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           <div class="adm-alta-fondo" data-ordencats-cierra></div>
           <div class="adm-alta-caja adm-ordencats-caja" role="dialog" aria-modal="true" aria-labelledby="adm-ordencats-t">
             <h2 class="adm-alta-t" id="adm-ordencats-t">Ordenar las categorías</h2>
-            <p class="adm-alta-pista" id="adm-ordencats-pista">Arrástralas para cambiarlas de sitio.
+            <p class="adm-alta-pista" id="adm-ordencats-pista">Arrástralas por el asa de la
+               izquierda para cambiarlas de sitio. Si la lista no cabe entera, tocando en
+               cualquier otro punto la desplazas.
                Con el teclado, las flechas arriba y abajo mueven la que esté enfocada.</p>
             <ol class="adm-ordencats-lista" id="adm-ordencats-lista"></ol>
             <div class="adm-ordencats-pie">
@@ -14057,11 +14075,22 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             abrirOrden(abre.dataset.ordencats, abre.dataset.ordencatsNombre || 'esta sección', abre);
           });
 
+          /* Quien empieza el arrastre, y de donde.
+             CON EL DEDO, solo desde el asa. Arrancarlo desde cualquier punto de la fila dejaba
+             la lista sin forma de desplazarse —las filas la ocupan entera— y bajar a la fila
+             doce era imposible: el gesto se convertia en un arrastre. Se descarto la otra
+             salida que se penso, dos botones de desplazar arriba y abajo de la lista, porque
+             son dos controles nuevos para hacer lo que el dedo ya sabe hacer, y porque dejaria
+             el arrastre disparandose igual por accidente al primer roce.
+             CON RATON, desde donde sea: un raton no compite con el desplazamiento, y agarrar
+             la fila entera es mejor que apuntar a un asa de 32 px. */
           document.addEventListener('pointerdown', function (e) {
             if (!e.target.closest) return;
             if (e.button !== undefined && e.button !== 0) return;
             var li = e.target.closest('.adm-ordencats-fila');
             if (!li || !listaOrden || !listaOrden.contains(li)) return;
+            var conDedo = e.pointerType === 'touch' || e.pointerType === 'pen';
+            if (conDedo && !e.target.closest('.adm-ordencats-tira')) return;   // deja rodar la lista
             e.preventDefault();
             li.focus();
             arrastrar(li, e);
