@@ -131,12 +131,18 @@ cumple sobre los tres fondos claros del panel** (tarjeta `#FFFDFB`, tablero `#F5
 En oscuro los dos apuntan al primario porque ya cumple de sobra: 7,29 / 8,02 / 6,52. **Un tema
 no estrena un color que no necesita.**
 
-**Y la regla que queda escrita:** si mañana el icono de la cámara —o cualquier otro— tuviera que
-seguir el color de marca del cliente, no puede usar `--accent` a pelo. Con la marca de Tinge se
-ve, pero un amarillo `#FFC107` da 1,61:1 sobre la tarjeta clara y un verde `#8BC34A` da 2,07:1:
-invisibles los dos. Haría falta derivar el equivalente de `--accent` por la misma regla, con las
-funciones de color que el panel ya tiene en PHP (`color_luz`, `color_contraste`,
-`color_mezcla`) — las mismas que ya derivan `--badge-ink`. **No está hecho, porque hoy ningún
-icono sigue la marca.** Está escrito aquí para que el día que se pida no se haga a ojo.
+**Y una decisión tomada, no una omisión** (13 sep 2026): los iconos de estado del panel —la
+cámara incluida— **se quedan en el color de producto y NO siguen la marca del cliente**. La
+marca manda en la carta, que es lo que ve el comensal, y en la pestaña Marca, que es donde se
+edita. El panel es la herramienta, y habla el mismo idioma para los tres clientes y para el
+siguiente: un icono que cambia de color según el restaurante no dice nada más, y obliga a
+derivar un tono por cliente y por tema para que siga leyéndose.
+
+Si algún día se cambia de idea, la regla está medida y no se puede hacer a ojo: `--accent` a
+pelo no vale. Con la marca de Tinge se ve, pero un amarillo `#FFC107` da **1,61:1** sobre la
+tarjeta clara y un verde `#8BC34A` da **2,07:1** — invisibles los dos. Habría que derivar el
+equivalente de `--accent` por esta misma regla, con las funciones de color que el panel ya
+tiene en PHP (`color_luz`, `color_contraste`, `color_mezcla`), las mismas que ya derivan
+`--badge-ink`, y emitir un valor por tema en el `<style>` condicional de marca.
 
 Detalle en [ACCESSIBILITY.md](ACCESSIBILITY.md).

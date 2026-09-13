@@ -101,12 +101,16 @@ segunda ya la hace cada fila con su propio relleno, que **es el mismo que el de 
 provocar un píxel de desbordamiento. De paso se va el último valor a mano de esta rejilla: 14
 no está en la escala de espaciado.
 
-**Lo que NO se ha unificado, y es decisión del propietario:** el tamaño DIBUJADO de las
-flechas. Con el dedo, la de la categoría mide 44×44 y la del plato 26 con su halo táctil de
-28×44. Los bordes izquierdos ya coinciden, pero los centros de los dos dibujos no —9 px—, y
-alinearlos exige que las dos cajas midan lo mismo. Hacerlo bajaría el objetivo táctil de la
-cabecera de 44×44 a 28×44: sigue por encima del mínimo de WCAG 2.5.8 (24×24) pero por debajo
-del 44 que el encargo prefiere. **No se toca sin que el propietario lo diga.**
+**El tamaño DIBUJADO de las flechas NO se unifica, y es decisión tomada.** Con el dedo, la de
+la categoría mide 44×44 y la del plato 26 con su halo táctil de 28×44. Los bordes izquierdos
+coinciden —que es lo que se pidió—, pero los centros de los dos dibujos no: 9 px. Alinearlos
+exigiría que las dos cajas midieran lo mismo, y eso bajaría el objetivo táctil de la cabecera
+de 44×44 a 28×44: sigue por encima del mínimo de WCAG 2.5.8 (24×24), pero por debajo del 44
+que el encargo prefiere.
+
+**El propietario eligió mantener los 44×44** (13 sep 2026). Nueve píxeles de desalineación
+entre dos dibujos valen menos que un objetivo táctil generoso en una herramienta que se usa de
+pie y con una mano. Queda escrito para que nadie lo "arregle" más adelante creyendo que se coló.
 
 ## 6. Pegajosos y scroll
 
