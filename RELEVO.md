@@ -5,10 +5,15 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, tarde** · `main` = `origin/main` = **`9b8fee0`**, árbol
-> limpio salvo `.ai/`. **`motor.lock` cuadra**, versión 1.1.8. **`DESPLIEGUE_REAL` leída de
-> GitHub: `false`.** Producción sirve **`1789398047116`**, que NO lleva nada de hoy: el build
-> local es `1789405975651`. Nada de lo de hoy está publicado, y es deliberado.
+> Última actualización: **14 sep 2026, cierre** · `main` = `origin/main`, **una sola rama** aquí
+> y en GitHub, árbol limpio salvo `.ai/`, sin stashes. **`motor.lock` cuadra**, versión 1.1.8.
+> **`DESPLIEGUE_REAL` leída de GitHub: `false`.** Producción sirve **`1789398047116`**, que NO
+> lleva nada de hoy: el build local es `1789405975651`. Nada de lo de hoy está publicado, y es
+> deliberado.
+>
+> **Lo siguiente es dar de alta un restaurante nuevo**, y se hace **en una conversación nueva**,
+> empezando por `/nuevo-cliente`. Sus fotos están en `socialcard_claudecode/0-altas/`. Lo único
+> que falta para arrancar: **el nombre del restaurante y su destino en `socialcard.es/<algo>/`**.
 
 ---
 
@@ -25,11 +30,17 @@ Tres commits, en este orden, los tres ya en GitHub:
    alérgenos de la UE no salían en ninguna forma**: crustáceos, cacahuetes, soja, apio,
    altramuces y moluscos. Ahora nombra las catorce canónicas. Los alias siguen aceptándose.
 
-Además, fuera del repositorio: se borraron 18 ramas locales ya fusionadas, dos worktrees
-huérfanos que impedían a git podar, y cuatro ficheros sueltos de la raíz del workspace
-(`api.txt` y `Nuevo Documento de texto.txt`, vacíos; `logo.svg` y una copia byte a byte de
-`ANALISIS-DIVERGENCIAS.md`). Y se tiró el stash del 2 sep: era una corrección a
-`NUEVO_CLIENTE.md` que daba por inexistentes cuatro piezas que hoy existen.
+Además, fuera del repositorio: se pasó de **19 ramas locales y 5 remotas a una sola rama**, aquí
+y en GitHub; se borraron dos worktrees huérfanos que rompían cada `fetch`, el stash del 2 sep
+—una corrección a `NUEVO_CLIENTE.md` que daba por inexistentes cuatro piezas que hoy existen— y
+cuatro ficheros sueltos de la raíz del workspace (`api.txt` y `Nuevo Documento de texto.txt`,
+vacíos; `logo.svg` y una copia byte a byte de `ANALISIS-DIVERGENCIAS.md`). Se cerró el token de
+Cloudflare, y las fotos del cliente nuevo salieron de la carpeta de Tinge.
+
+**Hay un informe de auditoría completo de esta sesión** —ramas, código muerto medido con
+cobertura de navegador, duplicación, arquitectura y dependencias— que **no vive en el
+repositorio**: se entregó al propietario como fichero. Lo que de aquí importa está resumido
+abajo; si hace falta el detalle con sus medidas, pedírselo.
 
 ## Nada está a medias
 
@@ -40,10 +51,13 @@ huérfanos que impedían a git podar, y cuatro ficheros sueltos de la raíz del 
 
 ## Lo que está esperando una decisión del propietario
 
-- **`apitokenflare.txt` en la raíz del workspace.** 53 bytes, una línea, formato de token de API
-  de Cloudflare, en texto plano dentro de OneDrive. **Es lo único con consecuencia fuera del
-  ordenador.** Hay que llevarlo al gestor de contraseñas y **rotar el token**; borrar el fichero
-  sin rotar no arregla nada.
+- ~~El token de Cloudflare~~ **CERRADO.** Había un `apitokenflare.txt` en la raíz del workspace
+  con un token de API en texto plano dentro de OneDrive. Se usó en su día para optimizar el
+  perfil del dominio raíz `socialcard.es`, tarea ya terminada y cuya configuración vive en
+  Cloudflare, no en el token. **El propietario lo borró en Cloudflare y después se borró el
+  fichero**, en ese orden. Puede quedar rastro en la papelera y el historial de versiones de
+  OneDrive: inofensivo, porque la llave ya no vale. **Lección: un secreto no se arregla borrando
+  el fichero; el secreto es la cadena, y hay que invalidarla primero.**
 - **La foto de la puerta, para el alta que viene.** `motor/server/admin/acceso.jpg` y
   `motor-acceso.jpg` son **byte a byte idénticas** (md5 `e6b697e4…`), cuando el código dice que
   la primera es del CLIENTE y la segunda el respaldo genérico del MOTOR. Las reglas fijas del
@@ -61,9 +75,12 @@ huérfanos que impedían a git podar, y cuatro ficheros sueltos de la raíz del 
 - **Producción está dos builds por detrás y a propósito.** Publicar exige `workflow_dispatch` Y
   `DESPLIEGUE_REAL` en `true` a la vez: un push nunca despliega, ni de ensayo. Los dos runs de
   hoy salieron con «Subir por FTP» en `skipped`.
-- **Las seis fotos de `tinge_of_turmeric/0-alta/`** son la carta de un cliente NUEVO, metidas
-  dentro de la carpeta de Tinge. La convención acordada es `socialcard_claudecode/0-altas/<slug>/`.
-  Moverlas antes de que se confundan con material de Tinge.
+- **Las seis fotos del cliente nuevo ya NO están dentro de Tinge.** Se movieron a
+  `socialcard_claudecode/0-altas/` —huellas md5 verificadas antes y después— y la carpeta
+  `tinge_of_turmeric/0-alta/` se eliminó. **Quedan sueltas, sin subcarpeta**: la convención es
+  `0-altas/<nombre-slugificado>/` y todavía no se sabe cómo se llama el restaurante. En cuanto
+  haya nombre, meterlas en su subcarpeta. **No está confirmado si faltan páginas de la carta**
+  (en las seis no hay bebidas ni postres); el propietario lo está consultando.
 - **El arrastre de categorías sigue sin probarse en un teléfono real**, sólo emulado.
 - **Los 12 `FAIL` de `admin-e2e`** (de 540) son de tareas ajenas y anteriores. `E2E-OFR-02`
   (línea 4478) fija techos de altura calculados ANTES del cambio de contrato del 13 sep y está
