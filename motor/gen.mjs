@@ -6336,20 +6336,20 @@ ${sheet}
          como todo lo demás: un estado escrito por el panel anterior a la migración se sigue
          aplicando. La fila se marca además con data-llevar para que el buscador filtre por
          esto sin volver a leer el estado. */
-      var moto = row.querySelector('.item-tag-llevar');
+      var bolsa = row.querySelector('.item-tag-llevar');
       var esLlevar = llevar.indexOf(key) !== -1 || (leg && llevar.indexOf(leg) !== -1);
-      if (moto) {
-        moto.hidden = !esLlevar;
+      if (bolsa) {
+        bolsa.hidden = !esLlevar;
         if (esLlevar) {
-          if (!moto.firstChild) moto.innerHTML = ICONO_MOTO;
-          moto.setAttribute('role', 'img');
+          if (!bolsa.firstChild) bolsa.innerHTML = ICONO_LLEVAR;
+          bolsa.setAttribute('role', 'img');
           /* El rótulo se repone en cada pasada, no sólo al crearlo: render() vuelve a correr
-             al cambiar de idioma y si no, la moto se queda diciendo «Para llevar» en el
+             al cambiar de idioma y si no, la bolsa se queda diciendo «Para llevar» en el
              idioma de la carga. */
-          moto.setAttribute('aria-label', tr('Takeaway'));
+          bolsa.setAttribute('aria-label', tr('Takeaway'));
         } else {
-          moto.removeAttribute('role');
-          moto.removeAttribute('aria-label');
+          bolsa.removeAttribute('role');
+          bolsa.removeAttribute('aria-label');
         }
       }
       if (esLlevar) row.dataset.llevar = '1'; else delete row.dataset.llevar;
@@ -8048,15 +8048,22 @@ ${DATOS_ACTIVO ? `
    *
    * La foto se pide al abrir y nunca antes: con cuarenta fotos, precargarlas son cuatro megas
    * en el wifi de un restaurante lleno. */
-  /* La moto de «Para llevar», del lado del runtime: el HTML emite la ranura vacía y el dibujo
+  /* La BOLSA de «Para llevar», del lado del runtime: el HTML emite la ranura vacía y el dibujo
      entra sólo en las filas marcadas. Trazo 2.1 porque se dibuja a 13 px dentro del badge de
-     18: a 1.75 las dos ruedas se cerraban. */
-  var ICONO_MOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"'
+     18: por debajo de 2 el asa se pierde.
+
+     Era una moto y la moto decía otra cosa: reparto a domicilio, que este restaurante no hace.
+     Lo que se marca aquí es que el plato se puede pedir para llevártelo, y eso es una bolsa.
+     Tampoco vale un carrito, que es «añadir a la cesta» de una tienda.
+
+     Se dibuja aquí y no se toma de motor/iconos/: esa galería son los 14 alérgenos y 18
+     indicadores de comida —alcohol, picante, vegetariano…—, glifos macizos de otra familia, y
+     ninguno es una bolsa. Éste es de la familia de los controles: trazo, currentColor y caja
+     de 24, como el resto de los de la carta. */
+  var ICONO_LLEVAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M5 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/>'
-    + '<path d="M19 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/>'
-    + '<path d="M7.5 14h5l4 -4h-10.5m1.5 4l4 -4"/>'
-    + '<path d="M13 6h2l1.5 3"/></svg>';
+    + '<path d="M6.5 8.5h11l-.9 11a1.8 1.8 0 0 1-1.8 1.6H9.2a1.8 1.8 0 0 1-1.8-1.6z"/>'
+    + '<path d="M9.2 11.2V6.8a2.8 2.8 0 0 1 5.6 0v4.4"/></svg>';
   var ICONO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'

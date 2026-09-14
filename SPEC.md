@@ -7353,3 +7353,40 @@ Lo que se hace ahora, y por qué cada pieza:
 
 Lo vigila `CAR-33`, que mide el desfase contra el centro del hueco y comprueba que la píldora
 del activo sea la de 21 px del hero.
+
+## La bolsa de «Para llevar» y el lápiz que sólo existía al pasar el ratón (14 Sep 2026)
+
+**1. La moto pasa a ser una bolsa.** La moto decía otra cosa: reparto a domicilio, que este
+restaurante no hace. Lo que se marca es que el plato se puede pedir para llevártelo, y eso es
+una bolsa. Tampoco vale un carrito, que es «añadir a la cesta» de una tienda.
+
+Se buscó primero en la galería del motor —`motor/iconos/`, 32 dibujos: los 14 alérgenos
+oficiales y 18 indicadores de comida (alcohol, picante, vegetariano, chef_hat, clipboard,
+fork_knife…)— y **no hay ninguna bolsa**, ni nada que sirva. Además esa galería es de otra
+familia: glifos macizos con `fill="currentColor"`. Así que la bolsa se dibuja en la familia del
+icono que sustituye: trazo 2.1, `currentColor`, caja de 24, dos trayectos —cuerpo y asa—. El
+trazo se queda en 2.1 por lo mismo que la moto: se dibuja a 13 px dentro de un badge de 18, y
+por debajo de 2 el asa se pierde.
+
+La constante del runtime pasa de `ICONO_MOTO` a `ICONO_LLEVAR` y la variable local de `moto` a
+`bolsa`. No es cosmética: un nombre que dice «moto» en el código de una bolsa es la clase de
+detalle que hace que el siguiente que lo lea dibuje otra moto.
+
+**2. El lápiz de modificar el plato, siempre visible.** Estaba en `opacity:0` hasta que el
+puntero entraba en la fila. Eso escondía la ÚNICA puerta a modificar un plato: quien no pasa el
+ratón por encima no sabe que existe. El propietario lo dijo mirando su pantalla — «no sale nada
+salvo que pasemos el mouse».
+
+Se queda en el gris secundario, que es lo que evita que 312 lápices griten: lo que cambia al
+pasar por encima es el fondo y el contraste del trazo, no su existencia. Con eso sobran la
+transición de opacidad, la regla de `:hover` de la fila y la excepción de `pointer:coarse`, que
+existía justamente para devolverle al dedo lo que el ratón se quedaba.
+
+Lo vigila `E2E-PL-16`, que mide la opacidad CALCULADA sin acercar el puntero a la fila: es lo
+único que distingue «se ve» de «se ve porque lo estoy tocando».
+
+**3. Y con él, el botón de «Combina con».** Es de la misma familia y estaba apagado por lo
+mismo. Se enciende por lo mismo, y además porque dos mandos vecinos que aparecen de distinta
+manera confunden más que cualquiera de los dos por separado. Lo único propio se queda: cuando el
+plato YA tiene pareja va en el color del acento, que es lo que permite ver de un vistazo cuáles
+están emparejados.

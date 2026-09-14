@@ -9543,37 +9543,39 @@ $CUENTAS = [
   .adm-alta-pista svg{flex:none;width:15px;height:15px;margin-top:1px}
   /* Catorce casillas en dos columnas: en una sola serian catorce renglones y la hoja pasaria
      de largo a interminable; en tres, los rotulos mas largos —«Frutos de cascara»— parten. */
-  /* El lapiz de la fila: apagado hasta que el puntero entra, encendido siempre con el dedo. */
+  /* El lapiz de la fila: SIEMPRE visible.
+     Estaba apagado hasta que el puntero entraba en la fila, y eso escondia la unica puerta a
+     modificar un plato: quien no pasa el raton por encima no sabe que existe — el propietario
+     lo dijo mirando su propia pantalla, «no sale nada salvo que pasemos el mouse». Un mando
+     que hay que descubrir moviendo el raton por 312 filas no es un mando.
+     Se queda en el gris secundario, que es lo que evita que 312 lapices griten: lo que cambia
+     al pasar por encima es el fondo y el contraste del trazo, no su existencia. */
   .adm-prow-editar{
     flex:none;width:26px;height:26px;display:grid;place-items:center;padding:0;
     border:0;border-radius:var(--radius-md);background:transparent;
-    color:var(--sc-text-2);opacity:0;cursor:pointer;
-    transition:opacity var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+    color:var(--sc-text-2);cursor:pointer;
+    transition:color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
   }
   .adm-prow-editar svg{width:14px;height:14px}
-  .adm-platorow:hover .adm-prow-editar,
-  .adm-prow-editar:focus-visible{opacity:1}
   .adm-prow-editar:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
   .adm-prow-editar:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
-  @media (pointer:coarse){ .adm-prow-editar{opacity:1} }
-  /* «Combina con»: la misma caja y el mismo comportamiento que el lápiz de cambiar —apagado
-     hasta que el puntero entra en la fila— porque es de la misma familia. Lo único propio es
-     que cuando el plato YA tiene pareja se queda encendido y en el color del acento: eso hay
-     que poder verlo sin pasar el ratón por las 312 filas. */
+  /* «Combina con»: la misma caja y el mismo trato que el lápiz de cambiar —SIEMPRE visible—
+     porque es de la misma familia, y dos mandos vecinos que aparecen de distinta manera
+     confunden más que cualquiera de los dos por separado. Estaba apagado hasta el hover por lo
+     mismo que el lápiz, y se enciende por lo mismo: un mando que hay que descubrir moviendo el
+     ratón por 312 filas no es un mando.
+     Lo único propio se queda: cuando el plato YA tiene pareja va en el color del acento, que es
+     lo que permite ver de un vistazo cuáles están emparejados. */
   .adm-prow-combina{
     flex:none;width:26px;height:26px;display:grid;place-items:center;padding:0;position:relative;
     border:0;border-radius:var(--radius-md);background:transparent;
-    color:var(--sc-text-2);opacity:0;cursor:pointer;
-    transition:opacity var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+    color:var(--sc-text-2);cursor:pointer;
+    transition:color var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
   }
   .adm-prow-combina svg{width:14px;height:14px}
-  .adm-platorow:hover .adm-prow-combina,
-  .adm-prow-combina:focus-visible,
-  .adm-prow-combina.tiene{opacity:1}
   .adm-prow-combina.tiene{color:var(--sc-primary-grafico)}
   .adm-prow-combina:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
   .adm-prow-combina:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
-  @media (pointer:coarse){ .adm-prow-combina{opacity:1} }
   /* El contador, pegado al icono. No es una pastilla con fondo: al lado de la moto y del
      lápiz, una tercera forma con relleno convertiría la fila en un semáforo. */
   .adm-prow-combina-n{
@@ -13011,7 +13013,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                            que es donde vive la decisión. Aquí sólo se lee. */ ?>
                   <span class="adm-plato-llevar" <?= $esLlevar ? 'role="img" aria-label="Para llevar: ' . h($p['name']) . '"' : 'aria-hidden="true"' ?>>
                     <?php if ($esLlevar): ?>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M19 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M7.5 14h5l4 -4h-10.5m1.5 4l4 -4"/><path d="M13 6h2l1.5 3"/></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 8.5h11l-.9 11a1.8 1.8 0 0 1-1.8 1.6H9.2a1.8 1.8 0 0 1-1.8-1.6z"/><path d="M9.2 11.2V6.8a2.8 2.8 0 0 1 5.6 0v4.4"/></svg>
                     <?php endif; ?>
                   </span>
 

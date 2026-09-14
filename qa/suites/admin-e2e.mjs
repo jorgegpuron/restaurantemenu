@@ -745,6 +745,29 @@ export async function e2ePlatos(informe, { pagina, servidor, docroot }) {
   /* Se devuelven los precios a la carta para lo que sigue. */
   const rr = await postCrudo(pagina, '/admin/index.php', [['precios_reset', '1']]);
   informe.comprueba('E2E-PL-14', 'precios_reset deja prices vacío', rr.status === 200 && Object.keys(leerEstado(docroot).prices || {}).length === 0, rr.mensaje);
+  /* El lápiz de modificar el plato se VE sin pasar el ratón. Estaba en opacity:0 hasta que el
+     puntero entraba en la fila, así que la única puerta a modificar un plato sólo existía para
+     quien la descubría moviendo el ratón por 312 filas. El propietario lo dijo mirando su
+     pantalla: «no sale nada salvo que pasemos el mouse».
+     Se mide la opacidad CALCULADA y sin hover: `getComputedStyle` sobre una fila a la que no se
+     ha acercado el puntero es lo único que distingue «se ve» de «se ve porque lo estoy
+     tocando». */
+  const lapices = await pagina.evaluate(() => {
+    const mirar = (sel) => {
+      const ls = [...document.querySelectorAll('.adm-platorow ' + sel)].slice(0, 20);
+      if (!ls.length) return null;
+      return {
+        cuantos: ls.length,
+        opacidades: [...new Set(ls.map((l) => getComputedStyle(l).opacity))],
+        conCaja: ls.filter((l) => l.getBoundingClientRect().width > 0).length,
+      };
+    };
+    return { lapiz: mirar('.adm-prow-editar'), combina: mirar('.adm-prow-combina') };
+  });
+  const seVe = (m) => !!m && m.conCaja === m.cuantos
+    && m.opacidades.length === 1 && Number(m.opacidades[0]) === 1;
+  informe.comprueba('E2E-PL-16', 'el lápiz y «Combina con» se ven sin pasar el ratón por la fila',
+    seVe(lapices.lapiz) && seVe(lapices.combina), JSON.stringify(lapices));
   informe.comprueba('E2E-PL-15', 'consola limpia en Platos', erroresConsola(pagina).length === 0, erroresConsola(pagina).slice(0, 3).join(' | '));
 }
 
