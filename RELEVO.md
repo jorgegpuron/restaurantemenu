@@ -11,7 +11,9 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 > los badges vuelven a texto crema sobre el naranja literal (excepción de fábrica de
 > `--badge-ink` repuesta en las cuatro capas), el precio rebajado vuelve a texto plano naranja,
 > y las pastillas de dieta pasan a huecas: sin fondo, filete y texto naranja (ya no cuelgan de
-> `--badge-ink`). Coste asumido a sabiendas: Accesibilidad 97 en PageSpeed;
+> `--badge-ink`), y la cámara de la foto igual: hueca, filete y dibujo naranja, y ya no se
+> mueve delante y detrás de los alérgenos (los alérgenos editados se insertan delante de ella,
+> no al final del h3). Coste asumido a sabiendas: Accesibilidad 97 en PageSpeed;
 > Buenas prácticas y SEO siguen en 100. `motor.lock` refirmado; `fast` 37, `smoke` 17, contrato
 > de tintas en verde; réplica local: 97/100/100. **Falta la orden de integrar y desplegar.**
 >

@@ -7718,3 +7718,14 @@ Lo que cambia respecto a la entrada «PageSpeed: los tres 100…»:
 
 Medido en la réplica: Accesibilidad **97**, Buenas prácticas **100**, SEO 100. Es el techo con
 esta decisión, y queda escrito para que nadie lo vuelva a «arreglar».
+
+**Y la cámara, igual que las pastillas de dieta (14 Sep 2026, noche).** El círculo de «este
+plato tiene foto» (`.has-photo`) pasa a hueco: filete y dibujo en el acento literal, sin el velo
+naranja al 14 %. Sólo colores; tamaño (32), margen (10) y alineación no cambian. Y se arregla
+lo que el propietario vio en el servidor de revisión: **la cámara se movía sola**, unas veces
+delante de los alérgenos y otras detrás. Causa: `marcasAlergeno()` quitaba la caja de
+alérgenos y la volvía a añadir al FINAL del `h3` en cada pasada que aplica los alérgenos
+editados desde el panel, y como la cámara la añade `render()` una sola vez al final, la caja
+nueva caía detrás de ella. Ahora la caja se inserta delante de la cámara si existe: el orden
+del build —nombre, alérgenos, cámara— se respeta en todas las pasadas. Comprobado en el
+servidor de revisión durante dos pasadas de `render()`.

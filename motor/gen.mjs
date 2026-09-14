@@ -2169,17 +2169,21 @@ html:not(.js) .lang-menu{position:static;display:block}
 /* Antes heredaba currentColor y medía 14px sin fondo ni borde: exactamente el mismo
    tratamiento que .alergeno-marks .alergeno unas líneas más abajo, así que al lado de dos o
    tres alérgenos se leía como uno más, no como "toca aquí para ver la foto". Ahora es un
-   círculo con borde y fondo propios -- ni pill (--r-pill es ovalado si el contenido no es
+   círculo con borde propio -- ni pill (--r-pill es ovalado si el contenido no es
    cuadrado; aquí ancho=alto y 50% da un círculo real) ni el mismo plano que un alérgeno.
    Sigue siendo role=img: quien abre la ficha es la fila entera (role=button más abajo, en
-   render()), esto es la pista visual de que esa fila en concreto tiene algo que enseñar. */
+   render()), esto es la pista visual de que esa fila en concreto tiene algo que enseñar.
+   Colores (14 sep 2026, pedido por el propietario): hueco, filete y dibujo en el acento
+   literal, exactamente igual que las pastillas de dieta (.item-tag-diet). Antes llevaba un
+   velo naranja al 14 % con el dibujo en --accent-ink. Sólo cambian los colores: tamaño,
+   margen y alineación son los de siempre. */
 .has-photo{
   display:inline-flex;align-items:center;justify-content:center;
   width:32px;height:32px;margin-left:10px;vertical-align:middle;flex:0 0 auto;
   border-radius:50%;
-  border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));
-  background:color-mix(in srgb,var(--accent) 14%,transparent);
-  color:var(--accent-ink);
+  border:1px solid var(--accent);
+  background:transparent;
+  color:var(--accent);
 }
 .has-photo svg{width:16px;height:16px;display:block}
 
@@ -5953,7 +5957,15 @@ ${sheet}
       m.innerHTML = ALERGENO_ICONO[k];
       caja.appendChild(m);
     });
-    h3.appendChild(caja);
+    /* SIEMPRE delante de la cámara, nunca detrás. La cámara (.has-photo) la añade render()
+       al final del h3 una sola vez; esto se llama en cada pasada que aplica los alérgenos
+       editados desde el panel, y con appendChild la caja nueva caía DETRÁS de la cámara: el
+       orden alternaba entre «alérgenos, cámara» al cargar y «cámara, alérgenos» a la
+       siguiente pasada, y la cámara parecía moverse sola. El orden del build es nombre,
+       alérgenos, cámara, y se respeta en todas las pasadas. */
+    var camara = h3.querySelector('.has-photo');
+    if (camara) h3.insertBefore(caja, camara);
+    else h3.appendChild(caja);
   }
 
   /* Un <span class="i18n"> con el texto en todos los idiomas: el visible en el nodo y los
