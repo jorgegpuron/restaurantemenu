@@ -67,8 +67,23 @@ abajo; si hace falta el detalle con sus medidas, pedírselo.
   `SPEC.md`. O el gate de «sobrantes» nunca se construyó, o se perdió.
 - **`fuentes.html`**: se genera, se publica y el `.htaccess` lo deniega por HTTP, y **nadie lo
   lee**. Su comentario dice «lo lee el PHP del disco» y eso ya no es cierto.
-- **`02-juego-records_1.md`** (raíz del workspace) pide quitar los premios del juego, y
-  `TINGE_CLIENTE.md:125` dice que el premio sigue activo. O se descartó, o no se ejecutó.
+- ~~La duda del premio del juego~~ **RESUELTA.** El encargo **sí se ejecutó**: `SPEC.md:3386`
+  dice que el premio «se ha quitado entero —objetivo, texto del premio, minutos, el código
+  `CR-DDMM-…`, la pantalla del camarero, el reloj, los canjes y el salto a la reseña— y en su
+  lugar queda **el récord de la casa**». En el panel sólo queda el interruptor. Lo que está mal
+  es **`TINGE_CLIENTE.md:125`**, que sigue describiendo «objetivo 10, 1 minuto, premio ¡1 BEBIDA
+  GRATIS! 🥤 en los tres idiomas». **Es documentación caducada y conviene corregirla**: describe
+  una configuración que ya no existe.
+
+### Atado al despliegue del juego, y sólo entonces
+
+- **Poner el podio a cero desde el panel ANTES de desplegar el juego nuevo** (pestaña Juego;
+  poner a cero borra `record.json`). Producción tiene hoy tres marcas —**59 anónima del 14 sep,
+  49 JORGE, 39 Abel**, verificadas leyendo `record.json` público— y **son del juego anterior**,
+  cuyo techo medido era ~62 puntos. Con el combo, un toque perfecto da **161** y un jugador
+  bueno pasa de 100: el podio viejo se batiría en la primera partida y dejaría de servir como
+  referencia. **No vaciarlo antes de tiempo**: si se vacía hoy, producción sigue con el juego
+  viejo y se vuelve a llenar de marcas viejas. Es lo último antes de publicar.
 
 ## Riesgos vivos
 
@@ -142,6 +157,18 @@ abajo; si hace falta el detalle con sus medidas, pedírselo.
     al 100%. Hay que pintar un mapa de bytes donde el rango más interno manda.
 26. **El panel tiene TRES navegaciones con los mismos `data-tab`** —barra lateral, barra móvil y
     hoja «Más»— y las que no tocan están ocultas: `page.click` se queda esperando a una invisible.
+27. **NUNCA jugar automatizado contra PRODUCCIÓN.** La marca anónima de 59 puntos del 14 sep que
+    hay en el podio la dejó un bot de auditoría jugando contra la carta real. Y el motivo no es
+    que falte un filtro: `record.php:37` **sí filtra robots por user-agent** y lo hace bien. Es
+    que `qa/lib/navegador.mjs:27` **pone a propósito el agente de un Chrome normal**, porque sin
+    eso el marcador contesta 204 y la prueba del récord no mide nada. O sea: **la batería está
+    construida para ser indistinguible de un visitante real**, y por eso apuntarla a producción
+    deja marcas de verdad. Se juega siempre contra una copia local de `2-subir`: sin
+    `estado.json` ni `record.json` el juego funciona y no envía nada.
+28. **`RECORD_MAX` = 300** (`config.php:260`) y el techo perfecto medido del juego nuevo es
+    **161**. Por encima de `RECORD_MAX` el servidor da por inexistente la partida. Si algún
+    release sube la densidad o la puntuación, **recalcular el techo ANTES de publicar** o se
+    rechazarán con 400 partidas legítimas.
 
 ## Servidor de revisión
 
