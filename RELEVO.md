@@ -157,14 +157,20 @@ abajo; si hace falta el detalle con sus medidas, pedírselo.
     al 100%. Hay que pintar un mapa de bytes donde el rango más interno manda.
 26. **El panel tiene TRES navegaciones con los mismos `data-tab`** —barra lateral, barra móvil y
     hoja «Más»— y las que no tocan están ocultas: `page.click` se queda esperando a una invisible.
-27. **NUNCA jugar automatizado contra PRODUCCIÓN.** La marca anónima de 59 puntos del 14 sep que
-    hay en el podio la dejó un bot de auditoría jugando contra la carta real. Y el motivo no es
-    que falte un filtro: `record.php:37` **sí filtra robots por user-agent** y lo hace bien. Es
-    que `qa/lib/navegador.mjs:27` **pone a propósito el agente de un Chrome normal**, porque sin
-    eso el marcador contesta 204 y la prueba del récord no mide nada. O sea: **la batería está
-    construida para ser indistinguible de un visitante real**, y por eso apuntarla a producción
-    deja marcas de verdad. Se juega siempre contra una copia local de `2-subir`: sin
-    `estado.json` ni `record.json` el juego funciona y no envía nada.
+27. **NUNCA abrir el juego con un navegador automatizado contra PRODUCCIÓN.** La marca anónima de
+    59 puntos del 14 sep que hay en el podio la dejó una sesión de agente jugando contra la carta
+    real. Y **no es un fallo de `record.php`**: su filtro (línea 37) corta `headless`, `bot`,
+    `curl`, `python`… y lo hace bien. El problema es que **hay dos formas de pasarlo sin querer,
+    y las dos son normales aquí**:
+    - **Un navegador automatizado CON VENTANA** —Playwright MCP, el panel de vista previa de la
+      app— anuncia el user-agent de un Chrome corriente. Comprobado: `HeadlessChrome/152` lo
+      corta el filtro; `Chrome/152` **pasa igual que una persona**. Esto es lo que dejó la marca.
+    - **La batería de QA**, que en `qa/lib/navegador.mjs:27` pone el agente de un Chrome normal
+      **a propósito**, porque sin eso el marcador contesta 204 y la prueba del récord no mide nada.
+
+    O sea: **por diseño, un navegador conducido por un agente es indistinguible de un cliente del
+    bar.** Se juega siempre contra una copia local de `2-subir`: sin `estado.json` ni
+    `record.json` el juego funciona y no envía nada.
 28. **`RECORD_MAX` = 300** (`config.php:260`) y el techo perfecto medido del juego nuevo es
     **161**. Por encima de `RECORD_MAX` el servidor da por inexistente la partida. Si algún
     release sube la densidad o la puntuación, **recalcular el techo ANTES de publicar** o se
