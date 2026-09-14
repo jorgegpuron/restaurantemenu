@@ -460,19 +460,6 @@ export function huellaDocroot(raiz) {
   };
 }
 
-/* Qué ficheros difieren entre dos huellas de docroot, dicho con nombre y apellidos. */
-export function diferenciaDocroots(a, b) {
-  const claves = new Set([...Object.keys(a.porFichero || {}), ...Object.keys(b.porFichero || {})]);
-  const soloA = []; const soloB = []; const distintos = [];
-  for (const k of [...claves].sort()) {
-    const x = a.porFichero?.[k]; const y = b.porFichero?.[k];
-    if (x && !y) soloA.push(k);
-    else if (!x && y) soloB.push(k);
-    else if (x !== y) distintos.push(k);
-  }
-  return { soloA, soloB, distintos, iguales: !soloA.length && !soloB.length && !distintos.length };
-}
-
 /* Diferencias entre dos docroots, separando lo que tiene que ser igual de lo que puede cambiar.
  * `fixtura` es el veredicto: si no coincide, no se mide. `producto` es la evidencia: se enseña. */
 export function comparaDocroots(a, b) {

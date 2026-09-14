@@ -165,7 +165,3 @@ export function cerrarTodos() {
   abiertos.clear();
   return n;
 }
-
-export function servidoresVivos() {
-  return [...abiertos].filter((s) => s && s.parar);
-}

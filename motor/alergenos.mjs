@@ -263,4 +263,3 @@ function vistaPlana(mapaCanonico) {
 
 export const ICONO_POR_CLAVE = vistaPlana(ICONO);
 export const ETIQUETA_POR_CLAVE = vistaPlana(ETIQUETA);
-export const ETIQUETA_ES_POR_CLAVE = vistaPlana(ETIQUETA_ES);

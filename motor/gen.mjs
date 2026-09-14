@@ -612,14 +612,6 @@ const baseTexto = (v, donde) => {
   }
   return v[IDIOMA_BASE.code];
 };
-/* El mismo texto, como mapa codigo->valor para pintar data-<code> desde el dato. */
-const datoTexto = (v, donde) => {
-  baseTexto(v, donde);
-  return typeof v === 'string'
-    ? Object.fromEntries(CODIGOS_TXT.map((c) => [c, v]))
-    : v;
-};
-
 /* Las escalas declaradas (hoy: la de picante). La frase que las anuncia y las frases que
    sobran en pantalla son DATOS del cliente, no literales del motor. */
 const ESCALAS = {};
@@ -789,12 +781,9 @@ for (const g of GRUPOS_PLANOS) {
   }
 }
 
-/* Proyecciones de la taxonomia para el render. Mismas formas que consumia el codigo de
-   siempre, pero DERIVADAS de carta.json: nadie las escribe a mano ni las verifica un
-   importador — son la carta. */
-const GROUPS = TAXO.map((t) => [t.label, t.grupos.map((g) => [g.cat, g.sub])]);
-const TAB_ICON = Object.fromEntries(TAXO.map((t) => [t.label, t.icono]));
-const TAB_INTRO = Object.fromEntries(TAXO.filter((t) => t.intro).map((t) => [t.label, t.intro]));
+/* Proyeccion de la taxonomia para el render. Misma forma que consumia el codigo de siempre,
+   pero DERIVADA de carta.json: nadie la escribe a mano ni la verifica un importador — es la
+   carta. */
 const SPECIAL = new Set(TAXO.filter((t) => t.especial).map((t) => t.label));
 
 /* ---- las anclas del DOM (pills-*) ----
@@ -888,7 +877,6 @@ const ANCLAS = (() => {
  * ------------------------------------------------------------------ */
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const slug = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const money = (price) =>
   /^included$/i.test(price) ? 'Included' : MONEDA.simbolo + price;

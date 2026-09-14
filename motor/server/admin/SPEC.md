@@ -4304,7 +4304,7 @@ deja tocar el precio de ésos: nacer sin precio sería nacer sin poder ponérsel
 **El número es opcional y no se inventa.** El número de plato es identidad comercial del
 restaurante (decisión del 8 Sep 2026): o lo escribe, o el plato sale sin número. Si lo escribe,
 no puede chocar con ninguno de la carta, y entra en la baraja de su categoría como uno más —
-`renumerar_por_posicion()` lo reparte igual que a los demás, sin una línea de excepción.
+`numeros_de_carta()` lo reparte igual que a los demás, sin una línea de excepción.
 
 **Se borra, no se retira.** Retirar existe porque un plato de la carta compilada volvería en la
 siguiente compilación y lo único que se puede hacer con él es dejar de servirlo. Éste no existe
@@ -4338,9 +4338,10 @@ un sha1 en el navegador es asíncrono y no hacía falta pasar por ahí.
   filas. Un plato que se ve en la carta pero no se encuentra al buscarlo se lee como que no
   existe.
 - **`renumerar()` del runtime repartía número a las filas SIN número.** El panel ya se las
-  saltaba (`renumerar_por_posicion`) y el runtime no: una fila sin número pedía sitio en una
-  baraja que no la contaba y el reparto salía corrido de uno. Se ve en cuanto alguien da de
-  alta un plato sin número, que es una respuesta perfectamente válida.
+  saltaba (entonces en `renumerar_por_posicion`, función retirada el 14 Sep 2026 al quedar sin
+  llamadas: hoy lo hace `numeros_de_carta()`) y el runtime no: una fila sin número pedía sitio
+  en una baraja que no la contaba y el reparto salía corrido de uno. Se ve en cuanto alguien da
+  de alta un plato sin número, que es una respuesta perfectamente válida.
 
 Las columnas del grupo se reparten otra vez sólo donde ha entrado algo: dejar la fila nueva
 pegada al final de la primera columna dejaría el grupo cojo.

@@ -1538,36 +1538,6 @@ function comparar_numero_plato(string $a, string $b): int {
   if ($na !== $nb) return $na <=> $nb;
   return strcmp($a, $b);                 // 24a antes que 24b
 }
-/* La baraja de numeros de una categoria, ordenada. Sale de TODOS sus platos, tambien de los
-   retirados: es lo que permite compactar sin dejar huecos. */
-function numeros_de_categoria(array $platos): array {
-  $n = [];
-  foreach ($platos as $p) { $id = (string) ($p['id'] ?? ''); if ($id !== '') $n[] = $id; }
-  usort($n, 'comparar_numero_plato');
-  return $n;
-}
-
-/* Reparte esa baraja, de menor a mayor, entre los platos que SI se sirven, en el orden en que
-   se ven. Un plato retirado se queda sin numero.
- *
- * COMPACTAR SIN HUECOS, decision del propietario del 8 Sep 2026: retirar el 03 de una
- * categoria 01..05 deja 01, 02, 03, 04 — no 01, 02, 04, 05. La consecuencia, dicha: mientras
- * ese plato este retirado, el numero mas alto de la categoria deja de aparecer en la carta, y
- * vuelve en cuanto se devuelva el plato. Se eligio a la vista de eso, y es coherente con
- * repartir los numeros por posicion: si el numero es la posicion, un salto es un error. */
-function renumerar_por_posicion(array $platos, array $retirados, array $baraja): array {
-  if (count($baraja) < 2) return $platos;
-  $fuera = array_flip($retirados);
-  $i = 0;
-  foreach ($platos as $k => $p) {
-    if (isset($fuera[(string) ($p['key'] ?? '')])) { $platos[$k]['id'] = ''; continue; }
-    if ((string) ($p['id'] ?? '') === '') continue;
-    $platos[$k]['id'] = $baraja[$i] ?? '';
-    $i++;
-  }
-  return $platos;
-}
-
 /* Los numeros de TODA la carta, de una vez: dishId => numero.
  *
  * Decision del propietario del 9 Sep 2026, y deroga a la del 8: el numero deja de ser

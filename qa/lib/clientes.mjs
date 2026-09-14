@@ -8,7 +8,7 @@
  * El alta de clientes nuevos usa `nuevo-cliente.mjs` de verdad, nunca una imitación: si la
  * herramienta se rompe, la suite tiene que enterarse.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { CLIENTE, CARPETA_CLIENTE, NODE, carpetaTemporal } from './entorno.mjs';
@@ -291,19 +291,6 @@ export function traducirInterfaz(proyecto, codigo, nombre, impuesto, traduccione
   texto = texto.replace('export const ui = {\n};', `export const ui = {\n${filas}\n};`);
   writeFileSync(ruta, texto, 'utf8');
   return true;
-}
-
-export function tamanoDe(raiz) {
-  let bytes = 0;
-  const recorrer = (dir) => {
-    if (!existsSync(dir)) return;
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) recorrer(p); else if (e.isFile()) bytes += statSync(p).size;
-    }
-  };
-  recorrer(raiz);
-  return bytes;
 }
 
 /* ------------------------------------------------------------------ identidad del producto
