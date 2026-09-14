@@ -2020,10 +2020,11 @@ html:not(.js) .lang-menu{position:static;display:block}
    --surface/--offer como el resto de esta tarjeta: fondo en el acento LITERAL con su
    propia tinta encima. Fondo solido a proposito: se lee igual se monte sobre el rojo de
    la tarjeta o sobre la mascota.
-   La tinta es --badge-ink, el mismo token que el resto de badges con fondo --accent: hoy
-   es --accent-ink (la excepcion de fabrica que lo ponia claro se retiro el 14 sep 2026;
-   ver temas.mjs). La capsula del juego SI conserva su excepcion, con --rush-ink, que alli
-   cuelga de --metal. */
+   La tinta es --badge-ink y no --accent-ink: con el naranja de fabrica exacto Rush se pide
+   claro (NEUTRO), y --badge-ink ya lleva esa excepcion resuelta; con cualquier otro
+   colorPrincipal --badge-ink ES --accent-ink, asi que el contraste sigue calculandose
+   sobre este mismo fondo. La capsula del juego resuelve lo mismo con --rush-ink, que alli
+   cuelga de --metal. Ver temas.mjs. */
 /* Brillo que recorre el badge cada 3,6s (arranca con 1s de retraso, para no disparar a
    la vez que el pulso del boton). overflow:hidden en el propio badge recorta la barra
    al tamano de la pastilla, asi que el rotate(-3deg) del padre ya la deja inclinada
@@ -2279,8 +2280,9 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-flag{
   display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
-  /* Acento de marca en vez del rojo semantico, --badge-ink por texto: la tinta
-     calculada por contraste sobre el acento, sin excepcion. Ver temas.mjs. */
+  /* Acento de marca en vez del rojo semantico, --badge-ink por texto -- NEUTRO fijo
+     con el naranja de fabrica exacto (excepcion consciente), adaptativo (accent-ink)
+     con cualquier otro colorPrincipal. Ver temas.mjs. */
   background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
@@ -3130,8 +3132,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
-  /* --badge-ink: la tinta calculada por contraste sobre el acento -- misma regla que
-     todo badge con fondo --accent. */
+  /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
+     con cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
   background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
@@ -3189,11 +3191,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:1px 7px;
   border-radius:var(--r-pill);
   /* filled, unlike the muted number badge: eight rows out of 326 are meant to be seen.
-     Fondo en el acento LITERAL, --badge-ink por texto: la tinta que lee sobre el acento
-     (OSCURO con el naranja de fabrica) -- un solo criterio para todo badge/etiqueta con
-     fondo --accent, sin excepcion por tipo de etiqueta ni por color. La excepcion que
-     ponia NEUTRO sobre el naranja de fabrica (2.45:1) costo el 100 de Accesibilidad en
-     PageSpeed y se retiro el 14 sep 2026; ver temas.mjs. */
+     Fondo en el acento LITERAL, --badge-ink por texto: NEUTRO fijo solo con el naranja
+     de fabrica (excepcion consciente, 2.45:1: cuesta 3 puntos de Accesibilidad en
+     PageSpeed y el propietario los da por bien empleados, 14 sep 2026), adaptativo con
+     cualquier otro colorPrincipal -- un solo criterio para todo badge/etiqueta con fondo
+     --accent, sin excepcion por tipo de etiqueta. Ver temas.mjs. */
   background:var(--accent);
   color:var(--badge-ink);
   font-family:var(--title-font);
@@ -3214,13 +3216,20 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 /* Vegano / sin gluten: mismo .item-tag, color invertido -- fondo naranja lo lleva el
    destacado, este lleva el fondo oscuro con el texto en el naranja de marca. Un vistazo
-   basta para no confundirlos. Los dos comparten esta paleta; solo cambia el texto. */
+   basta para no confundirlos.
+   El fondo es --accent-ink y NO --badge-ink: --badge-ink lleva la excepcion de fabrica
+   (NEUTRO sobre el naranja) y con ella esta pastilla salia crema con texto naranja, 2.45:1,
+   y axe la marcaba en cada plato vegano. --accent-ink es la tinta que lee sobre el acento,
+   y el contraste es simetrico: si lee como texto encima del naranja, lee como fondo debajo
+   del naranja. Con el naranja de fabrica es OSCURO (7:1); con un principal oscuro seria
+   NEUTRO, y la pastilla saldria clara con el texto oscuro, igual de legible. El propietario
+   la quiere asi (14 sep 2026): estas dos pastillas fuera de la excepcion. */
 /* padding:0 6px, no el 1 7px de .item-tag: el borde de 1px se come exactamente el pixel
    que le sobra a cada lado (arriba/abajo y a los lados), asi que la caja mide igual que la
    de destacado -- 18px de alto, medido -- en vez de 20. auto-size no reparte por si solo el
    borde dentro del padding aunque box-sizing sea border-box: eso solo pasa con un ancho/alto
    explicito, y aqui lo decide el contenido. */
-.item-tag-diet{background:var(--badge-ink);color:var(--accent);border:1px solid var(--accent);padding:0 6px}
+.item-tag-diet{background:var(--accent-ink);color:var(--accent);border:1px solid var(--accent);padding:0 6px}
 /* Vegano y sin gluten pegados sin hueco cuando coinciden en el mismo plato: son la misma
    pastilla repetida, no dos badges distintos -- el gap:0 de .diet-marks no basta solo, el
    margin-right:8px que hereda de .item-tag manda por encima del gap del flex y hay que
@@ -3754,8 +3763,8 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
    contrario).
 
    El texto no lleva su propio override: --badge-ink, heredado de .item-tag, ya resuelve
-   lo mismo que este badge necesitaba (la tinta calculada sobre el acento) -- un solo
-   criterio centralizado, no uno por badge.
+   lo mismo que este badge necesitaba (NEUTRO con el naranja de fabrica, accent-ink en
+   cualquier otro caso) -- un solo criterio centralizado, no uno por badge.
 
    Quién se ve y quién no lo decide el runtime con el atributo hidden y con la clase
    has-offer, no una clase global en <html>. Antes iba al revés y fue un error caro: cuando
@@ -3904,19 +3913,16 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 
 
 .has-offer{display:block;text-align:right}
-/* Pastilla: fondo --accent, texto --accent-ink. Entre el 4 y el 14 sep 2026 fue el acento
-   LITERAL como texto plano (2.45:1 sobre la tarjeta, excepcion pedida expresamente), y esa
-   excepcion, junto con la de los badges, bajo la Accesibilidad de PageSpeed de 100 a 97.
-   Retirada el 14 sep a peticion del propietario para recuperar el 100: la regla de oro de
-   temas.mjs no permite oscurecer el acento para que sirva de texto, asi que el naranja
-   vuelve a ser FONDO y el texto va en la tinta calculada. width:fit-content +
-   margin-left:auto en vez de inline-block, para no arriesgar que el precio y el tachado de
-   abajo (price-was, hermano siguiente) queden en la misma linea. */
-.has-offer .price-now{
-  display:block;width:fit-content;margin-left:auto;
-  padding:2px 8px;border-radius:var(--r-pill);
-  background:var(--accent);color:var(--accent-ink);
-}
+/* Ajuste posterior a la Fase 8, pedido expreso y explicito sobre la version anterior de
+   esta regla (que lo ponia en pastilla: fondo --accent, texto --accent-ink). El precio
+   rebajado es el acento LITERAL como texto plano, sin fondo ni capsula -- 2.45:1 sobre la
+   tarjeta, por debajo de 4.5, una excepcion consciente y puntual de este elemento, no un
+   cambio en como se valida el Primario en general. El 14 sep 2026 se volvio a la pastilla
+   durante unas horas para recuperar el 100 de Accesibilidad en PageSpeed, y el propietario
+   pidio el texto plano de vuelta con la cifra delante: la marca vale mas que esos puntos.
+   var(--accent) y no un hex fijo: tiene que seguir al Primario si alguien lo cambia desde
+   Admin -> Marca, igual que cualquier otro consumidor del acento. */
+.has-offer .price-now{display:block;color:var(--accent)}
 .has-offer .price-was{
   display:block;
   color:var(--muted);
@@ -4043,9 +4049,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      coincidir con el naranja vivo del resto de acentos, no con el solido. Sin filete:
      con el fondo ya en --accent no hace falta un borde del mismo color para separarse
      del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo.
-     --badge-ink por texto/icono: la tinta calculada sobre el acento, como en todo badge
-     con fondo --accent (la excepcion de fabrica que lo ponia en NEUTRO, 2.45:1, se retiro
-     el 14 sep 2026 para recuperar el 100 de Accesibilidad; ver temas.mjs).
+     Ajuste posterior, literal y expreso sobre el anterior: --badge-ink por texto/icono
+     -- NEUTRO fijo con el naranja de fabrica exacto (excepcion consciente, 2.45:1,
+     pedida sabiendo la cifra), adaptativo (accent-ink) con cualquier otro colorPrincipal.
      El icono hereda de aqui via stroke="currentColor", no hace falta tocarlo aparte. */
   background:var(--accent);
   color:var(--badge-ink);
@@ -7197,10 +7203,10 @@ ${DATOS_ACTIVO ? `
       var c = mezcla(hex, neutro, t / 100);
       if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
     }
-    /* --badge-ink: accent-ink, sin excepcion -- misma regla que motor/temas.mjs::derivar()
-       (la excepcion de fabrica se retiro el 14 sep 2026). Token aparte para no tocar a sus
-       consumidores. */
-    var badgeInk = accentInk;
+    /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica exacto (excepcion
+       consciente, 2.45:1), accent-ink en cualquier otro caso -- misma regla que
+       motor/temas.mjs::derivar(). */
+    var badgeInk = hex.toUpperCase() === ${JSON.stringify(PRINCIPAL_DEFECTO)}.toUpperCase() ? neutro : accentInk;
     return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal, badgeInk: badgeInk } : null;
   }
   function aplicarMarca(marca) {

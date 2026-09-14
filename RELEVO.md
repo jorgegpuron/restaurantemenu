@@ -5,26 +5,22 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, noche, CERRADA** · `main` = `origin/main` = **`3dcde48`**,
-> árbol limpio salvo `.ai/`. `motor.lock` refirmado (versión 1.1.8). **Producción sirve
-> `1789413900535`**, desplegado hoy con `DESPLIEGUE_REAL` puesta a `true` sólo durante el run
-> `34886728431` y **devuelta a `false` (leída de GitHub)**. Ese despliegue publicó también lo que
-> estaba retenido: el juego con combo (`0448080`), la limpieza de símbolos y el aviso de alérgenos.
-> La rama `fix/pagespeed-100` está fusionada y es borrable.
+> Última actualización: **14 sep 2026, noche.** `main` = `origin/main` = `57d51c7`. Producción
+> sirve `1789414949096` (badges con texto OSCURO, precio rebajado en pastilla). **Hay una rama
+> `fix/marca-badges-claros` con UN commit sin integrar**, preparada por decisión del propietario:
+> los badges vuelven a texto crema sobre el naranja literal (excepción de fábrica de
+> `--badge-ink` repuesta en las cuatro capas), el precio rebajado vuelve a texto plano naranja,
+> y las pastillas de dieta se quedan oscuras con naranja encima (`background: var(--accent-ink)`,
+> ya no cuelgan de `--badge-ink`). Coste asumido a sabiendas: Accesibilidad 97 en PageSpeed;
+> Buenas prácticas y SEO siguen en 100. `motor.lock` refirmado; `fast` 37, `smoke` 17, contrato
+> de tintas en verde; réplica local: 97/100/100. **Falta la orden de integrar y desplegar.**
 >
-> **PageSpeed sobre producción con el build nuevo:** móvil 96 / **100 / 100 / 100**, escritorio
-> 98 / **100 / 100 / 100** (Rendimiento / Accesibilidad / Buenas prácticas / SEO). Objetivo cumplido.
->
-> **`cc6bf42`, desplegado como `1789414949096`:** `server/.htaccess` con el HTML a 300 s de borde
-> y `estado.json` a 20 s de borde (antes `no-store`); la Cache Rule de Cloudflare ya no excluye
-> `estado.json`. Verificado con `curl -sI` desde Europa: `estado.json` pasa de 0,88 s (EXPIRED) a
-> 0,21 s (HIT, con `Age`); `record.json` y `version.json` siguen DYNAMIC. **PageSpeed móvil sigue
-> oscilando (89, 87, 89, 94 en cuatro pasadas seguidas)**: Lighthouse mide desde un centro de
-> datos de Google en EE. UU., cuyo PoP de Cloudflare está frío para un TTL de 20 s, y ahí
-> `estado.json` sigue viniendo del origen (0,7 a 2,6 s medidos en la cascada). El LCP es siempre
-> la foto de portada, y su retraso es exactamente lo que tarda `estado.json`. La mejora real es
-> para los comensales del mismo PoP en la misma franja; la de PageSpeed sólo llegará cuando la
-> portada deje de depender de `estado.json` (ver SPEC, última entrada: «portada estática»).
+> Antes, hoy: `3dcde48` (los tres 100 y el CLS del runtime, desplegado como `1789413900535`) y
+> `cc6bf42` (`estado.json` a 20 s de borde y HTML a 300 s, desplegado como `1789414949096`, con
+> la Cache Rule de Cloudflare cambiada por el propietario). Medido: la caché del borde ayuda a
+> los comensales (0,88 s → 0,21 s desde Europa) y NO estabiliza PageSpeed móvil (89, 87, 89, 94:
+> Lighthouse mide desde EE. UU. con el PoP frío). Lo que lo estabilizaría es la «portada
+> estática» (última entrada de `SPEC.md` sobre caché).
 >
 > **Después:** el podio del juego (ver abajo: se publicó el juego nuevo SIN vaciarlo antes;
 > hay que ponerlo a cero desde el panel cuanto antes), el nombre de Guaza en la carta de Tinge, y
@@ -47,8 +43,8 @@ las medidas y las razones; esto es el resumen:
   6,97:1; la pastilla de dieta vuelve a fondo oscuro con naranja encima), y el precio rebajado
   vuelve a la pastilla de antes del 4 sep. Cambiado en las cuatro capas (temas.mjs, runtime de
   gen.mjs, PHP del panel, contrato de tintas). **La excepción de «Rush» en el juego se queda.**
-  **Es un cambio visual que contradice la petición del 4 sep, aceptado hoy por el propietario
-  para recuperar el 100: no se puede tener las dos cosas.**
+  **Duró unas horas: el propietario lo vio en producción y pidió los badges claros de vuelta
+  (rama `fix/marca-badges-claros`, arriba). Prefiere la marca a esos tres puntos.**
 - **Buenas prácticas 96 → 100 (móvil).** La bandera del círculo que pliega la barra se
   estiraba de 4:3 a un cuadrado: `object-fit:cover`.
 - **SEO:** ya estaba en 100 en producción. Nada que hacer.

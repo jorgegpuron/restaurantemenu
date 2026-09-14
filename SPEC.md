@@ -7692,3 +7692,30 @@ esperar a `estado.json`; el runtime la cambiaría por la real si difieren. Con e
 pide en el primer kilobyte del HTML y el LCP baja a FCP más la descarga: móvil estable en
 96-98 y el CLS de la banda deja de depender del estado. Es un cambio de motor (panel, gen,
 `.htaccess` para el alias con caché corta o versionada) y tiene su propio diseño.
+
+## La marca vale más que tres puntos: los badges vuelven a claro (14 Sep 2026, noche)
+
+El propietario vio en producción los badges con texto oscuro sobre el naranja y no lo aceptó
+como marca. Se le enseñaron las cinco combinaciones con su contraste medido y lo que hace cada
+una con PageSpeed: texto crema o blanco sobre `#FF7517` (2,45:1 y 2,69:1, Accesibilidad 97),
+texto oscuro (6,97:1, 100), y texto claro sobre un naranja oscurecido sólo para los badges
+(`#BF5811` / `#B55310`, 4,55:1, 100). **Eligió crema sobre el naranja literal y asumió los
+tres puntos**: no sacrifica la marca por Accesibilidad 97.
+
+Lo que cambia respecto a la entrada «PageSpeed: los tres 100…»:
+
+- **`--badge-ink` recupera la excepción de fábrica** (NEUTRO fijo con `#FF7517`, `--accent-ink`
+  con cualquier otro color), en las cuatro capas. Afecta a los badges rellenos, la etiqueta de
+  la ficha, el aviso, el botón «Buscar platos» y la cápsula «Rush» de la tarjeta del juego.
+- **El precio rebajado vuelve a ser texto plano en el acento**, sin pastilla, como el 4 sep.
+- **Las pastillas de dieta (Vegano, Sin gluten) NO vuelven atrás:** el propietario las quiere
+  como quedaron, fondo oscuro con el naranja encima. Dejan de colgar de `--badge-ink` y pasan a
+  `background: var(--accent-ink)`: la tinta que lee sobre el acento lee igual como fondo
+  debajo del acento (el contraste es simétrico), así que con el naranja de fábrica son
+  OSCURO + naranja (7:1) y con un principal oscuro serían NEUTRO + ese color, legibles en los
+  dos casos. El contrato de tintas lo comprueba color a color.
+- La bandera recortada, la barra pre-plegada, la reserva de la banda y la caché del borde se
+  quedan: no tienen que ver con la marca.
+
+Medido en la réplica: Accesibilidad **97**, Buenas prácticas **100**, SEO 100. Es el techo con
+esta decisión, y queda escrito para que nadie lo vuelva a «arreglar».

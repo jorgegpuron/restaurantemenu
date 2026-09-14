@@ -291,25 +291,30 @@ export function contratoTintas({ verboso = false, exigirPHP = true } = {}) {
     }
 
     /* 2c. las reglas del contrato, color a color.
-       --badge-ink ya no tiene excepcion de fabrica (retirada el 14 sep 2026: costaba el 100
-       de Accesibilidad de la carta en PageSpeed). Es --accent-ink para TODO color, y llega
-       a 4.5:1 sobre el acento tambien con el naranja de fabrica. La unica excepcion que
-       queda es la de Rush, en el juego. */
-    comprobar(igual(t['--badge-ink'], t['--accent-ink']), 'badge-ink = accent-ink (sin excepcion, tampoco de fabrica)',
-      t['--badge-ink'] + ' vs ' + t['--accent-ink']);
-    comprobar(contraste(t['--badge-ink'], hex) >= UMBRAL, 'badge-ink llega a 4.5:1 sobre el acento',
-      contraste(t['--badge-ink'], hex).toFixed(4) + ':1');
+       La excepcion de fabrica de --badge-ink (NEUTRO sobre el naranja, 2.45:1) es una
+       decision del propietario, reafirmada el 14 sep 2026 sabiendo que cuesta 3 puntos de
+       Accesibilidad en PageSpeed. Las pastillas de dieta ya no cuelgan de --badge-ink. */
     if (esFabrica) {
+      comprobar(igual(t['--badge-ink'], NEUTRO), 'excepcion de fabrica: badge-ink = NEUTRO',
+        t['--badge-ink'] + ' a ' + contraste(t['--badge-ink'], hex).toFixed(4) + ':1, excepcion visual consciente');
       comprobar(igual(t['--rush-ink'], NEUTRO), 'excepcion de fabrica: rush-ink = NEUTRO',
         t['--rush-ink'] + ' a ' + contraste(t['--rush-ink'], t['--metal']).toFixed(4) + ':1 sobre el metal');
       comprobar(igual(t['--accent-ink'], OSCURO), 'la excepcion no contamina accent-ink', t['--accent-ink']);
       comprobar(igual(t['--metal-ink'], OSCURO), 'la excepcion no contamina metal-ink', t['--metal-ink']);
     } else {
+      comprobar(igual(t['--badge-ink'], t['--accent-ink']), 'badge-ink = accent-ink (sin excepcion)',
+        t['--badge-ink'] + ' vs ' + t['--accent-ink']);
       comprobar(igual(t['--rush-ink'], t['--metal-ink']), 'rush-ink = metal-ink (sin excepcion)',
         t['--rush-ink'] + ' vs ' + t['--metal-ink']);
+      comprobar(contraste(t['--badge-ink'], hex) >= UMBRAL, 'badge-ink llega a 4.5:1 sobre el acento',
+        contraste(t['--badge-ink'], hex).toFixed(4) + ':1');
       comprobar(contraste(t['--rush-ink'], t['--metal']) >= UMBRAL, 'rush-ink llega a 4.5:1 sobre el metal',
         contraste(t['--rush-ink'], t['--metal']).toFixed(4) + ':1');
     }
+    /* La pastilla de dieta: texto --accent sobre fondo --accent-ink. El contraste es
+       simetrico, asi que si accent-ink lee sobre el acento, el acento lee sobre accent-ink. */
+    comprobar(contraste(hex, t['--accent-ink']) >= UMBRAL, 'la pastilla de dieta (acento sobre accent-ink) llega a 4.5:1',
+      contraste(hex, t['--accent-ink']).toFixed(4) + ':1');
     comprobar(contraste(t['--accent-ink'], hex) >= UMBRAL, 'accent-ink llega a 4.5:1 sobre el acento',
       contraste(t['--accent-ink'], hex).toFixed(4) + ':1');
     comprobar(contraste(t['--metal-ink'], t['--metal']) >= UMBRAL, 'metal-ink llega a 4.5:1 sobre el metal',
