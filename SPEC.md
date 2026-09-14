@@ -7729,3 +7729,21 @@ editados desde el panel, y como la cámara la añade `render()` una sola vez al 
 nueva caía detrás de ella. Ahora la caja se inserta delante de la cámara si existe: el orden
 del build —nombre, alérgenos, cámara— se respeta en todas las pasadas. Comprobado en el
 servidor de revisión durante dos pasadas de `render()`.
+
+**Y todo a la altura del badge (14 Sep 2026, noche).** El propietario marcó en una captura de
+escritorio que el número, los alérgenos y la cámara no caían en la línea de los badges. Medido
+con el centro del badge como referencia (y el del nombre en el móvil, donde los badges van en
+la línea de arriba), en producción y en local, idénticos:
+
+| Pieza | Móvil 412 | Tablet 768 | Escritorio 1280 |
+|---|---|---|---|
+| Número (`.item-id`, escritorio y tablet) | — | −3 px | −3 px |
+| Alérgenos | −2,5 px | −1 px | −1 px |
+| Cámara | +1,3 px | +1,8 px | +1,8 px |
+
+Negativo es «más alto». Ajuste, sólo `vertical-align` y una interlínea: `.alergeno-marks` de
+1px a 0 (−1.5px en el móvil), `.has-photo` de `middle` a −1px (−2.5px en el móvil), y
+`.item-id` de `line-height: 24px` a 32 —la altura real de la primera línea del h3, que la
+cámara de 32 estira—. Después: 0 en todas las casillas, en los tres anchos. El alto de la fila
+no cambia en el móvil (91,8) y baja 0,8 px en escritorio y tablet (69,6 → 68,8) porque la
+cámara sobresale menos de la línea. Verificado con Playwright, no a ojo.

@@ -2179,7 +2179,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    margen y alineación son los de siempre. */
 .has-photo{
   display:inline-flex;align-items:center;justify-content:center;
-  width:32px;height:32px;margin-left:10px;vertical-align:middle;flex:0 0 auto;
+  width:32px;height:32px;margin-left:10px;flex:0 0 auto;
+  /* -1px y no middle: middle dejaba el circulo 1,8 px bajo respecto al centro del badge en
+     escritorio y tablet (1,3 en el movil), medido el 14 sep 2026. Con -1px (y -2.5px en el
+     movil, ver el media query de item-tag) el centro del circulo cae en el del badge. De paso
+     el circulo de 32 sobresale menos de la linea de 30: el h3 pasa de 32,8 a 32 de alto. */
+  vertical-align:-1px;
   border-radius:50%;
   border:1px solid var(--accent);
   background:transparent;
@@ -2898,7 +2903,12 @@ html:not(.js) .lang-menu{position:static;display:block}
    en la misma linea y a la misma altura optica-- pero en el gris del texto secundario y no en
    el acento: la marca de dieta es una recomendacion de la casa y esto es una advertencia, y no
    conviene que compitan por la mirada. No escalan con las 3 A, igual que el resto de iconos. */
-.alergeno-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:1px}
+/* vertical-align:0 y no 1px: medido el 14 sep 2026 con el centro del badge como referencia,
+   con 1px los iconos quedaban 1 px altos en escritorio y tablet y 2,5 px altos en el movil.
+   Con 0 (y -1.5px en el movil, ver el media query de item-tag) el centro del icono coincide
+   con el del badge y con el del nombre en los tres anchos. Es la misma medida que la camara
+   (.has-photo) de al lado: las dos cosas van en la misma linea y se miden juntas. */
+.alergeno-marks{display:inline-flex;align-items:center;gap:5px;margin-left:var(--s1);vertical-align:0}
 .alergeno-marks .alergeno{display:inline-flex;color:var(--muted)}
 .alergeno-marks .alergeno svg{width:14px;height:14px}
 
@@ -3167,7 +3177,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-family:var(--title-font);
   font-size:14px;
   font-weight:600;
-  line-height:24px;
+  /* 32 y no 24: el numero va en su columna, a la izquierda del h3, y su centro tiene que caer
+     en el del badge y el nombre de la primera linea del h3, que mide 32 (linea de 30 mas lo
+     que sobresale la camara). Con 24 el numero quedaba 3 px alto, medido el 14 sep 2026. No
+     cambia el alto de la fila: la manda el h3. */
+  line-height:32px;
   text-align:right;
 }
 /* the sauce / ingredient mark, sitting in the same slot the dish number would use */
@@ -4455,6 +4469,10 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .item-badge{display:inline}
   .item-tag{vertical-align:1px}
   .diet-marks{vertical-align:1px}
+  /* Alergenos y camara van en la linea del NOMBRE (los badges, en la de arriba): centrados
+     con el nombre, medido a 412. Ver los comentarios de .alergeno-marks y .has-photo. */
+  .alergeno-marks{vertical-align:-1.5px}
+  .has-photo{vertical-align:-2.5px}
   /* That line pushes the dish name down, so the price follows it rather than sitting up
      beside the number. The row carries the class from the generator instead of :has(),
      so alignment does not depend on selector support.
