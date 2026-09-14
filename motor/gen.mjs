@@ -172,7 +172,11 @@ for (const l of LANGS) {
 
 if (!CLIENTE.alergenos || !Array.isArray(CLIENTE.alergenos.leyenda)) {
   abortar("cliente.mjs: falta `alergenos.leyenda` (la seleccion de iconos del aviso del pie; [] es legal).",
-    "elige las claves del catalogo del motor: wheat, milk, nut, fish, egg, sesame, mustard, sulphites");
+    'elige entre los CATORCE del catalogo del motor, que son los catorce de la UE: '
+    + 'cereals_gluten, crustaceans, eggs, fish, peanuts, soybeans, milk, nuts, celery, '
+    + 'mustard, sesame, sulphites, lupin, molluscs. '
+    + 'Los alias antiguos (wheat, nut, egg) y los castellanos (trigo, leche, huevo...) '
+    + 'se siguen aceptando por compatibilidad, pero escribe los de arriba');
 }
 /* enOrigen dice si ESTE restaurante tiene el dato de alergenos, no si lo ha cargado ya:
    'si' (lo declara plato a plato), 'no' (no se ofrece este dato) o 'desconocido' (todavia
