@@ -560,6 +560,8 @@ export const ui = {
   'On offer': 'En oferta',
   'Takeaway': 'Para llevar',
   'Goes well with': 'Combina con',
+  'Previous dish': 'Plato anterior',
+  'Next dish': 'Plato siguiente',
   '{n} dishes': '{n} platos',
   '{n} dish': '{n} plato',
   'Nothing matches. Try another word.': 'Nada con eso. Prueba con otra palabra.',

@@ -4,7 +4,7 @@
  * propia página de error. Un 404 silencioso es exactamente el defecto E1, que vivió meses sin que
  * nadie lo viera porque nadie miraba la pestaña de red.
  */
-import { existsSync, renameSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readdirSync, renameSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 
 export async function pruebasCarta(informe, { pagina, servidor, docroot, etiqueta = '' }) {
@@ -314,6 +314,144 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
     }
   } else {
     informe.blocked('CAR-17', 'foto de plato rota' + suf, 'no existe assets/platos');
+  }
+
+  /* ---------------------------------------------------------------- la ficha, como carrusel
+   * Pulsar un nombre en «Combina con» ya no cierra la ficha ni salta a la fila: la ficha PASA a
+   * ese plato, y del plato abierto a sus compañeros se puede ir con el dedo, con las flechas o
+   * con los puntos. Aquí se contrata lo que se ve, no cómo está hecho: cuántas diapositivas
+   * hay, cuál está activa, qué dice la línea de «Combina con» y cuánto mide la ventana.
+   *
+   * El gesto del dedo no se prueba aquí —esta página es de escritorio y sin toque— sino en el
+   * banco de gestos, con toque real. Lo que sí se prueba aquí son las flechas, que son el
+   * mando equivalente en escritorio.
+   *
+   * Los emparejamientos se siembran en estado.json y se devuelve el fichero como estaba: esta
+   * batería no puede dejar la carta con platos emparejados que nadie pidió. */
+  informe.seccion('la ficha, con su pista de platos' + suf);
+  const estadoCarrusel = existsSync(estadoPath) ? readFileSync(estadoPath, 'utf8') : null;
+  const fotosDePlato = existsSync(path.join(docroot, 'assets', 'platos'))
+    ? readdirSync(path.join(docroot, 'assets', 'platos')).filter((f) => /\.(webp|png|jpg)$/.test(f))
+    : [];
+  const sinPista = (motivo) => {
+    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32']) {
+      informe.blocked(id, 'la pista de la ficha' + suf, motivo);
+    }
+  };
+  if (!estadoCarrusel) {
+    sinPista('el docroot no tenia estado.json');
+  } else if (!fotosDePlato.length) {
+    sinPista('no hay ninguna foto de plato publicada, y sin foto la ficha no abre');
+  } else {
+    await pagina.goto(url + '/', { waitUntil: 'domcontentloaded' });
+    await pagina.waitForTimeout(900);
+    const platos = await pagina.evaluate(() => [...document.querySelectorAll('.single-menu-items[data-key]')]
+      .map((r) => ({ k: r.dataset.key, nombre: ((r.querySelector('.dish-name') || {}).textContent || '').trim() }))
+      .filter((p) => p.k && p.nombre));
+    if (platos.length < 4) {
+      sinPista(`la carta solo tiene ${platos.length} platos con nombre`);
+    } else {
+      /* Dos con foto y uno sin ella: el tercero prueba que una diapositiva sin foto se pinta
+         sobre papel y que la ventana encoge hasta su alto en vez de dejar el hueco del 4:5. */
+      const est = JSON.parse(estadoCarrusel);
+      est.fotos = Object.assign({}, est.fotos);
+      est.fotos[platos[0].k] = fotosDePlato[0];
+      est.fotos[platos[1].k] = fotosDePlato[0];
+      delete est.fotos[platos[2].k];
+      est.combina = Object.assign({}, est.combina);
+      est.combina[platos[0].k] = [platos[1].k, platos[2].k];
+      delete est.combina[platos[3].k];
+      writeFileSync(estadoPath, JSON.stringify(est));
+
+      pagina.limpiarRegistro();
+      await pagina.goto(url + '/', { waitUntil: 'domcontentloaded' });
+      await pagina.waitForTimeout(1100);
+
+      const mirar = () => pagina.evaluate(() => {
+        const f = document.getElementById('dish-sheet');
+        const tira = document.getElementById('dsheet-tira');
+        const via = document.getElementById('dsheet-via');
+        const cartas = [...tira.children];
+        const activa = cartas.find((c) => c.classList.contains('es-activa')) || null;
+        const flechas = [...f.querySelectorAll('.dsheet-flecha')];
+        return {
+          abierta: !f.hidden,
+          diapositivas: cartas.length,
+          activa: cartas.indexOf(activa),
+          nombre: activa ? activa.querySelector('.dsheet-nombre').textContent.trim() : '',
+          combina: activa ? [...activa.querySelectorAll('.dsheet-ir')].map((b) => b.textContent.trim()) : [],
+          puntos: document.getElementById('dsheet-puntos').children.length,
+          conPuntos: !document.getElementById('dsheet-puntos').hidden,
+          flechasVisibles: flechas.filter((x) => !x.hidden).length,
+          izqApagada: flechas.length ? flechas[0].disabled : null,
+          derApagada: flechas.length ? flechas[1].disabled : null,
+          inertes: cartas.filter((c) => c.hasAttribute('inert')).length,
+          rotulos: f.querySelectorAll('#dsheet-nombre').length,
+          altoVia: Math.round(via.getBoundingClientRect().height),
+          altoActiva: activa ? Math.round(activa.getBoundingClientRect().height) : 0,
+          fotosPedidas: cartas.filter((c) => !!c.querySelector('.dsheet-foto img').getAttribute('src')).length,
+        };
+      });
+
+      await pagina.evaluate((k) => document.querySelector(`.single-menu-items[data-key="${k}"]`).click(), platos[0].k);
+      await pagina.waitForTimeout(900);
+      const abierta = await mirar();
+
+      /* El síntoma que pidió el propietario: la línea decía «#141». Un número es la POSICIÓN
+         del plato en la carta y cambia sola; además obliga a ir a buscarlo. */
+      informe.comprueba('CAR-24', 'Combina con nombra a los platos, nunca con su numero' + suf,
+        abierta.combina.length === 2
+        && abierta.combina.every((t) => t.length > 1 && t.charAt(0) !== '#')
+        && abierta.combina[0] === platos[1].nombre,
+        JSON.stringify(abierta.combina));
+      informe.comprueba('CAR-25', 'la pista monta una diapositiva por plato, con sus puntos' + suf,
+        abierta.abierta && abierta.diapositivas === 3 && abierta.puntos === 3 && abierta.conPuntos
+        && abierta.activa === 0, JSON.stringify(abierta));
+      informe.comprueba('CAR-29', 'las fotos son perezosas: al abrir solo se piden la del plato y la de su vecina' + suf,
+        abierta.fotosPedidas <= 2, `${abierta.fotosPedidas} de ${abierta.diapositivas}`);
+
+      /* Pulsar un nombre: la ficha se queda abierta y enseña ese plato. Antes cerraba la ficha
+         y saltaba a la fila de la lista. */
+      await pagina.evaluate(() => document.querySelectorAll('.dsheet-carta.es-activa .dsheet-ir')[1].click());
+      await pagina.waitForTimeout(800);
+      const saltado = await mirar();
+      informe.comprueba('CAR-26', 'pulsar un companero lleva la ficha a ese plato sin cerrarla' + suf,
+        saltado.abierta && saltado.activa === 2 && saltado.nombre.indexOf(platos[2].nombre) === 0,
+        JSON.stringify({ activa: saltado.activa, nombre: saltado.nombre }));
+      informe.comprueba('CAR-27', 'solo la diapositiva que se ve esta activa: las demas inertes y un unico rotulo' + suf,
+        saltado.inertes === saltado.diapositivas - 1 && saltado.rotulos === 1,
+        JSON.stringify({ inertes: saltado.inertes, rotulos: saltado.rotulos }));
+      /* El tercer plato no tiene foto: su diapositiva es sólo texto y la ventana tiene que
+         encoger hasta ahí. Sin esto mandaría la más alta y la ficha se quedaría medio vacía. */
+      informe.comprueba('CAR-28', 'la ventana mide lo que mide el plato que se ve, no el mas alto de la pista' + suf,
+        saltado.altoVia === saltado.altoActiva && saltado.altoVia < abierta.altoVia,
+        JSON.stringify({ conFoto: abierta.altoVia, sinFoto: saltado.altoVia }));
+
+      /* Las flechas son el mando de escritorio, y se apagan en los extremos. */
+      await pagina.evaluate(() => document.querySelector('.dsheet-flecha.es-izq').click());
+      await pagina.waitForTimeout(700);
+      const atras = await mirar();
+      informe.comprueba('CAR-30', 'las flechas recorren la pista y se apagan en los extremos' + suf,
+        atras.flechasVisibles === 2 && atras.activa === 1 && !atras.izqApagada && !atras.derApagada
+        && abierta.izqApagada === true,
+        JSON.stringify({ activa: atras.activa, izq: atras.izqApagada, der: atras.derApagada, alPrincipio: abierta.izqApagada }));
+
+      await pagina.keyboard.press('Escape');
+      await pagina.waitForTimeout(500);
+
+      /* Un plato SIN companeros: ni puntos ni flechas. La ficha de siempre, sin un pixel de mas. */
+      await pagina.evaluate((k) => document.querySelector(`.single-menu-items[data-key="${k}"]`).click(), platos[1].k);
+      await pagina.waitForTimeout(800);
+      const solo = await mirar();
+      informe.comprueba('CAR-31', 'un plato sin companeros abre la ficha de siempre: una diapositiva, sin puntos ni flechas' + suf,
+        solo.abierta && solo.diapositivas === 1 && !solo.conPuntos && solo.flechasVisibles === 0,
+        JSON.stringify(solo));
+      informe.comprueba('CAR-32', 'ni un error de consola en todo el recorrido de la ficha' + suf,
+        pagina.registro.consola.length === 0, pagina.registro.consola.slice(0, 3).join(' | '));
+
+      await pagina.keyboard.press('Escape');
+      writeFileSync(estadoPath, estadoCarrusel);
+    }
   }
 
   informe.seccion('endpoints publicos y fugas' + suf);

@@ -1020,9 +1020,14 @@ const RUNTIME_STRINGS = HIGHLIGHTS.concat([
      un vocabulario EXCLUYENTE —un plato lleva una etiqueta y sólo una— y esto se suma a la que
      tenga. Vive en su propia capa de estado y en su propia ranura de la fila. */
   'Takeaway',
-  /* «Combina con». El texto se compone en JS con los números de los destinos, así que no
+  /* «Combina con». El texto se compone en JS con los nombres de los destinos, así que no
      puede vivir en el HTML: la línea se rehace cada vez que se abre una ficha. */
   'Goes well with',
+  /* Los dos mandos del carrusel de la ficha. Sólo se pintan cuando el plato tiene con qué
+     combinar, pero las etiquetas tienen que existir siempre: el rótulo de un botón no puede
+     depender de los datos del restaurante. */
+  'Previous dish',
+  'Next dish',
 ]);
 
 /* ---- vocabulario cerrado (HIGHLIGHTS/RUNTIME_STRINGS), IDIOMA BASE incluido ----
@@ -2182,7 +2187,15 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet:not(.is-open){pointer-events:none}
 .dsheet-panel{
   position:absolute;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;
   max-height:88dvh;overflow:hidden;overscroll-behavior:contain;
+  /* Los dos gestos de la ficha —abajo para cerrar, a los lados para pasar de plato— los lleva
+     el JavaScript, y para eso el navegador tiene que no quedárselos. Con touch-action:pan-y en
+     la pista, el primer movimiento vertical se lo llevaba el desplazamiento nativo, el puntero
+     se cancelaba y cerrar arrastrando dejaba de funcionar. Medido con toque real: con pan-y la
+     ficha no se cerraba; con none, sí. El panel no tiene nada que desplazar (overflow:hidden) y
+     el fondo ya está bloqueado mientras la ficha está abierta. */
+  touch-action:none;
   background:var(--surface);
   /* La mitad del radio de las hojas: 10.5px. Va calculado sobre --r-sheet y no escrito a
      mano para que siga siendo la mitad si algún día cambia el radio de la casa. No se toca
@@ -2342,6 +2355,75 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 .dsheet-combina .dsheet-ir:hover,
 .dsheet-combina .dsheet-ir:focus-visible{text-decoration:underline}
+/* ---- la pista de platos ----
+   La ventana recorta y la tira se mueve. La ALTURA la lleva la ventana y se pone desde el
+   JavaScript con la del plato que se está viendo: las diapositivas no miden lo mismo —una con
+   foto es un 4:5 entero, una sin foto es sólo su texto— y dejar que mande la más alta llenaría
+   la ficha de vacío cada vez que se pasa a un plato sin foto. Se anima, así que el cambio de
+   alto se ve como parte del movimiento y no como un salto. */
+.dsheet-via{
+  position:relative;
+  flex:0 0 auto;width:100%;min-width:0;overflow:hidden;
+  transition:height var(--t-sheet-in) var(--ease-out);
+}
+.dsheet-tira{
+  display:flex;align-items:flex-start;width:100%;
+  transition:transform var(--t-sheet-in) var(--ease-out);
+}
+/* flex:0 0 100% sobre el ancho de la TIRA, que es el de la ventana: cada plato ocupa la ficha
+   entera y los demás quedan fuera del recorte. min-width:0 para que un nombre muy largo se
+   estreche en vez de ensanchar su diapositiva y descuadrar la cuenta del desplazamiento. */
+.dsheet-carta{position:relative;flex:0 0 100%;max-width:100%;min-width:0}
+/* Mientras se arrastra no hay transición: la tira tiene que ir pegada al dedo. */
+.dsheet-panel.esta-arrastrando .dsheet-tira,
+.dsheet-panel.esta-arrastrando .dsheet-via{transition:none}
+.dsheet-panel.esta-arrastrando{user-select:none;-webkit-user-select:none}
+/* ---- los puntos ----
+   Debajo de la tarjeta y en el flujo, no encima de la foto: sobre el degradado se cruzarían
+   con «Combina con», que es justo la línea que invita a pasar de plato. Con un solo plato no
+   se pintan. */
+.dsheet-puntos{
+  flex:none;display:flex;align-items:center;justify-content:center;gap:14px;
+  padding:12px 0 calc(12px + env(safe-area-inset-bottom));
+  background:var(--surface);
+}
+.dsheet-puntos[hidden]{display:none}
+/* Con puntos, el hueco de la barra del móvil lo pone la tira de puntos y no el cuerpo: si lo
+   pusieran los dos, la última línea del plato quedaría flotando a dos dedos del borde. */
+.dsheet-panel.tiene-via .dsheet-cuerpo{padding-bottom:var(--s3)}
+.dsheet-punto{
+  position:relative;flex:none;width:7px;height:7px;padding:0;border:0;border-radius:50%;
+  background:color-mix(in srgb,var(--ink) 25%,transparent);
+  cursor:pointer;transition:background var(--t-fast) linear;
+}
+/* El punto mide 7 px y el dedo 44: el halo va en un ::before que no ocupa sitio, igual que en
+   los enlaces de «Combina con». El ensanche lateral es EXACTAMENTE la mitad del hueco (14 px),
+   ni uno más: con halos que se solapan, el toque se lo lleva el vecino de al lado. Ya pasó en
+   la rejilla de Platos del panel y se midió. */
+.dsheet-punto::before{content:"";position:absolute;inset:-18px -7px}
+.dsheet-punto[aria-current="true"]{background:var(--accent)}
+.dsheet-punto:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+/* ---- las flechas ----
+   Sólo con ratón. En el móvil el gesto es el dedo y dos botones sobre la foto serían dos
+   trozos de plato tapados. Quien las esconde en el móvil es el atributo hidden que pone el
+   JavaScript, NO una regla de ancho: un botón escondido con display:none de CSS sigue
+   estando en el tabulador y en el lector de pantalla, y serían dos mandos invisibles que el
+   móvil anuncia sin poder enseñar. */
+.dsheet-flecha{
+  display:flex;position:absolute;z-index:3;top:50%;transform:translateY(-50%);
+  width:40px;height:40px;align-items:center;justify-content:center;
+  border:0;border-radius:50%;
+  background:rgba(9,18,14,.55);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  color:#fff;cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.28);
+}
+.dsheet-flecha[hidden]{display:none}
+.dsheet-flecha svg{width:20px;height:20px}
+.dsheet-flecha.es-izq{left:10px}
+.dsheet-flecha.es-der{right:10px}
+.dsheet-flecha:disabled{opacity:.35;cursor:default}
+.dsheet-flecha:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Los alergenos de la ficha: junto al título por defecto (ajustarFichaAlergenos los deja ahí
    si caben enteros en su línea), o aquí abajo, como bloque propio, cuando no caben -- nunca
    la mitad en un sitio y la mitad en otro. Mismo catálogo de iconos y misma caja atómica
@@ -2376,6 +2458,7 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 @media (prefers-reduced-motion:reduce){
   .dsheet-panel{transition:none}
+  .dsheet-via,.dsheet-tira{transition:none}
 }
 
 .dish-search{margin:var(--s2) 0}
@@ -4697,28 +4780,52 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
 
 <!-- La ficha del plato. Una sola para las 312 filas: se rellena con la que se haya pulsado.
      La foto no se descarga con la carta —serían cuatro o cinco megas de golpe en el wifi de un
-     restaurante lleno— sino al abrir la ficha, y por eso el src va vacío. -->
+     restaurante lleno— sino al abrir la ficha, y por eso el src va vacío.
+
+     Dentro del panel hay una PISTA con una diapositiva por plato: el que se ha pulsado y los
+     que combinan con él. Se puede pasar de uno a otro con el dedo, con las flechas o pulsando
+     un nombre en «Combina con». Con un solo plato la pista tiene una diapositiva y ni los
+     puntos ni las flechas se pintan: la ficha es exactamente la de siempre.
+
+     Las diapositivas se fabrican desde el molde de abajo, no se escriben aquí: cuántas hay
+     depende de lo que el restaurante haya emparejado, y eso sólo se sabe en el navegador. -->
 <div class="dsheet" id="dish-sheet" role="dialog" aria-modal="true" aria-labelledby="dsheet-nombre" hidden>
   <div class="sheet-backdrop" data-dclose></div>
   <div class="dsheet-panel" id="dsheet-panel">
     <button type="button" class="dsheet-close" data-dclose${TL('Close')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12"/></svg></button>
-    <div class="dsheet-foto" id="dsheet-foto" hidden>
-      <img id="dsheet-img" alt="" decoding="async">
+    <!-- La ventana recorta y la tira se mueve. Son dos elementos y no uno porque el
+         desplazamiento va en la tira: escribirlo en el panel chocaría con el translate que ya
+         usan el arrastre para cerrar en móvil y el centrado en escritorio.
+         Las flechas van DENTRO de la ventana y no en el panel: así se centran sobre el plato
+         y no sobre el conjunto de plato más puntos, que las dejaría un dedo por debajo. Son
+         para el ratón; en el móvil sobra el dedo y taparían foto. -->
+    <div class="dsheet-via" id="dsheet-via">
+      <div class="dsheet-tira" id="dsheet-tira"></div>
+      <button type="button" class="dsheet-flecha es-izq" data-dpaso="-1" hidden${TL('Previous dish')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button type="button" class="dsheet-flecha es-der" data-dpaso="1" hidden${TL('Next dish')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
     </div>
-    <div class="dsheet-cuerpo">
-      <p class="dsheet-flag" id="dsheet-flag" hidden></p>
-      <h2 class="dsheet-nombre" id="dsheet-nombre"></h2>
-      <div class="dsheet-linea">
-        <p class="dsheet-desc" id="dsheet-desc"></p>
-        <p class="dsheet-precio" id="dsheet-precio"></p>
-      </div>
-      <div class="dsheet-alergenos" id="dsheet-alergenos" hidden></div>
-      <!-- «Combina con». Va DEBAJO de todo lo del plato: primero qué es y cuánto cuesta, y
-           sólo después con qué va bien. Sale vacía y oculta; la llena el runtime leyendo el
-           estado, y si el restaurante no ha emparejado nada no ocupa ni una línea. -->
-      <p class="dsheet-combina" id="dsheet-combina" hidden></p>
-    </div>
+    <div class="dsheet-puntos" id="dsheet-puntos" hidden></div>
   </div>
+  <template id="dsheet-molde">
+    <article class="dsheet-carta">
+      <div class="dsheet-foto" hidden>
+        <img alt="" decoding="async">
+      </div>
+      <div class="dsheet-cuerpo">
+        <p class="dsheet-flag" hidden></p>
+        <h2 class="dsheet-nombre"></h2>
+        <div class="dsheet-linea">
+          <p class="dsheet-desc"></p>
+          <p class="dsheet-precio"></p>
+        </div>
+        <div class="dsheet-alergenos" hidden></div>
+        <!-- «Combina con». Va DEBAJO de todo lo del plato: primero qué es y cuánto cuesta, y
+             sólo después con qué va bien. Sale vacía y oculta; la llena el runtime leyendo el
+             estado, y si el restaurante no ha emparejado nada no ocupa ni una línea. -->
+        <p class="dsheet-combina" hidden></p>
+      </div>
+    </article>
+  </template>
 </div>
 
 <!-- En movil este boton es la UNICA puerta a la hoja, y la hoja lleva dentro el buscador
@@ -7920,16 +8027,17 @@ ${DATOS_ACTIVO ? `
 
   var ficha       = document.getElementById('dish-sheet');
   var fichaPanel  = document.getElementById('dsheet-panel');
-  var fichaFoto   = document.getElementById('dsheet-foto');
-  var fichaImg    = document.getElementById('dsheet-img');
-  var fichaFlag   = document.getElementById('dsheet-flag');
-  var fichaNombre = document.getElementById('dsheet-nombre');
-  var fichaPrecio = document.getElementById('dsheet-precio');
-  var fichaDesc   = document.getElementById('dsheet-desc');
-  var fichaAlergenos = document.getElementById('dsheet-alergenos');
+  var fichaVia    = document.getElementById('dsheet-via');
+  var fichaTira   = document.getElementById('dsheet-tira');
+  var fichaPuntos = document.getElementById('dsheet-puntos');
+  var fichaMolde  = document.getElementById('dsheet-molde');
+  var fichaFlechas = ficha ? [].slice.call(ficha.querySelectorAll('.dsheet-flecha')) : [];
   var filaAbierta = null;      // la fila que está enseñando la ficha
   var fichaFoco   = null;      // a quién se le devuelve el foco al cerrar
   var fichaTimer  = null;
+  var fichaFilas  = [];        // las filas que hay en la pista, en su orden
+  var fichaPuesto = 0;         // cuál de ellas se está viendo
+  var ANCHO_RATON = 768;       // desde aquí hay ratón: flechas sí, dedo no hace falta
 
   /* Todo sale de la fila. Si cambia el idioma o el panel cambia un precio, se vuelve a llamar a
      esto y la ficha dice lo mismo que la carta de debajo. */
@@ -7961,38 +8069,40 @@ ${DATOS_ACTIVO ? `
     return conNumero || cualquiera || null;
   }
 
-  function saltarAFila(el) {
-    if (!el) return;
-    var pane = el.closest('.tab-pane');
-    if (pane && typeof selectTab === 'function') selectTab(pane.id);
-    cerrarFicha();
-    setTimeout(function () {
-      el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-      el.classList.remove('ds-flash');
-      void el.offsetWidth;                      // reinicia el destello aunque sea el mismo plato
-      el.classList.add('ds-flash');
-    }, reduce ? 0 : 260);
-  }
-
-  function pintarCombina(row) {
-    var caja = document.getElementById('dsheet-combina');
-    if (!caja) return;
-    caja.textContent = '';
+  /* Los destinos de un plato, ya resueltos a filas vivas y sin repetir. Es lo que arma la
+     pista: el plato pulsado primero y sus compañeros detrás, en el orden en que el
+     restaurante los emparejó. */
+  function destinosDe(row) {
     var mapa = (estado && estado.combina) || {};
     var ids = mapa[row.dataset.key] || mapa[row.dataset.legacy] || [];
-    if (!ids.length) { caja.hidden = true; return; }
+    var filas = [];
+    for (var i = 0; i < ids.length; i++) {
+      var d = filaDestino(ids[i]);
+      if (d && d !== row && filas.indexOf(d) === -1) filas.push(d);
+    }
+    return filas;
+  }
 
-    var puestos = 0;
+  /* El NOMBRE y no el número. El número es la posición en la carta y cambia sola; además, para
+     quien lee, «Combina con Raita de verduras» dice algo y «Combina con #141» obliga a ir a
+     buscarlo. El número queda de respaldo por si una fila no tuviera nombre. */
+  function pintarCombina(carta, row) {
+    var caja = carta.querySelector('.dsheet-combina');
+    if (!caja) return;
+    caja.textContent = '';
+    var destinos = destinosDe(row);
+    if (!destinos.length) { caja.hidden = true; return; }
+
     var rotulo = document.createElement('b');
     rotulo.textContent = tr('Goes well with') + ' ';
     caja.appendChild(rotulo);
-    for (var i = 0; i < ids.length; i++) {
-      var destino = filaDestino(ids[i]);
-      if (!destino) continue;                   // retirado o fuera de la carta: se omite
+    var puestos = 0;
+    for (var i = 0; i < destinos.length; i++) {
+      var destino = destinos[i];
+      var nm = destino.querySelector('.dish-name');
       var num = destino.querySelector('.item-id');
-      var texto = num && num.textContent.trim() !== ''
-        ? '#' + num.textContent.trim()
-        : (destino.querySelector('.dish-name') || {}).textContent || '';
+      var texto = (nm && nm.textContent.trim())
+        || (num && num.textContent.trim() ? '#' + num.textContent.trim() : '');
       if (!texto) continue;
       if (puestos) caja.appendChild(document.createTextNode(' · '));
       var b = document.createElement('button');
@@ -8002,7 +8112,7 @@ ${DATOS_ACTIVO ? `
       /* El destino se guarda en el propio botón y no en una variable de la vuelta del bucle:
          con var la variable es una sola para todas las vueltas y los tres botones acabarían
          llevando al último. */
-      b.dataset.destino = ids[i];
+      b.dataset.destino = destino.dataset.key || '';
       caja.appendChild(b);
       puestos++;
     }
@@ -8012,8 +8122,15 @@ ${DATOS_ACTIVO ? `
     if (puestos === 0) caja.textContent = '';
   }
 
-  function rellenarFicha(row) {
-    if (!row) return;
+  function rellenarFicha(carta, row) {
+    if (!carta || !row) return;
+    var fichaFoto   = carta.querySelector('.dsheet-foto');
+    var fichaImg    = carta.querySelector('.dsheet-foto img');
+    var fichaFlag   = carta.querySelector('.dsheet-flag');
+    var fichaNombre = carta.querySelector('.dsheet-nombre');
+    var fichaPrecio = carta.querySelector('.dsheet-precio');
+    var fichaDesc   = carta.querySelector('.dsheet-desc');
+    var fichaAlergenos = carta.querySelector('.dsheet-alergenos');
     var h3 = row.querySelector('.menu-content h3');
     /* .dish-name y no .i18n a secas: dentro del h3 hay mas de uno —la etiqueta de agotado y
        la de destacado son traducibles tambien— y el primero no es el nombre del plato. */
@@ -8042,12 +8159,14 @@ ${DATOS_ACTIVO ? `
     fichaFlag.textContent = agotado && flag ? flag.textContent : '';
     fichaFlag.hidden = !agotado;
 
-    pintarCombina(row);
+    pintarCombina(carta, row);
 
-    var foto = row.dataset.foto;
+    /* La foto se APUNTA aquí y se pide en cargarFotos(), que sólo trae la del plato que se ve
+       y la de sus dos vecinas. Con la pista llena serían cuatro fotos de golpe en el wifi de
+       un restaurante lleno, que es justo lo que esta ficha lleva evitando desde el principio. */
+    var foto = row.dataset.foto || '';
+    carta.dataset.foto = foto;
     if (foto) {
-      var src = 'assets/platos/' + foto;
-      if (fichaImg.getAttribute('src') !== src) fichaImg.setAttribute('src', src);
       fichaImg.alt = fichaNombre.textContent;
       fichaFoto.hidden = false;
     } else {
@@ -8057,14 +8176,129 @@ ${DATOS_ACTIVO ? `
     }
   }
 
+  /* ---- la pista ----
+   * Una diapositiva por plato: el pulsado y los que combinan con él. Se fabrican desde el
+   * molde del HTML y NO se reutilizan entre aperturas: el plato de al lado puede tener otra
+   * cantidad de compañeros, y limpiar restos de la ficha anterior cuesta más que hacerla otra
+   * vez con tres nodos.
+   *
+   * La pista se rehace SÓLO al abrir y al pulsar un nombre que no está en ella. Pasando con el
+   * dedo NO se rehace: si el suelo se moviera bajo el dedo cada vez que se llega a un plato,
+   * volver atrás llevaría a otro sitio del que se vino. */
+  function cartas() { return [].slice.call(fichaTira.children); }
+
+  function montarPista(row) {
+    fichaFilas = [row].concat(destinosDe(row));
+    fichaTira.textContent = '';
+    fichaPuntos.textContent = '';
+    for (var i = 0; i < fichaFilas.length; i++) {
+      var carta = fichaMolde.content.firstElementChild.cloneNode(true);
+      fichaTira.appendChild(carta);
+      rellenarFicha(carta, fichaFilas[i]);
+      if (fichaFilas.length > 1) {
+        var punto = document.createElement('button');
+        punto.type = 'button';
+        punto.className = 'dsheet-punto';
+        punto.dataset.dpunto = String(i);
+        var nm = fichaFilas[i].querySelector('.dish-name');
+        punto.setAttribute('aria-label', nm ? nm.textContent : '');
+        fichaPuntos.appendChild(punto);
+      }
+    }
+    var varias = fichaFilas.length > 1;
+    fichaPanel.classList.toggle('tiene-via', varias);
+    fichaPuntos.hidden = !varias;
+    fichaPuesto = 0;
+    filaAbierta = row;
+  }
+
+  function cargarFotos() {
+    var lista = cartas();
+    for (var i = 0; i < lista.length; i++) {
+      if (Math.abs(i - fichaPuesto) > 1) continue;
+      var f = lista[i].dataset.foto;
+      var img = lista[i].querySelector('.dsheet-foto img');
+      if (!f || !img) continue;
+      var src = 'assets/platos/' + f;
+      if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    }
+  }
+
+  /* Las flechas se esconden con el atributo hidden, no con una regla de ancho: un botón que
+     el CSS tapa sigue estando en el tabulador y en el lector de pantalla. Con un solo plato no
+     hay nada que recorrer, y por debajo de 768 el gesto es el dedo. */
+  function pintarMandos() {
+    var n = cartas().length;
+    var conFlechas = n > 1 && window.innerWidth >= ANCHO_RATON;
+    for (var i = 0; i < fichaFlechas.length; i++) {
+      var f = fichaFlechas[i];
+      f.hidden = !conFlechas;
+      f.disabled = f.dataset.dpaso === '-1' ? fichaPuesto === 0 : fichaPuesto >= n - 1;
+    }
+    var puntos = [].slice.call(fichaPuntos.children);
+    for (i = 0; i < puntos.length; i++) {
+      puntos[i].setAttribute('aria-current', i === fichaPuesto ? 'true' : 'false');
+    }
+  }
+
+  /* El alto lo lleva la ventana y sale del plato que se ve. Sin esto manda el más alto de
+     todos y pasar a un plato sin foto dejaría media ficha vacía. */
+  function ajustarAlto() {
+    var activa = cartas()[fichaPuesto];
+    if (!activa || ficha.hidden) return;
+    fichaVia.style.height = activa.offsetHeight + 'px';
+  }
+
+  /* Todo lo que hay que dejar en su sitio cada vez que se cambia de plato. Se llama DESPUÉS de
+     que la ficha esté visible: con hidden puesto todo mide cero. */
+  function asentarPuesto() {
+    var lista = cartas();
+    if (!lista.length) return;
+    for (var i = 0; i < lista.length; i++) {
+      var activa = i === fichaPuesto;
+      lista[i].classList.toggle('es-activa', activa);
+      /* inert donde lo haya, y aria-hidden siempre: las diapositivas que no se ven no pueden
+         recibir el foco ni que un lector de pantalla las lea como si estuvieran delante. */
+      if (activa) lista[i].removeAttribute('inert');
+      else lista[i].setAttribute('inert', '');
+      lista[i].setAttribute('aria-hidden', activa ? 'false' : 'true');
+      var h = lista[i].querySelector('.dsheet-nombre');
+      /* aria-labelledby de la ventana apunta a un id fijo: lo lleva el nombre del plato que se
+         está viendo, y sólo ése. */
+      if (h) { if (activa) h.id = 'dsheet-nombre'; else h.removeAttribute('id'); }
+    }
+    filaAbierta = fichaFilas[fichaPuesto] || null;
+    cargarFotos();
+    pintarMandos();
+    colocarAlergenosFicha();
+    ajustarAlto();
+${DATOS_ACTIVO ? `    if (filaAbierta) contarVista(filaAbierta);
+` : ''}  }
+
+  function irAPuesto(i, deGolpe) {
+    var n = cartas().length;
+    if (!n) return;
+    i = Math.max(0, Math.min(n - 1, i));
+    fichaPuesto = i;
+    if (deGolpe) fichaPanel.classList.add('esta-arrastrando');
+    fichaTira.style.transform = 'translateX(' + (-i * 100) + '%)';
+    asentarPuesto();
+    if (deGolpe) { void fichaTira.offsetWidth; fichaPanel.classList.remove('esta-arrastrando'); }
+  }
+
   /* Decide si los alergenos caben enteros junto al título o si el bloque entero (nunca la
      mitad) baja a su propio sitio, después de la línea de descripción y precio. Necesita la
      ficha ya visible -- con [hidden] puesto, todo mide 0 y la decision saldria siempre "cabe".
      Se recalcula cada vez que se rellena la ficha (abrir, o cambiar de idioma con la ficha
      abierta): un nombre traducido más largo puede cambiar la respuesta. */
   function colocarAlergenosFicha() {
+    var activa = cartas()[fichaPuesto];
+    if (!activa || ficha.hidden) return;
+    var fichaNombre = activa.querySelector('.dsheet-nombre');
+    var fichaAlergenos = activa.querySelector('.dsheet-alergenos');
+    if (!fichaNombre || !fichaAlergenos) return;
     var marcas = fichaNombre.querySelector('.alergeno-marks');
-    if (!marcas || ficha.hidden) return;
+    if (!marcas) return;
     /* Comparar el 'top' de las marcas contra el 'top' del h2 entero no vale: dentro de una
        misma linea el icono no se apoya en el borde superior de la caja de linea, sino cerca
        de la base del texto (vertical-align), y a 26px esa diferencia natural ya es mayor que
@@ -8090,21 +8324,25 @@ ${DATOS_ACTIVO ? `
   function abrirFicha(row) {
     if (!ficha || !row || !row.dataset.foto) return;
     clearTimeout(fichaTimer);
-    filaAbierta = row;
     fichaFoco = document.activeElement;
-    rellenarFicha(row);
+    montarPista(row);
+    fichaTira.style.transform = 'translateX(0)';
     /* Una entrada de historial: el botón atrás del móvil cierra la ficha en vez de sacar al
        comensal de la carta. Es lo que hace que esto se sienta como una aplicación. */
     try { history.pushState({ [${JSON.stringify(CLIENTE.slug + 'Ficha')}]: 1 }, ''); } catch (e) {}
     ficha.hidden = false;
     void ficha.offsetHeight;                 // un fotograma en su sitio, para que haya transición
-    colocarAlergenosFicha();
+    /* El alto de la ventana se pone SIN animar en la apertura: la ficha entra desde abajo y una
+       altura creciendo a la vez se vería como dos movimientos peleando. */
+    fichaPanel.classList.add('esta-arrastrando');
+    asentarPuesto();
+    void fichaVia.offsetHeight;
+    fichaPanel.classList.remove('esta-arrastrando');
     ficha.classList.add('is-open');
     bloquearFondo();
     var cerrarBtn = ficha.querySelector('.dsheet-close');
     if (cerrarBtn) cerrarBtn.focus({ preventScroll: true });
-${DATOS_ACTIVO ? `    contarVista(row);
-` : ''}  }
+  }
 
   function cerrarFicha(porHistorial) {
     if (!ficha || ficha.hidden) return;
@@ -8150,67 +8388,148 @@ ${DATOS_ACTIVO ? `    contarVista(row);
   if (ficha) {
     ficha.addEventListener('click', function (e) {
       if (e.target.closest('[data-dclose]')) { cerrarFicha(); return; }
-      /* Un destino de «Combina con»: cierra esta ficha, abre la pestaña del otro plato y lo
-         deja en pantalla con el mismo destello que usa el buscador. No abre la ficha del
-         destino: quien pulsa quiere VER el plato en su sitio, con su precio y sus vecinos. */
+      /* Las flechas y los puntos: dos formas de lo mismo, un puesto de la pista. */
+      var paso = e.target.closest('[data-dpaso]');
+      if (paso) { irAPuesto(fichaPuesto + Number(paso.dataset.dpaso)); return; }
+      var punto = e.target.closest('[data-dpunto]');
+      if (punto) { irAPuesto(Number(punto.dataset.dpunto)); return; }
+      /* Un destino de «Combina con». Si ya está en la pista —lo está siempre que se pulse desde
+         el plato que la ancla— se pasa a él deslizando. Si no lo está —se pulsa desde un plato
+         al que se llegó antes, y ése tiene sus propios compañeros— ese plato pasa a ser el
+         ancla y la pista se rehace a su alrededor. Sin esto, encadenar se acabaría al segundo
+         salto. */
       var ir = e.target.closest('.dsheet-ir');
-      if (ir) { saltarAFila(filaDestino(ir.dataset.destino)); }
+      if (!ir) return;
+      var destino = filaDestino(ir.dataset.destino);
+      if (!destino) return;
+      var donde = fichaFilas.indexOf(destino);
+      if (donde !== -1) { irAPuesto(donde); return; }
+      montarPista(destino);
+      irAPuesto(0, true);
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !ficha.hidden) cerrarFicha();
     });
-    /* El foco no se escapa de la ficha mientras está abierta. */
+    /* Las flechas del teclado recorren la pista, igual que en cualquier carrusel. Sólo con la
+       ficha abierta y sólo si hay más de un plato. */
+    ficha.addEventListener('keydown', function (e) {
+      if (ficha.hidden || cartas().length < 2) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); irAPuesto(fichaPuesto - 1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); irAPuesto(fichaPuesto + 1); }
+    });
+    /* El foco no se escapa de la ficha mientras está abierta. Sólo cuentan los mandos que se
+       ven y la diapositiva activa: las otras están inertes, y meterlas en el recorrido dejaría
+       el foco en un plato que nadie está mirando. */
     ficha.addEventListener('keydown', function (e) {
       if (e.key !== 'Tab') return;
-      var focos = ficha.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      var focos = ficha.querySelectorAll('.dsheet-close, .dsheet-flecha:not([hidden]):not(:disabled),'
+        + ' .dsheet-punto, .dsheet-carta.es-activa button, .dsheet-carta.es-activa [href]');
       if (!focos.length) return;
       var primero = focos[0], ultimo = focos[focos.length - 1];
       if (e.shiftKey && document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
       else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
     });
     /* Cambiar de idioma con la ficha abierta la repinta: el nombre y la descripción salen de la
-       fila, que ya se ha traducido sola. */
+       fila, que ya se ha traducido sola. Se repintan TODAS las diapositivas, no sólo la que se
+       ve: las otras siguen montadas y a un dedo de distancia. */
     document.addEventListener('${CLIENTE.slug}:lang', function () {
       document.querySelectorAll('.has-photo').forEach(function (m) {
         m.setAttribute('aria-label', tr('This dish has a photo'));
       });
-      if (filaAbierta) { rellenarFicha(filaAbierta); colocarAlergenosFicha(); }
+      if (ficha.hidden) return;
+      var lista = cartas();
+      for (var i = 0; i < lista.length; i++) {
+        if (fichaFilas[i]) rellenarFicha(lista[i], fichaFilas[i]);
+      }
+      var puntos = [].slice.call(fichaPuntos.children);
+      for (i = 0; i < puntos.length; i++) {
+        var nm = fichaFilas[i] ? fichaFilas[i].querySelector('.dish-name') : null;
+        puntos[i].setAttribute('aria-label', nm ? nm.textContent : '');
+      }
+      asentarPuesto();
+    });
+    /* Al girar el móvil o cambiar el ancho cambian dos cosas: si hay flechas y cuánto mide de
+       alto el plato que se ve. Las dos se recalculan, nunca se adivinan. */
+    window.addEventListener('resize', function () {
+      if (ficha.hidden) return;
+      pintarMandos();
+      ajustarAlto();
     });
 
-    /* Arrastrar hacia abajo para cerrar, sólo en móvil: en escritorio la ficha va centrada con
-       su propio translate y escribirle otro encima la descolocaría. */
+    /* ---- el dedo: dos gestos y UN manejador ----
+       Abajo se cierra la ficha; a los lados se pasa de plato. Los dos salen del mismo dedo
+       sobre el mismo panel, así que el eje se decide UNA vez, con el primer movimiento que
+       pase de 8 px, y el que gana se queda el gesto entero. Con dos manejadores sueltos, un
+       arrastre en diagonal cerraba la ficha y pasaba de plato a la vez.
+
+       Sólo dedo o lápiz: con ratón, arrastrar es seleccionar texto, y en escritorio para pasar
+       de plato están las flechas. Cerrar arrastrando sigue siendo cosa del móvil, donde la
+       ficha sube desde abajo; en escritorio va centrada con su propio translate y escribirle
+       otro encima la descolocaría. */
     (function () {
-      var y0 = 0, t0 = 0, dy = 0, arrastrando = false, pendiente = false;
+      var x0 = 0, y0 = 0, t0 = 0, dx = 0, dy = 0;
+      var eje = '', pendiente = false, puntero = null;
       var UMBRAL = 8;
       var elastico = function (d) { return d / 3; };
       fichaPanel.addEventListener('pointerdown', function (e) {
-        if (e.button !== 0 || window.innerWidth >= 768) return;
+        if (e.button !== 0) return;
+        if (e.pointerType === 'mouse') return;
+        if (e.target.closest('button, a')) return;    // los mandos se pulsan, no se arrastran
         if (fichaPanel.scrollTop > 0) return;
-        pendiente = true; arrastrando = false; dy = 0; y0 = e.clientY; t0 = e.timeStamp;
+        pendiente = true; eje = ''; dx = 0; dy = 0;
+        x0 = e.clientX; y0 = e.clientY; t0 = e.timeStamp; puntero = e.pointerId;
       });
       fichaPanel.addEventListener('pointermove', function (e) {
-        if (!pendiente && !arrastrando) return;
-        var d = e.clientY - y0;
-        if (!arrastrando) {
-          if (d < UMBRAL) { if (d < -UMBRAL) pendiente = false; return; }
-          if (fichaPanel.scrollTop > 0) { pendiente = false; return; }
-          arrastrando = true;
-          fichaPanel.setPointerCapture(e.pointerId);
-          fichaPanel.style.transition = 'none';
+        if (!pendiente && !eje) return;
+        var ax = e.clientX - x0, ay = e.clientY - y0;
+        if (!eje) {
+          if (Math.abs(ax) < UMBRAL && Math.abs(ay) < UMBRAL) return;
+          if (Math.abs(ax) > Math.abs(ay)) {
+            if (cartas().length < 2) { pendiente = false; return; }
+            eje = 'x';
+          } else {
+            /* Hacia arriba no se cierra nada, y en escritorio tampoco hacia abajo. */
+            if (ay < 0 || window.innerWidth >= ANCHO_RATON) { pendiente = false; return; }
+            eje = 'y';
+            fichaPanel.style.transition = 'none';
+          }
+          pendiente = false;
+          fichaPanel.classList.add('esta-arrastrando');
+          try { fichaPanel.setPointerCapture(puntero); } catch (err) {}
         }
-        dy = d > 0 ? d : elastico(d);
-        fichaPanel.style.transform = 'translateY(' + dy + 'px)';
+        if (eje === 'x') {
+          dx = ax;
+          /* En los extremos el arrastre se vuelve elástico: separarse del dedo sin resistencia
+             es lo único que no dice «por aquí no hay más». */
+          var ultima = cartas().length - 1;
+          if ((fichaPuesto === 0 && dx > 0) || (fichaPuesto === ultima && dx < 0)) dx = elastico(dx);
+          fichaTira.style.transform = 'translateX(calc(' + (-fichaPuesto * 100) + '% + ' + dx + 'px))';
+        } else {
+          dy = ay > 0 ? ay : elastico(ay);
+          fichaPanel.style.transform = 'translateY(' + dy + 'px)';
+        }
       });
       var soltar = function (e) {
         pendiente = false;
-        if (!arrastrando) return;
-        arrastrando = false;
-        fichaPanel.style.transition = '';
-        fichaPanel.style.transform = '';
-        var v = Math.abs(dy) / Math.max(1, e.timeStamp - t0);
-        /* Un tercio de la altura, o un gesto corto pero rápido: es el mismo criterio que la
-           hoja de categorías, para que las dos se cierren igual. */
-        if (dy > fichaPanel.offsetHeight * 0.35 || (dy > 24 && v > 0.11)) cerrarFicha();
+        if (!eje) return;
+        var quien = eje;
+        eje = '';
+        fichaPanel.classList.remove('esta-arrastrando');
+        if (quien === 'y') {
+          fichaPanel.style.transition = '';
+          fichaPanel.style.transform = '';
+          var v = Math.abs(dy) / Math.max(1, e.timeStamp - t0);
+          /* Un tercio de la altura, o un gesto corto pero rápido: es el mismo criterio que la
+             hoja de categorías, para que las dos se cierren igual. */
+          if (dy > fichaPanel.offsetHeight * 0.35 || (dy > 24 && v > 0.11)) cerrarFicha();
+          return;
+        }
+        /* Un cuarto del ancho, o un gesto corto pero rápido: el mismo criterio que arriba,
+           medido sobre el eje que toca. Si no llega, la tira vuelve a su sitio sola, porque
+           irAPuesto reescribe el translate limpio y la transición hace el resto. */
+        var vx = Math.abs(dx) / Math.max(1, e.timeStamp - t0);
+        var basta = Math.abs(dx) > fichaVia.offsetWidth * 0.25 || (Math.abs(dx) > 30 && vx > 0.25);
+        irAPuesto(fichaPuesto + (basta ? (dx < 0 ? 1 : -1) : 0));
       };
       fichaPanel.addEventListener('pointerup', soltar);
       fichaPanel.addEventListener('pointercancel', soltar);

@@ -7174,3 +7174,69 @@ viewport, recarga la carta limpia, lo devuelve todo como estaba, y mide la etiqu
 su `font-size` en vez de como hoja del barrido —el runtime de idiomas envuelve el texto en
 un `span.i18n` y la etiqueta dejaba de ser hoja—. Si algo baja de 12, el informe dice qué
 elemento y dónde vive, en vez de obligar a adivinarlo.
+
+## La ficha del plato pasa a ser un carrusel de sus compañeros (14 Sep 2026)
+
+«Combina con» nació diciendo «#141». El propietario lo vio en producción y pidió dos cosas:
+que diga el NOMBRE, y que pulsarlo enseñe ese plato en vez de mandarte a buscarlo.
+
+**Por qué el número estaba mal, y no sólo era feo.** El número de un plato es su POSICIÓN en
+la carta, y la posición cambia sola: al retirar dos platos anteriores, la Sopa de lentejas
+pasó del #07 al #05. El emparejamiento ya se guardaba por identidad (`dishId`) justamente por
+eso, y el número se leía de la fila destino al pintar — o sea que el dato estaba bien y lo
+único mal era lo que se enseñaba. Ahora se lee `.dish-name` de la fila destino, y el número
+queda de respaldo por si una fila no tuviera nombre.
+
+**La pista.** El panel de la ficha pasa a tener una ventana (`.dsheet-via`) que recorta y una
+tira (`.dsheet-tira`) que se mueve, con una diapositiva por plato: el pulsado y sus
+compañeros vivos, tres como mucho. Se puede pasar con el dedo, con dos flechas en escritorio
+o con los puntos. **Con un solo plato no se pinta ni un punto ni una flecha**: la ficha es
+exactamente la de siempre, que es la condición para que esto no le cueste nada a un cliente
+que no empareje platos.
+
+Cuatro decisiones que conviene que consten:
+
+1. **El desplazamiento va en la TIRA, nunca en el panel.** El panel ya tiene dos `transform`
+   escritos: el del arrastre para cerrar en móvil y el `translate(-50%,-50%)` que lo centra en
+   escritorio. Un tercero encima lo habría descolocado.
+2. **La altura la lleva la ventana y sale del plato que se ve.** Las diapositivas no miden lo
+   mismo —una con foto es un 4:5 entero, una sin foto es sólo su texto— y dejar que mande la
+   más alta llena la ficha de vacío al pasar a un plato sin foto. Medido: 488 px con foto,
+   200 px sin ella, animado para que se lea como parte del movimiento.
+3. **La pista se rehace al abrir y al pulsar un nombre que no está en ella; pasando con el
+   dedo NO.** Si el suelo se moviera bajo el dedo en cada plato al que se llega, volver atrás
+   llevaría a otro sitio del que se vino.
+4. **Sólo se piden la foto del plato que se ve y las de sus vecinas.** Con la pista llena
+   serían cuatro fotos de golpe en el wifi de un restaurante lleno, que es justo lo que esta
+   ficha lleva evitando desde el principio.
+
+**Los dos gestos, un solo manejador.** Abajo cierra la ficha; a los lados pasa de plato. Los
+dos salen del mismo dedo sobre el mismo panel, así que el eje se decide UNA vez, con el primer
+movimiento que pasa de 8 px, y el que gana se queda el gesto entero. Con dos manejadores
+sueltos, un arrastre en diagonal cerraba la ficha y pasaba de plato a la vez.
+
+**La trampa que costó medirla: `touch-action`.** La primera versión ponía `touch-action:pan-y`
+en la pista, razonando que el gesto horizontal lo lleva el JavaScript y el vertical debe
+seguir siendo del navegador. Con eso, el primer movimiento hacia abajo se lo quedaba el
+desplazamiento nativo, el puntero se cancelaba y **cerrar arrastrando dejaba de funcionar**.
+Se probó con toque real (`Input.dispatchTouchEvent`), no con eventos sintéticos: con `pan-y`
+la ficha no se cerraba; con `touch-action:none` en el panel, sí. El panel no tiene nada que
+desplazar (`overflow:hidden`) y el fondo ya está bloqueado mientras la ficha está abierta.
+
+**Accesibilidad.** Las diapositivas que no se ven van `inert` y `aria-hidden`; el
+`aria-labelledby` del diálogo apunta a un id fijo que lleva el nombre del plato activo, y sólo
+ése; la trampa de foco recorre los mandos visibles y la diapositiva activa, no las tres. Las
+flechas se esconden en móvil con el atributo `hidden` y no con una regla de ancho: un botón
+tapado por CSS sigue estando en el tabulador y en el lector de pantalla.
+
+**Lo que NO cambia.** Una fila sin foto sigue sin abrir ficha al tocarla. Que un compañero sin
+foto se pinte es otra cosa: ahí ya estás dentro. Y el historial sigue teniendo una sola
+entrada: «atrás» cierra la ficha entera, no deshace plato a plato — decisión del propietario
+al elegir el alcance.
+
+**Coste.** +2,0 KB con Brotli (74 353 → 76 432 bytes de `index.html`). Sin librería.
+
+**Pruebas.** `CAR-24` a `CAR-32` en `qa/suites/carta.mjs`, que es donde viven las de la carta
+pública. No van en `lotes.mjs`: ese fichero es el museo de fallos que llegaron a producción y
+esto es una función nueva. Siembran los emparejamientos en `estado.json` y lo devuelven como
+estaba: una batería no puede dejar la carta con platos emparejados que nadie pidió.
