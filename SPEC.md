@@ -7324,3 +7324,32 @@ basta: delante de la moto sólo pueden ir esas dos ranuras.
 Lo vigila `CAR-35`, y la prueba **fabrica el caso que falla**: siembra una fila con moto y
 oferta pero SIN etiqueta. Sin ella, sólo se mediría el par que ya funcionaba y pasaría en verde
 con el defecto dentro.
+
+## Corrección: los puntos van centrados en el hueco, y con el dibujo del hero (14 Sep 2026)
+
+Rectifica la entrada anterior, que los ponía al final del renglón de «Combina con». Eso no era
+lo que se pidió: lo que se pidió es **medir el espacio que queda entre la última línea y el
+suelo de la ficha y poner los puntos en su mitad**. Queda escrito porque la entrada anterior ya
+está en el historial y sin esto se leería como la decisión vigente.
+
+Lo que se hace ahora, y por qué cada pieza:
+
+- **El hueco se mide de verdad**: de donde acaba la ÚLTIMA línea del bloque al suelo del panel.
+  La última, no el bloque: con tres compañeros «Combina con A · B · C» parte en dos renglones y
+  el hueco empieza donde acaba el de abajo. La línea se saca con un `Range`; el rectángulo del
+  párrafo da el bloque entero y empezaría demasiado arriba.
+- **Los puntos van en la mitad de ese hueco.** Medido: hueco 43,8 px, centro a 21,9 y puntos a
+  21,8 — desfase 0,05 en escritorio y 0 en móvil. Van en dos pasadas, porque la cuenta parte de
+  la caja del panel y en escritorio ésta lleva `translate(-50%,-50%)` y puede caer en medio
+  píxel; la segunda mide el punto ya colocado contra el centro real del hueco.
+- **El dibujo es el del hero, literalmente la misma clase.** Los puntos de la ficha se pintan
+  con `hero-dot`: el activo se estira en píldora de 21×8 y los demás quedan redondos, con su
+  sombra para verse sobre cualquier foto. No es una copia de estilo — es el mismo, así que un
+  cambio en el hero llega aquí solo. Lo único propio es la altura del botón (26 en vez de 32),
+  porque el área de dedo del hero no cabe entera en el hueco; el dibujo no cambia.
+- Sobre papel —un plato sin foto— el punto crema del hero desaparecería, así que ahí se pinta
+  con la tinta de la carta y el activo con el acento. Se decide con `:has()` sobre la
+  diapositiva activa, sin estado que mantener.
+
+Lo vigila `CAR-33`, que mide el desfase contra el centro del hueco y comprueba que la píldora
+del activo sea la de 21 px del hero.

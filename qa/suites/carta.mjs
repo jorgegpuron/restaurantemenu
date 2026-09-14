@@ -467,8 +467,8 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
         const p = panel.getBoundingClientRect();
         const f = foto.getBoundingClientRect();
         const d = puntos.getBoundingClientRect();
-        /* El renglón de «Combina con», medido con un Range: el rectángulo del párrafo da el
-           bloque entero y con dos líneas caería en medio. */
+        /* La ÚLTIMA línea de «Combina con», medida con un Range: el rectángulo del párrafo da
+           el bloque entero y con dos líneas empieza demasiado arriba. */
         const combina = carta.querySelector('.dsheet-combina');
         let renglon = null;
         if (combina && !combina.hidden) {
@@ -478,28 +478,37 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
           renglon = rs.length ? rs[rs.length - 1] : null;
         }
         const punto = document.querySelector('.dsheet-punto');
+        const activo = document.querySelector('.dsheet-punto[aria-current="true"]');
+        const pb = punto ? punto.getBoundingClientRect() : null;
         return {
           arriba: Math.round((f.top - p.top) * 10) / 10,
           abajo: Math.round((p.bottom - f.bottom) * 10) / 10,
           fondoPuntos: getComputedStyle(puntos).backgroundColor,
           altoPuntos: Math.round(d.height * 10) / 10,
           puntosDentro: d.height > 0 && d.bottom <= f.bottom + 1 && d.top >= f.top,
-          desnivelRenglon: renglon && punto
-            ? Math.round((((punto.getBoundingClientRect().top + punto.getBoundingClientRect().bottom) / 2)
-              - ((renglon.top + renglon.bottom) / 2)) * 100) / 100
+          hueco: renglon ? Math.round((p.bottom - renglon.bottom) * 10) / 10 : null,
+          /* Lo que se contrata: el centro de los puntos cae en la MITAD del hueco que queda
+             entre la última línea y el suelo de la ficha. */
+          desfase: renglon && pb
+            ? Math.round((((pb.top + pb.bottom) / 2) - ((renglon.bottom + p.bottom) / 2)) * 100) / 100
             : null,
-          holgura: renglon && punto ? Math.round(punto.getBoundingClientRect().left - renglon.right) : null,
+          /* Y el dibujo es el del hero: el activo estirado en píldora, los demás redondos. */
+          esDelHero: !!(activo && activo.classList.contains('hero-dot')),
+          pildora: activo ? getComputedStyle(activo, '::before').width : null,
+          redondo: punto && !punto.matches('[aria-current="true"]')
+            ? getComputedStyle(punto, '::before').width : null,
         };
       });
-      /* Tres cosas en una: que la tarjeta sea la foto, que los puntos compartan renglón con
-         «Combina con» —iban 40 px por debajo, flotando— y que el texto de esa línea no se les
-         meta debajo. Con dos platos emparejados el texto los cruzaba 111 px: por eso los
-         puntos van al final de la línea y no centrados. */
-      informe.comprueba('CAR-33', 'la ficha es la foto, y los puntos comparten renglón con «Combina con» sin cruzarse con su texto' + suf,
+      /* Tres cosas en una: que la tarjeta sea la foto, que los puntos queden CENTRADOS en el
+         hueco entre la última línea del plato y el suelo —colgados de un valor fijo quedaban
+         pegados al borde; puestos en el renglón del texto, se cruzaban con él— y que el dibujo
+         sea el mismo del hero y no una copia parecida. */
+      informe.comprueba('CAR-33', 'la ficha es la foto, y los puntos van centrados en el hueco entre la última línea y el suelo, con el dibujo del hero' + suf,
         Math.abs(sinBanda.arriba) <= 1 && Math.abs(sinBanda.abajo) <= 1
         && /rgba\(0, 0, 0, 0\)|transparent/.test(sinBanda.fondoPuntos) && sinBanda.puntosDentro
-        && sinBanda.desnivelRenglon !== null && Math.abs(sinBanda.desnivelRenglon) <= 1
-        && sinBanda.holgura !== null && sinBanda.holgura > 0,
+        && sinBanda.hueco !== null && sinBanda.hueco > 8
+        && sinBanda.desfase !== null && Math.abs(sinBanda.desfase) <= 1
+        && sinBanda.esDelHero && sinBanda.pildora === '21px',
         JSON.stringify(sinBanda));
 
       await pagina.keyboard.press('Escape');

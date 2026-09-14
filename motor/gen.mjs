@@ -2388,50 +2388,35 @@ html:not(.js) .lang-menu{position:static;display:block}
    El hueco entre puntos NO intercepta el toque: la caja va sin eventos y sólo los puntos los
    reciben, o una franja invisible de lado a lado se comería el arrastre para cerrar justo en
    el borde de abajo, que es por donde se empieza. */
-/* La altura NO es fija: los puntos se ponen en el renglón de la última línea del plato
-   —«Combina con» cuando la hay—, y esa altura la mide el runtime y la escribe en
-   --puntos-suelo, en píxeles desde el suelo del panel. Colgados de un valor fijo quedaban
-   40 px por debajo de esa línea, flotando en el degradado sin apoyarse en nada. El valor de
-   reserva es sólo para el primer fotograma, antes de que haya nada que medir.
+/* Van CENTRADOS en el espacio que queda entre la última línea del plato y el suelo de la
+   ficha: se mide ese hueco y se pone la tira en su mitad. Colgados de un valor fijo quedaban
+   pegados al borde de abajo; puestos en el renglón del texto, se cruzaban con él. El hueco lo
+   reserva el cuerpo con su relleno de abajo, y el valor de --puntos-suelo lo escribe el
+   runtime en píxeles desde ese suelo. El de reserva es sólo para el primer fotograma.
 
-   Y van al FINAL de esa línea, no centrados, porque comparten renglón con el texto: con dos
-   platos emparejados, «Combina con A · B» acababa 111 px por dentro de donde empiezan los
-   puntos —medido—. Centrados sólo caben cuando el emparejamiento es corto, y eso no se puede
-   dar por hecho: lo elige el restaurante. A la derecha no chocan nunca, y el texto reserva su
-   hueco con --puntos-hueco. */
+   Y el DIBUJO es el del hero, literalmente la misma clase: activo estirado en píldora y los
+   demás redondos, con su sombra para que se vean sobre cualquier foto. No es una copia de
+   estilo — es el mismo, así que si un día cambia el del hero cambia también aquí. */
 .dsheet-puntos{
   position:absolute;z-index:2;left:0;right:0;
-  bottom:var(--puntos-suelo,calc(10px + env(safe-area-inset-bottom)));
-  padding:0 var(--s3);
-  display:flex;align-items:center;justify-content:flex-end;gap:14px;
+  bottom:var(--puntos-suelo,10px);
+  display:flex;align-items:center;justify-content:center;gap:2px;
   pointer-events:none;
 }
 .dsheet-puntos[hidden]{display:none}
-/* El hueco que el texto le deja a los puntos en su propio renglón. Lo escribe el runtime con
-   el ancho real de la tira, que depende de cuántos platos haya en la pista. */
-.dsheet-panel.tiene-via .dsheet-combina{padding-right:var(--puntos-hueco,82px)}
-.dsheet-punto{
-  position:relative;flex:none;width:7px;height:7px;padding:0;border:0;border-radius:50%;
-  pointer-events:auto;
-  /* Sobre el degradado oscuro de la foto, blanco atenuado; el activo, blanco entero. El
-     acento no vale aquí: naranja sobre naranja de comida es lo que no se ve. */
-  background:rgba(255,255,255,.45);
-  cursor:pointer;transition:background var(--t-fast) linear;
+/* El hueco donde van. 22 px son los 8 del punto más el aire de los dos lados: sin esto, la
+   última línea del plato y los puntos se pelearían por el mismo renglón. */
+.dsheet-panel.tiene-via .dsheet-cuerpo{padding-bottom:calc(var(--s3) + 22px)}
+/* El área de dedo la da el botón del hero (24×32) y no cabe entera en el hueco, así que aquí
+   se ajusta a lo que hay. El dibujo no cambia: sigue siendo el ::before de 8 px. */
+.dsheet-puntos .hero-dot{height:26px;pointer-events:auto}
+/* Sobre papel —el plato al que se llega no tiene foto— el punto crema del hero desaparece:
+   ahí mandan los colores de la carta. Se decide con la diapositiva activa y no con una clase
+   que haya que mantener desde el JavaScript: la verdad ya está en el DOM. */
+.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-puntos .hero-dot::before{
+  background:var(--ink);box-shadow:none;
 }
-/* El punto mide 7 px y el dedo 44: el halo va en un ::before que no ocupa sitio, igual que en
-   los enlaces de «Combina con». El ensanche lateral es EXACTAMENTE la mitad del hueco (14 px),
-   ni uno más: con halos que se solapan, el toque se lo lleva el vecino de al lado. Ya pasó en
-   la rejilla de Platos del panel y se midió. */
-.dsheet-punto::before{content:"";position:absolute;inset:-18px -7px}
-.dsheet-punto[aria-current="true"]{background:#fff}
-.dsheet-punto:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
-/* Sobre papel —el plato al que se llega no tiene foto— el blanco desaparece: ahí mandan los
-   colores de la carta. Se decide con la diapositiva activa y no con una clase que haya que
-   mantener desde el JavaScript: la verdad ya está en el DOM. */
-.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-punto{
-  background:color-mix(in srgb,var(--ink) 25%,transparent);
-}
-.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-punto[aria-current="true"]{
+.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-puntos .hero-dot[aria-current="true"]::before{
   background:var(--accent);
 }
 /* ---- las flechas ----
@@ -8250,7 +8235,8 @@ ${DATOS_ACTIVO ? `
       if (fichaFilas.length > 1) {
         var punto = document.createElement('button');
         punto.type = 'button';
-        punto.className = 'dsheet-punto';
+        /* La clase del hero, para que el dibujo sea EL MISMO y no una copia parecida. */
+        punto.className = 'hero-dot dsheet-punto';
         punto.dataset.dpunto = String(i);
         var nm = fichaFilas[i].querySelector('.dish-name');
         punto.setAttribute('aria-label', nm ? nm.textContent : '');
@@ -8305,17 +8291,9 @@ ${DATOS_ACTIVO ? `
     var combina = activa.querySelector('.dsheet-combina');
     var ancla = combina && !combina.hidden ? combina : activa.querySelector('.dsheet-linea');
     if (!ancla) return;
-    /* El hueco que el texto tiene que dejarle a la tira, con su ancho REAL: dos puntos ocupan
-       28 y cuatro 70, y reservar siempre lo más ancho estrecharía el texto sin motivo. Se
-       escribe antes de medir la línea, porque es lo que decide dónde parte. */
-    var ps = fichaPuntos.children;
-    var tira = 0;
-    if (ps.length) {
-      /* Del borde izquierdo del primero al derecho del último: el ancho de la tira, no el del
-         contenedor, que va de lado a lado de la ficha. */
-      tira = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
-    }
-    fichaPanel.style.setProperty('--puntos-hueco', Math.round(Math.max(0, tira) + 12) + 'px');
+    /* La ÚLTIMA línea del bloque, no el bloque entero: «Combina con» puede partirse en dos y
+       el hueco empieza donde acaba el último renglón. El Range es lo único que da las líneas
+       de verdad; el rectángulo del párrafo da el bloque, que con dos líneas empieza arriba. */
     var linea = null;
     try {
       var rango = document.createRange();
@@ -8325,20 +8303,22 @@ ${DATOS_ACTIVO ? `
     } catch (e) { linea = null; }
     if (!linea || !linea.height) linea = ancla.getBoundingClientRect();
     if (!linea.height) return;
+    /* El hueco: de donde acaba la última línea al suelo de la ficha. Los puntos van en su
+       MITAD, que es lo que se pidió y lo que hace que no toquen ni el texto ni el borde. */
     var suelo = fichaPanel.getBoundingClientRect().bottom;
-    var alto = fichaPuntos.offsetHeight || 7;
-    /* Sin redondear a entero: el punto mide 7 y su mitad es 3,5, así que redondear la cuenta
-       entera lo deja un píxel y pico fuera del renglón — medido, 1,4. */
-    var centroLinea = (linea.top + linea.bottom) / 2;
-    var desde = suelo - centroLinea - alto / 2;
+    var hueco = suelo - linea.bottom;
+    if (hueco <= 0) return;
+    var alto = fichaPuntos.offsetHeight || 8;
+    var desde = hueco / 2 - alto / 2;
     fichaPuntos.style.setProperty('--puntos-suelo', (Math.max(0, desde)).toFixed(2) + 'px');
-    /* Y una segunda pasada que corrige lo que quede. La cuenta de arriba parte de la caja del
-       panel, que en escritorio va con translate(-50%,-50%) y puede caer en medio píxel: la
-       primera pasada dejaba 1,3 de desnivel, medido. Aquí se mide el punto YA colocado y se
-       corrige por la diferencia real, que es lo único que no depende de dónde caiga la caja. */
+    /* Y una segunda pasada que corrige lo que quede. La cuenta parte de la caja del panel, que
+       en escritorio va con translate(-50%,-50%) y puede caer en medio píxel: sin corregir
+       quedaba algo más de un píxel fuera de sitio, medido. Aquí se mide el punto YA colocado
+       contra el centro real del hueco, que es lo único que no depende de dónde caiga la caja. */
+    var ps = fichaPuntos.children;
     if (ps.length) {
       var puesto = ps[0].getBoundingClientRect();
-      var resto = (puesto.top + puesto.bottom) / 2 - centroLinea;
+      var resto = (puesto.top + puesto.bottom) / 2 - (linea.bottom + suelo) / 2;
       if (Math.abs(resto) > 0.08) {
         fichaPuntos.style.setProperty('--puntos-suelo', (Math.max(0, desde + resto)).toFixed(2) + 'px');
       }
