@@ -31,10 +31,21 @@ verificarMotor();
    llega a produccion. Autocomprobacion del motor, no depende de este cliente. */
 verificarMarcaDefecto();
 
+/* ---- el unico dato de SocialCard que la carta publica ----
+ *
+ * El movil comercial del pie: <<Quieres tu propia carta? Escribenos>>. NO es del
+ * restaurante -- el suyo lo pone el en la pestana Marca y viaja por estado.json -- es
+ * del PRODUCTO, y por eso vive en el motor y no en cliente.mjs.
+ *
+ * Estaba escrito dos veces a pelo, en el href del pie y en el runtime que le pega el
+ * mensaje ya redactado. Cambiarlo obligaba a cazar las dos, y una de las dos se escapa:
+ * de ahi esta constante. Formato de wa.me: prefijo de pais sin + y sin espacios. */
+const SOCIALCARD_WA = '34647744457';
+
 /* ---- el contrato de configuracion (fase 5) ----
  * Nada de esto tiene valor por defecto en el motor: lo que el cliente no declare y sea
- * obligatorio aborta aqui, con su arreglo en el mensaje. Los valores de Tinge son SUYOS,
- * escritos en su cliente.mjs — el motor no sabe de Canarias, del euro ni de cocina india. */
+ * obligatorio aborta aqui, con su arreglo en el mensaje. Los valores de cada restaurante son
+ * SUYOS, escritos en su cliente.mjs — el motor no sabe de islas, de monedas ni de cocinas. */
 const S = String.fromCharCode(10);   // NL se define mucho mas abajo
 function abortar(queja, arreglo) {
   throw new Error(
@@ -5031,7 +5042,7 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
 
 <footer class="site-footer">
   <p><span class="brand">SocialCard</span> <span id="footer-year">2026</span> — ${T('Want your own menu?', 'ui')}<br>
-    <a class="footer-wa" id="footer-wa" href="https://wa.me/34617798557" target="_blank" rel="noopener">${T('Message us', 'ui')}</a>
+    <a class="footer-wa" id="footer-wa" href="https://wa.me/${SOCIALCARD_WA}" target="_blank" rel="noopener">${T('Message us', 'ui')}</a>
     ${T('and we visit you (Zona Sur)', 'ui')}</p>
 </footer>
 
@@ -6701,7 +6712,7 @@ ${sheet}
 
   /* El enlace de WhatsApp lleva el mensaje ya escrito, en el idioma en el que se está leyendo
      la carta: quien pulsa no tiene que pensar qué poner, y eso es la mitad de un contacto. */
-  var WA = 'https://wa.me/34617798557';
+  var WA = 'https://wa.me/${SOCIALCARD_WA}';
   var waLink = document.getElementById('footer-wa');
 
   function pintarWa() {

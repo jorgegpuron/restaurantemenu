@@ -3363,7 +3363,7 @@ if ($csrfOk) {
     $malas = [];
     if ($wa !== '' && (strlen($wa) < 10 || strlen($wa) > 15)) {
       $malas[] = 'WhatsApp: hacen falta el código de país y el número, entre 10 y 15 cifras. '
-               . 'Por ejemplo 34 617 79 85 57 para España.';
+               . 'Por ejemplo 34 647 74 44 57 para España.';
     }
     foreach (['instagram' => 'Instagram', 'facebook' => 'Facebook', 'tripadvisor' => 'Tripadvisor'] as $k => $nombre) {
       $v = trim((string) ($_POST['red_' . $k] ?? ''));
@@ -17557,7 +17557,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             lo monta la carta.
           </p>
           <input class="adm-campo" id="red-whatsapp" name="red_whatsapp" form="marca-form" inputmode="tel" maxlength="20"
-                 value="<?= h($redes['whatsapp'] ?? '') ?>" placeholder="34617798557">
+                 value="<?= h($redes['whatsapp'] ?? '') ?>" placeholder="34647744457">
           <?php /* SocialCard V6: las tres direcciones son el mismo tipo de dato y se rellenan
                    de una sentada. En columna sumaban 383 px de ficha para tres campos; a dos
                    columnas la ficha baja a la altura de la de Google, que es su pareja de fila,

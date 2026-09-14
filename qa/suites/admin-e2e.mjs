@@ -2206,9 +2206,9 @@ export async function e2eMarca(informe, { pagina, servidor, docroot, fixtures })
     [[['red_instagram', 'instagram.com/x']], /Instagram: la dirección/, 'instagram sin https'],
   ]) { const r = await postCrudo(pagina, '/admin/index.php', [['guardar_marca', '1'], ...pares]); errores.push(`${que}: ${re.test(r.mensaje) ? 'rechazado' : 'ACEPTADO(' + r.mensaje.slice(0, 40) + ')'}`); }
   informe.comprueba('E2E-MA-07', 'validaciones de reseñas y redes: cada entrada mala se rechaza con su mensaje', errores.every((e) => e.endsWith('rechazado')) && est().reviews.rating === 4.9, errores.join(' | '));
-  const redes = await guardarMarca({ '#red-whatsapp': '+34 617 79 85 57', '#red-instagram': 'https://instagram.com/tinge', '#red-facebook': 'https://www.facebook.com/tinge', '#red-tripadvisor': 'https://www.tripadvisor.es/Restaurant-tinge' });
+  const redes = await guardarMarca({ '#red-whatsapp': '+34 647 74 44 57', '#red-instagram': 'https://instagram.com/tinge', '#red-facebook': 'https://www.facebook.com/tinge', '#red-tripadvisor': 'https://www.tripadvisor.es/Restaurant-tinge' });
   informe.comprueba('E2E-MA-08', 'WhatsApp se normaliza a cifras con prefijo; Instagram, Facebook y Tripadvisor válidos se guardan',
-    /Guardado/.test(redes) && est().social.whatsapp === '34617798557' && est().social.instagram === 'https://instagram.com/tinge' && /facebook\.com\/tinge/.test(est().social.facebook) && /tripadvisor/.test(est().social.tripadvisor), JSON.stringify(est().social));
+    /Guardado/.test(redes) && est().social.whatsapp === '34647744457' && est().social.instagram === 'https://instagram.com/tinge' && /facebook\.com\/tinge/.test(est().social.facebook) && /tripadvisor/.test(est().social.tripadvisor), JSON.stringify(est().social));
 
   const malas = [];
   for (const [fx, re, que] of [['no-es-imagen.txt', /no es una imagen/, 'texto'], ['estrecha-400x300.png', /Hacen falta 800/, 'estrecha'], ['extension-falsa.jpg', /pero dentro lleva/, 'extensión falsa'], ['truncada.png', /dañada|no es una imagen|Hacen falta/, 'truncada'], ['ancha-9000x300.png', /demasiado grande|Hacen falta|memoria/, 'ancha 9000'], ['pesada-3mb.png', /pesa/, 'pesada']]) {

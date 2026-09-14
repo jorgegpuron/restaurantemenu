@@ -1302,7 +1302,7 @@ La carta baja de 326 a 312 platos y de 627 a 584 KB.
 ## El pie ficha clientes (21 Aug 2026)
 
 «Todos los derechos reservados» pasa a «Si quieres tu carta **escríbenos** y te visitamos (Zona
-Sur)», con la palabra enlazada a WhatsApp: `wa.me/34617798557`.
+Sur)», con la palabra enlazada a WhatsApp: `wa.me/34647744457`.
 
 **El enlace lleva el mensaje ya escrito**, y en el idioma en que se está leyendo la carta: quien
 pulsa no tiene que pensar qué poner, y eso es la mitad de un contacto. «Hola, me interesa una
