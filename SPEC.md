@@ -7643,3 +7643,34 @@ réplica local con Lighthouse 13.4.1: Accesibilidad 100 y Buenas prácticas 100 
 escritorio (SEO 92 en local por el `robots.txt` que `php -S` sirve como `index.html`; en
 producción es 100). El 100 en producción se confirma con PageSpeed **después** de
 desplegar.
+
+## `estado.json` y el HTML, en el borde (14 Sep 2026, preparado, pendiente de desplegar)
+
+Continuación de la entrada anterior. El propietario pasó PageSpeed móvil por su cuenta y le
+dio 88 donde la API había dado 96; tres pasadas seguidas desde aquí dieron 96, 87 y 95. No es
+el código: es el minuto. Medido con `curl -sI`: HTML con `cf-cache-status: EXPIRED`, 1,06 s de
+primer byte; con `HIT`, 0,21 s. La ventana del HTML era de 60 s, y `estado.json` no se
+cacheaba nunca (`no-store`, 0,8 a 1,4 s por carga), y hasta que llega no se pide la portada.
+
+Decisión, en `server/.htaccess` (fichero del cliente, no del motor):
+
+- **HTML:** `s-maxage` de 60 a **300 s**. Peor caso tras un despliegue: cinco minutos con la
+  compilación anterior; `version.json` sigue `no-store` y la recarga única por sesión sigue
+  igual.
+- **`estado.json`:** deja de ser `no-store` y pasa a `public, max-age=0, s-maxage=20,
+  must-revalidate`: **20 s en el borde, nunca en el navegador**. Un «agotado hoy» o una oferta
+  tarda como mucho 20 s en verse desde fuera; el panel lee el disco y se ve al momento.
+- **`version.json` y `record.json`** siguen `no-store`: uno decide la recarga, el otro es el
+  podio.
+
+**Y la Cache Rule de Cloudflare tiene que cambiar a la vez**, o `estado.json` sigue DYNAMIC:
+quitar la exclusión de `estado.json` y añadir la de `version.json`. La expresión completa está
+en el comentario del `.htaccess`. Sin la regla, la cabecera nueva no hace nada (Cloudflare no
+cachea `.json` por defecto); sin la cabecera, la regla cachearía con el TTL que le diera, que
+no es lo que se quiere.
+
+Efecto esperado: la portada se pide ~1 s antes en la primera visita, la reserva del hueco de
+la banda llega antes del primer pintado (y el CLS de 0,059 de Lighthouse desaparece), y el
+móvil deja de oscilar entre 87 y 96 por el minuto en que se mide. Se comprueba, después de
+desplegar y de cambiar la regla, con `curl -sI` (`cf-cache-status: HIT` y `Age` en
+`estado.json`) y con tres pasadas de PageSpeed móvil.

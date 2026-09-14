@@ -80,15 +80,20 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   # Y `s-maxage` para que ese 304 lo dé el BORDE y no el origen. Medido en producción, cinco
   # muestras seguidas: el primer byte de la carta tarda ~1 s y sólo 0,13 s son conexión y TLS
   # — el resto es el origen pensando, y con `cf-cache-status: DYNAMIC` cada comensal lo pagaba
-  # entero. Con 60 s de borde el origen se toca una vez por minuto y los demás reciben la
+  # entero. Con el borde delante el origen se toca una vez por ventana y los demás reciben la
   # carta en ~100 ms. Para un menú que escanean diez móviles en el mismo minuto, eso es el
   # caso normal, no el excepcional.
   #
+  # La ventana fue de 60 s hasta el 14 sep 2026 y pasa a 300 s: medido con PageSpeed móvil,
+  # cada vez que el minuto caducaba la pasada caía de 96 a 87-88, porque el primer byte volvía
+  # a ser de un segundo (`cf-cache-status: EXPIRED`, 1,06 s; con HIT, 0,21 s). Con poca visita,
+  # 60 s es pagar el origen casi siempre.
+  #
   # Y no retrasa NADA de lo que se cambia desde el panel: agotados, etiquetas, precios nuevos
-  # y ofertas viajan en `estado.json`, que es `no-store` y se pide en cada carga (comprobado:
-  # el HTML trae siete referencias a él). El HTML sólo cambia al compilar, y de eso avisa
-  # `version.json`, que también es `no-store`. Así que el peor caso de estos 60 s es ver el
-  # HTML de la compilación anterior durante un minuto después de un despliegue.
+  # y ofertas viajan en `estado.json`, que se pide en cada carga y tiene su propia ventana de
+  # 20 s (más abajo). El HTML sólo cambia al compilar, y de eso avisa `version.json`, que es
+  # `no-store`. Así que el peor caso de estos 300 s es ver el HTML de la compilación anterior
+  # durante cinco minutos después de un despliegue.
   #
   # El navegador no cambia: `max-age=0, must-revalidate` es la misma frescura de siempre.
   #
@@ -100,20 +105,24 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   #
   #   starts_with(http.request.uri.path, "/tinge_of_turmeric/menu2/")
   #     and not http.request.uri.path contains "/admin/"
-  #     and not http.request.uri.path contains "estado.json"
   #     and not http.request.uri.path contains "record.json"
+  #     and not http.request.uri.path contains "version.json"
   #   => Elegible para cache, sin Edge TTL ni Browser TTL propios
   #
-  # Sin Edge TTL propio a proposito: asi el TTL lo manda ESTA linea y no vive en dos sitios. Y las
-  # tres exclusiones van dentro de la expresion aunque exista otra regla anterior que omite cache
-  # para /admin/: si alguien reordena las reglas, el panel y los datos vivos siguen sin cachearse.
+  # Hasta el 14 sep 2026 la regla excluia tambien `estado.json`; desde entonces entra, con los
+  # 20 s de borde que le da su propia cabecera (ver mas abajo). `version.json` se añade a las
+  # exclusiones: ya iba `no-store`, pero mejor que la regla lo diga.
+  #
+  # Sin Edge TTL propio a proposito: asi el TTL lo manda ESTE fichero y no vive en dos sitios. Y
+  # las exclusiones van dentro de la expresion aunque exista otra regla anterior que omite cache
+  # para /admin/: si alguien reordena las reglas, el panel y el podio siguen sin cachearse.
   #
   # Medido al terminar: el primer byte de la carta pasa de 0,99-1,08 s a 0,127-0,153 s y
-  # `cf-cache-status` da HIT con su `Age`. El panel sigue DYNAMIC con `no-store`, y `estado.json`
-  # tambien. Si alguien borra esa regla, esto vuelve solo a DYNAMIC sin avisar de nada: el sintoma
-  # es el segundo entero de espera, y se comprueba con `curl -sI` mirando `cf-cache-status`.
+  # `cf-cache-status` da HIT con su `Age`. El panel sigue DYNAMIC con `no-store`. Si alguien
+  # borra esa regla, esto vuelve solo a DYNAMIC sin avisar de nada: el sintoma es el segundo
+  # entero de espera, y se comprueba con `curl -sI` mirando `cf-cache-status`.
   <FilesMatch "\.html$">
-    Header set Cache-Control "public, max-age=0, s-maxage=60, must-revalidate"
+    Header set Cache-Control "public, max-age=0, s-maxage=300, must-revalidate"
   </FilesMatch>
 
   # estado.json, pedido ANTES de que termine de bajar el HTML.
@@ -131,7 +140,9 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   # descubre antes que el documento, que es justo el problema que resuelve.
   #
   # OJO: el fetch del runtime tiene que pedir esta MISMA dirección, sin ?t= ni nada detrás, o el
-  # navegador se baja el fichero dos veces. La frescura la garantiza el no-store de más abajo.
+  # navegador se baja el fichero dos veces. La frescura la garantizan los 20 s de borde de más
+  # abajo: el navegador no lo guarda nunca (`max-age=0, must-revalidate`, y el runtime pide con
+  # `cache: no-store`), y el borde lo renueva cada 20 s.
   #
   # SÓLO en la carta. El juego y la página de error también son .html y no leen el estado: ahí
   # sería una petición que nadie recoge, y el navegador avisa por consola de que se ha
@@ -144,9 +155,24 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   <Files "index.html">
     Header set Link "<estado.json>; rel=preload; as=fetch; crossorigin"
   </Files>
+  # estado.json: 20 s en el BORDE, nunca en el navegador. Hasta el 14 sep 2026 era `no-store`
+  # y cada carga lo pagaba al origen: 0,8 a 1,4 s de primer byte medidos, y hasta que llega no
+  # se pide la foto de portada (PageSpeed móvil: 1,5 s de espera antes de pedir la imagen) ni
+  # se reserva el hueco de la banda de oferta. Con el borde delante llega en ~50 ms.
+  #
+  # 20 s y no más: es lo que tarda en verse un «agotado hoy» o una oferta marcada desde el panel,
+  # en el peor caso. Y no menos: por debajo el origen vuelve a estar en el camino de casi todos.
+  # El panel no pasa por aquí —lee y escribe el fichero en disco—, así que él se ve al momento.
+  #
+  # Para que el borde lo guarde hace falta ADEMÁS que la Cache Rule de Cloudflare deje de
+  # excluirlo (ver la regla más arriba): con esta cabecera y la exclusión puesta, sigue DYNAMIC.
+  <Files "estado.json">
+    Header set Cache-Control "public, max-age=0, s-maxage=20, must-revalidate"
+  </Files>
   # Lo que cambia durante el servicio no se guarda nunca. version.json es además la marca
-  # que decide la recarga única por sesión: cachearlo rompería justo lo que resuelve.
-  <FilesMatch "^(estado|version|record)\.json$">
+  # que decide la recarga única por sesión: cachearlo rompería justo lo que resuelve. record.json
+  # es el podio, y una marca recién batida tiene que verse en el acto.
+  <FilesMatch "^(version|record)\.json$">
     Header set Cache-Control "no-store"
   </FilesMatch>
   # Las fotos del panel llevan nombre aleatorio: una foto nueva es una URL nueva. Un mes.

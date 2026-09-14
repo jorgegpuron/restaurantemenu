@@ -15,7 +15,15 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 > **PageSpeed sobre producción con el build nuevo:** móvil 96 / **100 / 100 / 100**, escritorio
 > 98 / **100 / 100 / 100** (Rendimiento / Accesibilidad / Buenas prácticas / SEO). Objetivo cumplido.
 >
-> **Lo siguiente:** el podio del juego (ver abajo: se publicó el juego nuevo SIN vaciarlo antes;
+> **Hay un cambio SIN COMMIT en el árbol:** `server/.htaccess` (HTML a 300 s de borde,
+> `estado.json` a 20 s de borde en vez de `no-store`), preparado a petición del propietario porque
+> el móvil oscila entre 87 y 96 según el minuto (caché del borde caducada). `fast` 37 PASS con él.
+> **Va emparejado con un cambio de la Cache Rule de Cloudflare** («cache del HTML de Tinge»:
+> quitar la exclusión de `estado.json`, añadir la de `version.json`) que sólo puede hacer el
+> propietario. Orden de operaciones: commit + despliegue del `.htaccess`, después la regla, después
+> `curl -sI` y tres pasadas de PageSpeed. Ver la última entrada de `SPEC.md`.
+>
+> **Después:** el podio del juego (ver abajo: se publicó el juego nuevo SIN vaciarlo antes;
 > hay que ponerlo a cero desde el panel cuanto antes), el nombre de Guaza en la carta de Tinge, y
 > el alta del restaurante nuevo (`/nuevo-cliente`, fotos en `socialcard_claudecode/0-altas/`).
 
