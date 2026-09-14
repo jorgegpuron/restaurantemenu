@@ -7747,3 +7747,23 @@ Negativo es «más alto». Ajuste, sólo `vertical-align` y una interlínea: `.a
 cámara de 32 estira—. Después: 0 en todas las casillas, en los tres anchos. El alto de la fila
 no cambia en el móvil (91,8) y baja 0,8 px en escritorio y tablet (69,6 → 68,8) porque la
 cámara sobresale menos de la línea. Verificado con Playwright, no a ojo.
+
+**El precio también, y los huecos entre badges iguales (14 Sep 2026, noche).** Dos vueltas más
+sobre lo anterior, las dos medidas con Playwright sobre TODAS las filas de la carta:
+
+- **La cámara ya no estira la línea.** Con `margin: -1px 0` la caja de margen del círculo de 32
+  mide 30, igual que la línea del h3, y una fila con cámara mide lo mismo que una sin ella (h3
+  30, fila 66,8, antes 32,8 y 69,6). Por eso el número de escritorio vuelve a `line-height:
+  30px` (no 32). El precio (interlínea 30) queda a 0 en escritorio y tablet en todas las filas.
+- **En el móvil** la línea del nombre mide 22 y el círculo sí la estira: el nombre baja 4,5 px
+  en las filas con cámara (`.abre`). El precio recibe el mismo desplazamiento sólo en esas filas
+  (`padding-top: 4.5px`, o `--tags-h + 9.5px` con línea de badges). Medido después en las 312
+  filas: texto del precio y del nombre en el mismo centro en todas; las únicas cifras distintas
+  son los nombres a dos líneas, donde el precio va con la primera, que es lo que se quiere.
+- **Huecos entre badges: 4 px en todas las parejas.** La regla `.item-tag:has(+ .diet-marks)`
+  fallaba cuando entre el destacado y Vegano quedaba la ranura oculta de la moto: ahí salían 8
+  («Recommended + Vegan»), y 4 entre Vegano y Sin gluten. Se sustituye por `.item-tags >
+  .item-tag:not([hidden]):has(~ :not([hidden]))`: dentro de `.item-tags` sólo hay badges, así
+  que «tiene algún hermano visible detrás» es «no es el último», y el último conserva sus 8 px
+  hacia el nombre. La fórmula (4 px) no cambia; cambia que se aplique siempre. Medido: todas
+  las parejas a 4,0 en los tres anchos.

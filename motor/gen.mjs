@@ -2180,10 +2180,16 @@ html:not(.js) .lang-menu{position:static;display:block}
 .has-photo{
   display:inline-flex;align-items:center;justify-content:center;
   width:32px;height:32px;margin-left:10px;flex:0 0 auto;
-  /* -1px y no middle: middle dejaba el circulo 1,8 px bajo respecto al centro del badge en
+  /* margin -1px arriba y abajo: la caja de margen mide 30, la linea del h3 mide 30, y el
+     circulo de 32 deja de ESTIRAR la linea (antes el h3 de una fila con camara media 32,8 y
+     el de una sin camara 30: el precio, con su interlinea de 30, quedaba 1 px alto solo en las
+     filas con camara). Con la linea siempre a 30, badge, nombre, numero y precio caen en el
+     mismo centro tenga o no camara la fila. El circulo sigue midiendo 32 en pantalla: solo
+     sobresale 1 px por cada lado de la linea, y ahi solo hay aire.
+     -1px y no middle: middle dejaba el circulo 1,8 px bajo respecto al centro del badge en
      escritorio y tablet (1,3 en el movil), medido el 14 sep 2026. Con -1px (y -2.5px en el
-     movil, ver el media query de item-tag) el centro del circulo cae en el del badge. De paso
-     el circulo de 32 sobresale menos de la linea de 30: el h3 pasa de 32,8 a 32 de alto. */
+     movil, ver el media query de item-tag) el centro del circulo cae en el del badge. */
+  margin-top:-1px;margin-bottom:-1px;
   vertical-align:-1px;
   border-radius:50%;
   border:1px solid var(--accent);
@@ -3177,11 +3183,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   font-family:var(--title-font);
   font-size:14px;
   font-weight:600;
-  /* 32 y no 24: el numero va en su columna, a la izquierda del h3, y su centro tiene que caer
-     en el del badge y el nombre de la primera linea del h3, que mide 32 (linea de 30 mas lo
-     que sobresale la camara). Con 24 el numero quedaba 3 px alto, medido el 14 sep 2026. No
+  /* 30 y no 24: el numero va en su columna, a la izquierda del h3, y su centro tiene que caer
+     en el del badge y el nombre de la primera linea del h3, que mide 30 (la camara ya no la
+     estira, ver .has-photo). Con 24 el numero quedaba 3 px alto, medido el 14 sep 2026. No
      cambia el alto de la fila: la manda el h3. */
-  line-height:32px;
+  line-height:30px;
   text-align:right;
 }
 /* the sauce / ingredient mark, sitting in the same slot the dish number would use */
@@ -3257,11 +3263,13 @@ html:not(.js) .lang-menu{position:static;display:block}
    es un envoltorio sin margin propio, asi que cuando le sigue "agotado hoy" el hueco lo pone
    SU ultima pastilla (:last-child dentro), vegano si va sola o sin-gluten si van las dos.
    Sin soporte de :has() se queda en 8px, que ya funcionaba antes de esto -- no empeora.
-   Casos con destacado oculto pegando oferta a dieta o a agotado con dos saltos de hermano
-   no se cubren aqui: raro (oferta activa sin ser New/Most loved) y no es peor que antes. */
-.item-tag-offer:not([hidden]):has(+ .item-tag-high:not([hidden])),
-.item-tag:has(+ .diet-marks),
-.item-tag:has(+ .sold-out-flag){margin-right:4px}
+   Con ~ y no con +: la fila emite SIEMPRE todas las ranuras (oferta, destacado, moto) y las
+   que no van se quedan con hidden, asi que el hermano inmediato de un badge visible puede ser
+   una ranura vacia. Con + la pareja «Recommended + Vegan» daba 8 (el hermano inmediato era la
+   moto oculta) y «Vegan + Gluten free» 4, y se veia (14 sep 2026). Dentro de .item-tags solo
+   hay badges, asi que «tiene algun hermano visible detras» es exactamente «no es el ultimo
+   badge visible»: 4 para todos menos el ultimo, que conserva los 8 hacia el nombre. */
+.item-tags > .item-tag:not([hidden]):has(~ :not([hidden])){margin-right:4px}
 /* ---- «Para llevar»: badge redondo, no pastilla con texto ----
    Va en la línea de etiquetas como una más, pero REDONDO y sólo con el dibujo: es lo que
    permite que un plato lleve su destacado Y esto sin que la línea se convierta en dos
@@ -3297,10 +3305,13 @@ html:not(.js) .lang-menu{position:static;display:block}
       con el atributo hidden. Con la de destacado apagada, el hermano inmediato es ella y no la moto.
    Medido antes de tocar: 8 a la izquierda de la moto y 4 a la derecha. Los 8 son los genericos,
    que son para separar la ultima etiqueta del NOMBRE del plato, no etiqueta de etiqueta.
-   Un solo salto basta: delante de la moto solo pueden ir esas dos ranuras. */
+   Un solo salto basta: delante de la moto solo pueden ir esas dos ranuras.
+   (Hoy lo cubre ya la regla general de arriba con ~; esta se queda por si :has(~) y :has(+)
+   se comportaran distinto en algun motor: dice lo mismo, no contradice nada.) */
 .item-tag:not([hidden]):has(+ .item-tag-llevar:not([hidden])),
 .item-tag:not([hidden]):has(+ .item-tag[hidden] + .item-tag-llevar:not([hidden])){margin-right:4px}
-.diet-marks:has(+ .sold-out-flag) .item-tag-diet:last-child{margin-right:4px}
+/* La ultima pastilla de dieta, si detras hay algo visible (agotado hoy): 4 y no 8, por lo mismo. */
+.diet-marks:has(~ :not([hidden])) .item-tag-diet:last-child{margin-right:4px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
    exists and is off today, not wonder whether the kitchen dropped it.
@@ -4481,6 +4492,15 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      tapado por el propio badge. Sin ResizeObserver cae al valor de una línea de siempre. */
   .single-menu-items.has-tags .price,
   .single-menu-items.is-sold-out .price{padding-top:calc(var(--tags-h, var(--tags-line)) + 5px)}
+  /* Fila CON camara (.abre): el circulo de 32 (30 con sus margenes) estira la linea del nombre,
+     que aqui mide 22, y el nombre baja 4,5 px respecto a una fila sin camara. El precio no lo
+     sabia y se quedaba 4,5 px alto justo en esas filas, medido el 14 sep 2026 a 412. Se le da
+     el mismo desplazamiento, con y sin linea de badges, y el texto del precio cae en el centro
+     del nombre en todas las filas. Solo en el movil: de 768 en adelante la linea mide 30 y el
+     circulo ya no la estira. */
+  .single-menu-items.abre .price{padding-top:4.5px}
+  .single-menu-items.abre.has-tags .price,
+  .single-menu-items.abre.is-sold-out .price{padding-top:calc(var(--tags-h, var(--tags-line)) + 9.5px)}
   .item-badge-icon svg{vertical-align:-2px;width:15px;height:15px}
   .single-menu-items .details{gap:0}
   /* measured at 390px across all 326 names: 278 fit one line, 46 two, 2 three */
