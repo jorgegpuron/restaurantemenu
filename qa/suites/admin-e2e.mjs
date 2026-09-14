@@ -956,6 +956,43 @@ export async function e2eDestacados(informe, { pagina, servidor, docroot }) {
     /no existe/.test(mala.mensaje) && /no está en la carta/.test(malaClave.mensaje) && Object.keys(leerEstado(docroot).tags || {}).length === 0, `${mala.mensaje} | ${malaClave.mensaje}`);
   const delRaro = await postCrudo(pagina, '/admin/index.php', [['destacado_del', 'clave-inexistente']]);
   informe.comprueba('E2E-DS-10', 'quitar un destacado inexistente no rompe', delRaro.status === 200 && servidor.avisos().length === 0);
+
+  /* ---- el selector no puede hacer desaparecer una fila ----
+     El propietario lo vio en producción: al etiquetar un plato de Aperitivos, el número 3 se
+     iba de la lista y no volvía hasta recargar. El selector de etiquetas es UNO para las 312
+     filas y el JavaScript lo MUEVE dentro de la columna, debajo de la fila que se toca; el
+     recorte de tres por columna contaba HIJOS (`nth-child`), así que ese <form> corría a las
+     filas de abajo un puesto y la tercera caía al cuarto, que está recortado. Y al cerrar el
+     selector se quedaba aparcado allí, de ahí que la fila no volviera.
+     Esto SÓLO se ve con las fichas CERRADAS: el resto de este bloque llama a `abrirTodo()`,
+     que levanta el recorte, y por eso la batería entera pasaba en verde con el defecto
+     dentro. Aquí se entra limpio y no se abre nada. */
+  await irA(pagina, url, 'platos');
+  const recorte = await pagina.evaluate(() => {
+    const ficha = [...document.querySelectorAll('.pane[data-pane="platos"] [data-cat-bento]')]
+      .find((f) => !f.hasAttribute('data-abierto')
+        && [...f.querySelectorAll('.adm-cat-bento-col')].some((c) => c.querySelectorAll(':scope > .adm-orow').length >= 3));
+    if (!ficha) return { error: 'ninguna ficha cerrada con tres filas en una columna' };
+    const visibles = () => [...ficha.querySelectorAll('.adm-cat-bento-col > .adm-orow')]
+      .filter((f) => f.offsetParent !== null).length;
+    const antes = visibles();
+    const col = [...ficha.querySelectorAll('.adm-cat-bento-col')]
+      .find((c) => c.querySelectorAll(':scope > .adm-orow').length >= 3);
+    const segunda = col.querySelectorAll(':scope > .adm-orow')[1];
+    const pick = segunda.querySelector('.adm-destpick');
+    if (!pick) return { error: 'la fila no tiene botón de destacar' };
+    pick.click();
+    const abierto = visibles();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const cerrado = visibles();
+    const et = document.getElementById('dest-et');
+    return { antes, abierto, cerrado, aparcado: !!et.closest('.adm-cat-bento-col') };
+  });
+  informe.comprueba('E2E-DS-16', 'abrir el selector de etiquetas en una ficha cerrada no esconde ninguna fila',
+    !recorte.error && recorte.antes >= 3 && recorte.abierto === recorte.antes && recorte.cerrado === recorte.antes,
+    JSON.stringify(recorte));
+  informe.comprueba('E2E-DS-17', 'al cerrarlo, el selector vuelve a su sitio y no se queda aparcado dentro de la columna',
+    !recorte.error && recorte.aparcado === false, JSON.stringify(recorte));
   /* ---- etiquetar en LOTE ----
      Lo que de verdad hay que contratar aquí no es «se guarda», es «se guarda UNA vez para los
      N». Si el servidor escribiera plato a plato, un fallo a mitad dejaría media lista

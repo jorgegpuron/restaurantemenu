@@ -11142,7 +11142,15 @@ $CUENTAS = [
      grupo de acciones empezando cada vez en una x diferente: 76, 135, 163, 175.
      Levantar una regla vale `display:none` o nada; no vale re-declarar el display, porque
      quien lo re-declara tiene que acertar con la composicion de cada tamaño y no puede. */
-  .adm-bento:not(.esta-filtrando) .adm-cat-bento:not([data-abierto]) .adm-cat-bento-col > .adm-orow:nth-child(n+4){display:none}
+  /* `nth-of-type` y NO `nth-child`, y esto no es un detalle de estilo: el selector de
+     etiquetas es UNO para las 312 filas y el JavaScript lo MUEVE dentro de la columna, justo
+     debajo de la fila que se toca. Con `nth-child` ese <form> cuenta como hijo y corre a
+     todas las filas de abajo un puesto: abrir el selector en la segunda fila empujaba a la
+     tercera al cuarto puesto y el recorte se la comia. Y como el formulario se queda
+     aparcado ahi al cerrar, la fila no volvia hasta recargar la pagina. `nth-of-type` cuenta
+     solo DIV —todas las filas lo son, el selector es un FORM—, asi que lo que se aparque
+     entre medias ya no puede descontar. */
+  .adm-bento:not(.esta-filtrando) .adm-cat-bento:not([data-abierto]) .adm-cat-bento-col > .adm-orow:nth-of-type(n+4){display:none}
   .esta-filtrando .adm-vermas{display:none}
 
   .adm-vermas{
@@ -15043,9 +15051,24 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         var pane = document.querySelector('.pane[data-pane="platos"]');
         if (!pane) return;
         function etiquetasForm() { return document.getElementById('dest-et'); }
+        /* De donde salio el formulario, para devolverlo ahi al cerrar. Aparcado dentro de una
+           columna de platos no es inofensivo: es un nodo ajeno en una lista que el CSS y el
+           reparto a dos columnas recorren, y ya costo una fila invisible. Se apunta ahora,
+           antes de que nadie lo mueva. */
+        var etCasa = (function () {
+          var f = document.getElementById('dest-et');
+          return f ? { padre: f.parentNode, antesDe: f.nextSibling } : null;
+        })();
         function cerrarEtiquetas() {
           var etForm = etiquetasForm();
-          if (etForm) { etForm.hidden = true; etForm.removeAttribute('data-lote'); }
+          if (etForm) {
+            etForm.hidden = true;
+            etForm.removeAttribute('data-lote');
+            if (etCasa && etCasa.padre && etForm.parentNode !== etCasa.padre) {
+              var antes = etCasa.antesDe;
+              etCasa.padre.insertBefore(etForm, antes && antes.parentNode === etCasa.padre ? antes : null);
+            }
+          }
           pane.querySelectorAll('.adm-destpick.es-elegido').forEach(function (o) {
             o.classList.remove('es-elegido');
             o.setAttribute('aria-expanded', 'false');
