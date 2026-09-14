@@ -5,36 +5,24 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, noche.** `main` = `origin/main` = `57d51c7`. Producción
-> sirve `1789414949096` (badges con texto OSCURO, precio rebajado en pastilla). **Hay una rama
-> `fix/marca-badges-claros` con UN commit sin integrar**, preparada por decisión del propietario:
-> los badges vuelven a texto crema sobre el naranja literal (excepción de fábrica de
-> `--badge-ink` repuesta en las cuatro capas), el precio rebajado vuelve a texto plano naranja,
-> y las pastillas de dieta pasan a huecas: sin fondo, filete y texto naranja (ya no cuelgan de
-> `--badge-ink`), y la cámara de la foto igual: hueca, filete y dibujo naranja, y ya no se
-> mueve delante y detrás de los alérgenos (los alérgenos editados se insertan delante de ella,
-> no al final del h3). Y número, alérgenos y cámara centrados con el badge en los tres anchos
-> (`vertical-align` medido), el precio con ellos en todas las filas (la cámara ya no estira la
-> línea; en móvil el precio baja 4,5 px sólo en filas con cámara) y 4 px entre TODAS las parejas
-> de badges (la regla saltaba la ranura oculta de la moto). Coste asumido a sabiendas:
-> Accesibilidad 97 en PageSpeed;
-> Buenas prácticas y SEO siguen en 100. `motor.lock` refirmado; `fast` 37, `smoke` 17, contrato
-> de tintas en verde; réplica local: 97/100/100. **Falta la orden de integrar y desplegar.**
+> Última actualización: **14 sep 2026, cierre.** `main` = `origin/main` = **`6e28642`**, **una sola
+> rama** aquí y en GitHub, árbol limpio salvo `.ai/`, sin stashes. `motor.lock` cuadra (1.1.8).
+> **Producción sirve `1789417907465`** (run `34893456759`); `DESPLIEGUE_REAL` devuelta a `false`
+> y leída de GitHub. **PageSpeed sobre ese build: móvil 88 / 97 / 100 / 100, escritorio
+> 98 / 97 / 100 / 100** (Rendimiento / Accesibilidad / Buenas prácticas / SEO). El 97 es decisión
+> del propietario: badges con texto crema sobre el naranja literal; el móvil oscila 87–96 según el
+> minuto (PoP de Google frío). Nada a medias.
 >
-> Antes, hoy: `3dcde48` (los tres 100 y el CLS del runtime, desplegado como `1789413900535`) y
-> `cc6bf42` (`estado.json` a 20 s de borde y HTML a 300 s, desplegado como `1789414949096`, con
-> la Cache Rule de Cloudflare cambiada por el propietario). Medido: la caché del borde ayuda a
-> los comensales (0,88 s → 0,21 s desde Europa) y NO estabiliza PageSpeed móvil (89, 87, 89, 94:
-> Lighthouse mide desde EE. UU. con el PoP frío). Lo que lo estabilizaría es la «portada
-> estática» (última entrada de `SPEC.md` sobre caché).
+> **Lo siguiente, en este orden:** (1) el podio del juego a cero desde el panel, que el juego
+> nuevo ya está en producción con marcas viejas; (2) el nombre «Bar / Restaurante Guaza» en la
+> carta de Tinge, desde Admin → Marca; (3) el alta del restaurante nuevo (`/nuevo-cliente`, fotos
+> en `socialcard_claudecode/0-altas/`); (4) si se quiere el móvil estable en PageSpeed, la
+> «portada estática» (última entrada de caché en `SPEC.md`), que es cambio de motor con diseño.
 >
-> **Después:** el podio del juego (ver abajo: se publicó el juego nuevo SIN vaciarlo antes;
-> hay que ponerlo a cero desde el panel cuanto antes), el nombre de Guaza en la carta de Tinge, y
-> el alta del restaurante nuevo (`/nuevo-cliente`, fotos en `socialcard_claudecode/0-altas/`).
 
 ---
 
-## Lo que se publicó hoy (`3dcde48`)
+## Lo que se publicó hoy (cuatro despliegues: `3dcde48`, `cc6bf42`, `6e28642` y sus docs)
 
 El propietario pasó PageSpeed y quería recuperar **Accesibilidad, Buenas prácticas y SEO en
 100** y mejorar el rendimiento si se podía. Medido con la API de PageSpeed (clave en
