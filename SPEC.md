@@ -7535,3 +7535,111 @@ Quedan para releases posteriores, del mismo informe: pantalla final honesta con 
 o fuera del podio, el dorado con un aro que lo distinga sin leer, un degradado en el tablero
 para que la partida no sea negro sobre gris, la decisión sobre el vídeo de fondo (259 KB que
 casi no se ven), sonido opcional y un flash de bomba que se vea donde no hay vibración.
+
+## PageSpeed: los tres 100 que se habían perdido, y el CLS del runtime (14 Sep 2026)
+
+El propietario pasó PageSpeed sobre producción y vio Accesibilidad 97, Buenas prácticas
+96 (móvil) y SEO 100, con Rendimiento 95/99. Quería los tres primeros en 100 «como los
+tenía». Se midió con la API de PageSpeed (Lighthouse 13.4.1, móvil y escritorio) y con una
+réplica local de producción —el build actual, el `estado.json` real y las tres fotos de
+portada reales, servido con `php -S`— para reproducir cada fallo y verificar cada arreglo
+sin tocar producción.
+
+**Accesibilidad 97: las dos excepciones de contraste del 4 de septiembre.** Las dos se
+pidieron expresamente aquel día, y las dos son las que axe marcaba en producción, en cuatro
+sitios: el badge relleno (`MOST LOVED`, `NEW`, `35% OFF`: crema sobre naranja, 2,45:1), la
+pastilla de dieta (`VEGAN`, `GLUTEN FREE`: la misma pareja invertida, 2,45:1), el precio
+rebajado como naranja plano sobre la tarjeta (2,45:1 a 16 y 18 px) y el botón «Buscar
+platos» del móvil (crema sobre naranja). Antes del 4 de septiembre la carta daba 100; el
+100 y esas excepciones no pueden convivir, porque ninguna llega ni al 3:1 de texto grande.
+
+Decisión: **se retiran las dos excepciones y manda la regla de oro de `temas.mjs`**, que
+ya estaba escrita: el acento no se oscurece nunca para servir de texto; lo que cambia es a
+quién se le pide que sea el texto. Así que:
+
+- `--badge-ink` vuelve a ser `--accent-ink` para todo color, también para el naranja de
+  fábrica: los badges rellenos llevan OSCURO sobre el naranja (6,97:1). El token se conserva
+  con su nombre para no tocar a sus consumidores (`item-tag`, `dsheet-flag`, `aviso-badge`,
+  el fab de búsqueda, los `.badge` del panel, la cápsula «Rush» de la tarjeta del juego).
+  Cambiado en las cuatro capas que lo calculan —Node, runtime de la carta, PHP del panel y
+  el contrato de tintas que las compara— y el contrato pasa entero.
+- La pastilla de dieta sale sola: es «fondo `--badge-ink`, texto `--accent`», o sea el
+  diseño original de «fondo oscuro con el naranja de marca encima» (7:1).
+- El precio rebajado vuelve a la pastilla que tenía antes del 4 de septiembre (fondo
+  `--accent`, texto `--accent-ink`, `width:fit-content; margin-left:auto`).
+- **La excepción de «Rush» en el juego (`--rush-ink`) se queda**: PageSpeed no mide el juego,
+  y era una petición aparte. Es la única excepción de contraste que queda en el motor, y
+  el contrato de tintas lo dice así.
+
+Medido en la réplica: Accesibilidad **100** en móvil y escritorio.
+
+**Buenas prácticas 96 en móvil: la bandera del círculo.** El fichero de la bandera es 4:3
+(60×45) y el círculo que pliega la barra la pintaba a 24×24 con `width:100%;height:100%`,
+estirada. Lighthouse lo marca (`image-aspect-ratio`). `object-fit:cover` la recorta en vez
+de estirarla, se ve mejor, y la auditoría la da por buena: **100**.
+
+**El CLS del runtime, 0,084 en producción.** Tres desplazamientos, medidos con sus causas:
+
+| Qué se movía | CLS | Causa |
+|---|---|---|
+| Todo lo que hay bajo el título (`.food-menu-tab`), 95 px hacia abajo | 0,059 | la banda de oferta la enciende el runtime del final, después del primer pintado |
+| La barra de la portada (`#head-tools`), de 267 px a un círculo | 0,015 | el pliegue lo hace el runtime, después del primer pintado |
+| El `h1` y algunas filas | 0,010 | el swap de las fuentes |
+
+- **La barra se pliega ya en el primer pintado.** Tres reglas de CSS bajo `html.js` (la
+  clase la pone el script de la cabecera antes de que exista el `<body>`) dejan la barra
+  exactamente en la geometría que después escribe el runtime: fila a 0, sin hueco, círculo
+  visible. Para que el CSS pueda destapar el círculo, el botón **deja de llevar `hidden` en
+  el HTML** —el `[hidden]` global es `!important`— y lo esconde la regla base; y el HTML
+  trae ya la bandera del idioma base dentro del círculo, para que no salga vacío. Sin
+  JavaScript no hay `html.js`: barra entera y sin círculo, como siempre. Medido: 52×52 antes
+  y después del runtime, desplazamiento 0.
+- **El hueco de la banda se reserva antes de montarla.** Un script justo detrás de la banda
+  la «reserva» —quita el `hidden`, pone `.reservada` (`visibility:hidden`), y los carriles
+  vacíos miden un renglón gracias a `min-height:.94em`— con la caja exacta de la banda llena
+  (74 px, verificado píxel a píxel). Lo hace por dos vías: **en el acto**, si la última
+  visita desde ese navegador vio la banda (`localStorage`, igual que `has-hero` para la
+  portada), y **al llegar `estado.json`**, si la oferta está encendida y dentro de su franja
+  (copia mínima del reloj de `offerByClock()`; el runtime sigue siendo la fuente de verdad,
+  siempre quita la clase y deja apuntada su decisión). Medido con Chrome real y red lenta:
+  CLS total 0,005 en la primera visita y 0,0045 en la segunda (queda sólo el swap de
+  fuentes).
+- **Lo que NO se arregla, y por qué.** Lighthouse mide con perfil limpio, y en producción
+  `estado.json` viene del origen sin caché (`no-store`, `cf-cache-status: DYNAMIC`, ~0,7 a
+  1,4 s de primer byte medidos) mientras el HTML viene del borde: el primer pintado llega
+  antes que el estado, y la banda sigue apareciendo después. Es inherente a que la banda
+  dependa de un dato que el HTML no lleva. Reservar el hueco *siempre* lo arreglaría para
+  Tinge y castigaría con un hueco vacío a cualquier cliente sin oferta: descartado. La
+  única salida real es que `estado.json` llegue antes que el primer pintado, y eso es una
+  regla de caché en el borde (ver abajo). El swap de fuentes (0,010) tampoco se toca: con
+  las fuentes servidas desde Google no se pueden declarar métricas de respaldo fiables;
+  entra en el pendiente de fuentes propias.
+
+**Rendimiento: qué manda de verdad, y no está en el código.** La cascada de PageSpeed en
+móvil: documento 1,2 s (98 KB con Brotli), `estado.json` 0,76 s más (lo que Lighthouse
+llama *resource load delay* de la portada: 1,67 s), y sólo entonces la foto. El primer byte
+del HTML desde aquí fue 1,03 s con `cf-cache-status: EXPIRED` (la regla de 60 s había
+caducado) y el de `estado.json` 1,39 s. Nada de eso se arregla en `gen.mjs`. Las dos
+palancas, ninguna aplicada porque son infraestructura del propietario:
+
+1. **`estado.json` en el borde con un TTL corto** (10 a 30 s) mediante la Cache Rule de
+   Cloudflare —hoy la regla lo excluye a propósito— y quitando el `no-store` de su cabecera.
+   Adelanta la portada casi un segundo en la primera visita, y hace que la reserva de la
+   banda llegue antes del primer pintado. El coste es que un cambio del panel tarde hasta
+   ese TTL en verse.
+2. **El TTL del HTML**, hoy 60 s: con poca visita cada minuto vuelve a pagar el origen.
+
+Lo demás que lista PageSpeed es del beacon de Cloudflare Web Analytics (`beacon.min.js`:
+caché de un día y JavaScript «legacy», 15 KB) y de las fuentes de Google (dos conexiones y
+129 KB, ya en el pendiente de fuentes propias).
+
+**Hallazgo colateral, fuera de esta tarea:** el `estado.json` de producción de Tinge lleva
+`marca.nombreVisible = "Bar / Restaurante Guaza"` y `rotuloVisible = "Comida casaera
+canaria"`. La carta pública de Tinge está mostrando el nombre de otro restaurante. Se
+corrige desde Admin → Marca de Tinge; no se ha tocado.
+
+**Comprobación:** `fast` 37 PASS, `smoke` 17 PASS, contrato de tintas en las cuatro capas,
+réplica local con Lighthouse 13.4.1: Accesibilidad 100 y Buenas prácticas 100 en móvil y
+escritorio (SEO 92 en local por el `robots.txt` que `php -S` sirve como `index.html`; en
+producción es 100). El 100 en producción se confirma con PageSpeed **después** de
+desplegar.

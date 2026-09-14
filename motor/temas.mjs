@@ -225,7 +225,7 @@ const rojoLegible = () => {
  *  aclarada de este colorPrincipal se lee sobre --ink": ver verificarPaleta(). --accent-ink
  *  ya no puede ser null: inkSobre() cae a negro o blanco puro cuando ni OSCURO ni NEUTRO
  *  leen, y ese respaldo siempre pasa 4.5:1. --badge-ink nunca es null por
- *  si solo (hereda de --accent-ink, salvo la excepcion de fabrica) -- si --accent-ink lo
+ *  si solo (es --accent-ink) -- si --accent-ink lo
  *  es, --badge-ink tambien, y el color ya se rechazo antes de llegar aqui. --solid/
  *  --solid-ink/--base/--offer NUNCA son null: no dependen de colorPrincipal, son el mismo
  *  calculo fijo siempre.
@@ -239,28 +239,31 @@ const rojoLegible = () => {
  *
  *  --badge-ink: la tinta de los badges/etiquetas de producto (item-tag, dsheet-flag,
  *  aviso-badge, el boton Buscar, los badges del admin) que van rellenos con --accent.
- *  Excepcion visual consciente, pedida expresamente: con el naranja de fabrica exacto
- *  (PRINCIPAL_DEFECTO), NEUTRO fijo -- 2.4543:1, por debajo de 4.5, aceptado a proposito
- *  (NEUTRO y no blanco puro: es la misma superficie clara que usa el resto del sistema,
- *  nunca un #fff aparte -- blanco puro daria 2.69:1, tampoco pasa, pero no es el color
- *  que de verdad se pinta). Con cualquier otro colorPrincipal, sin excepcion:
- *  --badge-ink es --accent-ink, calculado y validado por contraste como el resto.
+ *  Es --accent-ink, sin excepcion: calculado y validado por contraste como el resto.
+ *  Entre el 4 y el 14 sep 2026 llevo una excepcion de fabrica (NEUTRO fijo sobre el
+ *  naranja PRINCIPAL_DEFECTO, 2.4543:1, pedida expresamente), y esa excepcion fue lo que
+ *  bajo la Accesibilidad de la carta en PageSpeed de 100 a 97: axe la marca en cada
+ *  badge y en cada pastilla de dieta (que invierte los dos colores). Retirada el 14 sep
+ *  a peticion del propietario para recuperar el 100. El token se conserva como token
+ *  propio, aunque hoy valga lo mismo que --accent-ink, para no tocar a sus consumidores
+ *  y para que una futura excepcion tenga donde vivir sin volver a repartirse.
  *
  *  --rush-ink: la MISMA excepcion, pero para la palabra "Rush" del juego, que va sobre
  *  --metal y no sobre --accent. Con el naranja de fabrica exacto, NEUTRO fijo -- pedido
- *  expresamente para que Rush se lea claro en las dos capsulas (la de la carta resuelve lo
- *  mismo por --badge-ink). Con cualquier otro colorPrincipal es --metal-ink tal cual: la
+ *  expresamente para que Rush se lea claro en la capsula del juego (la de la carta ya no
+ *  lleva excepcion: va en --badge-ink). Con cualquier otro colorPrincipal es --metal-ink tal cual: la
  *  tinta calculada sobre el metal real, sin prestar la de otro fondo. Token propio y no un
  *  cambio en --metal-ink porque --metal-ink lo comparten el boton Jugar, la fila del
- *  marcador y las bandas, que NO llevan la excepcion. Fuera de PAREJAS a proposito, igual
- *  que --badge-ink: la excepcion baja de 4.5:1 a sabiendas. */
+ *  marcador y las bandas, que NO llevan la excepcion. Fuera de PAREJAS a proposito: la
+ *  excepcion baja de 4.5:1 a sabiendas. Es la UNICA excepcion de contraste que queda en el
+ *  motor, y vive en el juego, no en la carta. */
 export function derivar(colorPrincipal) {
   const accent = colorPrincipal;
   const accentInk = inkSobre(accent, OSCURO, NEUTRO);
   const metal = metalLegible(colorPrincipal);
   const metalInk = metal === null ? null : inkSobre(metal, OSCURO, NEUTRO);
   const esFabrica = accent.toUpperCase() === PRINCIPAL_DEFECTO.toUpperCase();
-  const badgeInk = esFabrica ? NEUTRO : accentInk;
+  const badgeInk = accentInk;
   const rushInk = metal === null ? null : (esFabrica ? NEUTRO : metalInk);
   return {
     '--accent': accent,

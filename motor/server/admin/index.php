@@ -397,11 +397,10 @@ function color_mezcla(string $a, string $b, float $t): string {
  * colorPrincipal oscuro, metal puede acabar bastante más claro que el hex original (ver
  * el mismo razonamiento en motor/temas.mjs). $badgeInk es la tinta de los badges/
  * etiquetas de producto (item-tag, dsheet-flag, aviso-badge, .badge,
- * el boton Buscar): $neutro fijo SOLO con el naranja de fabrica exacto -- '#FF7517',
- * literal a proposito, es el hex del motor, no el de fabrica de un cliente concreto --
- * excepcion visual consciente y pedida (2.45:1, aceptado); con cualquier otro
- * colorPrincipal, es $accentInk, sin excepcion. Devuelve los cinco tokens que dependen
- * de colorPrincipal, listos para imprimir en un <style>. */
+ * el boton Buscar): $accentInk, sin excepcion -- misma regla que motor/temas.mjs
+ * (la excepcion de fabrica, $neutro fijo sobre '#FF7517' a 2.45:1, se retiro el 14 sep
+ * 2026 para recuperar el 100 de Accesibilidad de la carta). Devuelve los cinco tokens que
+ * dependen de colorPrincipal, listos para imprimir en un <style>. */
 function derivar_principal(string $hex): ?array {
   $oscuro = defined('CLIENTE_COLOR_OSCURO') ? CLIENTE_COLOR_OSCURO : '#121212';
   $neutro = defined('CLIENTE_COLOR_NEUTRAL') ? CLIENTE_COLOR_NEUTRAL : '#F6F4F4';
@@ -423,7 +422,7 @@ function derivar_principal(string $hex): ?array {
   }
   if ($metal === null) return null;
   $metalInk = $tinta($metal);
-  $badgeInk = strtoupper($hex) === '#FF7517' ? $neutro : $accentInk;
+  $badgeInk = $accentInk;
   return ['--accent' => $hex, '--accent-ink' => $accentInk, '--metal' => $metal, '--metal-ink' => $metalInk, '--badge-ink' => $badgeInk];
 }
 
@@ -5489,9 +5488,10 @@ $CUENTAS = [
        aqui, y ahora la MIDE la bateria en el boton de la recepcion -- E2E-TE-CONTRASTE --,
        que registra la excepcion como KNOWN EXCEPTION -- OWNER APPROVED y no como un PASS:
        una decision que se documenta con un numero equivocado deja de proteger de nada.)
-       No es un despiste: la carta publica hace lo mismo en sus insignias (--badge-ink es el
-       crema), asi que panel y carta dicen lo mismo. Queda escrito aqui para que nadie lo
-       "arregle" dentro de seis meses creyendo que se coló. */
+       No es un despiste. La carta publica hizo lo mismo en sus insignias entre el 4 y el
+       14 sep 2026 (--badge-ink en crema) y lo dejo de hacer: le costaba el 100 de
+       Accesibilidad en PageSpeed. El panel no se mide ahi y conserva su excepcion. Queda
+       escrito aqui para que nadie lo "arregle" dentro de seis meses creyendo que se coló. */
     --sc-primary-ink:var(--c-n-0);
     /* El naranja cuando hace de TINTA y no de relleno. Son dos y no uno porque la norma
        pide dos cosas distintas: 3:1 para un dibujo y 4.5:1 para texto pequeno.
@@ -7751,8 +7751,8 @@ $CUENTAS = [
   .pfijo{font-family:var(--title-font);font-weight:600;font-variant-numeric:tabular-nums}
   .badge{
     display:inline-block;padding:2px 9px;border-radius:var(--r-pill);
-    /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
-       con cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
+    /* --badge-ink: la tinta calculada sobre el acento -- misma regla que todo badge con
+       fondo --accent en la carta. */
     background:var(--accent);color:var(--badge-ink);
     font-family:var(--title-font);font-size:var(--t4);font-weight:600;
     letter-spacing:.1em;text-transform:uppercase;

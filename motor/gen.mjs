@@ -2020,11 +2020,10 @@ html:not(.js) .lang-menu{position:static;display:block}
    --surface/--offer como el resto de esta tarjeta: fondo en el acento LITERAL con su
    propia tinta encima. Fondo solido a proposito: se lee igual se monte sobre el rojo de
    la tarjeta o sobre la mascota.
-   La tinta es --badge-ink y no --accent-ink: con el naranja de fabrica exacto Rush se pide
-   claro (NEUTRO), y --badge-ink ya lleva esa excepcion resuelta; con cualquier otro
-   colorPrincipal --badge-ink ES --accent-ink, asi que el contraste sigue calculandose
-   sobre este mismo fondo. La capsula del juego resuelve lo mismo con --rush-ink, que alli
-   cuelga de --metal. Ver temas.mjs. */
+   La tinta es --badge-ink, el mismo token que el resto de badges con fondo --accent: hoy
+   es --accent-ink (la excepcion de fabrica que lo ponia claro se retiro el 14 sep 2026;
+   ver temas.mjs). La capsula del juego SI conserva su excepcion, con --rush-ink, que alli
+   cuelga de --metal. */
 /* Brillo que recorre el badge cada 3,6s (arranca con 1s de retraso, para no disparar a
    la vez que el pulso del boton). overflow:hidden en el propio badge recorta la barra
    al tamano de la pastilla, asi que el rotate(-3deg) del padre ya la deja inclinada
@@ -2280,9 +2279,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-flag{
   display:block;width:fit-content;margin:0 auto var(--s1);
   padding:3px 9px;border-radius:var(--r-pill);
-  /* Acento de marca en vez del rojo semantico, --badge-ink por texto -- NEUTRO fijo
-     con el naranja de fabrica exacto (excepcion consciente), adaptativo (accent-ink)
-     con cualquier otro colorPrincipal. Ver temas.mjs. */
+  /* Acento de marca en vez del rojo semantico, --badge-ink por texto: la tinta
+     calculada por contraste sobre el acento, sin excepcion. Ver temas.mjs. */
   background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
@@ -3132,8 +3130,8 @@ html:not(.js) .lang-menu{position:static;display:block}
 .tab-aviso{margin-top:var(--s4)}
 .aviso-badge{
   display:inline-block;padding:3px 9px;border-radius:var(--r-pill);
-  /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica, adaptativo (accent-ink)
-     con cualquier otro colorPrincipal -- misma regla que todo badge con fondo --accent. */
+  /* --badge-ink: la tinta calculada por contraste sobre el acento -- misma regla que
+     todo badge con fondo --accent. */
   background:var(--accent);color:var(--badge-ink);
   font-family:var(--title-font);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
 }
@@ -3191,10 +3189,11 @@ html:not(.js) .lang-menu{position:static;display:block}
   padding:1px 7px;
   border-radius:var(--r-pill);
   /* filled, unlike the muted number badge: eight rows out of 326 are meant to be seen.
-     Fondo en el acento LITERAL, --badge-ink por texto: NEUTRO fijo solo con el naranja
-     de fabrica (excepcion consciente), adaptativo con cualquier otro colorPrincipal --
-     un solo criterio para todo badge/etiqueta con fondo --accent, sin excepcion por
-     tipo de etiqueta. */
+     Fondo en el acento LITERAL, --badge-ink por texto: la tinta que lee sobre el acento
+     (OSCURO con el naranja de fabrica) -- un solo criterio para todo badge/etiqueta con
+     fondo --accent, sin excepcion por tipo de etiqueta ni por color. La excepcion que
+     ponia NEUTRO sobre el naranja de fabrica (2.45:1) costo el 100 de Accesibilidad en
+     PageSpeed y se retiro el 14 sep 2026; ver temas.mjs. */
   background:var(--accent);
   color:var(--badge-ink);
   font-family:var(--title-font);
@@ -3671,10 +3670,29 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
     cursor:pointer;
   }
   .head-tools-b[hidden]{display:none}
-  .head-tools-b:not([hidden]){display:flex}
+  .head-tools.es-plegable .head-tools-b:not([hidden]){display:flex}
+  /* Plegada YA en el primer pintado, y solo con JavaScript presente: html.js lo pone el
+     script de la cabecera antes de que exista el <body>. Hasta que el runtime del final
+     toma el mando (pone .es-plegable y escribe los mismos anchos en linea), la barra se
+     pintaba entera —267 px— y al llegar el runtime se encogia al circulo: un desplazamiento
+     de 0,015 de CLS en cada carga movil, medido en produccion el 14 sep 2026. Con estas
+     tres reglas la geometria del primer pintado es la misma que la del runtime, y no hay
+     nada que se mueva. El boton NO lleva hidden en el HTML (el [hidden] global es
+     !important y no se puede destapar desde aqui): lo esconde la regla base de fuera del
+     @media y lo destapan estas o el runtime. Sin JavaScript no hay html.js ni
+     .es-plegable, y la barra sigue entera y sin circulo, que es lo que toca. La bandera
+     del circulo la trae ya el HTML (la del idioma base); setLang la cambia por la del
+     idioma puesto sin mover nada. */
+  html.js .head-tools:not(.es-plegable) .head-tools-b{display:flex}
+  html.js .head-tools:not(.es-plegable) .head-tools-fila{width:0;overflow:hidden;opacity:0}
+  html.js .head-tools:not(.es-plegable){gap:0}
   .head-tools-b .lang-flag{width:24px;height:24px}
+  /* object-fit:cover: el fichero es 4:3 (60x45) y la caja es un circulo de 24. Sin esto el
+     navegador ESTIRA la bandera al cuadrado, y Lighthouse lo marca como imagen con proporcion
+     incorrecta (Buenas practicas 96 en movil, medido el 14 sep 2026). Recortada se ve mejor
+     y la auditoria la da por buena. */
   .head-tools-b .lang-flag img,
-  .head-tools-b .lang-flag svg{width:100%;height:100%;display:block;border-radius:50%}
+  .head-tools-b .lang-flag svg{width:100%;height:100%;display:block;border-radius:50%;object-fit:cover}
   /* Cerrada enseña la bandera; abierta, la × — nunca las dos. */
   .head-tools-b .head-tools-x{width:19px;height:19px;color:var(--ink)}
   .head-tools:not(.abierta) .head-tools-b .head-tools-x{display:none}
@@ -3736,8 +3754,8 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
    contrario).
 
    El texto no lleva su propio override: --badge-ink, heredado de .item-tag, ya resuelve
-   lo mismo que este badge necesitaba (NEUTRO con el naranja de fabrica, accent-ink en
-   cualquier otro caso) -- un solo criterio centralizado, no uno por badge.
+   lo mismo que este badge necesitaba (la tinta calculada sobre el acento) -- un solo
+   criterio centralizado, no uno por badge.
 
    Quién se ve y quién no lo decide el runtime con el atributo hidden y con la clase
    has-offer, no una clase global en <html>. Antes iba al revés y fue un error caro: cuando
@@ -3806,6 +3824,10 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   align-items:center;
   flex:0 0 auto;
   width:max-content;
+  /* Un renglon de alto aunque este vacio: es lo que hace que la banda reservada (ver
+     .reservada) mida lo mismo que la banda llena. .94em ES el line-height de .offer-banner;
+     si aquel cambia, este tambien. */
+  min-height:.94em;
   /* La opacidad va aqui y no en el bloque: la del bloque es la de la ENTRADA —de 0 a 1 al
      aparecer— y una sola propiedad no puede hacer las dos cosas. Separadas, cada una manda en
      lo suyo y esta se puede tocar sin romper aquella. */
@@ -3848,6 +3870,25 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .offer-unidad{white-space:normal;padding-right:0}
 }
 .offer-banner[hidden]{display:none}
+/* El hueco de la banda, reservado antes de que el runtime la monte. La banda vive entre el
+   titulo y las pestañas y la enciende el runtime del final, que llega DESPUES del primer
+   pintado: en una carta con oferta, todo lo que hay debajo bajaba ~95 px al aparecer —0,059 de
+   CLS en cada carga movil, medido en produccion el 14 sep 2026, el 70 % del total—.
+   .reservada la pone el script que va justo detras de la banda, por dos vias: en el acto,
+   si la ultima visita desde este navegador vio la banda (localStorage, como has-hero para la
+   portada: es lo unico que llega ANTES del primer pintado en una carta que se sirve desde el
+   borde y cuyo estado.json tarda ~1 s en llegar del origen); y en cuanto llega estado.json,
+   si la oferta esta encendida y vigente. Las dos quitan el hidden (el [hidden] global de mas
+   abajo lleva !important, asi que no se puede destapar desde una regla) y ponen esta clase.
+   El runtime la quita siempre, al montar la banda o al decidir que no sale, y deja apuntado
+   en localStorage lo que decidio. La primera visita de un navegador sigue viendo el salto si
+   estado.json llega despues del primer pintado -- es lo que mide Lighthouse con su perfil
+   limpio -- y solo lo evitaria un estado.json servido desde el borde. Reservada es una
+   caja con su alto real y nada dentro: visibility:hidden ademas de la opacity:0 de la
+   entrada, para que tampoco se pueda enfocar ni leer. El alto lo dan los carriles vacios
+   con su min-height (mas abajo) y el mismo padding y filetes de siempre, asi que cuando el
+   runtime la llena no cambia ni un pixel. */
+.offer-banner.reservada{visibility:hidden}
 /* La franja se abre y se cierra sola con el reloj del restaurante, asi que una carta que
    lleve un rato abierta ve aparecer la banda de golpe a mitad de lectura. Eso es justo el
    caso en que una entrada tiene trabajo: no adorna, evita que algo se materialice encima del
@@ -3863,14 +3904,19 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
 
 
 .has-offer{display:block;text-align:right}
-/* Ajuste posterior a la Fase 8, pedido expreso y explicito sobre la version anterior de
-   esta regla (que lo ponia en pastilla: fondo --accent, texto --accent-ink, por el mismo
-   motivo de abajo). El precio rebajado es el acento LITERAL como texto plano, sin fondo
-   ni capsula -- 2.45:1 sobre la tarjeta, por debajo de 4.5, una excepcion consciente y
-   puntual de este elemento, no un cambio en como se valida el Primario en general.
-   var(--accent) y no un hex fijo: tiene que seguir al Primario si alguien lo cambia desde
-   Admin -> Marca, igual que cualquier otro consumidor del acento. */
-.has-offer .price-now{display:block;color:var(--accent)}
+/* Pastilla: fondo --accent, texto --accent-ink. Entre el 4 y el 14 sep 2026 fue el acento
+   LITERAL como texto plano (2.45:1 sobre la tarjeta, excepcion pedida expresamente), y esa
+   excepcion, junto con la de los badges, bajo la Accesibilidad de PageSpeed de 100 a 97.
+   Retirada el 14 sep a peticion del propietario para recuperar el 100: la regla de oro de
+   temas.mjs no permite oscurecer el acento para que sirva de texto, asi que el naranja
+   vuelve a ser FONDO y el texto va en la tinta calculada. width:fit-content +
+   margin-left:auto en vez de inline-block, para no arriesgar que el precio y el tachado de
+   abajo (price-was, hermano siguiente) queden en la misma linea. */
+.has-offer .price-now{
+  display:block;width:fit-content;margin-left:auto;
+  padding:2px 8px;border-radius:var(--r-pill);
+  background:var(--accent);color:var(--accent-ink);
+}
 .has-offer .price-was{
   display:block;
   color:var(--muted);
@@ -3997,9 +4043,9 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      coincidir con el naranja vivo del resto de acentos, no con el solido. Sin filete:
      con el fondo ya en --accent no hace falta un borde del mismo color para separarse
      del pie oscuro, --accent ya contrasta de sobra contra --ink por si solo.
-     Ajuste posterior, literal y expreso sobre el anterior: --badge-ink por texto/icono
-     -- NEUTRO fijo con el naranja de fabrica exacto (excepcion consciente, 2.45:1,
-     pedida sabiendo la cifra), adaptativo (accent-ink) con cualquier otro colorPrincipal.
+     --badge-ink por texto/icono: la tinta calculada sobre el acento, como en todo badge
+     con fondo --accent (la excepcion de fabrica que lo ponia en NEUTRO, 2.45:1, se retiro
+     el 14 sep 2026 para recuperar el 100 de Accesibilidad; ver temas.mjs).
      El icono hereda de aqui via stroke="currentColor", no hace falta tocarlo aparte. */
   background:var(--accent);
   color:var(--badge-ink);
@@ -4613,12 +4659,14 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
           <!-- En el móvil esta barra se pliega en este círculo, que enseña la bandera del
                idioma que está puesto. Desplegada mide 267 px de ancho: a 320 son el 83 % de
                la pantalla tapando la foto, para dos controles que se tocan una vez.
-               El círculo sale oculto: lo destapa el runtime, y sólo por debajo de 768.
+               El círculo lo esconde el CSS (no lleva hidden: el [hidden] global es
+               !important y el CSS no podría destaparlo) y lo destapan, sólo por debajo de
+               768, la regla de html.js en el primer pintado y después el runtime.
                Sin JavaScript la barra se queda entera, que es como ha funcionado siempre. -->
-          <button type="button" class="head-tools-b" id="head-tools-b" hidden
+          <button type="button" class="head-tools-b" id="head-tools-b"
                   aria-expanded="false" aria-controls="head-tools-fila">
             <span class="a11y">${T('Language', 'ui')}</span>
-            <span class="lang-flag" id="head-tools-flag" aria-hidden="true"></span>
+            <span class="lang-flag" id="head-tools-flag" aria-hidden="true">${IDIOMAS[0].flag}</span>
             <!-- Abierta, el mismo botón es la × de cerrar. Dos motivos: con la bandera puesta
                  quedaban DOS banderas seguidas —la del círculo y la del selector, que ya la
                  lleva— y sin la × la única forma de cerrar era tocar fuera, que hay que
@@ -4799,6 +4847,19 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
           </div>
           <span class="a11y" id="offer-banner-txt" role="status"></span>
         </div>
+        <!-- Reserva el hueco de la banda en cuanto llega estado.json, para que lo que hay
+             debajo no baje cuando el runtime la monte (ver .offer-banner.reservada en el CSS).
+             Dos vias: la memoria de la ultima visita (localStorage, sincrona: es la unica
+             que llega antes del primer pintado cuando estado.json viene lento del origen) y
+             estado.json cuando llega. Es solo una RESERVA: la decision de verdad la toma el
+             runtime con offerCfg() y offerByClock(), que son la fuente de verdad, siempre
+             quita la clase y reescribe la memoria. Por eso esta copia del reloj es
+             deliberadamente minima -- si se equivoca en un borde de franja, el coste es un
+             desplazamiento como el de antes, nunca una banda falsa.
+             Va aqui y no en el script del hero: aquel puede correr antes de que este bloque
+             exista en el DOM. -->
+        <script>try{if(localStorage.getItem('${CLAVE('oferta')}')==='1'){var _b=document.getElementById('offer-banner');if(_b&&_b.hidden){_b.hidden=false;_b.classList.add('reservada')}}}catch(e){}
+try{if(window.__estado)window.__estado.then(function(s){try{var o=s&&s.offer;if(!o||!o.on)return;if(!((o.cats&&o.cats.length)||(o.keys&&o.keys.length)))return;var pct=Math.round(+o.percent);if(!isFinite(pct)||pct<1||pct>90)return;var f=new Intl.DateTimeFormat('en-CA',{timeZone:${JSON.stringify(CLIENTE.zonaHoraria)},year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});var p={};f.formatToParts(new Date()).forEach(function(x){p[x.type]=x.value});var d=new Date(Date.UTC(+p.year,+p.month-1,+p.day)).getUTCDay();d=d===0?7:d;var m=((+p.hour)%24)*60+(+p.minute);var dias=(o.days&&o.days.length)?o.days:[1,2,3,4,5,6,7];var desde=typeof o.from==='number'?o.from:600,hasta=typeof o.to==='number'?o.to:720;if(dias.indexOf(d)===-1||m<desde||m>=hasta)return;var b=document.getElementById('offer-banner');if(b&&b.hidden){b.hidden=false;b.classList.add('reservada')}}catch(e){}})}catch(e){}</script>
 
         <div class="food-menu-tab style2">
           <div class="tab-nav-sentinel" aria-hidden="true"></div>
@@ -6491,7 +6552,11 @@ ${sheet}
          banda promete un descuento que no está en la carta: no sale. */
       if (!on || !cfg || !hayOfertaVisible) {
         banda.hidden = true;
-        banda.classList.remove('is-in');
+        /* Y fuera la reserva del hueco (ver .reservada): si el script de detras de la banda
+           la habia apartado y aqui se decide que no sale, se cierra el hueco. Y se apunta,
+           para que la proxima carga no lo reserve. */
+        banda.classList.remove('is-in', 'reservada');
+        try { localStorage.setItem('${CLAVE('oferta')}', '0'); } catch (e) {}
       } else {
         var estaba = !banda.hidden;
         /* Solo el porcentaje. Antes el mensaje enumeraba las categorias en oferta y decia la
@@ -6501,6 +6566,10 @@ ${sheet}
         var mensaje = fill(tr('Today we make it easy! Enjoy {pct}% off selected dishes.'), { pct: cfg.percent });
         document.getElementById('offer-banner-txt').textContent = mensaje;
         banda.hidden = false;
+        banda.classList.remove('reservada');
+        /* La proxima carga desde este navegador reserva el hueco antes del primer pintado
+           (ver el script de detras de la banda). */
+        try { localStorage.setItem('${CLAVE('oferta')}', '1'); } catch (e) {}
         /* Solo la primera vez: render() pasa cada treinta segundos y reiniciar la entrada en
            cada pasada seria movimiento perpetuo, que es lo que este proyecto no hace. */
         if (!estaba) { void banda.offsetWidth; }
@@ -7128,10 +7197,10 @@ ${DATOS_ACTIVO ? `
       var c = mezcla(hex, neutro, t / 100);
       if (contraste(c, oscuro) >= 4.5) { metal = c; break; }
     }
-    /* --badge-ink: NEUTRO fijo solo con el naranja de fabrica exacto (excepcion
-       consciente, 2.45:1), accent-ink en cualquier otro caso -- misma regla que
-       motor/temas.mjs::derivar(). */
-    var badgeInk = hex.toUpperCase() === ${JSON.stringify(PRINCIPAL_DEFECTO)}.toUpperCase() ? neutro : accentInk;
+    /* --badge-ink: accent-ink, sin excepcion -- misma regla que motor/temas.mjs::derivar()
+       (la excepcion de fabrica se retiro el 14 sep 2026). Token aparte para no tocar a sus
+       consumidores. */
+    var badgeInk = accentInk;
     return (accentInk && metal) ? { accent: hex, accentInk: accentInk, metal: metal, badgeInk: badgeInk } : null;
   }
   function aplicarMarca(marca) {
