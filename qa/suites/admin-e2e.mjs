@@ -3167,7 +3167,9 @@ export async function e2eSinExtensiones(informe, { navegador, clon, fixtures }) 
     const est = leerEstado(docroot);
     const heroDir = path.join(docroot, 'assets', 'hero');
     informe.comprueba('E2E-GD-01', 'sin GD una portada se rechaza avisando de la extensión que falta, y no toca estado.hero',
-      /extensión GD|no puede comprobar/.test(aviso) && (!est || (est.hero || []).length === 0) && (!existsSync(heroDir) || readdirSync(heroDir).filter((f) => /\.(png|jpg|webp)$/.test(f)).length === 0),
+      /* portada-<ancho>.webp no son fotos: son los alias de la portada estática, que el panel
+         deja como píxel transparente cuando no hay foto (ver hero_portada_vaciar). */
+      /extensión GD|no puede comprobar/.test(aviso) && (!est || (est.hero || []).length === 0) && (!existsSync(heroDir) || readdirSync(heroDir).filter((f) => /\.(png|jpg|webp)$/.test(f) && !/^portada-\d+\.webp$/.test(f)).length === 0),
       aviso.slice(0, 90));
   } else {
     informe.blocked('E2E-GD-01', 'portada sin GD', 'falta la fixture');
