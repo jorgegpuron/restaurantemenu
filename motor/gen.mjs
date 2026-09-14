@@ -3214,22 +3214,20 @@ html:not(.js) .lang-menu{position:static;display:block}
   vertical-align:3px;
   white-space:nowrap;
 }
-/* Vegano / sin gluten: mismo .item-tag, color invertido -- fondo naranja lo lleva el
-   destacado, este lleva el fondo oscuro con el texto en el naranja de marca. Un vistazo
-   basta para no confundirlos.
-   El fondo es --accent-ink y NO --badge-ink: --badge-ink lleva la excepcion de fabrica
-   (NEUTRO sobre el naranja) y con ella esta pastilla salia crema con texto naranja, 2.45:1,
-   y axe la marcaba en cada plato vegano. --accent-ink es la tinta que lee sobre el acento,
-   y el contraste es simetrico: si lee como texto encima del naranja, lee como fondo debajo
-   del naranja. Con el naranja de fabrica es OSCURO (7:1); con un principal oscuro seria
-   NEUTRO, y la pastilla saldria clara con el texto oscuro, igual de legible. El propietario
-   la quiere asi (14 sep 2026): estas dos pastillas fuera de la excepcion. */
+/* Vegano / sin gluten: mismo .item-tag, pero HUECA -- sin fondo, filete y texto en el
+   acento literal. El destacado es la pastilla rellena; esta es la misma forma vaciada, y un
+   vistazo basta para no confundirlas. Pedida asi por el propietario el 14 sep 2026, despues
+   de ver la version con fondo oscuro. Sobre la tarjeta el naranja de fabrica da 2.45:1 --
+   la misma excepcion consciente que el precio rebajado y los badges rellenos, y con el mismo
+   coste ya asumido: Accesibilidad 97 en PageSpeed. Con un principal oscuro el texto lee de
+   sobra. Fondo transparent y no --surface: dentro de una ficha o de un fondo que no sea la
+   tarjeta se ve lo que hay debajo, que es lo que se espera de un contorno. */
 /* padding:0 6px, no el 1 7px de .item-tag: el borde de 1px se come exactamente el pixel
    que le sobra a cada lado (arriba/abajo y a los lados), asi que la caja mide igual que la
    de destacado -- 18px de alto, medido -- en vez de 20. auto-size no reparte por si solo el
    borde dentro del padding aunque box-sizing sea border-box: eso solo pasa con un ancho/alto
    explicito, y aqui lo decide el contenido. */
-.item-tag-diet{background:var(--accent-ink);color:var(--accent);border:1px solid var(--accent);padding:0 6px}
+.item-tag-diet{background:transparent;color:var(--accent);border:1px solid var(--accent);padding:0 6px}
 /* Vegano y sin gluten pegados sin hueco cuando coinciden en el mismo plato: son la misma
    pastilla repetida, no dos badges distintos -- el gap:0 de .diet-marks no basta solo, el
    margin-right:8px que hereda de .item-tag manda por encima del gap del flex y hay que

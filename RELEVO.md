@@ -10,8 +10,8 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 > `fix/marca-badges-claros` con UN commit sin integrar**, preparada por decisión del propietario:
 > los badges vuelven a texto crema sobre el naranja literal (excepción de fábrica de
 > `--badge-ink` repuesta en las cuatro capas), el precio rebajado vuelve a texto plano naranja,
-> y las pastillas de dieta se quedan oscuras con naranja encima (`background: var(--accent-ink)`,
-> ya no cuelgan de `--badge-ink`). Coste asumido a sabiendas: Accesibilidad 97 en PageSpeed;
+> y las pastillas de dieta pasan a huecas: sin fondo, filete y texto naranja (ya no cuelgan de
+> `--badge-ink`). Coste asumido a sabiendas: Accesibilidad 97 en PageSpeed;
 > Buenas prácticas y SEO siguen en 100. `motor.lock` refirmado; `fast` 37, `smoke` 17, contrato
 > de tintas en verde; réplica local: 97/100/100. **Falta la orden de integrar y desplegar.**
 >

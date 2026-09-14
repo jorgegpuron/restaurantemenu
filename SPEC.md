@@ -7708,12 +7708,11 @@ Lo que cambia respecto a la entrada «PageSpeed: los tres 100…»:
   con cualquier otro color), en las cuatro capas. Afecta a los badges rellenos, la etiqueta de
   la ficha, el aviso, el botón «Buscar platos» y la cápsula «Rush» de la tarjeta del juego.
 - **El precio rebajado vuelve a ser texto plano en el acento**, sin pastilla, como el 4 sep.
-- **Las pastillas de dieta (Vegano, Sin gluten) NO vuelven atrás:** el propietario las quiere
-  como quedaron, fondo oscuro con el naranja encima. Dejan de colgar de `--badge-ink` y pasan a
-  `background: var(--accent-ink)`: la tinta que lee sobre el acento lee igual como fondo
-  debajo del acento (el contraste es simétrico), así que con el naranja de fábrica son
-  OSCURO + naranja (7:1) y con un principal oscuro serían NEUTRO + ese color, legibles en los
-  dos casos. El contrato de tintas lo comprueba color a color.
+- **Las pastillas de dieta (Vegano, Sin gluten) pasan a ser huecas:** sin fondo, filete y
+  texto en el acento literal, pedidas así por el propietario al verlas en el servidor de
+  revisión (primero con fondo oscuro, que descartó). Dejan de colgar de `--badge-ink`. Sobre la
+  tarjeta, el naranja de fábrica da 2,45:1: la misma excepción consciente que el resto, sin
+  coste añadido porque Accesibilidad ya está en 97 por los badges rellenos.
 - La bandera recortada, la barra pre-plegada, la reserva de la banda y la caché del borde se
   quedan: no tienen que ver con la marca.
 
