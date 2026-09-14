@@ -3328,8 +3328,12 @@ if ($csrfOk) {
       }
     }
 
-    if (caracteres($marcaNombre) > 20) {
-      $error = 'El nombre no puede pasar de 20 caracteres (van ' . caracteres($marcaNombre) . ').';
+    /* 25 y no 20, los mismos que el texto pequeño. El 20 venía del ancho que cabía en la
+       portada a 320 px; con 25 sigue cabiendo porque el nombre ya parte en varias líneas por
+       palabras y su tamaño es fluido. Medido con el caso peor —25 caracteres sin un solo
+       espacio, que es lo único que no puede partir— antes de subirlo. */
+    if (caracteres($marcaNombre) > 25) {
+      $error = 'El nombre no puede pasar de 25 caracteres (van ' . caracteres($marcaNombre) . ').';
     } elseif (caracteres($marcaRotulo) > 25) {
       $error = 'El texto pequeño no puede pasar de 25 caracteres (van ' . caracteres($marcaRotulo) . ').';
     } elseif ($colorError !== null) {
@@ -13013,7 +13017,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                            que es donde vive la decisión. Aquí sólo se lee. */ ?>
                   <span class="adm-plato-llevar" <?= $esLlevar ? 'role="img" aria-label="Para llevar: ' . h($p['name']) . '"' : 'aria-hidden="true"' ?>>
                     <?php if ($esLlevar): ?>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 8.5h11l-.9 11a1.8 1.8 0 0 1-1.8 1.6H9.2a1.8 1.8 0 0 1-1.8-1.6z"/><path d="M9.2 11.2V6.8a2.8 2.8 0 0 1 5.6 0v4.4"/></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.6 8.76h8.8l-.72 8.8a1.44 1.44 0 0 1-1.44 1.28H9.76a1.44 1.44 0 0 1-1.44-1.28z"/><path d="M9.76 10.92V7.4a2.24 2.24 0 0 1 4.48 0v3.52"/></svg>
                     <?php endif; ?>
                   </span>
 
@@ -17237,8 +17241,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             igual en los tres idiomas: escribir aquí no lo traduce, así que si lo cambias,
             cámbialo pensando que lo van a leer en cualquiera de ellos.
           </p>
-          <label class="adm-lbl" for="marca-nombre">Nombre del restaurante <span class="opt">(máximo 20)</span></label>
-          <input class="adm-campo" id="marca-nombre" name="marca_nombre" form="marca-form" maxlength="20"
+          <label class="adm-lbl" for="marca-nombre">Nombre del restaurante <span class="opt">(máximo 25)</span></label>
+          <input class="adm-campo" id="marca-nombre" name="marca_nombre" form="marca-form" maxlength="25"
                  value="<?= h($marca['nombreVisible']) ?>" placeholder="<?= h(CLIENTE_NOMBRE) ?>">
           <label class="adm-lbl" for="marca-rotulo">Texto pequeño <span class="opt">(máximo 25)</span></label>
           <input class="adm-campo" id="marca-rotulo" name="marca_rotulo" form="marca-form" maxlength="25"

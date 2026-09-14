@@ -1695,6 +1695,8 @@ h1,h2,h3,h4,p{margin:0}
 .title-area{position:relative;z-index:5}
 .title-area .sub-title{
   display:block;
+  /* Mismo motivo que el titulo: el rotulo tambien lo escribe el restaurante. */
+  overflow-wrap:anywhere;
   text-align:center;
   color:var(--ink);
   letter-spacing:.08em;
@@ -1721,6 +1723,13 @@ h1,h2,h3,h4,p{margin:0}
   line-height:1.08;
   /* no capitalize here: it rendered the restaurant name in forced Title Case */
   margin-bottom:0;
+  /* Una palabra que NO cabe se parte, en vez de salirse por el lado. El nombre lo escribe el
+     restaurante desde el panel y puede no traer un solo espacio: medido a 320, un nombre de 20
+     caracteres sin espacios sacaba la pagina 169 px de ancho y uno de 25, 288 — y eso ya pasaba
+     con el tope viejo de 20, asi que el tope nunca fue lo que protegia de esto.
+     El valor es anywhere y no break-all: break-all parte CUALQUIER palabra aunque quepa, y trocearia
+     un nombre normal por la mitad; anywhere solo parte la que no cabe de ninguna manera. */
+  overflow-wrap:anywhere;
 }
 
 /* ---------- language ----------
@@ -8060,10 +8069,16 @@ ${DATOS_ACTIVO ? `
      indicadores de comida —alcohol, picante, vegetariano…—, glifos macizos de otra familia, y
      ninguno es una bolsa. Éste es de la familia de los controles: trazo, currentColor y caja
      de 24, como el resto de los de la carta. */
+  /* Las medidas NO son a ojo: la tinta —el dibujo MÁS medio trazo por cada lado, que es lo que
+     se ve— va centrada exacta en el lienzo de 24 y ocupa el 66 % de su alto. La primera versión
+     ocupaba el 80 % y su centro caía en 12,55: dentro de un círculo de 18 px el asa casi tocaba
+     el borde y se leía como que la bolsa se salía por arriba. El propietario lo vio. Un icono
+     dentro de una pastilla redonda necesita aire por los cuatro lados, no sólo por los que
+     sobran. */
   var ICONO_LLEVAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M6.5 8.5h11l-.9 11a1.8 1.8 0 0 1-1.8 1.6H9.2a1.8 1.8 0 0 1-1.8-1.6z"/>'
-    + '<path d="M9.2 11.2V6.8a2.8 2.8 0 0 1 5.6 0v4.4"/></svg>';
+    + '<path d="M7.6 8.76h8.8l-.72 8.8a1.44 1.44 0 0 1-1.44 1.28H9.76a1.44 1.44 0 0 1-1.44-1.28z"/>'
+    + '<path d="M9.76 10.92V7.4a2.24 2.24 0 0 1 4.48 0v3.52"/></svg>';
   var ICONO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'

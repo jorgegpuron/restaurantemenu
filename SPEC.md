@@ -7390,3 +7390,36 @@ mismo. Se enciende por lo mismo, y además porque dos mandos vecinos que aparece
 manera confunden más que cualquiera de los dos por separado. Lo único propio se queda: cuando el
 plato YA tiene pareja va en el color del acento, que es lo que permite ver de un vistazo cuáles
 están emparejados.
+
+## 25 caracteres en el nombre, y la portada que ya se rompía con 20 (14 Sep 2026)
+
+El propietario pidió subir el nombre del restaurante de 20 a 25 caracteres, los mismos que el
+texto pequeño. El tope vive en cuatro sitios y hay que mover los cuatro o el arreglo queda a
+medias: el rótulo de pantalla, el `maxlength` del campo —que es sólo el freno del navegador—, la
+validación del servidor —que es la que manda— y su mensaje de error.
+
+**Lo que apareció al medir el caso peor, y que no era el encargo.** El 20 venía del ancho que
+cabía en la portada a 320 px, así que antes de subirlo se midió un nombre de 25 caracteres SIN
+un solo espacio, que es lo único que no puede partir:
+
+| nombre | antes | después |
+|---|---|---|
+| 20 con espacios | 0 | 0 |
+| 25 con espacios | 0 | 0, en dos líneas |
+| **20 sin espacios** | **desborda 169 px** | 0, en dos líneas |
+| **25 sin espacios** | **desborda 288 px** | 0, en tres líneas a 320 |
+
+O sea: **un nombre de 20 caracteres sin espacios ya rompía la portada**, y llevaba haciéndolo
+desde siempre. El tope de 20 nunca fue lo que protegía de esto — la prueba es que 20 sin
+espacios desbordaba igual. La causa era `overflow-wrap:normal` en `.title`: una palabra que no
+cabe no se parte, se sale, y arrastra el ancho de la página entera.
+
+Se pone `overflow-wrap:anywhere` en el título y en el rótulo pequeño, que son los dos textos que
+escribe el restaurante. `anywhere` y no `break-all`: el segundo parte CUALQUIER palabra aunque
+quepa y trocearía un nombre normal por la mitad; el primero sólo parte la que no cabe de ninguna
+manera. Con eso el tope deja de ser una barrera de maquetación y pasa a ser lo que debe ser: un
+límite editorial.
+
+**Las pruebas: dos, y la segunda no sobra.** `E2E-MA-01` comprueba que 26 caracteres se rechazan.
+`E2E-MA-01b` comprueba que **25 exactos SÍ se guardan**, que es la mitad que faltaba: con sólo la
+primera, subir el tope a 25 y dejar el rechazo en 21 por descuido habría pasado en verde.

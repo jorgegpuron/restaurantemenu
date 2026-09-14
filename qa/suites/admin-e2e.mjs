@@ -2161,10 +2161,18 @@ export async function e2eMarca(informe, { pagina, servidor, docroot, fixtures })
     return textoAvisoPanel(pagina);
   };
 
-  const largo = (await postCrudo(pagina, '/admin/index.php', [['guardar_marca', '1'], ['marca_nombre', 'ñ'.repeat(21)]])).mensaje;
+  const largo = (await postCrudo(pagina, '/admin/index.php', [['guardar_marca', '1'], ['marca_nombre', 'ñ'.repeat(26)]])).mensaje;
   const largo2 = (await postCrudo(pagina, '/admin/index.php', [['guardar_marca', '1'], ['marca_rotulo', 'á'.repeat(26)]])).mensaje;
-  informe.comprueba('E2E-MA-01', 'nombre de 21 y rótulo de 26 caracteres (con acentos) se rechazan sin guardar',
-    /no puede pasar de 20 caracteres \(van 21\)/.test(largo) && /no puede pasar de 25 caracteres \(van 26\)/.test(largo2) && est().marca.nombreVisible === '', `${largo.slice(0, 40)} | ${largo2.slice(0, 40)}`);
+  informe.comprueba('E2E-MA-01', 'nombre y rótulo de 26 caracteres (con acentos) se rechazan sin guardar',
+    /no puede pasar de 25 caracteres \(van 26\)/.test(largo) && /no puede pasar de 25 caracteres \(van 26\)/.test(largo2) && est().marca.nombreVisible === '', `${largo.slice(0, 40)} | ${largo2.slice(0, 40)}`);
+  /* Y el límite nuevo ACEPTA los 25: sin esto, subir el tope a 25 y dejar el rechazo en 21 por
+     descuido pasaría en verde — la prueba de arriba sólo mira que lo largo se rechace. */
+  const justos = await postCrudo(pagina, '/admin/index.php',
+    [['guardar_marca', '1'], ['marca_nombre', 'ñ'.repeat(25)], ['marca_rotulo', 'á'.repeat(25)]]);
+  informe.comprueba('E2E-MA-01b', 'nombre y rótulo de 25 caracteres exactos sí se guardan',
+    justos.status === 200 && est().marca.nombreVisible === 'ñ'.repeat(25)
+    && est().marca.rotuloVisible === 'á'.repeat(25),
+    `${justos.status} · nombre ${(est().marca.nombreVisible || '').length} · rótulo ${(est().marca.rotuloVisible || '').length}`);
   const bien = await guardarMarca({ '#marca-nombre': 'Ñandú & Café', '#marca-rotulo': 'Cocina del sur ☀' });
   await pagina.reload({ waitUntil: 'domcontentloaded' }); await esperar(200);
   informe.comprueba('E2E-MA-02', 'nombre y rótulo con ñ, & y emoji se guardan en UTF-8 y vuelven al campo tras F5',
