@@ -7285,3 +7285,42 @@ detalles que conviene que consten:
 Lo vigila `CAR-33`, que mide la geometría y exige que los puntos queden dentro de la foto. Se
 comprueba con la ficha CON pista y no con cualquiera: con un solo plato los puntos van ocultos,
 su caja mide cero y la comprobación pasaría sin mirar nada.
+
+## Los puntos al renglón, y el hueco de la moto que no era el declarado (14 Sep 2026)
+
+Dos cosas que el propietario miró de cerca sobre lo recién desplegado. Las dos se midieron
+antes de tocar, y una de ellas cambió de forma al medirla.
+
+**Los puntos, al renglón de «Combina con».** Colgados de un valor fijo desde el borde inferior,
+quedaban 40 px por debajo de esa línea —centro a 13,5 del suelo contra 53,9 de la línea—,
+flotando en el degradado sin apoyarse en nada. Ahora la altura la mide el runtime y la escribe
+en `--puntos-suelo`: se apoyan en el centro de la ÚLTIMA línea del bloque, medida con un
+`Range` y no con el rectángulo del párrafo, que con dos líneas cae en medio.
+
+Van en **dos pasadas**, y la segunda no sobra: la cuenta parte de la caja del panel, que en
+escritorio va con `translate(-50%,-50%)` y puede caer en medio píxel. La primera pasada dejaba
+1,3 de desnivel, medido; la segunda mide el punto ya colocado y corrige por la diferencia real.
+Resultado: 0,05.
+
+**Y van al FINAL de la línea, no centrados** — esto es lo que cambió al medir. Centrados
+funcionan con la captura del propietario, que tenía UN compañero. Con dos, «Combina con A · B»
+acaba 111 px por dentro de donde empiezan los puntos: el texto les pasa por debajo. Cuántos
+compañeros hay lo elige el restaurante, así que centrarlos es apostar a que el emparejamiento
+sea corto. A la derecha no chocan nunca, y el texto reserva su hueco con `--puntos-hueco`, que
+lleva el ancho REAL de la tira: dos puntos ocupan 28 y cuatro 70, y reservar siempre lo más
+ancho estrecharía el texto sin motivo. Holgura medida con dos compañeros: 104 px.
+
+**El hueco de la moto: 8 a un lado y 4 al otro.** La regla de la casa es 4 px entre etiqueta y
+etiqueta, y 8 sólo para separar la última del NOMBRE del plato. Estaba escrita para
+`.item-tag-high + .item-tag-llevar`, así que la fila con oferta y sin destacado —«35% DTO.» y
+luego la moto, de las más comunes— no la cogía.
+
+Pero generalizarla a `.item-tag` tampoco bastaba, y esta es la parte que hay que saber: la fila
+emite **siempre las tres ranuras** —oferta, destacado, moto— y las que no van se quedan con el
+atributo `hidden`. Con el destacado apagado, el hermano inmediato de la oferta es esa ranura
+vacía, no la moto, y `+` no llega. Se añade el salto explícito de un hermano oculto. Un salto
+basta: delante de la moto sólo pueden ir esas dos ranuras.
+
+Lo vigila `CAR-35`, y la prueba **fabrica el caso que falla**: siembra una fila con moto y
+oferta pero SIN etiqueta. Sin ella, sólo se mediría el par que ya funcionaba y pasaría en verde
+con el defecto dentro.

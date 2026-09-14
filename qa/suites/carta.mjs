@@ -334,7 +334,7 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
     ? readdirSync(path.join(docroot, 'assets', 'platos')).filter((f) => /\.(webp|png|jpg)$/.test(f))
     : [];
   const sinPista = (motivo) => {
-    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32', 'CAR-33', 'CAR-34']) {
+    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32', 'CAR-33', 'CAR-34', 'CAR-35']) {
       informe.blocked(id, 'la pista de la ficha' + suf, motivo);
     }
   };
@@ -362,9 +362,16 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       est.combina[platos[0].k] = [platos[1].k, platos[2].k];
       delete est.combina[platos[3].k];
       /* El primero lleva ADEMÁS etiqueta y «para llevar»: es el caso que hace falta para medir
-         si el círculo de la moto se apoya en la misma base que la pastilla de al lado. */
+         si el círculo de la moto se apoya en la misma base que la pastilla de al lado.
+         El segundo lleva moto y oferta pero NO etiqueta, que es el caso que descubrió el hueco
+         de 8 px: con la ranura del destacado vacía, la regla escrita con «+» no llegaba. Sin
+         esta fila, CAR-35 pasaría sin haber mirado el caso que falla. */
       est.tags = Object.assign({}, est.tags, { [platos[0].k]: 'Popular' });
-      est.paraLlevar = [platos[0].k];
+      est.paraLlevar = [platos[0].k, platos[1].k];
+      est.offer = Object.assign({}, est.offer, {
+        on: true, pct: 35, keys: [platos[1].k], cats: [],
+        from: '00:00', to: '23:59', days: [1, 2, 3, 4, 5, 6, 7], weekly: true,
+      });
       writeFileSync(estadoPath, JSON.stringify(est));
 
       pagina.limpiarRegistro();
@@ -447,6 +454,11 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
          Se mide AQUÍ y no más abajo: hace falta la ficha con pista, que es la que tiene
          puntos. Con un solo plato van ocultos y su caja mide cero, con lo que la
          comprobación pasaría sin mirar nada. */
+      /* De vuelta al plato que ancla la pista: es el único que tiene «Combina con», y sin esa
+         línea no hay renglón contra el que medir. Sin este paso la comprobación se quedaba a
+         medias y daba null, que es otra forma de pasar sin mirar. */
+      await pagina.evaluate(() => document.querySelector('.dsheet-punto[data-dpunto="0"]').click());
+      await pagina.waitForTimeout(700);
       const sinBanda = await pagina.evaluate(() => {
         const panel = document.getElementById('dsheet-panel');
         const carta = document.querySelector('.dsheet-carta.es-activa');
@@ -455,17 +467,39 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
         const p = panel.getBoundingClientRect();
         const f = foto.getBoundingClientRect();
         const d = puntos.getBoundingClientRect();
+        /* El renglón de «Combina con», medido con un Range: el rectángulo del párrafo da el
+           bloque entero y con dos líneas caería en medio. */
+        const combina = carta.querySelector('.dsheet-combina');
+        let renglon = null;
+        if (combina && !combina.hidden) {
+          const r = document.createRange();
+          r.selectNodeContents(combina);
+          const rs = r.getClientRects();
+          renglon = rs.length ? rs[rs.length - 1] : null;
+        }
+        const punto = document.querySelector('.dsheet-punto');
         return {
           arriba: Math.round((f.top - p.top) * 10) / 10,
           abajo: Math.round((p.bottom - f.bottom) * 10) / 10,
           fondoPuntos: getComputedStyle(puntos).backgroundColor,
           altoPuntos: Math.round(d.height * 10) / 10,
           puntosDentro: d.height > 0 && d.bottom <= f.bottom + 1 && d.top >= f.top,
+          desnivelRenglon: renglon && punto
+            ? Math.round((((punto.getBoundingClientRect().top + punto.getBoundingClientRect().bottom) / 2)
+              - ((renglon.top + renglon.bottom) / 2)) * 100) / 100
+            : null,
+          holgura: renglon && punto ? Math.round(punto.getBoundingClientRect().left - renglon.right) : null,
         };
       });
-      informe.comprueba('CAR-33', 'la ficha es la foto: sin banda de papel debajo de los puntos ni hueco arriba' + suf,
+      /* Tres cosas en una: que la tarjeta sea la foto, que los puntos compartan renglón con
+         «Combina con» —iban 40 px por debajo, flotando— y que el texto de esa línea no se les
+         meta debajo. Con dos platos emparejados el texto los cruzaba 111 px: por eso los
+         puntos van al final de la línea y no centrados. */
+      informe.comprueba('CAR-33', 'la ficha es la foto, y los puntos comparten renglón con «Combina con» sin cruzarse con su texto' + suf,
         Math.abs(sinBanda.arriba) <= 1 && Math.abs(sinBanda.abajo) <= 1
-        && /rgba\(0, 0, 0, 0\)|transparent/.test(sinBanda.fondoPuntos) && sinBanda.puntosDentro,
+        && /rgba\(0, 0, 0, 0\)|transparent/.test(sinBanda.fondoPuntos) && sinBanda.puntosDentro
+        && sinBanda.desnivelRenglon !== null && Math.abs(sinBanda.desnivelRenglon) <= 1
+        && sinBanda.holgura !== null && sinBanda.holgura > 0,
         JSON.stringify(sinBanda));
 
       await pagina.keyboard.press('Escape');
@@ -501,6 +535,30 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       informe.comprueba('CAR-34', 'el icono de «para llevar» se apoya en la misma base que la etiqueta de al lado' + suf,
         !moto.error && Math.abs(moto.abajo) <= 0.6 && Math.abs(moto.arriba) <= 0.6,
         JSON.stringify(moto));
+
+      /* Los huecos a los lados de la moto son los 4 px de la casa, también cuando la ranura
+         del destacado va vacía. La fila emite SIEMPRE las tres ranuras —oferta, destacado,
+         moto— y las que no van se quedan ocultas: con el destacado apagado, el hermano
+         inmediato de la oferta es esa ranura vacía y no la moto, así que la regla escrita con
+         «+» no llegaba y se heredaban los 8 px genéricos, que son para separar del NOMBRE del
+         plato. Medido antes de corregirlo: 8 a la izquierda y 4 a la derecha. */
+      const huecos = await pagina.evaluate(() => {
+        const salida = [];
+        document.querySelectorAll('.item-tag-llevar:not([hidden])').forEach((m) => {
+          if (!m.getBoundingClientRect().width) return;
+          const tira = m.parentElement;
+          const visibles = [...tira.children].filter((el) => el.getBoundingClientRect().width > 0);
+          const i = visibles.indexOf(m);
+          const corto = (el) => String(el.className).split(' ').filter((c) => c !== 'item-tag')[0] || el.tagName;
+          const entre = (a, b) => Math.round((b.getBoundingClientRect().left - a.getBoundingClientRect().right) * 100) / 100;
+          if (i > 0) salida.push({ par: corto(visibles[i - 1]) + '>moto', px: entre(visibles[i - 1], m) });
+          if (i < visibles.length - 1) salida.push({ par: 'moto>' + corto(visibles[i + 1]), px: entre(m, visibles[i + 1]) });
+        });
+        return salida;
+      });
+      informe.comprueba('CAR-35', 'los huecos a los lados de la moto son los 4 px de etiqueta a etiqueta, no los 8 de separar del nombre' + suf,
+        huecos.length > 0 && huecos.every((h) => Math.abs(h.px - 4) <= 0.6),
+        JSON.stringify(huecos.slice(0, 6)));
 
       writeFileSync(estadoPath, estadoCarrusel);
     }

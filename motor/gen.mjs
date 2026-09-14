@@ -2388,17 +2388,28 @@ html:not(.js) .lang-menu{position:static;display:block}
    El hueco entre puntos NO intercepta el toque: la caja va sin eventos y sólo los puntos los
    reciben, o una franja invisible de lado a lado se comería el arrastre para cerrar justo en
    el borde de abajo, que es por donde se empieza. */
+/* La altura NO es fija: los puntos se ponen en el renglón de la última línea del plato
+   —«Combina con» cuando la hay—, y esa altura la mide el runtime y la escribe en
+   --puntos-suelo, en píxeles desde el suelo del panel. Colgados de un valor fijo quedaban
+   40 px por debajo de esa línea, flotando en el degradado sin apoyarse en nada. El valor de
+   reserva es sólo para el primer fotograma, antes de que haya nada que medir.
+
+   Y van al FINAL de esa línea, no centrados, porque comparten renglón con el texto: con dos
+   platos emparejados, «Combina con A · B» acababa 111 px por dentro de donde empiezan los
+   puntos —medido—. Centrados sólo caben cuando el emparejamiento es corto, y eso no se puede
+   dar por hecho: lo elige el restaurante. A la derecha no chocan nunca, y el texto reserva su
+   hueco con --puntos-hueco. */
 .dsheet-puntos{
   position:absolute;z-index:2;left:0;right:0;
-  bottom:calc(10px + env(safe-area-inset-bottom));
-  display:flex;align-items:center;justify-content:center;gap:14px;
+  bottom:var(--puntos-suelo,calc(10px + env(safe-area-inset-bottom)));
+  padding:0 var(--s3);
+  display:flex;align-items:center;justify-content:flex-end;gap:14px;
   pointer-events:none;
 }
 .dsheet-puntos[hidden]{display:none}
-/* Con puntos, el cuerpo reserva su renglón: 22 px son los 7 del punto más el aire de los dos
-   lados. Sin esto, «Combina con» —que es justo la línea que invita a pasar de plato— les
-   pasaría por encima. */
-.dsheet-panel.tiene-via .dsheet-cuerpo{padding-bottom:calc(var(--s3) + 22px)}
+/* El hueco que el texto le deja a los puntos en su propio renglón. Lo escribe el runtime con
+   el ancho real de la tira, que depende de cuántos platos haya en la pista. */
+.dsheet-panel.tiene-via .dsheet-combina{padding-right:var(--puntos-hueco,82px)}
 .dsheet-punto{
   position:relative;flex:none;width:7px;height:7px;padding:0;border:0;border-radius:50%;
   pointer-events:auto;
@@ -3267,7 +3278,18 @@ html:not(.js) .lang-menu{position:static;display:block}
   vertical-align:0.5px;
 }
 .item-tag-llevar svg{width:13px;height:13px;display:block}
-.item-tag-high:not([hidden]):has(+ .item-tag-llevar:not([hidden])){margin-right:4px}
+/* CUALQUIER etiqueta pegada a la moto, no solo la de destacado, Y saltando la ranura vacia
+   que pueda quedar en medio. Dos cosas que se pagaron midiendo:
+   1. estaba escrita solo para .item-tag-high, asi que la fila con oferta y sin destacado
+      —«35% DTO.» y luego la moto, de las mas comunes— no la cogia;
+   2. y aunque se generalice a .item-tag, el hermano INMEDIATO de la oferta no es la moto: la
+      fila emite siempre las tres ranuras —oferta, destacado, moto— y las que no van se quedan
+      con el atributo hidden. Con la de destacado apagada, el hermano inmediato es ella y no la moto.
+   Medido antes de tocar: 8 a la izquierda de la moto y 4 a la derecha. Los 8 son los genericos,
+   que son para separar la ultima etiqueta del NOMBRE del plato, no etiqueta de etiqueta.
+   Un solo salto basta: delante de la moto solo pueden ir esas dos ranuras. */
+.item-tag:not([hidden]):has(+ .item-tag-llevar:not([hidden])),
+.item-tag:not([hidden]):has(+ .item-tag[hidden] + .item-tag-llevar:not([hidden])){margin-right:4px}
 .diet-marks:has(+ .sold-out-flag) .item-tag-diet:last-child{margin-right:4px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
@@ -8271,6 +8293,58 @@ ${DATOS_ACTIVO ? `
     }
   }
 
+  /* Los puntos se ponen en el renglón de la última línea del plato, no colgados del borde.
+     La línea es «Combina con» cuando la hay y, si no, la de descripción y precio. Y es la
+     ÚLTIMA línea del bloque, no el bloque: «Combina con» puede partirse en dos y lo que hay
+     que acompañar es el renglón de abajo. El Range es lo único que da las líneas de verdad;
+     el rectángulo del párrafo da el bloque entero, que con dos líneas cae en medio. */
+  function colocarPuntos() {
+    if (!fichaPuntos || fichaPuntos.hidden || ficha.hidden) return;
+    var activa = cartas()[fichaPuesto];
+    if (!activa) return;
+    var combina = activa.querySelector('.dsheet-combina');
+    var ancla = combina && !combina.hidden ? combina : activa.querySelector('.dsheet-linea');
+    if (!ancla) return;
+    /* El hueco que el texto tiene que dejarle a la tira, con su ancho REAL: dos puntos ocupan
+       28 y cuatro 70, y reservar siempre lo más ancho estrecharía el texto sin motivo. Se
+       escribe antes de medir la línea, porque es lo que decide dónde parte. */
+    var ps = fichaPuntos.children;
+    var tira = 0;
+    if (ps.length) {
+      /* Del borde izquierdo del primero al derecho del último: el ancho de la tira, no el del
+         contenedor, que va de lado a lado de la ficha. */
+      tira = ps[ps.length - 1].getBoundingClientRect().right - ps[0].getBoundingClientRect().left;
+    }
+    fichaPanel.style.setProperty('--puntos-hueco', Math.round(Math.max(0, tira) + 12) + 'px');
+    var linea = null;
+    try {
+      var rango = document.createRange();
+      rango.selectNodeContents(ancla);
+      var rects = rango.getClientRects();
+      linea = rects.length ? rects[rects.length - 1] : null;
+    } catch (e) { linea = null; }
+    if (!linea || !linea.height) linea = ancla.getBoundingClientRect();
+    if (!linea.height) return;
+    var suelo = fichaPanel.getBoundingClientRect().bottom;
+    var alto = fichaPuntos.offsetHeight || 7;
+    /* Sin redondear a entero: el punto mide 7 y su mitad es 3,5, así que redondear la cuenta
+       entera lo deja un píxel y pico fuera del renglón — medido, 1,4. */
+    var centroLinea = (linea.top + linea.bottom) / 2;
+    var desde = suelo - centroLinea - alto / 2;
+    fichaPuntos.style.setProperty('--puntos-suelo', (Math.max(0, desde)).toFixed(2) + 'px');
+    /* Y una segunda pasada que corrige lo que quede. La cuenta de arriba parte de la caja del
+       panel, que en escritorio va con translate(-50%,-50%) y puede caer en medio píxel: la
+       primera pasada dejaba 1,3 de desnivel, medido. Aquí se mide el punto YA colocado y se
+       corrige por la diferencia real, que es lo único que no depende de dónde caiga la caja. */
+    if (ps.length) {
+      var puesto = ps[0].getBoundingClientRect();
+      var resto = (puesto.top + puesto.bottom) / 2 - centroLinea;
+      if (Math.abs(resto) > 0.08) {
+        fichaPuntos.style.setProperty('--puntos-suelo', (Math.max(0, desde + resto)).toFixed(2) + 'px');
+      }
+    }
+  }
+
   /* El alto lo lleva la ventana y sale del plato que se ve. Sin esto manda el más alto de
      todos y pasar a un plato sin foto dejaría media ficha vacía. */
   function ajustarAlto() {
@@ -8302,6 +8376,7 @@ ${DATOS_ACTIVO ? `
     pintarMandos();
     colocarAlergenosFicha();
     ajustarAlto();
+    colocarPuntos();
 ${DATOS_ACTIVO ? `    if (filaAbierta) contarVista(filaAbierta);
 ` : ''}  }
 
@@ -8484,6 +8559,7 @@ ${DATOS_ACTIVO ? `    if (filaAbierta) contarVista(filaAbierta);
       if (ficha.hidden) return;
       pintarMandos();
       ajustarAlto();
+      colocarPuntos();
     });
 
     /* ---- el dedo: dos gestos y UN manejador ----
