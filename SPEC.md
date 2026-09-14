@@ -7830,3 +7830,101 @@ LCP es `li#hero-portada > img` y su *resource load delay* pasa de 1,5–2,7 s a 
 **Riesgo asumido:** tras cambiar la foto en el panel, un visitante puede ver la anterior
 hasta 60 s (caché del borde); el runtime la corrige al llegar el estado. Mismo compromiso que
 `estado.json`.
+
+---
+
+## El teclado no se levanta solo, el teléfono vive en una constante, y el motor deja de nombrar a nadie
+
+Tres cosas de la misma tarde, y la tercera explica por qué las otras dos costaron lo que costaron.
+
+### El teclado
+
+La hoja de «Buscar platos» se abre por dos puertas — el botón flotante en móvil, la lupa de la
+barra desde 768 — y las dos enfocaban el campo de escribir. En un teléfono eso levanta el teclado
+del sistema, que tapa media hoja y esconde la lista de categorías antes de que nadie haya pedido
+escribir.
+
+Ya se había decidido lo contrario una vez (la entrada de la lupa de escritorio, más arriba, ahora
+marcada como caducada): entonces el botón flotante decía «Categorías» y no enfocaba nada. Al
+renombrarlo «Buscar platos» se le puso el foco «para cumplir el rótulo», y el teclado volvió por
+la otra puerta.
+
+**La regla de ahora, y no depende del rótulo sino del dedo:** el foco entra SIEMPRE en la hoja
+— es un diálogo con `aria-modal`, dejarlo fuera sería un fallo de accesibilidad — pero cae en el
+campo **sólo con puntero fino**. Con ratón, quien abre viene a escribir y se le deja el cursor
+puesto. Con el dedo, el foco cae en la categoría actual: el campo está arriba del todo con su lupa
+al lado, y tocarlo es un gesto que se pide, no que se impone.
+
+Una sola puerta, dentro de `openSheet()`, reusando el `esTactil()` de `(pointer: coarse)` que ya
+existía para el enlace de Instagram. Las dos llamadas `openSheet(true)` no se tocan: si la regla
+viviera en los dos sitios que llaman, los dos sitios se separarían.
+
+**Medido sobre el mismo build:** a 375×812 con táctil emulado el foco queda en `.sheet-item`,
+dentro de la hoja, y no en `ds-q`; en escritorio queda en `ds-q`. El buscador sigue entero,
+erratas incluidas. Ninguna prueba de la batería dependía de ese foco.
+
+### El teléfono
+
+El móvil comercial del pie — «¿Quieres tu propia carta? Escríbenos» — es el ÚNICO dato de
+SocialCard que la carta publica, y estaba escrito dos veces a pelo: en el `href` del pie y en el
+runtime que le pega el mensaje ya redactado. Cambiarlo obligaba a cazar las dos, y una de las dos
+se escapa. Ahora es `SOCIALCARD_WA`, una constante del motor. No es del restaurante — el suyo lo
+pone él en la pestaña Marca y viaja por `estado.json` — y por eso vive en el motor y no en
+`cliente.mjs`.
+
+### El motor dejaba de ser de todos
+
+El alta de Bar Restaurante Guaza (14 sep) heredó el motor con el vocabulario del cliente semilla
+dentro: su ruta en los comentarios del `.htaccess`, sus platos de ejemplo en el panel, su marca
+citada como si fuera el color de fábrica, y las instrucciones del servidor mandándole abrir una
+carpeta que no existe en su dominio. Nada llegaba a la carta pública — todo eran comentarios —
+pero viajaba entero a su repositorio.
+
+**Lo grave no es que pasara: es que `--detectar` dijo que no pasaba.** Tenía dos agujeros y los
+dos eran de diseño:
+
+1. **Eximía de la revisión todo fichero de `motor/` cuyo hash cuadrara con `motor.lock`.** Lo
+   firmado era invisible. Y `server/` no estaba en la lista de rutas. Justo al revés de lo que
+   hace falta: el motor es precisamente lo que se copia a todos, y que su hash cuadre no dice
+   nada sobre lo que lleva escrito dentro.
+2. **Los patrones eran una lista fija con el nombre del restaurante semilla.** No conocía su
+   carpeta ni sus platos. Una lista fija de datos de un cliente dentro del motor es exactamente
+   el error que la herramienta perseguía.
+
+**La puerta nueva** (`motor/tests/contrato-multicliente.mjs`) no es un paso del alta que alguien
+pueda saltarse: va enganchada en `verificar-build.mjs` como el contrato de tintas, así que **el
+build se para**, en cada cliente y en cada compilación. Los términos salen del propio
+`cliente.mjs` — `slug`, cada segmento de la ruta de `base`, `nombre`, y el campo nuevo
+`vocabulario` — nunca de una lista dentro del motor. La puerta es del motor, el dato es del
+cliente; y se cierra sola, porque quien edite el motor desde un cliente y escriba una palabra
+suya rompe el build DE ESE CLIENTE, en el acto.
+
+`nombre` **no se parte en palabras** a propósito: «Bar / Restaurante Guaza» daría «Restaurante»,
+que el motor dice legítimamente por todas partes, y una prueba que grita en falso se acaba
+desactivando. Para eso está `vocabulario`: lo distintivo lo declara quien lo sabe.
+
+**Tres exenciones, cada una con su razón:** los `.md` (`SPEC.md` es el diario de diseño, cita
+clientes porque su asunto ES lo que se decidió para ellos, y no se publica), `motor/tests/`
+(nombran lo que buscan) y `motor/alergenos.mjs` (su materia son nombres de comida en tres
+idiomas, y ninguno está ahí por un restaurante: están porque llevan gluten).
+
+**Y una regla que no estaba prevista y hizo falta:** `naan`, `paneer` y `raita` son a la vez
+platos de esta carta Y pistas del catálogo de alérgenos del motor. Prohibirlas rompía el build
+para siempre, y la única salida habría sido desactivar la puerta. Ahora `terminosDelCliente()`
+descarta sola toda palabra que `PISTAS` ya declare — calculado desde `alergenos.mjs`, no copiado
+a mano. **Mandan los alérgenos: seguridad alimentaria por encima de higiene de comentarios.**
+
+`«Chilli Rush»` **no entra**: el juego es del PRODUCTO y Guaza lo sirve igual, con su propio
+`tituloJuego`.
+
+`--detectar` se reescribe sobre la misma base: mismos términos, mismo matcher exportado
+(`patronDe`), revisa `motor/` y `server/` sin excepción, informa fichero:LÍNEA con la cita, y el
+hash que no cuadra pasa de ser un salvoconducto a ser un aviso más.
+
+**La prueba de que el agujero era el diseño y no el descuido:** el `--detectar` viejo daba
+«limpio» sobre Guaza; el nuevo, sobre la misma carpeta sin tocar nada, saca más de cuarenta
+citas reales.
+
+**Limpieza:** 50 citas del cliente semilla fuera del motor y de `server/`, conservando el porqué
+de cada comentario y quitando el restaurante. Y `gen.mjs` deja de titular «faltan N fichero(s)»
+cuando lo que falla es un contrato y no falta ningún fichero.

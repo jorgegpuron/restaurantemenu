@@ -128,12 +128,13 @@ function icono_categoria(string $icono): string {
  *
  * Un plato ocupa varias filas de la carta: además de su pestaña de comida está en Sin gluten
  * y en Vegano, y alguno sale en cinco sitios. Cada fila tiene su propia clave y el estado va
- * por clave, así que agotar el Papadum de Aperitivos dejaba el de Vegano disponible y al
- * precio viejo. Comprobado en la carta publicada: 23 platos con filas espejo, y el comensal
- * viendo el mismo plato agotado y disponible a la vez.
+ * por clave, así que agotar un plato en su pestaña de comida dejaba su fila de Vegano
+ * disponible y al precio viejo. Comprobado en una carta publicada: 23 platos con filas
+ * espejo, y el comensal viendo el mismo plato agotado y disponible a la vez.
  *
  * Son el mismo plato los que comparten NOMBRE y PRECIO DE CARTA. El precio tiene que entrar:
- * «Pollo Tikka» vale 8,00 de entrante y 19,95 en el biryani, y no es el mismo plato. Y es el
+ * un mismo nombre puede valer 8,00 como entrante y 19,95 como plato principal, y no es el
+ * mismo plato. Y es el
  * precio de la CARTA, no el que haya puesto el panel: si fuera el de ahora, cambiarle el
  * precio a una fila la separaría de sus hermanas justo cuando más falta hace que sigan juntas.
  *
@@ -3425,7 +3426,7 @@ if ($csrfOk) {
       if (!is_string($k) || !in_array($k, $validas, true)) continue;
       $marcados++;
       /* Un plato agotado lo está en todas sus filas. Ver plato_hermanas: si no, el mismo
-         Papadum salía tachado en Aperitivos y disponible en Vegano. */
+         plato salía tachado en su pestaña de comida y disponible en la de Vegano. */
       foreach ($hermanas[$k] ?? [$k] as $h) $nuevo[$h] = $hoy;
     }
     $estado['soldOut'] = $nuevo;
@@ -5367,7 +5368,7 @@ $CUENTAS = [
        Son dos cosas distintas que hasta ahora compartian token por comodidad: --accent es
        la marca del cliente (vive en la carta publica y en la pestaña Marca, y sigue
        exactamente donde estaba), y esto de aqui es el color de producto de SocialCard, que
-       es el mismo panel para todos los restaurantes. Con la marca de Tinge (#FF7517) el
+       es el mismo panel para todos los restaurantes. Con el naranja de fabrica (#FF7517) el
        naranja del panel salia casi igual por casualidad; con un cliente de marca verde el
        panel entero se volvia verde, que nunca fue la intencion. Invariante multicliente:
        el comportamiento es del motor, el dato es del cliente. */
@@ -5398,11 +5399,11 @@ $CUENTAS = [
   :root{
     /* ARREGLO 3: un anillo de foco, uno solo.
        Habia seis variantes repartidas por la hoja: 2px y 2.5px, con `--sc-primary`, con
-       `--accent` y con `--p-accent-stroke`. Las tres dan casi lo mismo con la marca de
-       Tinge y por eso nadie lo noto, pero `--accent` es el color del RESTAURANTE: lo
+       `--accent` y con `--p-accent-stroke`. Las tres dan casi lo mismo con el naranja de
+       fabrica y por eso nadie lo noto, pero `--accent` es el color del RESTAURANTE: lo
        elige el cliente en la pestana Marca y viaja a la carta publica. Un cliente de
        marca pastel se queda con un anillo de foco que no se ve, fallo de WCAG 2.4.7 que
-       no aparece en Tinge y aparece en el siguiente cliente. El foco es del PRODUCTO.
+       no aparece con el naranja de fabrica y aparece en el siguiente cliente. El foco es del PRODUCTO.
        El desvio NO se tokeniza: los tres valores en uso (2, 1 y -2) estan dimensionados
        al hueco real de cada pieza, y unificarlos solaparia anillos con el vecino. */
     --focus-grosor:2px;
@@ -13300,10 +13301,10 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                 </div>
                 <input class="adm-campo" type="text" id="adm-alta-nombre-<?= h($code) ?>"
                        name="nombre[<?= h($code) ?>]" maxlength="80"<?= $esBase ? ' required' : '' ?>
-                       <?php /* El ejemplo va GENERICO. Aqui decia «Ej. Papadum de la casa», que es un plato de
-                         Tinge, y este fichero es el motor que se copia byte a byte a cada cliente
-                         nuevo: una cafeteria y una parrilla habrian visto un papadum de ejemplo en
-                         su panel. Lo cazo el gate multicliente, no la vista. */ ?>
+                       <?php /* El ejemplo va GENERICO. Aqui decia el nombre de un plato de la carta del
+                         restaurante semilla, y este fichero es el motor que se copia byte a byte a cada
+                         cliente nuevo: una cafeteria y una parrilla habrian visto un plato indio de
+                         ejemplo en su panel. Lo cazo el gate multicliente, no la vista. */ ?>
                        placeholder="<?= $esBase ? 'Ej. Plato de la casa' : 'Si lo dejas vacío, usa el de ' . h($baseAlta) ?>"
                        aria-label="Nombre en <?= h($comoSeLlama) ?>">
               </div>
@@ -15143,8 +15144,8 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
            Las claves de los platos que se ven AHORA. El buscador sólo esconde filas, así que
            «lo que se ve» es exactamente lo que hay que tocar, sin inventar una selección
            aparte ni meter 312 casillas en la pantalla más usada del panel.
-           Se cuenta por FILA y no por plato: el mismo Papadum en Aperitivos y en Vegano son
-           dos claves distintas y cada una lleva su etiqueta, igual que ya pasa al etiquetar
+           Se cuenta por FILA y no por plato: un mismo plato en su pestaña de comida y en la
+           de Vegano son dos claves distintas y cada una lleva su etiqueta, igual que al etiquetar
            de uno en uno. */
         function clavesALaVista() {
           var out = [];
@@ -19014,7 +19015,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
 
   /* ---- alergenos que el texto hace sospechar ----
      Un diccionario de palabras, no un analisis: encuentra lo que el texto NOMBRA, no lo que
-     la receta lleva. Si la descripcion no menciona el anacardo de la base del curry, esto no
+     la receta lleva. Si la descripcion no menciona el anacardo que lleva la salsa, esto no
      lo puede adivinar. Por eso RESALTA y no marca: declarar un alergeno es una afirmacion
      legal, un falso negativo puede mandar a alguien al hospital y un falso positivo es mentir
      sobre el plato. El sistema senala; el restaurante decide. */

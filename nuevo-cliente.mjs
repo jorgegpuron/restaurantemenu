@@ -17,7 +17,9 @@
  *     no se declaran en cliente.mjs, son iguales para cualquier cliente que exista.
  *
  *   node nuevo-cliente.mjs --detectar --destino <ruta>
- *     Solo lectura. Falla (no solo avisa) si encuentra restos de Tinge.
+ *     Solo lectura. Falla (no solo avisa) si encuentra restos del cliente semilla.
+ *     Ejecutar SIEMPRE despues de --build-local: la mitad de los restos solo aparecen
+ *     en 2-subir, que es lo que de verdad llega al servidor.
  *
  *   node nuevo-cliente.mjs --build-local --destino <ruta>
  *     Compila con un hash de activacion temporal y desechable. Lo borra siempre al
@@ -47,6 +49,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { normalizarHex, verificarPaleta, PRINCIPAL_DEFECTO } from './motor/temas.mjs';
+import { terminosDelCliente, patronDe } from './motor/tests/contrato-multicliente.mjs';
+import { CLIENTE as SEMILLA } from './cliente.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url)); // raiz de 1-proyecto de Tinge
 
@@ -550,12 +554,48 @@ function comandoDestino() {
 }
 
 /* =========================================================================== --detectar
- * Solo lectura. Falla -- no avisa -- ante cualquier resto de Tinge. Amplia la seccion 11
- * de NUEVO_CLIENTE.md con generado/ y 2-subir/: ambos son salida real que puede llegar a
- * produccion, no solo fuente. */
-const PATRONES_TINGE = [/tinge/i, /turmeric/i, /\btotm\b/i, /socialcard\.es\/tinge/i];
+ * Solo lectura. Falla -- no avisa -- ante cualquier resto del cliente SEMILLA (el de este
+ * repositorio, del que sale el motor). Amplia la seccion 11 de NUEVO_CLIENTE.md con
+ * generado/ y 2-subir/: ambos son salida real que puede llegar a produccion, no solo fuente.
+ *
+ * DOS ARREGLOS DEL 15 SEP 2026, los dos con su alta real detras:
+ *
+ * 1. Los terminos ya NO son una lista fija escrita aqui. Salen del cliente semilla --
+ *    terminosDelCliente() de motor/tests/contrato-multicliente.mjs, la misma funcion que usa
+ *    la puerta del build-- asi que incluyen su rotulo, su slug, CADA SEGMENTO de su ruta
+ *    publica y el vocabulario que declare. La lista fija anterior conocia el nombre del
+ *    restaurante y nada mas: no conocia su carpeta ni sus platos, y por eso el alta de Bar
+ *    Restaurante Guaza se llevo la ruta de la carta semilla escrita en los comentarios de su
+ *    .htaccess y en las instrucciones de su servidor, y sus platos de ejemplo en el panel.
+ *    Una lista fija dentro del motor es exactamente el error que esto persigue.
+ *
+ * 2. Se revisan motor/ y server/. ANTES no se miraban: motor/ solo entraba si su hash NO
+ *    cuadraba con motor.lock -- o sea, lo FIRMADO era invisible -- y server/ no estaba en la
+ *    lista. Es justo al reves de lo que hace falta: el motor es lo que se copia a todos, y
+ *    que su hash cuadre no dice nada sobre lo que lleva escrito dentro. La comprobacion de
+ *    hashes sigue existiendo, pero como AVISO extra, no como exencion.
+ *
+ * Exenciones, las mismas tres de la puerta del build y por las mismas razones: los .md
+ * (SPEC.md es el diario de diseno, cita clientes porque su asunto es lo que se decidio para
+ * ellos, y no se publica), motor/tests/ (nombran lo que buscan) y motor/alergenos.mjs (su
+ * materia son nombres de comida: prohibirle vocabulario de cocina seria romper la lista de
+ * los 14 alergenos de la UE). */
+const EXENTAS_DETECTAR = [
+  (rel) => rel.endsWith('.md'),
+  (rel) => rel.startsWith('motor/tests/'),
+  (rel) => rel === 'motor/alergenos.mjs',
+];
+/* Los terminos prohibidos, del cliente semilla y no de una lista fija. Se compilan una vez.
+   Frontera de palabra propia (ni letra ni digito a los lados) para que 'menu2' no case dentro
+   de 'menu20' y 'Tinge' si case dentro de «la marca de Tinge.». */
+const PATRONES_SEMILLA = terminosDelCliente(SEMILLA).map((termino) => ({
+  termino,
+  re: patronDe(termino),
+}));
 // Relativas a 1-proyecto (la raiz del cliente, donde vive motor.lock y cliente.mjs).
-const RUTAS_EN_PROYECTO = ['cliente.mjs', 'carta.json', 'assets', '.github', 'menu.md', 'generado'];
+// motor/ y server/ entran desde el 15 sep 2026: ver la cabecera, arreglo 2.
+const RUTAS_EN_PROYECTO = ['cliente.mjs', 'carta.json', 'assets', '.github', 'menu.md',
+  'generado', 'motor', 'server', '.gitignore'];
 // 2-subir NO esta dentro de 1-proyecto -- es su hermana, bajo el mismo destino (contrato
 // de motor/entorno.mjs: RAIZ_SALIDA = RAIZ_CLIENTE/../2-subir/). Escanearla como si
 // colgara de 1-proyecto nunca encontraria nada: es la salida real que puede llegar a
@@ -568,10 +608,31 @@ function comandoDetectar() {
   const raiz = path.join(destino, '1-proyecto');
   if (!existsSync(raiz)) { console.error('No existe ' + raiz); process.exit(1); }
 
+  /* Apuntado contra la propia semilla, esto encuentra a la semilla en su propia casa: su
+     nombre en el <title> del juego, su ruta en las instrucciones del servidor. Todo cierto y
+     todo correcto -- ahi ESE nombre es el dato del cliente, puesto donde toca. Un informe de
+     ocho "restos" sobre el repositorio de origen no dice nada y asusta al que lo lee, asi que
+     no se ejecuta: --detectar es para un cliente NUEVO. Lo que vigila la semilla es la puerta
+     del build (motor/tests/contrato-multicliente.mjs), que mira el motor y no la carta. */
+  if (path.resolve(raiz) === path.resolve(AQUI)) {
+    console.error('--detectar apunta al cliente SEMILLA (' + AQUI + '), no a un cliente nuevo.');
+    console.error('Aqui su nombre y su ruta son el dato correcto, no un resto: no hay nada que');
+    console.error('detectar. Pasa --destino de la carpeta del cliente nuevo.');
+    console.error('Para comprobar que el MOTOR no lo nombra:  node motor/tests/contrato-multicliente.mjs');
+    process.exit(1);
+  }
+
+  if (!PATRONES_SEMILLA.length) {
+    console.error('El cliente semilla no declara ni nombre ni slug ni ruta: no hay nada que');
+    console.error('buscar, y un --detectar que no busca nada diria "limpio" siempre. Revisa');
+    console.error('cliente.mjs de ' + AQUI);
+    process.exit(1);
+  }
+
   const hallazgos = [];
 
   // i18n.*.mjs, por nombre de patron (no esta en RUTAS_EN_PROYECTO porque es un glob)
-  const candidatos = readdirSync(raiz).filter((f) => /^i18n\..*\.mjs$/.test(f));
+  const candidatos = readdirSync(raiz).filter((f) => /^i18n..*.mjs$/.test(f));
   const ficherosCliente = [
     ...RUTAS_EN_PROYECTO.flatMap((r) => {
       const p = path.join(raiz, r);
@@ -584,18 +645,28 @@ function comandoDetectar() {
       if (!existsSync(p)) return [];
       return statSync(p).isDirectory() ? listarFicheros(p) : [p];
     })(),
-  ];
+  ].filter((f) => {
+    const rel = path.relative(raiz, f).split(path.sep).join('/');
+    return !EXENTAS_DETECTAR.some((exenta) => exenta(rel));
+  });
 
   for (const f of ficherosCliente) {
     let texto;
     try { texto = readFileSync(f, 'utf8'); } catch { continue; } // binario (assets/): se ignora el contenido
-    for (const patron of PATRONES_TINGE) {
-      if (patron.test(texto)) hallazgos.push(f + ' -- coincide con ' + patron);
+    const filas = texto.split(String.fromCharCode(10));
+    for (const { termino, re } of PATRONES_SEMILLA) {
+      for (let i = 0; i < filas.length; i++) {
+        if (re.test(filas[i])) {
+          hallazgos.push(f + ':' + (i + 1) + ' -- cita ' + JSON.stringify(termino)
+            + '   ' + filas[i].trim().slice(0, 90));
+        }
+      }
     }
   }
 
-  // motor.lock: cualquier fichero de motor/ que no cuadre con su hash se revisa igual
-  // que si fuera del cliente -- estar dentro de motor/ no exime a nadie.
+  // motor.lock: un fichero de motor/ cuyo hash no cuadre es un motor tocado a mano. Ya no
+  // decide SI se revisa -- eso se hace siempre, arriba -- pero se dice, porque un motor
+  // divergente es una anomalia por si sola, encuentre o no citas del semilla.
   const lockPath = path.join(raiz, 'motor.lock');
   if (existsSync(lockPath)) {
     const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
@@ -603,21 +674,18 @@ function comandoDetectar() {
       const p = path.join(raiz, 'motor', rel);
       if (!existsSync(p)) continue;
       if (sha256Fichero(p) !== hashEsperado) {
-        let texto;
-        try { texto = readFileSync(p, 'utf8'); } catch { continue; }
-        for (const patron of PATRONES_TINGE) {
-          if (patron.test(texto)) hallazgos.push('motor/' + rel + ' (hash no coincide) -- coincide con ' + patron);
-        }
+        hallazgos.push('motor/' + rel + ' -- el hash NO cuadra con motor.lock (motor tocado a mano)');
       }
     }
   }
 
   if (hallazgos.length) {
-    console.error('--detectar: FALLA. Restos de Tinge encontrados:');
+    console.error('--detectar: FALLA. Restos del cliente semilla encontrados:');
     hallazgos.forEach((h) => console.error('  ' + h));
     process.exit(1);
   }
-  console.log('--detectar: limpio. Sin restos de Tinge en ' + ficherosCliente.length + ' fichero(s) revisados.');
+  console.log('--detectar: limpio. Sin restos del cliente semilla en ' + ficherosCliente.length
+    + ' fichero(s) revisados, contra ' + PATRONES_SEMILLA.length + ' termino(s).');
 }
 
 /* ======================================================================== --build-local */

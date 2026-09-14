@@ -10,9 +10,9 @@
  * TRES DECISIONES QUE NO SE VEN Y QUE IMPORTAN:
  *
  * 1. Los enlaces son ABSOLUTOS. Apache sirve este fichero pero la dirección de la barra sigue
- *    siendo la que el visitante escribió: desde /menu2/carpeta/inventada/ un enlace relativo
- *    apuntaría a /menu2/carpeta/inventada/index.html, que tampoco existe. Con la ruta completa
- *    da igual desde dónde se sirva.
+ *    siendo la que el visitante escribió: desde la carpeta de la carta más /inventada/, un
+ *    enlace relativo apuntaría a esa misma carpeta inventada más /index.html, que tampoco
+ *    existe. Con la ruta completa da igual desde dónde se sirva.
  *
  * 2. La página NO se cachea y devuelve un 404 de verdad. Eso lo pone el ErrorDocument del
  *    .htaccess; aquí sólo hay que no estropearlo. Un 404 que responde 200 —lo que Google llama

@@ -14,7 +14,9 @@
  * { en: '...', es: '...', de: '...' } con exactamente el idioma base más los extras
  * declarados en CLIENTE.idiomas — reordenar los idiomas del selector no puede reasignar
  * traducciones, porque cada una viaja atada a su código. Una cadena suelta significa
- * INVARIABLE: el mismo texto en todos los idiomas (los nombres de nivel Madras, Vindaloo...).
+ * INVARIABLE: el mismo texto en todos los idiomas (los nombres de nivel que cada carta
+ * declare invariables en carta.json: hay cocinas cuyos niveles se piden igual en cualquier
+ * idioma, y el motor no sabe cuales son ni le toca saberlo).
  *
  * Escribe menu.md (en el idioma base) y reescribe las cinco secciones de catálogo de CADA
  * diccionario de idioma extra — names, descriptions, notes, tabs y groups. La sección `ui`

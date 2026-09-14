@@ -1,6 +1,6 @@
 {
  "formato": "motor.lock/1",
- "version": "1.1.8",
+ "version": "1.1.9",
  "esquemaEstado": 2,
  "esquemaCarta": "carta/2",
  "fecha": "2026-09-14",
@@ -54,10 +54,10 @@
   "assets/logo.svg": "8fc0efd651ff3064d6c867c4c9c503e1582f18bfc9aa79b4df5b06858222a104",
   "banderas.mjs": "48934e609bc6a4827c89c975a59bd9d3aa18e7c7e2af277dc79a4f61dfb8ae1c",
   "carta.EJEMPLO.LEGACY.mjs": "a1303b679b639fdc0d47e2f5b100ea568b0b42d371b1cc61dace47c20fa49806",
-  "contrato-salida.mjs": "312a2f03c2c48b23f58d8283599f966a70fa1d7705cbdd934f3c5fbb9a7deb5e",
+  "contrato-salida.mjs": "64eadcde699ac93e8e552c8dca77efcb4409e5a57df3f4d7549e8bbb7141be55",
   "entorno.mjs": "9bac6a4fd00553f8c5646a2b50a0ab10edb35fb66d6590fff3470b1ab6b3ab64",
-  "error404.mjs": "fca2f34ede738f58dc55f4ad0f26f93662088bb841fe98d71f8e40bcc8406573",
-  "gen.mjs": "c2863903c349714e162db99815e3c6eaf9e6b332989bccb9f1c2ff5056f30ab2",
+  "error404.mjs": "279d62895ac5269ccd46c060a1956a37b9a3507f4cd49d6ca5329df9a5bce9df",
+  "gen.mjs": "88007a97246fae40ed8477e9976d46dd3e3d247296ea49a37282c140d895f6c9",
   "iconos/alergenos-oficiales/celery.svg": "d1f31ae9f5680e515c611857e2b10082820de4eda79b98450d85d0d1726004a2",
   "iconos/alergenos-oficiales/cereals_gluten.svg": "dd8f8004c0aabba8beef794c4d350ec826a22d574ab12b358539a1c9a71486ff",
   "iconos/alergenos-oficiales/crustaceans.svg": "34b962437e9d6f12f7583969e3310bfabd368c0e1339074a70f6f4b2669d41d1",
@@ -90,7 +90,7 @@
   "iconos/indicadores-adicionales/vegetarian.svg": "0eade684ec219f2f108c6938292e31024dfe9087f6e2906ca187188cfbf5e331",
   "iconos/indicadores-adicionales/vitamins.svg": "3299e4ab3edc0558332ac28ba9e9fdf3ce7fe79acdd2b1449f9d99cff9245ee2",
   "iconos/indicadores-adicionales/weight.svg": "82d16a108a7379937e34dc3c8e563bde47441b247bc5a47522854fb214a3b16a",
-  "importar.mjs": "83e1002d4c931c2e001a508e74ab4eff3b2aa3908e6fe6d90d41803b49340fc3",
+  "importar.mjs": "1d4ce055e5bd5940d65fe16532664a33a578c205676bada5aba2a569b3870f6c",
   "indicadores.mjs": "cc33c3547e14e0957e3f2eeb6cd0baf3ea90454166cff1f155aafcfddbb9cc29",
   "juego.mjs": "2a7d37891d2dd7b7492a6201a9cea364518bb4a8ba95ef684f4b9284a70d06bd",
   "lock.mjs": "6dd84c5349a37899bfd8522fc1c4faa1dc23836ab95eaf6d48a87af2508fdcd8",
@@ -99,14 +99,15 @@
   "server/admin/copias/.htaccess": "fa28d421a28ed9b6f4b997d5119c2b8adbacff6e2dd119a179b71230f9664934",
   "server/admin/datos.php": "48130308368881686c8e3564634a5676ccb2aea99b26b8e77640cbfd5707644e",
   "server/admin/hash.php": "e0c3915b9b0a0d50066111af46ce7bce82b1da7cb9a7673b37897450d8fe2e41",
-  "server/admin/index.php": "bffec8f3e04f37f5b361cc3f08dbfefca4f32d3827e1e28aa17a1f9bad94cc37",
+  "server/admin/index.php": "0daccf8642289e9dcb1474f85e882ddde93732675f4855da3a4e5f132f1bac7c",
   "server/admin/motor-acceso.jpg": "b557cab42d53244afd571fad8c172a92c5d3b7295c73fadb3437d4c9a617c7df",
   "server/admin/record.php": "d307aa4917349ec6dc5486acd95348cd4028b447fff1c6f903f7dbb52fc6647f",
   "server/admin/SPEC.md": "09856d213ee9f433a5321f2f3af4fed6b30216e8e328b36e108bdb3c72fff1c5",
   "server/admin/vista.php": "273f698309a39442fd2aedef200354cd4bd71222e25c2a4ee96734bc8024e709",
   "temas.mjs": "1440a8c2704dff46ff86e96a9b433179d64788af8c0f84a2ff8552cb0af50c39",
+  "tests/contrato-multicliente.mjs": "79264f87b36bb763824ac6c075c9e6a6ac5c9224d252d359d731bb4abbc0659e",
   "tests/contrato-tintas.mjs": "8a467fc8faaf36381f08c397045c34c86c4b6238e4e8423c96a873b423545375",
   "transaccion-motor.mjs": "f8ad7e8e37416b0d40bfb4517ccff846a934da6615c8dfab97ca7b7d2cd22745",
-  "verificar-build.mjs": "d19fb297e2e0107e22a240575a1c200f151cbf09f2f42297f16b813ecc46b658"
+  "verificar-build.mjs": "918492c55d2b565732abe4f47865760aa368003491539cf6715cccc5e0be5722"
  }
 }

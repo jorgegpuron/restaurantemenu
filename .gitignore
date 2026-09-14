@@ -24,7 +24,7 @@ server/admin/activacion.php
 *.mp4
 
 # Los escribe importar.mjs desde carta.mjs. Se dejan fuera solo en los clientes que usan
-# el importador; Tinge mantiene su menu.md a mano, asi que aqui SI se versionan.
+# el importador; este cliente mantiene su menu.md a mano, asi que aqui SI se versionan.
 
 # De .claude/ se versionan SOLO los skills del proyecto (el protocolo del repo).
 # El resto pertenece al entorno local de cada maquina y no entra: launch.json,

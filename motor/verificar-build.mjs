@@ -20,6 +20,7 @@ import { cliente, salida, RAIZ_SALIDA } from './entorno.mjs';
 import { CLIENTE } from '../cliente.mjs';
 import { contratoSalida, CARPETAS_OBLIGATORIAS } from './contrato-salida.mjs';
 import { contratoTintas } from './tests/contrato-tintas.mjs';
+import { contratoMulticliente } from './tests/contrato-multicliente.mjs';
 
 const NL = String.fromCharCode(10);
 
@@ -87,6 +88,14 @@ export function verificarBuild() {
      ademas RECHAZA colores al guardar, asi que una divergencia suya no se ve compilando,
      se ve cuando un restaurante guarda un color y la carta sale ilegible. */
   for (const f of contratoTintas().fallos) problemas.push('contrato de color: ' + f);
+
+  /* El contrato multicliente. Tampoco mira ficheros de salida: comprueba que el motor no
+     nombre al restaurante desde el que se compila -- ni su rotulo, ni su slug, ni su ruta,
+     ni el vocabulario que declare en cliente.mjs. Va aqui por la misma razon que el de
+     color: no rompe el build por su cuenta, compila igual, y lo que sale es un motor con
+     el dato de un cliente dentro que viaja entero al siguiente. Paso de verdad con el alta
+     del 14 sep 2026. Si falla, no se sube nada. */
+  for (const f of contratoMulticliente().fallos) problemas.push('contrato multicliente: ' + f);
 
   return problemas;
 }

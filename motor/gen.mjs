@@ -538,7 +538,7 @@ let current = null;
  * cogia solo las cuatro primeras celdas y la quinta se caia sin un aviso. El resultado era que
  * un restaurante podia declarar sus alergenos plato a plato, verlos validados por importar.mjs,
  * verlos escritos en menu.md... y no aparecer en la carta publicada. Ninguna carta los habia
- * usado todavia -- Tinge declara cero en 312 platos -- asi que nadie lo noto.
+ * usado todavia -- la primera carta declaraba cero en 312 platos -- asi que nadie lo noto.
  *
  * Aqui no se deduce NADA de ningun nombre ni de ninguna receta: se transcribe lo que la columna
  * dice. Sin columna, o vacia, el plato se queda sin alergenos declarados, que NO es lo mismo que
@@ -816,7 +816,8 @@ const SPECIAL = new Set(TAXO.filter((t) => t.especial).map((t) => t.label));
  *
  * El mapa entero se resuelve y valida ANTES de emitir un solo id; ningun consumidor
  * recalcula slugs por su cuenta. La PRIMERA aparicion de cada slug conserva el ancla
- * historica (byte a byte: las URLs guardadas de Tinge siguen valiendo), y eso depende del
+ * historica (byte a byte: las URLs que ya tenga guardadas un comensal siguen valiendo), y
+ * eso depende del
  * orden documental A PROPOSITO. Las posteriores se resuelven en orden canonico
  * (slug, identidad), nunca por orden de aparicion; la identidad de una pestaña es la lista
  * ORDENADA de los categoryId de sus grupos — renombrar o reordenar grupos no la cambia,
@@ -988,10 +989,9 @@ for (const k of CLIENTE.alergenos.leyenda) {
 }
 
 /* ---- highlight tags ----
- * Eight marketing flags, keyed by category *and* dish name because Katori Chaat and Chana
- * Masala each appear three times (main, gluten free, vegan) and only the main-menu row is
- * meant to carry the flag. The build throws on a key that matches no row, so a renamed dish
- * cannot silently drop its badge. */
+ * Eight marketing flags, keyed by category *and* dish name: one dish can appear three times
+ * (main, gluten free, vegan) and only the main-menu row is meant to carry the flag. The build
+ * throws on a key that matches no row, so a renamed dish cannot silently drop its badge. */
 /* ---- highlights, offers and prices ----
  * Nada de esto se decide ya en el build: lo decide el panel y lo pinta el runtime leyendo
  * estado.json. Lo que sí sale del build es el vocabulario cerrado de etiquetas — el panel
@@ -1287,13 +1287,13 @@ ${it.desc ? `                          <p>${T(it.desc, 'descriptions')}</p>` : '
 const vistaId = (clave) => createHash('sha1').update(clave, 'utf8').digest('hex').slice(0, 8);
 
 /* ---- escala de picante ----
- * Era una frase: «Niveles de picante: suave, ligero, medio, Madras, Vindaloo y Phall». Leída
- * así, los seis nombres pesan lo mismo y no dicen nada del salto que hay entre uno y otro —
- * que es justo lo que alguien necesita saber antes de pedir un Phall.
+ * Era una frase: los seis niveles enumerados y separados por comas. Leída así, los seis
+ * nombres pesan lo mismo y no dicen nada del salto que hay entre uno y otro — que es justo
+ * lo que alguien necesita saber antes de pedir el último.
  *
  * Ahora es una escala: una barra que va de la crema al rojo y seis peldaños con sus chiles.
- * Los tres primeros nombres se traducen; Madras, Vindaloo y Phall no, que son nombres de
- * cocina y en cualquier idioma se piden igual. */
+ * Los nombres que son de cocina no se traducen: en cualquier idioma se piden igual, y cada
+ * carta decide cuáles lo son. */
 /* Los niveles ya no son del motor: cada carta declara su escala en carta.json — nombres
    (traducibles u objetos por codigo, o cadenas invariables) y numero de marcas. Aqui solo
    queda el dibujo. */
@@ -1555,9 +1555,9 @@ const html = `<!DOCTYPE html>
      arranque de JavaScript, en el byte 3.382, y PageSpeed lo señalaba.
      Con acentos y eñes en cada plato, adivinar mal no es un detalle: es la carta entera con
      los caracteres rotos hasta que reinicia. -->
-<!-- La carta ya trae su propio traductor (ES/EN/DE), con los platos traducidos a mano por
-     alguien que sabe qué es un paneer. El del navegador encima de eso convierte «Naan de ajo»
-     en cualquier cosa y además pelea con nuestro cambio de idioma: Chrome envuelve los nodos
+<!-- La carta ya trae su propio traductor, con los platos traducidos a mano por alguien que
+     conoce la cocina. El del navegador encima de eso convierte el nombre de un plato en
+     cualquier cosa y además pelea con nuestro cambio de idioma: Chrome envuelve los nodos
      en <font> y el siguiente cambio se los come. translate="no" es el estándar; la meta y la
      clase son para los que no lo miran. -->
 <!-- Este arranque hace tres cosas, y las tres tienen que pasar ANTES del primer pintado:
@@ -2164,8 +2164,9 @@ html:not(.js) .lang-menu{position:static;display:block}
 }
 
 /* ---------- buscador de platos ----------
-   La carta tiene 312 platos repartidos en 13 pestanas, y hasta ahora encontrar el paneer
-   costaba abrirlas a mano una por una. Esto es lo que mas cambia el uso de la carta.
+   Una carta grande son cientos de platos repartidos en una docena de pestanas, y hasta ahora
+   encontrar uno costaba abrirlas a mano una por una. Esto es lo que mas cambia el uso de la
+   carta.
 
    Vive DENTRO de la hoja de categorias en vez de tener su propia pantalla: la hoja ya es el
    sitio al que se va cuando no sabes donde esta algo, ya se abre con un gesto que el cliente
@@ -7809,10 +7810,11 @@ ${DATOS_ACTIVO ? `
 
   /* Lo que rodea al plato: el nombre de su pestaña y el de su grupo.
    *
-   * Sin esto, las dos palabras que más se teclean en una carta india no encontraban nada:
-   * «biryani» devolvía 0 con diecisiete en la carta, y «curry» devolvía 2 con treinta y tres.
-   * El motivo es que ninguno de los dos está en el NOMBRE de los platos —los biryanis se
-   * llaman Pollo, Cordero, Pescado— sino sólo en el rótulo de la pestaña, que no se miraba.
+   * Sin esto, las dos palabras que más se teclean en una carta pueden no encontrar nada: se
+   * midieron dos que devolvían 0 y 2 resultados con diecisiete y treinta y tres platos
+   * detrás. El motivo es que ninguna de las dos está en el NOMBRE de esos platos —que se
+   * llaman por su ingrediente principal— sino sólo en el rótulo de la pestaña, que no se
+   * miraba.
    *
    * Se lee del DOM en cada búsqueda y no se cachea, para que siga al idioma activo: el
    * cambio de idioma reescribe esos mismos nodos. */
@@ -7827,9 +7829,9 @@ ${DATOS_ACTIVO ? `
    * El buscador recorria filas, asi que «sopa» devolvia catorce resultados que eran nueve platos
    * y «Sopa de lentejas» aparecia tres veces seguidas. El contador decia catorce, tambien.
    *
-   * Se juntan por NOMBRE y PRECIO. El precio tiene que entrar en la cuenta: «Pollo Tikka» vale
-   * 8,00 de entrante y 19,95 en el biryani, y son dos platos distintos que se llaman igual;
-   * juntarlos ensenaria un precio que no es el de ninguno de los dos.
+   * Se juntan por NOMBRE y PRECIO. El precio tiene que entrar en la cuenta: un mismo nombre
+   * puede valer 8,00 como entrante y 19,95 como plato principal, y son dos platos distintos
+   * que se llaman igual; juntarlos ensenaria un precio que no es el de ninguno de los dos.
    *
    * El efecto secundario esta medido y se asume: 63 platos figuran con el mismo nombre y
    * distinto precio segun la pestana —la sopa de lentejas vale 7,00 en Aperitivos y 8,00 en
@@ -7883,14 +7885,14 @@ ${DATOS_ACTIVO ? `
 
   /* ---- las erratas ----
    *
-   * Media carta está en indio transcrito, y son justo las palabras que un cliente de aquí no
-   * sabe cómo se escriben: naan, tikka, tandoori, paneer, vindaloo, korma, papadum. Buscar
-   * «nan» daba cero con quince naans en la carta, y eso es lo peor que puede hacer un buscador:
-   * decirle a alguien que no hay algo que sí está.
+   * Una carta transcrita de otro alfabeto está llena de palabras que el comensal de aquí no
+   * sabe cómo se escriben, y se deja una letra al teclearlas. Medido: una palabra escrita con
+   * una letra de menos daba cero con quince platos que la llevaban en el nombre, y eso es lo
+   * peor que puede hacer un buscador: decirle a alguien que no hay algo que sí está.
    *
    * Distancia de edición: cuántas letras hay que cambiar, meter o quitar para llegar de una
-   * palabra a la otra. «nan» a «naan» es una. Se compara PALABRA CONTRA PALABRA y no la frase
-   * entera, que si no «nan» contra «Naan de ajo» no significa nada.
+   * palabra a la otra. Una letra que falta es distancia uno. Se compara PALABRA CONTRA PALABRA
+   * y no la frase entera, que si no lo tecleado contra «<palabra> de ajo» no significa nada.
    *
    * El corte por filas es lo que la hace barata: en cuanto una fila entera supera el máximo, ya
    * no hay vuelta atrás y se abandona. Con 157 palabras distintas en la carta, ni se nota.
@@ -8112,8 +8114,8 @@ ${DATOS_ACTIVO ? `
     });
 
     /* Si no hay NADA, y sólo entonces, se vuelve a mirar perdonando una errata. Ver
-       dsDistancia: es la diferencia entre decirle a alguien que no hay naan y enseñarle los
-       quince que hay.
+       dsDistancia: es la diferencia entre decirle a alguien que no hay ese plato y enseñarle
+       los quince que hay.
        Sólo cuando la búsqueda normal se queda a cero, y esto importa por dos razones: lo que ya
        funciona no cambia de orden ni de contenido, y el coste —comparar lo tecleado contra las
        palabras de la carta— se paga únicamente en el caso en el que, si no, no se enseñaría
@@ -8131,18 +8133,19 @@ ${DATOS_ACTIVO ? `
 
     /* Primero lo que coincide en el NOMBRE del plato, después lo que sólo coincide por su
        pestaña o su grupo — y con un rótulo delante que lo diga.
-       Sin esto, mirar el contexto —que es lo que hizo encontrable «biryani»— traía un efecto
-       secundario feo: «sopas» devolvía Papadum, Papadum especiado y Surtido de encurtidos en
+       Sin esto, mirar el contexto —que es lo que hizo encontrables las palabras que sólo
+       están en el rótulo— traía un efecto secundario feo: «sopas» devolvía tres aperitivos en
        los tres primeros puestos, porque su pestaña se llama «Aperitivos y sopas». Quien busca
-       sopa recibía papadums antes que sopa.
+       sopa recibía aperitivos antes que sopa.
 
        Ponerlos detrás no bastaba: seguían siendo catorce resultados de los que seis no eran
        sopa, y nada en pantalla decía por qué estaban ahí. Ahora van bajo su propio rótulo,
        «También en estas secciones», y el que busca sopa ve dónde acaban las sopas.
 
-       No se pueden quitar y ya está, que es lo primero que uno piensa: «curry» sólo casa en el
-       nombre de dos platos de los cuarenta y nueve que devuelve, y «biryani» de ninguno de los
-       treinta y cuatro. Esa es exactamente la búsqueda que arregló mirar el contexto. Por eso
+       No se pueden quitar y ya está, que es lo primero que uno piensa: de las dos palabras
+       medidas arriba, una sólo casa en el nombre de dos platos de los cuarenta y nueve que
+       devuelve, y la otra en ninguno de los treinta y cuatro. Esa es exactamente la búsqueda
+       que arregló mirar el contexto. Por eso
        el rótulo aparece sólo cuando hay de las dos clases: si todo viene del contexto, la
        lista ES la respuesta y un rótulo que la separe de nada sólo estorba.
 
@@ -8490,8 +8493,8 @@ ${DATOS_ACTIVO ? `
   }
 
   /* El NOMBRE y no el número. El número es la posición en la carta y cambia sola; además, para
-     quien lee, «Combina con Raita de verduras» dice algo y «Combina con #141» obliga a ir a
-     buscarlo. El número queda de respaldo por si una fila no tuviera nombre. */
+     quien lee, «Combina con» seguido del nombre del plato dice algo, y «Combina con #141»
+     obliga a ir a buscarlo. El número queda de respaldo por si una fila no tuviera nombre. */
   function pintarCombina(carta, row) {
     var caja = carta.querySelector('.dsheet-combina');
     if (!caja) return;
@@ -9202,9 +9205,9 @@ writeFileSync(
    personal lo lee en español, así que también quiere ver los platos en español, con el
    inglés como referencia secundaria de búsqueda -- 'lo mismo que ve el cliente en la carta
    en español', decía el comentario original de este bloque. ANTES esto se resolvía como
-   `LANGS[0]` -- el primer EXTRA del cliente, sin más -- que solo daba español porque en
-   Tinge (base 'en') el primer extra ES 'es'. Con un cliente de base 'es' (Guaza), LANGS[0]
-   es 'en': el campo `es` acababa siendo inglés de verdad, y `name_en` (que en PHP se llena
+   `LANGS[0]` -- el primer EXTRA del cliente, sin más -- que solo daba español en un cliente
+   de base 'en' cuyo primer extra ES 'es'. Con un cliente de base 'es', LANGS[0] es 'en':
+   el campo `es` acababa siendo inglés de verdad, y `name_en` (que en PHP se llena
    con el `name` crudo, es decir, el idioma BASE) acababa siendo español -- el panel entero
    con los dos idiomas cambiados de sitio. `resolverIdioma` busca 'es'/'en' donde estén
    configurados -- en el base o en un extra, nunca "el primero que haya" -- y si el cliente
@@ -9386,8 +9389,8 @@ writeFileSync(
           .map((l) => JSON.stringify(l.code) + ' => ' + JSON.stringify(l.name || l.label || l.code)).join(', ')
       + ']);',
     "define('CLIENTE_IDIOMA_BASE', " + JSON.stringify(IDIOMA_BASE.code) + ');',
-    /* El idioma en el que trabaja el PANEL, que no tiene por que ser el de la carta. Tinge
-       sirve la carta con el ingles de base y el restaurante la lleva en español: el panel ya
+    /* El idioma en el que trabaja el PANEL, que no tiene por que ser el de la carta. Un
+       cliente puede servir la carta con el ingles de base y llevarla en español: el panel ya
        enseñaba los nombres de plato en español —lo hace platos() desde siempre— pero los
        rotulos de categoria y de seccion salian en el idioma base, asi que en la misma columna
        convivian «Appetizers» y «Aperitivos». Se publica desde aqui, una sola autoridad, y se
@@ -9580,10 +9583,10 @@ for (const [desde, destino] of CARPETAS) {
  *
  * La carta, el juego y la pagina de error llevan
  * <link rel="icon" href="assets/titleIcon-accent.svg">. Ese fichero vive en assets/, que es la
- * MARCA del cliente y nace VACIA a proposito (nunca se hereda la de otro restaurante). Tinge lo
- * tiene porque se lo pusieron a mano hace tiempo; cualquier cliente nacido de /nuevo-cliente
- * servia un 404 en cada visita de cada una de las tres paginas, y ni el verificador ni el
- * procedimiento de alta lo veian.
+ * MARCA del cliente y nace VACIA a proposito (nunca se hereda la de otro restaurante). El
+ * primer cliente lo tenia porque se lo pusieron a mano hace tiempo; cualquier cliente nacido
+ * de /nuevo-cliente servia un 404 en cada visita de cada una de las tres paginas, y ni el
+ * verificador ni el procedimiento de alta lo veian.
  *
  * Se arregla como la politica de los .htaccess de aqui abajo: SOBRE LA COPIA que va a 2-subir,
  * sin tocar el fuente del cliente.
@@ -9727,7 +9730,11 @@ politicaHtaccess('.htaccess', [
    corto: ver motor/contrato-salida.mjs. */
 const incompleto = verificarBuild();
 if (incompleto.length) {
-  abortar('BUILD INCOMPLETO: faltan ' + incompleto.length + ' fichero(s) obligatorio(s) en 2-subir.'
+  /* "problemas" y no "ficheros que faltan": verificarBuild() devuelve las dos cosas --
+     lo que no salio del build Y los contratos que no cuadran (color, multicliente), que no
+     son ficheros de nadie. El titulo decia "faltan N fichero(s)" para todo, asi que un
+     contrato roto se anunciaba como una carpeta incompleta y mandaba a buscar donde no era. */
+  abortar('BUILD INCOMPLETO: ' + incompleto.length + ' problema(s) impiden publicar 2-subir.'
     + NL + '  ' + incompleto.join(NL + '  '),
     'no se sube nada asi. Vuelve a compilar; si el motor esta tocado, registra el cambio con'
     + NL + '  node motor/lock.mjs --escribir');

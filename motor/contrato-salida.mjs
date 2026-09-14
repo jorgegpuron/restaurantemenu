@@ -11,9 +11,10 @@
  * ficheros del motor y sus hashes, y de cliente.mjs. Ninguno de los dos depende de que el
  * sistema de ficheros conteste bien en ese instante.
  *
- * Y TAMPOCO es una cuenta de ficheros: "73" vale hoy para Guaza y no vale para Tinge (74), ni
- * para un cliente sin juego, ni para el motor de dentro de tres versiones. Lo que se comprueba
- * es que cada fichero que el build DEBE producir esta en su sitio, con su nombre, y no vacio.
+ * Y TAMPOCO es una cuenta de ficheros: el total cambia de un cliente al siguiente -- 73 en uno
+ * y 74 en otro, segun lo que cada uno declare -- y tampoco vale para un cliente sin juego, ni
+ * para el motor de dentro de tres versiones. Lo que se comprueba es que cada fichero que el
+ * build DEBE producir esta en su sitio, con su nombre, y no vacio.
  *
  * Lo unico que se excluye a proposito es lo que escribe el panel en el servidor: eso no forma
  * parte de un build limpio y exigirlo seria pedir que el build invente datos de produccion.

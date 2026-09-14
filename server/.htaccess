@@ -1,4 +1,4 @@
-# Raíz de la carta (menu2/). Subir junto a index.html.
+# Raíz de la carta (la carpeta del cliente). Subir junto a index.html.
 #
 # Reproduce lo que el servidor ya sirve en producción (documentado en SPEC.md, «La carta
 # vieja en un movil que ya la tenia»): hasta ahora ese .htaccess vivía sólo en el hosting y
@@ -51,8 +51,8 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   #      todo socialcard.es: también /reginacafe/ y /dedos_las_americas/. Comprobado antes de
   #      ponerla: los dos responden 200 por https, así que no deja nada inaccesible.
   #
-  #   2. Sólo la recibe quien pase por esta carta. Quien entre por socialcard.es y no baje a
-  #      menu2/ no queda protegido. Para cubrir el dominio de verdad, esta misma línea tiene
+  #   2. Sólo la recibe quien pase por esta carta. Quien entre por el dominio y no baje a la
+  #      carpeta de la carta no queda protegido. Para cubrir el dominio entero, esta línea tiene
   #      que ir en el .htaccess de la raíz del dominio — que está fuera de este proyecto y no
   #      se toca desde aquí.
   #
@@ -101,7 +101,7 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   # Cloudflare solo considera cacheable una lista fija de extensiones estaticas y el HTML no esta
   # en ella: con `s-maxage` puesto y sin regla, `cf-cache-status` decia DYNAMIC en todas las
   # medidas —en la misma tanda, /assets/logo.svg daba HIT y / daba DYNAMIC—. La regla la creo el
-  # propietario en Caching > Cache Rules, se llama «cache del HTML de Tinge», va la ultima y dice:
+  # propietario en Caching > Cache Rules, se llama «cache del HTML de <este cliente>», va la ultima y dice:
   #
   #   starts_with(http.request.uri.path, "/tinge_of_turmeric/menu2/")
   #     and not http.request.uri.path contains "/admin/"
@@ -150,8 +150,8 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   #
   # Con <Files> y no con <If>: <If> necesita Apache 2.4 con mod_authz_core, y en un hosting
   # compartido donde falte no da un aviso, da un error 500 y se lleva la carta por delante.
-  # <Files> existe desde siempre. Y cubre tanto /menu2/ como /menu2/index.html: Apache resuelve
-  # primero el índice del directorio y luego mira el nombre del fichero.
+  # <Files> existe desde siempre. Y cubre tanto la carpeta de la carta como su index.html:
+  # Apache resuelve primero el índice del directorio y luego mira el nombre del fichero.
   <Files "index.html">
     Header set Link "<estado.json>; rel=preload; as=fetch; crossorigin"
   </Files>

@@ -45,6 +45,34 @@ export const CLIENTE = {
   descripcion: 'Tinge of Turmeric — Indian restaurant menu.',
   tituloJuego: 'Chilli Rush — Tinge of Turmeric',
 
+  /* Las palabras que son de ESTE restaurante y de nadie mas.
+   *
+   * Lo lee motor/tests/contrato-multicliente.mjs, que corre en CADA build: si alguna
+   * aparece dentro de motor/, el build se para. El motor es el mismo fichero para todos
+   * los clientes, asi que una sola cita viaja entera al siguiente restaurante -- y ya
+   * paso: el alta de Guaza (14 sep 2026) heredo los platos de esta carta puestos de
+   * ejemplo en su panel, y la ruta de esta carpeta escrita en las instrucciones de su
+   * servidor.
+   *
+   * NO hace falta repetir aqui el nombre, el slug ni la ruta: la prueba los saca sola de
+   * los campos de arriba. Aqui va lo que no sale de ningun campo: la cocina.
+   *
+   * Lo que NO va aqui, y conviene saber por que:
+   *   «Chilli Rush» es el juego, y el juego es del PRODUCTO -- Guaza lo sirve igual, con su
+   *   propio tituloJuego. Prohibirlo romperia el motor para todos.
+   *   Los sinonimos de mas abajo son datos de este cliente EN SU FICHERO: ese es su sitio,
+   *   y por eso la prueba no los mira.
+   *
+   * Opcional: un cliente que no declare nada deja la puerta con el nombre, el slug y la
+   * ruta, que ya es mas de lo que habia. */
+  vocabulario: [
+    'Tinge', 'Turmeric',                       // la marca
+    'papadum', 'naan', 'tikka', 'tandoori',    // los platos que se colaron de ejemplo
+    'paneer', 'vindaloo', 'korma', 'biryani',
+    'masala', 'raita', 'chaat', 'curry',
+    'madras', 'phall',                         // picante: hoy los declara carta.json
+  ],
+
   /* La imagen que sale al pegar el enlace en WhatsApp, Facebook o iMessage. Ruta relativa a
      `base`; si se deja vacía, el build no emite og:image y el enlace se comparte como texto
      pelado, que es lo que hacía hasta ahora.

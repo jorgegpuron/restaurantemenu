@@ -295,29 +295,54 @@ Después, la batería de pruebas contra el servidor local. **Ninguna puede falla
 node nuevo-cliente.mjs --detectar --destino "<carpeta>"
 ```
 
-Falla — no avisa — ante cualquier resto de Tinge. Puede correrse en cualquier momento desde el
-paso 5.1, pero tiene más sentido justo antes de publicar. Cómo decide, y por qué no es un grep
-ciego:
+Falla — no avisa — ante cualquier resto del **cliente semilla** (el de este repositorio, del que
+sale el motor).
+
+> **El orden importa: este paso va DESPUÉS de `--build-local` (5.4), no antes.** La mitad de lo
+> que puede colarse sólo aparece en `2-subir`, que es lo que de verdad llega al servidor. Correr
+> `--detectar` sobre un cliente sin compilar deja esa mitad sin mirar y devuelve un «limpio» que
+> no vale.
+
+Cómo decide, y por qué no es un grep ciego:
 
 1. **Revisa TODOS los ficheros propiedad del cliente**, sin excepción: `cliente.mjs`,
-   `carta.json`, los `i18n.*.mjs`, `assets/`, el workflow, y también lo generado —
+   `carta.json`, los `i18n.*.mjs`, `assets/`, el workflow, `.gitignore`, y también lo generado —
    `menu.md`, `generado/` y `2-subir/` si ya existen (`2-subir` es la salida real que puede
    llegar a producción, no sólo fuente; vive fuera de `1-proyecto`, como hermana). Ahí,
    cualquier aparición del nombre, el slug, la URL, el secreto, los textos, las fotografías o
    los identificadores del restaurante de origen es un fallo.
-2. **Los ficheros de `motor/` se validan por `motor.lock`**: si su hash coincide con el
-   publicado, son bit a bit el motor y no pueden llevar datos del cliente de origen. Un
-   fichero de `motor/` que no cuadre con su hash se revisa como si fuera del cliente — estar
-   dentro de `motor/` no exime a nadie.
+2. **`motor/` y `server/` se revisan igual que todo lo demás.** Hasta el 15 sep 2026 no era así:
+   `motor/` sólo entraba si su hash NO cuadraba con `motor.lock` — lo firmado era invisible — y
+   `server/` no estaba en la lista. Es justo al revés de lo que hace falta: el motor es
+   precisamente lo que se copia a todos los clientes, y que su hash cuadre no dice nada sobre lo
+   que lleva escrito dentro. El alta de Bar Restaurante Guaza se llevó así la ruta del cliente
+   semilla en los comentarios de su `.htaccess` y sus platos de ejemplo en el panel, con
+   `--detectar` diciendo «limpio». La comprobación de hashes sigue, pero como **aviso** (un motor
+   tocado a mano es una anomalía por sí sola), no como exención.
+3. **Los términos salen del cliente semilla, no de una lista fija**: su `slug`, cada segmento de
+   la ruta de su `base`, su `nombre` y el `vocabulario` que declare en `cliente.mjs`. Una lista
+   fija de datos de un cliente escrita dentro del motor era exactamente el error que esta
+   herramienta persigue.
+4. **Tres exenciones, y sólo tres**: los `.md` (`SPEC.md` es el diario de diseño y cita clientes
+   porque su asunto ES lo que se decidió para ellos; no se publica), `motor/tests/` (nombran lo
+   que buscan) y `motor/alergenos.mjs` (su materia son nombres de comida; prohibirle vocabulario
+   de cocina rompería la lista de los 14 alérgenos de la UE).
 
-Como red de seguridad manual sobre los ficheros del cliente (no sobre `motor/`, que se
-comprueba por hash):
+**Esto ya no es la única red.** Desde el 15 sep 2026 la misma comprobación va enganchada en
+`motor/verificar-build.mjs`, así que **el build de CUALQUIER cliente se para** si el motor nombra
+al restaurante desde el que se compila. `--detectar` sigue siendo útil porque mira además lo que
+no es motor (la carta, los diccionarios, el workflow, la salida), pero la puerta que no se puede
+saltar es la del build.
+
+Como red de seguridad manual, con los términos que declare el cliente semilla en su `cliente.mjs`
+(`nombre`, `slug`, los segmentos de `base` y `vocabulario`):
 
 ```bash
-grep -ril "tinge\|turmeric\|totm\|socialcard.es/tinge"   cliente.mjs carta.json i18n.*.mjs assets .github menu.md
+grep -rin "<nombre>\|<slug>\|<carpeta-del-semilla>\|<sus-platos>" cliente.mjs carta.json i18n.*.mjs assets .github menu.md motor server .gitignore
 ```
 
-**Cualquier resultado es un fallo.** No se sigue.
+**Cualquier resultado es un fallo.** No se sigue. Y si el grep encuentra algo que `--detectar` no
+encontró, el fallo es de `--detectar`: se arregla la herramienta, no se apaña el cliente.
 
 ### 5.6 `--publicar-github` — la única que toca GitHub ✅
 

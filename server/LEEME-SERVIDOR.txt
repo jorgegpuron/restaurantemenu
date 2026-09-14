@@ -65,7 +65,8 @@ PERMISOS
 SUPERADMINISTRADOR — primera vez (lo haces tú, no el restaurante)
   1. Sube todo.
   2. Crea por FTP un archivo vacío  admin/permitir-hash.txt
-  3. Abre  https://…/menu2/admin/hash.php  , escribe TU contraseña (mín. 12) y copia el hash.
+  3. Abre  <la dirección de la carta>/admin/hash.php  , escribe TU contraseña (mín. 12)
+     y copia el hash.
   4. Crea  admin/superclave.php  con el contenido que hash.php te enseña
      (o mete el hash en la variable de entorno SUPERADMIN_PASSWORD_HASH del hosting;
      la variable manda sobre el archivo).
@@ -75,7 +76,7 @@ SUPERADMINISTRADOR — primera vez (lo haces tú, no el restaurante)
   si la pierden, la cambias tú y se la das en mano.
 
 CONTRASEÑA DEL RESTAURANTE — primera vez
-  1. Entra en  https://…/menu2/admin/
+  1. Entra en  <la dirección de la carta>/admin/
   2. La pantalla de primera configuración pide la contraseña de superadministrador
      (si está configurada) y la nueva del restaurante. El panel escribe clave.php solo.
   Sin superadministrador configurado, el primero que abra la URL puede poner la
