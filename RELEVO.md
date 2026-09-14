@@ -15,13 +15,16 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 > **PageSpeed sobre producción con el build nuevo:** móvil 96 / **100 / 100 / 100**, escritorio
 > 98 / **100 / 100 / 100** (Rendimiento / Accesibilidad / Buenas prácticas / SEO). Objetivo cumplido.
 >
-> **Hay un cambio SIN COMMIT en el árbol:** `server/.htaccess` (HTML a 300 s de borde,
-> `estado.json` a 20 s de borde en vez de `no-store`), preparado a petición del propietario porque
-> el móvil oscila entre 87 y 96 según el minuto (caché del borde caducada). `fast` 37 PASS con él.
-> **Va emparejado con un cambio de la Cache Rule de Cloudflare** («cache del HTML de Tinge»:
-> quitar la exclusión de `estado.json`, añadir la de `version.json`) que sólo puede hacer el
-> propietario. Orden de operaciones: commit + despliegue del `.htaccess`, después la regla, después
-> `curl -sI` y tres pasadas de PageSpeed. Ver la última entrada de `SPEC.md`.
+> **`cc6bf42`, desplegado como `1789414949096`:** `server/.htaccess` con el HTML a 300 s de borde
+> y `estado.json` a 20 s de borde (antes `no-store`); la Cache Rule de Cloudflare ya no excluye
+> `estado.json`. Verificado con `curl -sI` desde Europa: `estado.json` pasa de 0,88 s (EXPIRED) a
+> 0,21 s (HIT, con `Age`); `record.json` y `version.json` siguen DYNAMIC. **PageSpeed móvil sigue
+> oscilando (89, 87, 89, 94 en cuatro pasadas seguidas)**: Lighthouse mide desde un centro de
+> datos de Google en EE. UU., cuyo PoP de Cloudflare está frío para un TTL de 20 s, y ahí
+> `estado.json` sigue viniendo del origen (0,7 a 2,6 s medidos en la cascada). El LCP es siempre
+> la foto de portada, y su retraso es exactamente lo que tarda `estado.json`. La mejora real es
+> para los comensales del mismo PoP en la misma franja; la de PageSpeed sólo llegará cuando la
+> portada deje de depender de `estado.json` (ver SPEC, última entrada: «portada estática»).
 >
 > **Después:** el podio del juego (ver abajo: se publicó el juego nuevo SIN vaciarlo antes;
 > hay que ponerlo a cero desde el panel cuanto antes), el nombre de Guaza en la carta de Tinge, y

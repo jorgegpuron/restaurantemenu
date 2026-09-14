@@ -7674,3 +7674,21 @@ la banda llega antes del primer pintado (y el CLS de 0,059 de Lighthouse desapar
 móvil deja de oscilar entre 87 y 96 por el minuto en que se mide. Se comprueba, después de
 desplegar y de cambiar la regla, con `curl -sI` (`cf-cache-status: HIT` y `Age` en
 `estado.json`) y con tres pasadas de PageSpeed móvil.
+
+**Medido después de desplegar (`cc6bf42`, build `1789414949096`) y cambiar la regla.** Desde
+Europa, `estado.json` da `cf-cache-status: HIT` con `Age` y 0,21 s de primer byte (0,88 s en
+frío). Pero PageSpeed móvil dio 89, 87, 89 y 94 en cuatro pasadas seguidas: Lighthouse corre en
+un centro de datos de Google en EE. UU., y en ese PoP de Cloudflare un TTL de 20 s casi siempre
+está frío, así que `estado.json` sigue llegando del origen —0,7 a 2,6 s en las cascadas
+medidas—. El elemento LCP es siempre la foto de portada y su *resource load delay* es, casi
+milímetro a milímetro, lo que tarda `estado.json`. Conclusión: **la caché del borde mejora a
+los comensales reales (mismo PoP, misma franja) y no estabiliza PageSpeed.**
+
+Lo que sí lo haría, y queda propuesto como tarea aparte: **una portada estática**. El panel,
+al guardar las fotos, escribiría además la primera portada con un nombre fijo (por ejemplo
+`assets/hero/portada-<ancho>.webp`) y el HTML la pediría desde el propio documento —`<link
+rel="preload">` en la cabecera y el `<img>` de la primera diapositiva ya en el marcado—, sin
+esperar a `estado.json`; el runtime la cambiaría por la real si difieren. Con eso la foto se
+pide en el primer kilobyte del HTML y el LCP baja a FCP más la descarga: móvil estable en
+96-98 y el CLS de la banda deja de depender del estado. Es un cambio de motor (panel, gen,
+`.htaccess` para el alias con caché corta o versionada) y tiene su propio diseño.
