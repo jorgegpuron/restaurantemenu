@@ -58,15 +58,23 @@ abajo; si hace falta el detalle con sus medidas, pedírselo.
   fichero**, en ese orden. Puede quedar rastro en la papelera y el historial de versiones de
   OneDrive: inofensivo, porque la llave ya no vale. **Lección: un secreto no se arregla borrando
   el fichero; el secreto es la cadena, y hay que invalidarla primero.**
-- **La foto de la puerta, para el alta que viene.** `motor/server/admin/acceso.jpg` y
-  `motor-acceso.jpg` son **byte a byte idénticas** (md5 `e6b697e4…`), cuando el código dice que
-  la primera es del CLIENTE y la segunda el respaldo genérico del MOTOR. Las reglas fijas del
-  alta no mencionan la foto de la puerta: hoy un cliente nuevo hereda la de Tinge sin que nadie
-  lo decida.
+- ~~La foto de la puerta~~ **CERRADO, y con una corrección al diagnóstico.** Era verdad que
+  `acceso.jpg` y `motor-acceso.jpg` eran byte a byte idénticas, pero **NO** que un cliente nuevo
+  la heredara en producción: `deploy.yml:192` excluye `admin/acceso*.jpg`, así que esa imagen
+  nunca sube. El diseño era correcto. Lo único anómalo era que el hueco de «foto de ESTE
+  restaurante» estuviera ocupado por la genérica, con lo que el respaldo no se ejecutaba jamás.
+  **Se borró `acceso.jpg` del motor** (`b721c97`) y se comprobó en un servidor de revisión que la
+  puerta cae al respaldo: `motor-acceso.jpg`, 900×600, sin fallos. **Ojo:** la producción de
+  Tinge ya tiene ese fichero subido y el exclude impide que se actualice o se borre solo — la
+  puerta de Tinge seguirá con la imagen genérica hasta que alguien la quite por FTP.
 - **`NO_SON_DEL_BUILD`** (`motor/contrato-salida.mjs:44`): export sin consumidor, citado en
   `SPEC.md`. O el gate de «sobrantes» nunca se construyó, o se perdió.
 - **`fuentes.html`**: se genera, se publica y el `.htaccess` lo deniega por HTTP, y **nadie lo
   lee**. Su comentario dice «lo lee el PHP del disco» y eso ya no es cierto.
+- **`qa/manifiesto-build.json` se mantiene A MANO.** Su propio campo `como_se_regenera` dice
+  `npm --prefix qa run manifiesto:escribir`, y **ese script no existe** en `qa/package.json`:
+  nada en `qa/` lo escribe, sólo lo leen `fast.mjs` y `fixtura-lh.mjs`. Corregir ese campo, o
+  escribir el generador que promete.
 - ~~La duda del premio del juego~~ **RESUELTA.** El encargo **sí se ejecutó**: `SPEC.md:3386`
   dice que el premio «se ha quitado entero —objetivo, texto del premio, minutos, el código
   `CR-DDMM-…`, la pantalla del camarero, el reloj, los canjes y el salto a la reseña— y en su
