@@ -7767,3 +7767,61 @@ sobre lo anterior, las dos medidas con Playwright sobre TODAS las filas de la ca
   que «tiene algún hermano visible detrás» es «no es el último», y el último conserva sus 8 px
   hacia el nombre. La fórmula (4 px) no cambia; cambia que se aplique siempre. Medido: todas
   las parejas a 4,0 en los tres anchos.
+
+## La portada estática: la foto se pide desde el HTML, no desde el estado (14 Sep 2026, noche)
+
+**El problema, medido.** La carta compilada no sabe qué foto de portada tiene —la lista vive en
+`estado.json`, la escribe el panel— y no la pedía hasta tener el estado. En PageSpeed móvil el
+*resource load delay* de la portada era de 1,5 a 2,7 s: exactamente lo que tardaba
+`estado.json` en llegar del origen. Con la caché del borde no mejoró desde Google (PoP frío) y
+el móvil seguía oscilando entre 87 y 96 según el minuto. El LCP es siempre esa foto.
+
+**La solución: un nombre fijo.** El panel mantiene `assets/hero/portada-<ancho>.webp` como
+copia de las variantes de la PRIMERA foto del estado, y apunta en el estado `heroPortada` con
+el nombre de la foto que copia. Con nombre fijo, el HTML compilado precarga la foto desde la
+cabecera y la pinta desde el marcado, sin esperar a nada.
+
+Diseño aprobado por el propietario (v1) y lo que se construyó:
+
+- **Panel** (`hero_portada_asegurar()` en `admin/index.php`): se llama donde ya se recalcula
+  `heroWebp` —en cada `guardar_estado()` y en la conciliación de cada visita al panel— así que
+  subir, borrar o reordenar fotos, y también un estado anterior a esto, dejan el alias al día.
+  La escalera del alias está SIEMPRE completa (los seis anchos de `HERO_ANCHOS`): para los
+  anchos que la foto no tiene se copia la variante mayor, porque un 404 en una variante hacía
+  desaparecer la diapositiva (ya pasó). Es un dato derivado del disco, como `heroWebp`: sin
+  copia de seguridad ni fecha de «actualizado». Se salta la copia cuando el alias ya es igual
+  (mismo tamaño y no más viejo).
+- **Sin fotos, o sin variantes todavía**, los alias no se borran: se escriben con un **WebP
+  transparente de 1×1 (34 bytes)**. Sin eso, una carta sin portada pagaba un 404 y un error de
+  consola en cada primera visita, y la batería lo cazó a la primera (`SMK-09`/`SMK-10`). El
+  píxel responde 200, no es candidato a LCP (Chrome descarta imágenes sin entropía) y se ve
+  como siempre: el hueco gris del marco hasta que el runtime lo cierra.
+- **Carta** (`gen.mjs`): `<link rel="preload" as="image" imagesrcset="portada-… "
+  imagesizes=HERO_SIZES>` **estático y después del `<meta viewport>`**, no desde el script de
+  la cabecera: antes del viewport un móvil se cree de 980 px y el explorador de precarga
+  elegía el escalón de 1600 mientras el marco pedía el de 800: la foto dos veces (medido). La
+  primera diapositiva va ya en el marcado (`<li id="hero-portada"><picture>…`), con `onerror`
+  que la retira. Cuando llega el estado, el script de detrás del marco decide: si
+  `heroPortada === hero[0]` la diapositiva pintada ES la primera (se le pone su `alt`, se marca
+  `__heroYa` y el runtime la respeta como ya hacía con la adelantada); si no coincide —sin
+  fotos, o foto cambiada hace menos de un minuto y el borde sirvió la vieja— se retira y se
+  monta la real como siempre. El preload que sale del estado se salta cuando la portada
+  estática es la buena, para no bajar la misma foto con dos nombres.
+- **Servidor** (`server/.htaccess`): `portada-*.webp` con `public, max-age=0, s-maxage=60,
+  must-revalidate`, DESPUÉS de la regla del mes para imágenes: el navegador revalida siempre
+  (304 si no cambió) y el borde la guarda 60 s. Cambiar la foto se ve fuera en ≤60 s.
+- **Compatibilidad**: estado sin `heroPortada` → el runtime hace lo de siempre. Sin JavaScript
+  la portada estática se ve (antes no se veía ninguna). `deploy.yml` ya excluye
+  `assets/hero/**`: los alias viven en el servidor. Sin migración de esquema.
+
+**Medido con la fixtura de Lighthouse de QA** (portada subida por el panel) y Playwright,
+cuatro caminos: (1) móvil con `heroPortada = hero[0]`: una sola petición de portada
+(`portada-1000.webp`) a los 10 ms, `estado.json` a los 20, la diapositiva estática se queda
+como primera con su `alt`, 0 errores; (2) escritorio: igual con `portada-1600`; (3)
+`heroPortada` distinto: la estática se retira, se monta la real, 0 errores; (4) sin fotos:
+se retira, el marco se cierra, `hero=0` en memoria, 0 errores. Lighthouse local: el elemento
+LCP es `li#hero-portada > img` y su *resource load delay* pasa de 1,5–2,7 s a **11 ms**.
+
+**Riesgo asumido:** tras cambiar la foto en el panel, un visitante puede ver la anterior
+hasta 60 s (caché del borde); el runtime la corrige al llegar el estado. Mismo compromiso que
+`estado.json`.

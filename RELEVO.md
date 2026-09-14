@@ -5,13 +5,19 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, cierre.** `main` = `origin/main` = **`6e28642`**, **una sola
-> rama** aquí y en GitHub, árbol limpio salvo `.ai/`, sin stashes. `motor.lock` cuadra (1.1.8).
-> **Producción sirve `1789417907465`** (run `34893456759`); `DESPLIEGUE_REAL` devuelta a `false`
-> y leída de GitHub. **PageSpeed sobre ese build: móvil 88 / 97 / 100 / 100, escritorio
-> 98 / 97 / 100 / 100** (Rendimiento / Accesibilidad / Buenas prácticas / SEO). El 97 es decisión
-> del propietario: badges con texto crema sobre el naranja literal; el móvil oscila 87–96 según el
-> minuto (PoP de Google frío). Nada a medias.
+> Última actualización: **14 sep 2026, noche.** `main` = `origin/main` = `3b63b97`; producción
+> sirve `1789417907465`. **Rama `feature/portada-estatica` con la portada estática hecha,
+> probada y SIN integrar**: el panel copia la primera foto a `assets/hero/portada-<ancho>.webp`
+> (píxel transparente si no hay fotos) y apunta `heroPortada`; la carta la precarga desde el
+> `<head>` (tras el viewport) y la pinta desde el marcado sin esperar a `estado.json`; el runtime
+> la confirma o la cambia cuando llega el estado. Lighthouse local: el retraso de carga de la
+> portada pasa de 1,5–2,7 s a 11 ms. `fast` 37, `smoke` 17, contrato en verde; `full` corrido
+> (ver informe). Diseño aprobado por el propietario. **Falta su orden para integrar y desplegar;
+> después, tres pasadas de PageSpeed móvil para confirmar que deja de oscilar.**
+>
+> Al desplegar: la primera visita al panel de Tinge escribe los alias (conciliación); hasta
+> entonces la carta recibe 404 en la portada estática y hace lo de siempre. Conviene abrir el
+> panel justo después del despliegue.
 >
 > **Lo siguiente, en este orden:** (1) el podio del juego a cero desde el panel, que el juego
 > nuevo ya está en producción con marcas viejas; (2) el nombre «Bar / Restaurante Guaza» en la

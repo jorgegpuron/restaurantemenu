@@ -1063,6 +1063,76 @@ function hero_con_variantes(array $hero): array {
   return $out;
 }
 
+/* ---------------------------------------------------------------- la portada estática
+ * La carta compilada no sabe qué foto de portada tiene —vive en estado.json— y hasta hoy
+ * no la pedía hasta tener el estado: en móvil, un segundo o dos de espera antes de pedir
+ * siquiera la imagen que marca el LCP. Con un NOMBRE FIJO la carta puede precargarla y
+ * pintarla desde el propio HTML, sin esperar a nada.
+ *
+ * Aquí se mantiene ese nombre fijo: assets/hero/portada-<ancho>.webp, una copia de cada
+ * variante de la PRIMERA foto del estado. La escalera del alias está SIEMPRE completa (los
+ * seis anchos de HERO_ANCHOS): para los anchos que la foto no tiene se copia la variante más
+ * grande que exista, y así la carta puede anunciar la escalera entera sin que falte un
+ * fichero (un 404 en una variante hacía desaparecer la diapositiva; ver hero_con_variantes).
+ * Se apunta en el estado `heroPortada` = el nombre de la foto que el alias copia: la carta
+ * compara ese nombre con hero[0] cuando le llega el estado y sabe si la portada que ya ha
+ * pintado es la actual (si no, la cambia; es la ventana de caché del borde tras cambiar la
+ * foto, 60 s como mucho).
+ *
+ * Es un dato derivado del disco, como heroWebp: se recalcula en cada guardado y en cada
+ * visita al panel, nunca se pide ni se edita. Copiar cinco o seis ficheros de 30-150 KB es
+ * barato, y se salta cuando el alias ya es igual (mismo tamaño y no más viejo que el origen).
+ * Sin fotos —o sin variantes todavía, recién subida en un hosting lento— los alias NO se
+ * borran: se escriben con un WebP transparente de 1×1 y se devuelve null. La carta pide la
+ * portada estática desde el marcado sin saber si hay foto, y un 404 ahí es un error de
+ * consola y una petición fallida en cada primera visita de una carta sin portada; el píxel
+ * transparente responde 200, no pesa (34 bytes), no es candidato a LCP (Chrome descarta las
+ * imágenes sin entropía) y se ve como lo de siempre: el hueco gris del marco hasta que el
+ * runtime lo cierra. Con heroPortada ausente la carta lo retira en cuanto llega el estado.
+ */
+function hero_portada_alias(int $w): string {
+  return HERO_DIR . '/portada-' . $w . '.webp';
+}
+
+/* Un WebP de 1×1 transparente, 34 bytes. Bytes fijos y no GD: GD puede no traer WebP. */
+const HERO_PORTADA_VACIA = 'UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==';
+
+function hero_portada_vaciar(): void {
+  if (!hero_carpeta_lista()) return;
+  $px = base64_decode(HERO_PORTADA_VACIA, true);
+  if ($px === false) return;
+  foreach (HERO_ANCHOS as $w) {
+    $alias = hero_portada_alias($w);
+    if (is_file($alias) && filesize($alias) === strlen($px)) continue;
+    if (@file_put_contents($alias, $px, LOCK_EX) !== false) @chmod($alias, 0644);
+  }
+}
+
+function hero_portada_asegurar(array $hero): ?string {
+  $nombre = null;
+  foreach ($hero as $n) { if (is_string($n) && $n !== '') { $nombre = $n; break; } }
+  $disponibles = $nombre !== null ? hero_variantes_en_disco($nombre) : [];
+  if ($nombre === null || !$disponibles) {
+    hero_portada_vaciar();
+    return null;
+  }
+  $base = hero_base($nombre);
+  sort($disponibles);
+  $mayor = end($disponibles);
+  $ok = true;
+  foreach (HERO_ANCHOS as $w) {
+    /* La variante exacta si existe; si no, la mayor que haya (nunca se amplía: el fichero es
+       el mismo, solo se anuncia con un ancho mayor). */
+    $usa = in_array($w, $disponibles, true) ? $w : $mayor;
+    $origen = HERO_DIR . '/' . $base . '-' . $usa . '.webp';
+    $alias = hero_portada_alias($w);
+    if (is_file($alias) && filesize($alias) === filesize($origen) && filemtime($alias) >= filemtime($origen)) continue;
+    if (!@copy($origen, $alias)) { $ok = false; continue; }
+    @chmod($alias, 0644);
+  }
+  return $ok ? $nombre : null;
+}
+
 /* Un nombre de archivo que llega por POST no se usa nunca tal cual para borrar: se comprueba
    que sea uno de los que hay en el estado. Sin esto, un ../../ borra lo que quiera. */
 function hero_borrar(string $nombre, array $hero): bool {
@@ -1339,6 +1409,10 @@ function guardar_estado(array $estado): bool {
      original. Así nunca pide un fichero que no existe, ni en el rato que va desde que se sube
      una foto hasta que se le generan las variantes, ni en un hosting sin WebP. */
   $estado['heroWebp'] = hero_con_variantes(is_array($estado['hero'] ?? null) ? $estado['hero'] : []);
+  /* Y la portada estática, por lo mismo: es el disco, no una preferencia. Ver
+     hero_portada_asegurar(). */
+  $portada = hero_portada_asegurar(is_array($estado['hero'] ?? null) ? $estado['hero'] : []);
+  if ($portada === null) unset($estado['heroPortada']); else $estado['heroPortada'] = $portada;
   $json = json_encode($estado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
   if ($json === false) return false;
   $tmp = ESTADO_PATH . '.' . bin2hex(random_bytes(6)) . '.tmp';
@@ -4844,15 +4918,22 @@ if ($migraColisiones) {
    solas, por visita al panel y con un presupuesto de tiempo. Ver hero_completar_pendientes():
    lo que hay que evitar es pasarse del máximo de una petición en un hosting compartido, no
    hacer pocas. Mientras falten, la carta sirve el original y se ve igual; sólo pesa más. */
-if (is_array($estado['hero'] ?? null) && $estado['hero']) {
-  hero_completar_pendientes($estado['hero']);
-  $conVariantes = hero_con_variantes($estado['hero']);
+{
+  $heroLista = is_array($estado['hero'] ?? null) ? $estado['hero'] : [];
+  if ($heroLista) hero_completar_pendientes($heroLista);
+  $conVariantes = hero_con_variantes($heroLista);
+  /* La portada estática se concilia aquí también: un estado escrito antes de que existiera
+     (sin heroPortada) la estrena en la primera visita al panel, y un alias que se borró a
+     mano se rehace. Ver hero_portada_asegurar(). */
+  $portada = hero_portada_asegurar($heroLista);
   /* Se escribe sólo si ha cambiado, y sin pasar por guardar_estado(): esto es un dato derivado
      del disco, no una decisión del restaurante. Con la ceremonia entera cada visita al panel
      dejaría una copia de seguridad y movería la fecha de «actualizado», que es la que la carta
      enseña. */
-  if (($estado['heroWebp'] ?? null) !== $conVariantes) {
+  $cambia = (($estado['heroWebp'] ?? null) !== $conVariantes) || (($estado['heroPortada'] ?? null) !== $portada);
+  if ($cambia && ($heroLista || isset($estado['heroWebp']) || isset($estado['heroPortada']))) {
     $estado['heroWebp'] = $conVariantes;
+    if ($portada === null) unset($estado['heroPortada']); else $estado['heroPortada'] = $portada;
     $json = json_encode($estado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     if ($json !== false) {
       $tmp = ESTADO_PATH . '.' . bin2hex(random_bytes(6)) . '.tmp';

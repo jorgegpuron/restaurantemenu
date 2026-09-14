@@ -279,6 +279,17 @@ export const HERO_ANCHOS = [480, 640, 800, 1000, 1200, 1600];
    veces. */
 export const HERO_SIZES = '(min-width: 1594px) 1546px, calc(100vw - 40px)';
 
+/* La portada ESTÁTICA: la primera foto con nombre fijo, assets/hero/portada-<ancho>.webp, que
+   el panel copia de hero[0] cada vez que la lista de fotos cambia (hero_portada_asegurar en
+   admin/index.php) y anota en estado.heroPortada. Con nombre fijo el HTML compilado puede
+   precargarla desde la cabecera y pintarla desde el marcado SIN esperar a estado.json, que es
+   lo que hasta el 14 sep 2026 retrasaba la foto —el LCP— un segundo o dos en el móvil. La
+   escalera se anuncia entera: el panel garantiza los seis ficheros (para los anchos que la
+   foto no tiene, copia la variante mayor). Cuando llega el estado, si heroPortada === hero[0]
+   la diapositiva ya pintada ES la primera; si no, se cambia por la real. */
+export const HERO_PORTADA_SRCSET = HERO_ANCHOS.map((w) => 'assets/hero/portada-' + w + '.webp ' + w + 'w').join(', ');
+export const HERO_PORTADA_SRC = 'assets/hero/portada-800.webp';
+
 /* La ruta publica de las creatividades publicitarias. AUTORIDAD UNICA: de aqui sale el
  * literal que usa el JS de la carta y el define('PUB_URL') que viaja al panel en
  * cliente.php. El panel deriva su carpeta fisica de este mismo valor. */
@@ -1580,12 +1591,21 @@ const html = `<!DOCTYPE html>
      original en vez de esconderse. El panel reescribe el estado con el mapa la primera vez que
      alguien lo abre. -->
 <script>document.documentElement.className+=' js';try{var _e=localStorage.getItem('${CLAVE('escala')}');if(_e)document.documentElement.style.setProperty('--escala',_e);if(localStorage.getItem('${CLAVE('hero')}')!=='0')document.documentElement.classList.add('has-hero')}catch(e){document.documentElement.classList.add('has-hero')}
+window.__portadaPre=1;
 try{window.__estado=fetch('estado.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});
 window.__anchos=function(s,f){var w=s&&s.heroWebp;if(!w||!f)return null;if(Array.isArray(w))return w.indexOf(f)!==-1?${JSON.stringify(HERO_ANCHOS)}:null;var a=w[f];return(a&&a.length)?a:null};
 window.__srcset=function(f,anchos){var b=f.replace(/\\.[^.]+$/,'');return anchos.map(function(n){return 'assets/hero/'+b+'-'+n+'.webp '+n+'w'}).join(', ')};
-window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var a=window.__anchos(s,f);if(a){l.imageSrcset=window.__srcset(f,a);l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
+window.__estado.then(function(s){try{var f=s&&s.hero&&s.hero[0];if(!f)return;if(window.__portadaPre&&s.heroPortada===f&&!window.__portadaFallo)return;var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';var a=window.__anchos(s,f);if(a){l.imageSrcset=window.__srcset(f,a);l.imageSizes=${JSON.stringify(HERO_SIZES)};l.type='image/webp'}else{l.href='assets/hero/'+f}document.head.appendChild(l)}catch(e){}})}catch(e){}</script>
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- La portada ESTÁTICA, precargada desde el propio HTML, sin esperar a estado.json (ver
+     HERO_PORTADA_SRCSET). DESPUÉS del viewport a propósito, y estática y no desde el script de
+     la cabecera: el escalón de imagesrcset se elige con el ancho del viewport, y antes del meta
+     viewport un móvil se cree de 980 px. Medido con Lighthouse: el script de la cabecera pedía
+     el de 1600 y luego el marcado pedía el de 800 -- la foto dos veces. Aquí el explorador de
+     precarga ya conoce el viewport y pide el mismo escalón que el <picture> del marco. Una
+     carta sin portada recibe el píxel transparente que deja el panel (34 bytes, 200). -->
+<link rel="preload" as="image" fetchpriority="high" type="image/webp" imagesrcset="${HERO_PORTADA_SRCSET}" imagesizes="${HERO_SIZES}">
 <title>${CLIENTE.titulo}</title>
 <meta name="description" content="${CLIENTE.descripcion}"${attrs(CLIENTE.descripcion, 'ui-cliente')}>
 <link rel="icon" type="image/svg+xml" href="assets/titleIcon-accent.svg?v=${ICONO_PESTANA_V}">
@@ -4760,7 +4780,12 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
              no hay ninguna, este bloque no llega a existir en pantalla. -->
         <figure class="hero" id="hero">
           <div class="hero-frame">
-            <ul class="hero-track" id="hero-track" tabindex="0"${TL('Photo of the restaurant')}></ul>
+            <ul class="hero-track" id="hero-track" tabindex="0"${TL('Photo of the restaurant')}><!--
+              La primera diapositiva, ESTÁTICA: la portada con nombre fijo (ver HERO_PORTADA_SRCSET).
+              Se pide y se pinta desde el marcado, sin esperar a estado.json. Si el fichero no
+              existe (carta sin portada, o alias aún no escrito) el onerror la retira y todo sigue
+              como antes; el script de detrás del marco decide con el estado si es la actual.
+              --><li class="hero-slide" id="hero-portada"><picture><source type="image/webp" srcset="${HERO_PORTADA_SRCSET}" sizes="${HERO_SIZES}"><img src="${HERO_PORTADA_SRC}" alt="" decoding="sync" fetchpriority="high" onerror="window.__portadaFallo=1;var l=this.closest('li');if(l)l.remove()"></picture></li></ul>
             <button type="button" class="hero-arrow hero-prev" id="hero-prev"${TL('Previous photo')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6"/></svg>
             </button>
@@ -4812,6 +4837,19 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
             try {
               var f = s && s.hero && s.hero[0];
               var carril = document.getElementById('hero-track');
+              /* La portada estática, ya pintada desde el marcado. Es la buena si el estado dice
+                 que el alias copia justo a hero[0]; si no —sin fotos, o cambiada hace menos de
+                 un minuto y el borde sirvió la vieja— se retira y se monta la real como siempre. */
+              var estatica = document.getElementById('hero-portada');
+              if (estatica && (!f || s.heroPortada !== f || window.__portadaFallo)) { estatica.remove(); estatica = null; }
+              if (estatica) {
+                var imgE = estatica.querySelector('img');
+                imgE.alt = ${JSON.stringify(TL_TXT('Photo {n} of {total}'))}.replace('{n}', 1).replace('{total}', s.hero.length);
+                window.__heroYa = f;
+                if (imgE.complete) pedirFuentes();
+                else { imgE.addEventListener('load', pedirFuentes); imgE.addEventListener('error', pedirFuentes); }
+                return;
+              }
               /* Sin portada que esperar, la tipografía deja de tener por qué esperar. */
               if (!f || !carril || carril.children.length) { pedirFuentes(); return; }
               var li = document.createElement('li');

@@ -179,6 +179,14 @@ ErrorDocument 404 /tinge_of_turmeric/menu2/404.php
   <FilesMatch "\.(png|jpe?g|webp|svg|woff2?)$">
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
+  # La portada ESTÁTICA (assets/hero/portada-<ancho>.webp) es la excepción: nombre fijo, así que
+  # el navegador no puede guardarla un mes —cambiar la foto desde el panel la dejaría vieja en
+  # cada móvil que ya la vio—. El navegador revalida siempre (un 304 si no cambió) y el borde la
+  # guarda 60 s. Va DESPUÉS de la regla de arriba a propósito: en Apache manda la última que
+  # casa. Ver hero_portada_asegurar() en admin/index.php.
+  <FilesMatch "^portada-\d+\.webp$">
+    Header set Cache-Control "public, max-age=0, s-maxage=60, must-revalidate"
+  </FilesMatch>
 </IfModule>
 
 # El estado de EJEMPLO no se sirve. Sube con la carta a propósito —es la semilla que se
