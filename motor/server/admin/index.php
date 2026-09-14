@@ -160,6 +160,19 @@ function estado_vacio(): array {
     'esquema' => 2,
     'soldOut' => [],
     'tags'    => [],
+    /* «Para llevar»: LISTA de dishId, no un mapa, porque no hay nada que guardar aparte de
+       quién lo lleva — misma forma que `retirados`. Y capa propia y no un valor más de
+       `tags`: `tags` es un escalar por plato, así que meter esto ahí le borraría el destacado
+       al ponerlo. Un plato puede llevar «Más vendido» Y «Para llevar» a la vez, que es la
+       decisión de diseño que obliga a separarlas.
+       Ausente = nadie, así que un estado.json anterior sigue valiendo sin migración. */
+    'paraLlevar' => [],
+    /* «Combina con»: dishId => [dishId, …], disperso y con tope de 3. Por identidad y NUNCA
+       por número: el número de un plato es su posición en la carta y la posición cambia sola
+       —medido: al retirar dos platos anteriores, la Sopa de lentejas pasó del #07 al #05—, así
+       que una pareja guardada por número apuntaría a otro plato sin que nadie tocara nada. El
+       número se lee de la fila destino al pintar. */
+    'combina' => [],
     'offer'   => ['on' => false, 'cats' => [], 'keys' => [], 'percent' => 20, 'from' => 600, 'to' => 720, 'days' => [1,2,3,4,5,6,7]],
     'prices'  => [],
     /* La nota de Google que sale al final de la carta. Arranca apagada y a cero a propósito:
@@ -3389,7 +3402,99 @@ if ($csrfOk) {
   }
 
   /* --- destacados --- */
-  if (isset($_POST['destacado_add'])) {
+  /* --- «Para llevar» ---
+   * Capa propia (`estado.paraLlevar`), no un valor más de `tags`: `tags` es un escalar por
+   * plato, así que meter esto ahí le borraría el destacado al ponerlo, y la decisión del
+   * diseño es que un plato pueda llevar «Más vendido» Y «Para llevar».
+   *
+   * Es un INTERRUPTOR y no un alta: se manda la clave y el estado que se quiere (1 ó 0), en
+   * vez de dos acciones distintas. Así el mismo botón sirve para poner y para quitar, y dos
+   * pulsaciones seguidas no dejan el plato dos veces en la lista.
+   *
+   * Acepta `pl_keys[]` para el lote, con el mismo criterio que el lote de etiquetas: un solo
+   * guardado para los N, y las claves que ya no estén en la carta se ignoran diciéndolo en
+   * vez de rechazar el lote entero.
+   *
+   * El botón vive DENTRO del formulario de etiquetas —es el mismo popover— así que sin
+   * JavaScript el navegador manda también `destacado_add` y `hl_label` vacío. De ahí el
+   * guardia del handler de abajo: con `para_llevar` puesto, el de destacados no corre. Sin
+   * ese guardia, poner «Para llevar» sin JavaScript contestaba «Esa etiqueta no existe». */
+  if (isset($_POST['para_llevar'])) {
+    $pestana = 'platos';
+    $quiere = (string) ($_POST['para_llevar']) === '1';
+    $pedidas = isset($_POST['pl_keys']) && is_array($_POST['pl_keys'])
+      ? array_values(array_unique(array_filter((array) $_POST['pl_keys'],
+          static function ($k) { return is_string($k) && $k !== ''; })))
+      /* `hl_key` de respaldo: el botón vive dentro del formulario de etiquetas, que ya lleva
+         esa casilla con el plato elegido. Sin JavaScript no hay nadie que rellene otra. */
+      : array_values(array_filter([(string) ($_POST['pl_key'] ?? $_POST['hl_key'] ?? '')], static function ($k) { return $k !== ''; }));
+    $buenas = array_values(array_intersect($pedidas, $validas));
+    if (!$pedidas) {
+      http_response_code(422);
+      $error = 'No has elegido ningún plato.';
+    } elseif (!$buenas) {
+      http_response_code(422);
+      $error = 'Ninguno de esos platos está en la carta.';
+    } else {
+      $lista = is_array($estado['paraLlevar'] ?? null) ? $estado['paraLlevar'] : [];
+      /* Se reconstruye entera en vez de añadir y quitar en sitio: así una lista que viniera
+         con repetidos de un estado tocado a mano sale limpia, y el orden es estable. */
+      $lista = array_values(array_diff($lista, $buenas));
+      if ($quiere) $lista = array_merge($lista, $buenas);
+      $estado['paraLlevar'] = array_values(array_unique($lista));
+      if (guardar_estado($estado)) {
+        $n = count($buenas);
+        $fuera = count($pedidas) - $n;
+        $aviso = ($quiere ? 'Para llevar en ' : 'Para llevar quitado en ') . $n . ' plato' . ($n === 1 ? '' : 's')
+          . ($fuera > 0 ? ' (' . $fuera . ($fuera === 1 ? ' ya no está' : ' ya no están') . ' en la carta y se '
+             . ($fuera === 1 ? 'ha' : 'han') . ' ignorado)' : '') . '.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+  /* --- «Combina con» ---
+   * Se manda la lista ENTERA del plato, no «añade éste» o «quita éste»: la hoja de selección
+   * ya tiene el estado completo en pantalla, y con listas de tres elementos mandar el conjunto
+   * evita que dos pestañas abiertas a la vez se pisen a medias. Lista vacía = borrar la
+   * entrada, que es lo que mantiene el mapa disperso: sólo aparecen los platos emparejados.
+   *
+   * El tope de 3 se valida AQUÍ además de en la hoja. La hoja es una comodidad; esto es la
+   * regla, y un POST a mano no puede saltársela. */
+  if (isset($_POST['combina_set'])) {
+    $pestana = 'platos';
+    $k = (string) ($_POST['cb_key'] ?? '');
+    $destinos = isset($_POST['cb_destinos']) && is_array($_POST['cb_destinos'])
+      ? array_values(array_unique(array_filter((array) $_POST['cb_destinos'],
+          static function ($d) { return is_string($d) && $d !== ''; })))
+      : [];
+    /* Un plato no combina consigo mismo: no dice nada y ocuparía uno de los tres huecos. */
+    $destinos = array_values(array_filter($destinos, static function ($d) use ($k) { return $d !== $k; }));
+    $buenos = array_values(array_intersect($destinos, $validas));
+    $mapa = is_array($estado['combina'] ?? null) ? $estado['combina'] : [];
+    if (!in_array($k, $validas, true)) {
+      http_response_code(422);
+      $error = 'Ese plato no está en la carta.';
+    } elseif (count($buenos) > 3) {
+      http_response_code(422);
+      $error = 'Como mucho tres platos.';
+    } elseif (count($buenos) !== count($destinos)) {
+      http_response_code(422);
+      $error = 'Alguno de esos platos ya no está en la carta.';
+    } else {
+      if ($buenos) $mapa[$k] = $buenos; else unset($mapa[$k]);
+      $estado['combina'] = $mapa;
+      if (guardar_estado($estado)) {
+        $n = count($buenos);
+        $aviso = $n === 0 ? 'Combinaciones quitadas.' : 'Combina con ' . $n . ' plato' . ($n === 1 ? '' : 's') . '.';
+      } else {
+        http_response_code(500);
+        $error = 'No se ha podido escribir estado.json.';
+      }
+    }
+  }
+  if (isset($_POST['destacado_add']) && !isset($_POST['para_llevar'])) {
     $pestana = 'platos';
     $k = (string) ($_POST['hl_key'] ?? '');
     $e = (string) ($_POST['hl_label'] ?? '');
@@ -3997,6 +4102,27 @@ if ($csrfOk) {
         if (is_array($estado[$mapa] ?? null)) unset($estado[$mapa][$id]);
       }
       $estado['retirados'] = array_values(array_filter(retirados_de($estado), static fn($k) => $k !== $id));
+      /* Y la capa de «Para llevar», que es una LISTA y no un mapa: no vale con unset. Un plato
+         borrado que se quedara aquí sería una clave huérfana que no se puede quitar desde
+         ninguna pantalla, porque su fila ya no existe. */
+      if (is_array($estado['paraLlevar'] ?? null)) {
+        $estado['paraLlevar'] = array_values(array_filter($estado['paraLlevar'], static fn($k) => $k !== $id));
+      }
+      /* Y «combina con», por los DOS lados: el plato borrado como origen —su entrada entera—
+         y como destino de cualquier otro. Sin la segunda parte, los demás platos seguirían
+         diciendo «combina con» un plato que ya no existe; la carta lo omitiría al pintar, pero
+         el estado se quedaría mintiendo y el hueco seguiría ocupando uno de los tres. */
+      if (is_array($estado['combina'] ?? null)) {
+        $cb = $estado['combina'];
+        unset($cb[$id]);
+        foreach ($cb as $origen => $lista) {
+          if (!is_array($lista)) { unset($cb[$origen]); continue; }
+          $sin = array_values(array_filter($lista, static fn($d) => $d !== $id));
+          if (!$sin) unset($cb[$origen]);
+          elseif (count($sin) !== count($lista)) $cb[$origen] = $sin;
+        }
+        $estado['combina'] = $cb;
+      }
       $orden = is_array($estado['orden'] ?? null) ? $estado['orden'] : [];
       foreach ($orden as $c => $lst) {
         if (!is_array($lst)) continue;
@@ -6702,6 +6828,15 @@ $CUENTAS = [
      a un tamaño ilegible. */
   .adm-platorow .adm-orow-nm{flex:0 1 auto}
   .adm-plato-acciones{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
+  /* La columna de «Para llevar»: 26 px fijos, ocupados o no. El ancho sale del dibujo (18)
+     más el aire mínimo a cada lado, y es fijo para que el interruptor de agotado caiga en la
+     misma x en las 312 filas. El color es el del acento del cliente, como la insignia de la
+     carta. */
+  .adm-plato-llevar{
+    flex:none;width:26px;height:18px;display:grid;place-items:center;
+    color:var(--sc-primary-grafico);
+  }
+  .adm-plato-llevar svg{width:18px;height:18px;display:block}
   /* .adm-orow input{position:absolute;opacity:0;width:1px;height:1px} (más arriba) da por
      hecho que el único <input> dentro de una fila es el checkbox de agotado, oculto a
      propósito detrás de su tick — cierto en Ofertas/como era Agotados, falso aquí: esta fila
@@ -6833,7 +6968,11 @@ $CUENTAS = [
        pasa a ser la rejilla de la línea 2, con sus cuatro columnas propias. */
     .adm-cat-bento-lista .adm-platorow > .adm-plato-acciones{
       grid-area:ops;display:grid;
-      grid-template-columns:56px 24px minmax(0,1fr) 40px;
+      /* Cinco columnas y no cuatro: la penúltima es «Para llevar», 26 px fijos. Sin declararla
+         el span se caía a una tercera línea y la fila pasaba de 100 a 133 px —medido a 390 y a
+         404—, que es justo lo que esta rejilla existe para impedir. Los 26 salen del nombre,
+         la única elástica. */
+      grid-template-columns:56px 24px minmax(0,1fr) 26px 40px;
       column-gap:4px;align-items:center;min-width:0;margin-left:0;
     }
     .adm-cat-bento-lista .adm-plato-acciones > *{min-width:0}
@@ -6876,7 +7015,12 @@ $CUENTAS = [
     .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
     .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
     .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:var(--lh-control)}
-    .adm-cat-bento-lista .adm-sw-agotado{grid-column:4;justify-self:end}
+    /* La moto en la 4 y el interruptor en la 5, los dos EXPLÍCITOS. Aquí cada hijo declara su
+       columna, así que uno en automático ocupa el primer hueco libre —la 4— y empuja al
+       interruptor, que sí la pedía, a una segunda línea: la fila pasaba de 100 a 132 px.
+       Medido antes de declararlo. */
+    .adm-cat-bento-lista .adm-plato-acciones > .adm-plato-llevar{grid-column:4;justify-self:center}
+    .adm-cat-bento-lista .adm-sw-agotado{grid-column:5;justify-self:end}
     /* El interruptor lleva halo de 48 de alto desde R3, calculado para la fila de UNA línea de
        tablet, donde encima y debajo sólo está el borde de la fila. Aquí encima tiene el «⋯» de
        la línea 1: 48 se sale 2 px por arriba y otros 2 por abajo del reparto de 44+44, y esos
@@ -6940,13 +7084,20 @@ $CUENTAS = [
 
      Presupuesto fijo: 346 + 48 de huecos + 32 de relleno = 426 con dedo (454 con raton). Nombre
      resultante: 160 a 768, 252 a 1024, 107 a 1440, 143 a 1512. */
-  .adm-platorow{--adm-mas-w:56px}
+  /* 86 y no 56 con ratón: dentro del «mas» van en línea el lápiz de cambiar, la papelera y
+     —desde «Combina con»— el enlace, que son tres cajas de 26 con sus huecos. Con el dedo se
+     queda en 28: ahí los tres viven dentro del menú «⋯», uno debajo de otro y con su rótulo. */
+  .adm-platorow{--adm-mas-w:86px}
   @media (pointer:coarse){ .adm-platorow{--adm-mas-w:28px} }
   @container adm-cat-bento-col (min-width:520px){
     .adm-cat-bento-lista .adm-platorow{
       display:grid;
-      grid-template-columns:62px 32px 24px minmax(0,1fr) 52px 24px 84px 40px var(--adm-mas-w);
-      grid-template-areas:"orden foto num nombre precio oferta etiqueta agotado mas";
+      /* La columna de 26 es la de «Para llevar». Va declarada y no al final por las bravas:
+         esta rejilla tiene columnas explícitas, y un hijo de más se caería a una segunda línea
+         —medido antes de declararla: la fila pasaba de 48 a 59 px y el interruptor perdía 2 px
+         de zona táctil—. Sale del ancho del nombre, que es la única columna elástica. */
+      grid-template-columns:62px 32px 24px minmax(0,1fr) 52px 24px 84px 26px 40px var(--adm-mas-w);
+      grid-template-areas:"orden foto num nombre precio oferta etiqueta llevar agotado mas";
       column-gap:6px;row-gap:0;align-items:center;
       min-height:48px;padding:var(--space-1) var(--space-4);
     }
@@ -6994,6 +7145,7 @@ $CUENTAS = [
     .adm-cat-bento-lista .adm-plato-destbtn .txt{display:none}
     .adm-cat-bento-lista .adm-plato-destbtn .ico{width:14px;height:14px}
     .adm-cat-bento-lista .adm-plato-destbtn::after{content:"+";font-size:var(--t3);font-weight:600;line-height:var(--lh-control)}
+    .adm-cat-bento-lista .adm-plato-llevar{grid-area:llevar;justify-self:center}
     .adm-cat-bento-lista .adm-sw-agotado{grid-area:agotado}
     .adm-cat-bento-lista .adm-mas{grid-area:mas;justify-self:end}
   }
@@ -7050,15 +7202,25 @@ $CUENTAS = [
     /* Las dos filas del menu: 44 de alto a todo el ancho, con su rotulo. Aqui el halo de R2
        sobra —la fila entera es el objetivo— y el del lapiz (-18 por arriba) pisaria a la otra. */
     .adm-mas-panel .adm-prow-editar,
+    .adm-mas-panel .adm-prow-combina,
     .adm-mas-panel .adm-retirar-b{
       width:auto;height:44px;min-height:44px;display:flex;align-items:center;justify-content:flex-start;
       gap:10px;padding:0 12px;opacity:1;border-radius:var(--radius-md);
       font-family:inherit;font-size:var(--t2);font-weight:500;color:var(--sc-text);
     }
     .adm-mas-panel .adm-prow-editar::before,
+    .adm-mas-panel .adm-prow-combina::before,
     .adm-mas-panel .adm-retirar-b::before{content:none}
     .adm-mas-panel .adm-prow-editar svg,
+    .adm-mas-panel .adm-prow-combina svg,
     .adm-mas-panel .adm-retirar-b svg{width:16px;height:16px;flex:none}
+    /* Dentro del menú el contador deja de ser un número pegado al icono —ahí no hay icono al
+       que pegarse, hay una fila con rótulo— y se va al final de la fila, alineado a la
+       derecha, que es donde se leen las cifras en una lista. */
+    .adm-mas-panel .adm-prow-combina{position:static}
+    .adm-mas-panel .adm-prow-combina-n{
+      position:static;margin-left:auto;font-size:var(--t3);
+    }
     .adm-mas-panel .adm-mas-txt{display:inline;white-space:nowrap}
     .adm-mas-panel .adm-retirar-f{display:contents}
   }
@@ -9394,6 +9556,31 @@ $CUENTAS = [
   .adm-prow-editar:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
   .adm-prow-editar:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
   @media (pointer:coarse){ .adm-prow-editar{opacity:1} }
+  /* «Combina con»: la misma caja y el mismo comportamiento que el lápiz de cambiar —apagado
+     hasta que el puntero entra en la fila— porque es de la misma familia. Lo único propio es
+     que cuando el plato YA tiene pareja se queda encendido y en el color del acento: eso hay
+     que poder verlo sin pasar el ratón por las 312 filas. */
+  .adm-prow-combina{
+    flex:none;width:26px;height:26px;display:grid;place-items:center;padding:0;position:relative;
+    border:0;border-radius:var(--radius-md);background:transparent;
+    color:var(--sc-text-2);opacity:0;cursor:pointer;
+    transition:opacity var(--t-fast) var(--ease-out),background var(--t-fast) var(--ease-out);
+  }
+  .adm-prow-combina svg{width:14px;height:14px}
+  .adm-platorow:hover .adm-prow-combina,
+  .adm-prow-combina:focus-visible,
+  .adm-prow-combina.tiene{opacity:1}
+  .adm-prow-combina.tiene{color:var(--sc-primary-grafico)}
+  .adm-prow-combina:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-prow-combina:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
+  @media (pointer:coarse){ .adm-prow-combina{opacity:1} }
+  /* El contador, pegado al icono. No es una pastilla con fondo: al lado de la moto y del
+     lápiz, una tercera forma con relleno convertiría la fila en un semáforo. */
+  .adm-prow-combina-n{
+    position:absolute;right:-1px;bottom:-2px;
+    font-size:10px;font-weight:700;line-height:1;
+    color:var(--sc-primary-grafico);
+  }
   /* La foto ocupa lo que le sobra a la columna derecha. Un boton de 44px al lado de la
      palabra «Foto» no decia que ahi cabe una foto; una zona de puntos del alto de la columna,
      si — y ademas se le puede soltar el archivo encima. Hereda de .camara, asi que se le
@@ -9534,6 +9721,63 @@ $CUENTAS = [
      arrastre sea exacta —todas las filas miden lo mismo, asi que el destino es una division
      entera y no una busqueda—. La caja se estrecha respecto a la hoja de alta porque aqui
      no hay dos columnas que meter: son nombres. */
+  /* ---- la hoja de «Combina con» ----
+     Mismo molde que la de ordenar: columna flexible, una sola barra —la de la lista— y el pie
+     quieto. Lo propio de ésta son las pastillas de lo ya elegido arriba y el buscador. */
+  .adm-combina-caja{
+    width:min(460px,100%);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .adm-combina-caja > .adm-alta-t,
+  .adm-combina-caja > .adm-alta-pista,
+  .adm-combina-caja > .adm-combina-puestos,
+  .adm-combina-caja > .adm-combina-q,
+  .adm-combina-caja > .adm-ordencats-pie{flex:none}
+  /* Las pastillas de lo elegido. Van ARRIBA y no al final: son la respuesta a «qué llevo
+     puesto», y esa pregunta se hace antes de buscar el siguiente. Vacío no ocupa nada. */
+  .adm-combina-puestos{
+    display:flex;flex-wrap:wrap;gap:var(--space-2);margin:var(--space-3) 0 0;
+  }
+  .adm-combina-puestos:empty{display:none}
+  .adm-combina-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    min-height:32px;padding:0 6px 0 12px;
+    border:1px solid var(--sc-primary-grafico);border-radius:999px;
+    background:transparent;color:var(--sc-text);
+    font-family:inherit;font-size:var(--t3);font-weight:600;
+  }
+  .adm-combina-chip button{
+    width:26px;height:26px;display:grid;place-items:center;padding:0;
+    border:0;border-radius:50%;background:transparent;color:var(--sc-text-2);cursor:pointer;
+  }
+  .adm-combina-chip button:hover{background:var(--sc-muted-bg);color:var(--sc-text)}
+  .adm-combina-chip svg{width:13px;height:13px}
+  .adm-combina-q{margin:var(--space-3) 0 0}
+  .adm-combina-lista{
+    list-style:none;margin:var(--space-3) 0 0;padding:0;
+    display:flex;flex-direction:column;gap:var(--space-1);
+    flex:1 1 auto;min-height:0;max-height:min(50dvh,420px);overflow:auto;
+    overscroll-behavior:contain;
+  }
+  .adm-combina-fila{
+    display:flex;align-items:center;gap:var(--space-3);
+    flex:none;min-height:44px;padding:0 var(--space-3);
+    border:1px solid var(--sc-border);border-radius:var(--radius-md);
+    background:var(--sc-surface);color:var(--sc-text);
+    font-size:var(--t2);font-weight:500;text-align:left;
+    font-family:inherit;cursor:pointer;
+  }
+  .adm-combina-fila:hover:not(:disabled){background:var(--sc-hover-bg)}
+  .adm-combina-fila:focus-visible{outline:var(--focus-anillo);outline-offset:2px}
+  .adm-combina-fila:disabled{opacity:.55;cursor:default}
+  .adm-combina-n{
+    flex:none;min-width:3ch;text-align:right;
+    font-size:var(--t4);font-variant-numeric:tabular-nums;color:var(--sc-text-2);
+  }
+  .adm-combina-nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .adm-combina-ya{flex:none;font-size:var(--t4);color:var(--sc-text-2)}
+  .adm-combina-nada{margin:var(--space-3) 0 0;font-size:var(--t3);color:var(--sc-text-2)}
+
   /* UN SOLO scroller, y el unico es la lista.
      `.adm-alta-caja` trae `overflow:auto` para las hojas largas de dos columnas, y aqui sobra:
      con la lista rodando por dentro salian DOS barras, una pegada a la otra, y el propietario
@@ -10208,6 +10452,16 @@ $CUENTAS = [
     flex:0 0 100%;margin-bottom:2px;
     font-size:var(--t3);font-weight:600;color:var(--muted);
   }
+  /* El filete que separa «Para llevar» de las nueve etiquetas. Vertical y de un pixel: no es
+     un hueco más grande —eso se lee como «hay sitio»— sino una raya que dice «esto es otra
+     cosa». Se apoya en el gap de 8 de la tira, así que no añade ancho propio. */
+  .adm-destet-sep{
+    flex:none;width:1px;align-self:stretch;min-height:28px;
+    background:var(--marca-borde);
+  }
+  /* Marcado en la fila, el botón se lee como lo que hace: quitar. Mismo criterio que el
+     interruptor de agotado, que tampoco cambia de sitio al cambiar de estado. */
+  .adm-destet-llevar[value="0"]{border-color:var(--sc-primary-grafico);color:var(--sc-primary-texto)}
   .adm-destet-b{
     min-height:40px;padding:0 15px;border-radius:999px;
     border:1px solid var(--marca-borde);background:transparent;color:var(--ink);
@@ -12121,6 +12375,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         /* El orden elegido desde el panel. Una categoria que nadie ha tocado no aparece en
            estado['orden'] y se queda tal cual la dejo el build. */
         $retirados = retirados_de($estado);
+        /* Los que van «para llevar». Lista, no mapa: se pregunta con in_array una vez por
+           fila, que con 312 filas y un puñado marcados no cuesta nada medible. */
+        $paraLlevar = is_array($estado['paraLlevar'] ?? null)
+          ? array_values(array_filter($estado['paraLlevar'], 'is_string'))
+          : [];
+        /* Las combinaciones, tal cual están guardadas. Disperso: sólo los platos emparejados
+           aparecen, así que la inmensa mayoría de las filas no encuentran nada aquí. */
+        $combinaTodos = is_array($estado['combina'] ?? null) ? $estado['combina'] : [];
         /* Primero se coloca TODO —cada categoria en su orden— y solo despues se numera, de una
            vez y para la carta entera: el numero es la posicion, y la posicion no se sabe hasta
            que estan todos colocados. */
@@ -12266,6 +12528,16 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
         <?php foreach (ETIQUETAS as $e): ?>
           <button class="adm-destet-b" name="hl_label" value="<?= h($e) ?>" type="submit"><?= h(ETIQUETAS_ES[$e] ?? $e) ?></button>
         <?php endforeach; ?>
+        <?php /* «Para llevar» vive en el mismo popover pero NO es una etiqueta más: no compite
+                 con las nueve, que son excluyentes entre sí, y se suma a la que tenga el plato.
+                 De ahí el filete y el rótulo propio: si estuviera en la misma fila que las
+                 otras, elegirlo parecería cambiar el destacado.
+                 El valor arranca en 1 —«marcar»— y el JavaScript lo cambia a 0 con su rótulo
+                 cuando el plato ya lo lleva. Sin JavaScript se queda en marcar, que es lo que
+                 querrá hacer quien abre esto, y quitarlo se hace desde la propia fila. */ ?>
+        <span class="adm-destet-sep" aria-hidden="true"></span>
+        <button class="adm-destet-b adm-destet-llevar" id="dest-et-llevar"
+                name="para_llevar" value="1" type="submit">Para llevar</button>
         <button type="button" class="adm-destet-x" id="dest-et-x" aria-label="Cerrar las etiquetas">Cancelar</button>
       </form>
 
@@ -12439,6 +12711,31 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                  La lista la llena el JavaScript desde las propias fichas: los nombres ya estan
                  en el documento y repetirlos aqui seria tener dos verdades. Sin JavaScript la
                  hoja no se abre y las flechas de cada ficha siguen siendo el camino completo. */ ?>
+        <?php /* La hoja de «Combina con». Mismo molde que la de ordenar categorías: caja
+                 centrada, una sola barra por dentro y el pie siempre visible.
+                 Se llena desde el DOM, igual que aquélla: los nombres y los números de los 312
+                 platos ya están en la página, y repetirlos aquí sería tener dos verdades.
+                 El buscador es obligatorio y no un adorno: elegir entre 312 platos con una
+                 lista es imposible, y sin filtro la lista no se pinta entera —sólo lo que
+                 coincide— porque 312 filas en un móvil son treinta pantallas. */ ?>
+        <div class="adm-alta" id="adm-combina" hidden>
+          <div class="adm-alta-fondo" data-combina-cierra></div>
+          <div class="adm-alta-caja adm-combina-caja" role="dialog" aria-modal="true" aria-labelledby="adm-combina-t">
+            <h2 class="adm-alta-t" id="adm-combina-t">Combina con</h2>
+            <p class="adm-alta-pista">Elige hasta tres platos. En la carta salen como enlaces
+               con su número, debajo de la foto de este plato.</p>
+            <div class="adm-combina-puestos" id="adm-combina-puestos"></div>
+            <input class="adm-campo adm-combina-q" id="adm-combina-q" type="search"
+                   placeholder="Buscar un plato por nombre o número" aria-label="Buscar un plato">
+            <ul class="adm-combina-lista" id="adm-combina-lista"></ul>
+            <p class="adm-combina-nada" id="adm-combina-nada" hidden>Nada con eso.</p>
+            <div class="adm-ordencats-pie">
+              <button type="button" class="adm-btn adm-btn-fino" data-combina-cierra>Cancelar</button>
+              <button type="button" class="adm-btn adm-alta-si" id="adm-combina-ok">Guardar</button>
+            </div>
+          </div>
+        </div>
+
         <div class="adm-alta" id="adm-ordencats" hidden>
           <div class="adm-alta-fondo" data-ordencats-cierra></div>
           <div class="adm-alta-caja adm-ordencats-caja" role="dialog" aria-modal="true" aria-labelledby="adm-ordencats-t">
@@ -12617,9 +12914,14 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                   || in_array($k, (array) $oferta['keys'], true)
                 );
               ?>
-              <?php $retirado = in_array($k, $retirados, true); ?>
+              <?php $retirado = in_array($k, $retirados, true);
+                    /* `data-llevar` en la FILA y no sólo en el botón: lo leen el popover —para
+                       saber si su botón pone o quita— y el CSS de la columna de la moto. */
+                    $esLlevar = in_array($k, $paraLlevar, true);
+                    $susCombina = array_values(array_filter(
+                      (array) ($combinaTodos[$k] ?? []), 'is_string')); ?>
               <div class="adm-orow adm-platorow<?= $onAg ? ' es-agotado' : '' ?><?= $etiqueta !== null ? ' es-destacado' : '' ?><?= $enOferta ? ' es-oferta' : '' ?><?= $retirado ? ' es-retirado' : '' ?>"
-                   data-k="<?= h($k) ?>"<?= $retirado ? ' data-retirado' : '' ?>
+                   data-k="<?= h($k) ?>"<?= $retirado ? ' data-retirado' : '' ?><?= $esLlevar ? ' data-llevar' : '' ?>
                    data-busca="<?= h(minuscula($p['name'] . ' ' . $p['name_en'] . ' ' . $p['id'] . ' ' . $p['sub'])) ?>">
                 <?php /* El tirador. Lo inserta el JavaScript, no PHP: sin JavaScript no se
                          puede arrastrar nada y un tirador muerto solo estorbaria. */ ?>
@@ -12684,6 +12986,21 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                     </button>
                   <?php endif; ?>
 
+                  <?php /* «Para llevar» en la línea de estado, en columna propia de 26 px y
+                           SIEMPRE presente aunque el plato no lo lleve: si la columna
+                           apareciera y desapareciera, el interruptor de agotado bailaría de
+                           sitio de una fila a otra y ya no se podría bajar la lista apuntando
+                           al mismo punto. Apagada es un hueco vacío, no un icono gris: un
+                           dibujo apagado en 312 filas es ruido, y lo que hay que ver de un
+                           vistazo es cuáles SÍ.
+                           No es un botón: se pone y se quita desde el popover de etiquetas,
+                           que es donde vive la decisión. Aquí sólo se lee. */ ?>
+                  <span class="adm-plato-llevar" <?= $esLlevar ? 'role="img" aria-label="Para llevar: ' . h($p['name']) . '"' : 'aria-hidden="true"' ?>>
+                    <?php if ($esLlevar): ?>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M19 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M7.5 14h5l4 -4h-10.5m1.5 4l4 -4"/><path d="M13 6h2l1.5 3"/></svg>
+                    <?php endif; ?>
+                  </span>
+
                   <label class="adm-sw adm-sw-agotado">
                     <input type="checkbox" name="agotado[]" value="<?= h($k) ?>" form="agotados-form"<?= $onAg ? ' checked' : '' ?>
                            <?= isset($hermanas[$k]) ? 'data-plato="' . h($p['name'] . ' ' . $p['price']) . '"' : '' ?>>
@@ -12720,6 +13037,26 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                           aria-label="Cambiar <?= h($p['name']) ?>">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                     <span class="adm-mas-txt">Cambiar</span>
+                  </button>
+                  <?php /* «Combina con». Vive en el mismo sitio que «Cambiar» —apagado hasta que
+                           el puntero entra en la fila, con su rótulo dentro del menú cuando se
+                           usa con el dedo— porque es de la misma familia: se toca de vez en
+                           cuando, no cada mañana. El contador va DENTRO del botón y sólo cuando
+                           hay algo: un «0» en 312 filas es ruido, y lo que hay que ver de un
+                           vistazo es qué platos tienen pareja.
+                           El icono son dos eslabones: es un enlace entre dos platos, no una
+                           estrella ni un corazón, que ya significan otra cosa aquí. */ ?>
+                  <button type="button" class="adm-prow-combina<?= $susCombina ? ' tiene' : '' ?>"
+                          data-combina="<?= h($k) ?>" data-nombre="<?= h($p['name']) ?>"
+                          <?php /* Los elegidos viajan en el propio botón: la hoja se abre sin
+                                   preguntarle nada al servidor, y lo que hay guardado ya está
+                                   en la página porque lo acaba de pintar el PHP. */ ?>
+                          data-elegidos="<?= h(implode(',', $susCombina)) ?>"
+                          title="Con qué platos combina"
+                          aria-label="Combina con: <?= h($p['name']) ?><?= $susCombina ? ' — ' . count($susCombina) . ' elegidos' : '' ?>">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
+                    <span class="adm-mas-txt">Combina con</span>
+                    <?php if ($susCombina): ?><span class="adm-prow-combina-n"><?= count($susCombina) ?></span><?php endif; ?>
                   </button>
                   <?php /* Retirar / devolver. El ultimo del menu, lejos de los tres controles
                            del dia a dia: no es lo que se toca cada mañana y no debe estar donde
@@ -14734,6 +15071,30 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           return out;
         }
 
+        /* El botón de «Para llevar» del popover: mismo botón para poner y para quitar, con el
+           rótulo y el valor puestos según lo que lleve la fila que se ha abierto. En modo lote
+           siempre es «poner»: el lote no tiene un estado único que invertir —unos lo llevan y
+           otros no— y «poner a todos los que se ven» es la acción que se entiende. */
+        /* Guardar «para llevar» sin recargar, por el mismo camino que las etiquetas: el
+           servidor devuelve la página entera recién pintada y de ella se copia sólo lo que
+           cambia. Una petición para los N, igual que el lote de etiquetas: escribir plato a
+           plato dejaría media lista marcada si algo falla a mitad. */
+        function guardarLlevar(pone, claves, boton) {
+          var datos = new URLSearchParams();
+          var csrf = document.querySelector('#agotados-form input[name="csrf"]');
+          datos.set('csrf', csrf ? csrf.value : '');
+          datos.set('para_llevar', pone ? '1' : '0');
+          claves.forEach(function (k) { datos.append('pl_keys[]', k); });
+          guardarDestacado(datos, boton || null);
+        }
+
+        function pintarBotonLlevar(yaLoLleva) {
+          var b = document.getElementById('dest-et-llevar');
+          if (!b) return;
+          b.value = yaLoLleva ? '0' : '1';
+          b.textContent = yaLoLleva ? 'Quitar para llevar' : 'Para llevar';
+        }
+
         /* Etiqueta vacía = quitar. Es el mismo camino de servidor y por eso no hace falta un
            «deshacer»: el filtro sigue puesto después de aplicar, así que desandar es pulsar el
            otro botón de la misma tira. */
@@ -14761,6 +15122,7 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             etForm.setAttribute('data-lote', '1');
             var campoK = document.getElementById('dest-et-key');
             if (campoK) campoK.value = '';
+            pintarBotonLlevar(false);      // en lote, siempre poner
             var tira = document.getElementById('adm-lote');
             if (tira) tira.insertAdjacentElement('afterend', etForm);
             etForm.hidden = false;
@@ -14793,6 +15155,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           if (etForm) {
             document.getElementById('dest-et-key').value = b.dataset.k;
             var fila = b.closest('.adm-platorow') || b;
+            /* El botón de «Para llevar» dice lo que va a hacer con ESTE plato, no lo que hace
+               en general: si la fila ya lo lleva, se convierte en «Quitar para llevar» y manda
+               un 0. Un botón que pone y quita con el mismo rótulo obliga a mirar la fila para
+               saber qué va a pasar. */
+            pintarBotonLlevar(fila.hasAttribute('data-llevar'));
             fila.insertAdjacentElement('afterend', etForm);
             etForm.hidden = false;
             var primera = etForm.querySelector('.adm-destet-b');
@@ -14866,6 +15233,22 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             var viejo = viva.querySelector('.adm-tag-destacado, .adm-plato-destbtn');
             var nuevo = nueva.querySelector('.adm-tag-destacado, .adm-plato-destbtn');
             if (viejo && nuevo) viejo.replaceWith(nuevo.cloneNode(true));
+            /* Y «para llevar», que viaja por este mismo camino: el atributo de la fila —lo lee
+               el popover para saber si su botón pone o quita— y la columna de la moto. Se
+               copia del HTML recién pintado en vez de fabricarlo aquí, igual que todo lo
+               demás: el que sabe cómo se dibuja esto es el PHP, no el navegador. */
+            if (nueva.hasAttribute('data-llevar')) viva.setAttribute('data-llevar', '');
+            else viva.removeAttribute('data-llevar');
+            var motoVieja = viva.querySelector('.adm-plato-llevar');
+            var motoNueva = nueva.querySelector('.adm-plato-llevar');
+            if (motoVieja && motoNueva) motoVieja.replaceWith(motoNueva.cloneNode(true));
+            /* Y el botón de «Combina con», que lleva encima tres cosas que cambian al guardar:
+               la clase `tiene`, el contador y `data-elegidos`, que es de donde la hoja saca lo
+               que hay puesto la próxima vez que se abre. Copiarlo entero es lo único que
+               garantiza que las tres vayan a la vez. */
+            var cbVieja = viva.querySelector('.adm-prow-combina');
+            var cbNueva = nueva.querySelector('.adm-prow-combina');
+            if (cbVieja && cbNueva) cbVieja.replaceWith(cbNueva.cloneNode(true));
           });
           /* El contador se COPIA, no se cuenta: un plato destacado puede tener varias filas
              —Vegano y Sin gluten repiten platos— y contar filas daria de mas. */
@@ -14898,6 +15281,185 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
             })
             .then(function () { if (boton) boton.disabled = false; });
         }
+        /* ---- «Combina con»: la hoja de selección ----
+         * El catálogo sale del DOM, no de un viaje al servidor: los 312 platos ya están en la
+         * página con su número y su nombre, y pedirlos otra vez sería tener dos verdades que
+         * se pueden separar. Lo mismo que hace la hoja de ordenar categorías.
+         *
+         * Sin filtro NO se pinta la lista. 312 filas en un móvil son treinta pantallas, y
+         * quien abre esto viene a buscar UN plato concreto, no a leerse la carta.
+         *
+         * El tope de tres se aplica aquí y también en el servidor: esto es comodidad, la regla
+         * está en el PHP. */
+        (function () {
+          var hoja = null, elegidos = [], platoK = '', botonFila = null;
+          var TOPE = 3;
+
+          function caja() { return document.getElementById('adm-combina'); }
+
+          /* Todos los platos de la pantalla, una vez por clave. Un mismo plato puede tener
+             varias filas —Vegano y Sin gluten repiten— y en la lista tiene que salir una sola
+             vez; se prefiere la fila que lleva número, que es la de su categoría de casa. */
+          function catalogo() {
+            var vistos = {}, out = [];
+            [].slice.call(pane.querySelectorAll('.adm-platorow')).forEach(function (f) {
+              var k = claveDeFila(f);
+              if (!k) return;
+              var n = f.querySelector('.adm-prow-n');
+              var nm = f.querySelector('.adm-orow-nm');
+              var num = n ? n.textContent.trim() : '';
+              var nombre = nm ? nm.textContent.trim() : k;
+              if (vistos[k] !== undefined) {
+                if (num && !out[vistos[k]].num) out[vistos[k]].num = num;   // gana la que numera
+                return;
+              }
+              vistos[k] = out.length;
+              out.push({ k: k, num: num, nombre: nombre, busca: (num + ' ' + nombre).toLowerCase() });
+            });
+            return out;
+          }
+          var TODOS = null;
+
+          function nombreDe(k) {
+            if (!TODOS) TODOS = catalogo();
+            for (var i = 0; i < TODOS.length; i++) if (TODOS[i].k === k) return TODOS[i];
+            return { k: k, num: '', nombre: k };
+          }
+
+          function pintarPuestos() {
+            var zona = document.getElementById('adm-combina-puestos');
+            if (!zona) return;
+            zona.textContent = '';
+            elegidos.forEach(function (k) {
+              var d = nombreDe(k);
+              var chip = document.createElement('span');
+              chip.className = 'adm-combina-chip';
+              chip.appendChild(document.createTextNode((d.num ? '#' + d.num + ' ' : '') + d.nombre));
+              var x = document.createElement('button');
+              x.type = 'button';
+              x.setAttribute('aria-label', 'Quitar ' + d.nombre);
+              x.dataset.quita = k;
+              x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12"/></svg>';
+              chip.appendChild(x);
+              zona.appendChild(chip);
+            });
+          }
+
+          function pintarLista() {
+            var lista = document.getElementById('adm-combina-lista');
+            var nada = document.getElementById('adm-combina-nada');
+            var q = document.getElementById('adm-combina-q');
+            if (!lista || !q) return;
+            var t = q.value.trim().toLowerCase();
+            lista.textContent = '';
+            if (!t) { if (nada) nada.hidden = true; return; }
+            if (!TODOS) TODOS = catalogo();
+            var hay = 0;
+            for (var i = 0; i < TODOS.length && hay < 40; i++) {
+              var d = TODOS[i];
+              if (d.k === platoK) continue;                 // consigo mismo, no
+              if (d.busca.indexOf(t) === -1) continue;
+              var ya = elegidos.indexOf(d.k) !== -1;
+              var lleno = elegidos.length >= TOPE;
+              var li = document.createElement('li');
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'adm-combina-fila';
+              b.dataset.anade = d.k;
+              b.disabled = ya || lleno;
+              var num = document.createElement('span');
+              num.className = 'adm-combina-n';
+              num.textContent = d.num ? '#' + d.num : '';
+              var nm = document.createElement('span');
+              nm.className = 'adm-combina-nm';
+              nm.textContent = d.nombre;
+              b.appendChild(num); b.appendChild(nm);
+              if (ya || lleno) {
+                var nota = document.createElement('span');
+                nota.className = 'adm-combina-ya';
+                nota.textContent = ya ? 'ya está' : 'tope 3';
+                b.appendChild(nota);
+              }
+              li.appendChild(b);
+              lista.appendChild(li);
+              hay++;
+            }
+            if (nada) nada.hidden = hay > 0;
+          }
+
+          function abrirCombina(b) {
+            hoja = hoja || caja();
+            if (!hoja) return;
+            TODOS = catalogo();
+            platoK = b.dataset.combina;
+            botonFila = b;
+            elegidos = (b.dataset.elegidos || '').split(',').filter(Boolean).slice(0, TOPE);
+            var t = document.getElementById('adm-combina-t');
+            if (t) t.textContent = 'Combina con «' + (b.dataset.nombre || '') + '»';
+            var q = document.getElementById('adm-combina-q');
+            if (q) q.value = '';
+            pintarPuestos();
+            pintarLista();
+            admAbrirCancelandoSalida(hoja);
+            /* El foco a la CAJA y no al buscador: enfocar un campo abre el teclado del móvil
+               encima de la hoja recién abierta. Mismo criterio que el resto del panel. */
+            var cj = hoja.querySelector('.adm-alta-caja');
+            if (cj) { cj.tabIndex = -1; cj.focus({ preventScroll: true }); }
+          }
+
+          function cerrarCombina() {
+            if (hoja) admCerrarConSalida(hoja);
+            if (botonFila && document.contains(botonFila)) botonFila.focus({ preventScroll: true });
+            botonFila = null;
+          }
+
+          function guardarCombina() {
+            var datos = new URLSearchParams();
+            var csrf = document.querySelector('#agotados-form input[name="csrf"]');
+            datos.set('csrf', csrf ? csrf.value : '');
+            datos.set('combina_set', '1');
+            datos.set('cb_key', platoK);
+            elegidos.forEach(function (d) { datos.append('cb_destinos[]', d); });
+            cerrarCombina();
+            guardarDestacado(datos, null);
+          }
+
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest) return;
+            if (e.target.closest('[data-combina-cierra]')) { e.preventDefault(); cerrarCombina(); return; }
+            if (e.target.closest('#adm-combina-ok')) { e.preventDefault(); guardarCombina(); return; }
+            var quita = e.target.closest('[data-quita]');
+            if (quita && e.target.closest('#adm-combina')) {
+              e.preventDefault();
+              elegidos = elegidos.filter(function (k) { return k !== quita.dataset.quita; });
+              pintarPuestos(); pintarLista();
+              return;
+            }
+            var anade = e.target.closest('[data-anade]');
+            if (anade && e.target.closest('#adm-combina')) {
+              e.preventDefault();
+              if (elegidos.length < TOPE && elegidos.indexOf(anade.dataset.anade) === -1) {
+                elegidos.push(anade.dataset.anade);
+                pintarPuestos(); pintarLista();
+              }
+              return;
+            }
+            var abre = e.target.closest('[data-combina]');
+            if (abre) { e.preventDefault(); abrirCombina(abre); }
+          });
+          document.addEventListener('input', function (e) {
+            if (e.target && e.target.id === 'adm-combina-q') pintarLista();
+          });
+          document.addEventListener('keydown', function (e) {
+            var h = caja();
+            if (e.key === 'Escape' && h && !h.hidden) { e.preventDefault(); cerrarCombina(); }
+          });
+          /* El catálogo se rehace cuando cambian las filas: dar de alta un plato o retirarlo
+             cambia quién puede ser destino, y una lista vieja ofrecería platos que ya no
+             están. */
+          document.addEventListener('adm:filas', function () { TODOS = null; });
+        })();
+
         /* Los dos formularios: el selector de etiqueta (`destacado_add`, uno compartido que
            el JavaScript mueve junto a la fila) y la × de la pastilla (`destacado_del`, uno
            por fila). Se intercepta el `submit` y no el `click` porque el dato viaja en el
@@ -14917,6 +15479,21 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
              claves que se ven, por `destacado_lote`, en un solo guardado. El formulario y su
              marcado no cambian —es el mismo selector— y sin JavaScript nunca entra aquí,
              porque sin JavaScript no hay filtro y la tira de lote no se pinta. */
+          /* «Para llevar» sale por el mismo sitio que el resto: por `fetch`, sin recargar. Va
+             ANTES del reparto de lote/fila porque su botón es el mismo en los dos casos —lo
+             que cambia es a cuántos platos se aplica—, y porque no manda `hl_label`: sin este
+             corte caería en el `return` de abajo y se iría por el submit normal, recargando
+             las 312 filas y perdiendo el sitio del scroll. */
+          if (esAlta && boton.name === 'para_llevar') {
+            e.preventDefault();
+            var pone = boton.value === '1';
+            var claves = form.hasAttribute('data-lote')
+              ? clavesALaVista()
+              : [document.getElementById('dest-et-key').value].filter(Boolean);
+            cerrarEtiquetas();
+            if (claves.length) guardarLlevar(pone, claves, null);
+            return;
+          }
           if (esAlta && form.hasAttribute('data-lote')) {
             e.preventDefault();
             var clavesLote = clavesALaVista();

@@ -1040,6 +1040,298 @@ export async function e2eDestacados(informe, { pagina, servidor, docroot }) {
     `${loteMalo.status} / ${loteVacio.status} · ${Object.keys(leerEstado(docroot).tags || {}).length} etiquetas en disco`);
 }
 
+/* ================================================================== 6b. «Para llevar»
+ * Lo que hay que contratar aquí no es «se guarda»: es que se guarde SIN BORRAR el destacado.
+ * Ésa es la decisión del diseño —un plato puede llevar «Más vendido» y «Para llevar» a la
+ * vez— y es exactamente lo que se rompía si esto viviera en `estado.tags`, que es un escalar
+ * por plato. Por eso la capa es propia y por eso la prueba pone las dos cosas al mismo plato y
+ * mira las dos después.
+ */
+export async function e2eParaLlevar(informe, { pagina, servidor, docroot }) {
+  informe.seccion('E2E Para llevar: la capa propia que convive con el destacado');
+  const url = servidor.url;
+  const llevarEnDisco = () => (leerEstado(docroot).paraLlevar || []);
+  const abrirPicker = async (k) => {
+    await limpiarToasts(pagina);
+    await clicVisible(pagina, `.pane[data-pane="platos"] .adm-platorow:has(.camara[data-k="${k}"]) .adm-destpick`);
+    await esperar(250);
+  };
+  await irA(pagina, url, 'platos');
+  await abrirTodo(pagina);
+
+  const boton = await pagina.evaluate(() => {
+    const b = [...document.querySelectorAll('.pane[data-pane="platos"] .adm-plato-destbtn')].find((x) => x.getBoundingClientRect().width > 0);
+    return b ? { k: b.dataset.k } : null;
+  });
+  if (!boton) { informe.blocked('E2E-PLL-01', 'para llevar', 'no hay ningún botón Destacar visible'); return; }
+
+  await abrirPicker(boton.k);
+  const pop = await pagina.evaluate(() => {
+    const b = document.getElementById('dest-et-llevar');
+    const sep = document.querySelector('#dest-et .adm-destet-sep');
+    const etiquetas = [...document.querySelectorAll('#dest-et .adm-destet-b')].filter((x) => x.name === 'hl_label');
+    if (!b) return { hay: false };
+    const r = b.getBoundingClientRect(); const rs = sep ? sep.getBoundingClientRect() : null;
+    const ultima = etiquetas.length ? etiquetas[etiquetas.length - 1].getBoundingClientRect() : null;
+    return {
+      hay: true, rotulo: b.textContent.trim(), valor: b.value, nombre: b.name,
+      /* El filete va ENTRE las etiquetas y este botón: si estuviera en medio de las nueve, la
+         separación no significaría nada. */
+      separado: !!(rs && ultima && rs.left >= ultima.right - 1 && rs.right <= r.left + 1),
+      alto: Math.round(r.height),
+    };
+  });
+  informe.comprueba('E2E-PLL-01', 'el popover de etiquetas trae «Para llevar» como botón aparte, detrás de un filete y con su propio nombre de campo',
+    pop.hay && pop.rotulo === 'Para llevar' && pop.valor === '1' && pop.nombre === 'para_llevar'
+      && pop.separado && pop.alto >= 40,
+    JSON.stringify(pop));
+
+  /* Primero la etiqueta, y después «para llevar» al MISMO plato. El orden importa: es el que
+     rompía la primera versión, que guardaba esto en `tags` y se llevaba el destacado por
+     delante. */
+  await abrirPicker(boton.k);
+  const etiqueta = await pagina.evaluate(() => {
+    const b = [...document.querySelectorAll('#dest-et .adm-destet-b')].find((x) => x.name === 'hl_label');
+    b.click(); return b.value;
+  });
+  await esperarA(async () => (leerEstado(docroot).tags || {})[boton.k] === etiqueta ? true : null, 8000);
+
+  /* Se espera al DOM y NO al disco, y la diferencia no es cosmética: el servidor escribe
+     estado.json ANTES de contestar, así que una espera puesta en el fichero gana la carrera
+     por unos cientos de milisegundos y deja leer la fila sin repintar. Es la misma trampa que
+     E2E-DS-08: el repintado necesita el cuerpo entero de la respuesta, que son 2,3 MB. */
+  const esperarFila = (k, cond, ms = 9000) => esperarA(async () => {
+    const v = await pagina.evaluate(([kk, c]) => {
+      const f = document.querySelector(`.adm-platorow:has(.camara[data-k="${kk}"])`);
+      if (!f) return null;
+      return c === 'llevar' ? f.hasAttribute('data-llevar') : !f.hasAttribute('data-llevar');
+    }, [k, cond]);
+    return v === true ? true : null;
+  }, ms);
+
+  await abrirPicker(boton.k);
+  const urlAntes = pagina.url();
+  await pagina.evaluate(() => document.getElementById('dest-et-llevar').click());
+  const puesto = await esperarA(async () => (llevarEnDisco().indexOf(boton.k) !== -1 ? true : null), 8000);
+  await esperarFila(boton.k, 'llevar');
+  const tagsDespues = (leerEstado(docroot).tags || {})[boton.k];
+  informe.comprueba('E2E-PLL-02', 'marcar «para llevar» NO borra el destacado del mismo plato: las dos capas conviven en estado.json',
+    puesto === true && tagsDespues === etiqueta,
+    `paraLlevar=${JSON.stringify(llevarEnDisco())} · tags[${boton.k}]=${tagsDespues}`);
+
+  const vivo = await pagina.evaluate((k) => {
+    const f = document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"])`);
+    const moto = f && f.querySelector('.adm-plato-llevar');
+    return {
+      marcada: !!(f && f.hasAttribute('data-llevar')),
+      dibujo: !!(moto && moto.querySelector('svg')),
+      ancho: moto ? Math.round(moto.getBoundingClientRect().width) : null,
+      destacadoSigue: !!(f && f.classList.contains('es-destacado')),
+    };
+  }, boton.k);
+  informe.comprueba('E2E-PLL-03', 'la fila se repinta sin recargar: moto en su columna de 26 px, y la pastilla del destacado sigue ahí',
+    pagina.url() === urlAntes && vivo.marcada && vivo.dibujo && vivo.ancho === 26 && vivo.destacadoSigue,
+    JSON.stringify(vivo));
+
+  await abrirPicker(boton.k);
+  const invertido = await pagina.evaluate(() => {
+    const b = document.getElementById('dest-et-llevar');
+    return { rotulo: b.textContent.trim(), valor: b.value };
+  });
+  informe.comprueba('E2E-PLL-04', 'con el plato ya marcado, el mismo botón dice «Quitar para llevar» y manda 0',
+    invertido.rotulo === 'Quitar para llevar' && invertido.valor === '0', JSON.stringify(invertido));
+
+  await pagina.evaluate(() => document.getElementById('dest-et-llevar').click());
+  const quitado = await esperarA(async () => (llevarEnDisco().indexOf(boton.k) === -1 ? true : null), 8000);
+  await esperarFila(boton.k, 'sin');
+  informe.comprueba('E2E-PLL-05', 'y quitarlo lo saca de la capa sin tocar el destacado',
+    quitado === true && (leerEstado(docroot).tags || {})[boton.k] === etiqueta,
+    `paraLlevar=${JSON.stringify(llevarEnDisco())} · tags sigue=${(leerEstado(docroot).tags || {})[boton.k]}`);
+
+  /* El lote: una sola petición para los N, contada en el navegador. */
+  await irA(pagina, url, 'platos');
+  await abrirTodo(pagina);
+  const cl = await pagina.evaluate(() => {
+    const pane = document.querySelector('.pane[data-pane="platos"]');
+    const q = document.getElementById('q');
+    q.value = 'biryani'; q.dispatchEvent(new Event('input'));
+    const vis = [].slice.call(pane.querySelectorAll('.adm-orow')).filter((f) => {
+      const ficha = f.closest('[data-cat-bento]');
+      return !f.hidden && !(ficha && ficha.hidden);
+    });
+    return vis.map((f) => { const c = f.querySelector('.camara[data-k]'); return c ? c.dataset.k : ''; }).filter(Boolean);
+  });
+  const peticiones = [];
+  const contar = (r) => { if (r.request().method() === 'POST') peticiones.push(1); };
+  pagina.on('response', contar);
+  await pagina.evaluate(() => { document.getElementById('adm-lote-poner').click(); });
+  await esperar(250);
+  await pagina.evaluate(() => { document.getElementById('dest-et-llevar').click(); });
+  const enLote = await esperarA(async () => {
+    const l = llevarEnDisco();
+    const n = cl.filter((k) => l.indexOf(k) !== -1).length;
+    return n === cl.length ? n : null;
+  }, 9000);
+  pagina.off('response', contar);
+  informe.comprueba('E2E-PLL-06', `en lote marca los ${cl.length} de golpe y en UNA sola petición`,
+    enLote === cl.length && peticiones.length === 1,
+    `${enLote}/${cl.length} en estado.paraLlevar · ${peticiones.length} POST`);
+
+  /* Y lo que no puede pasar: que una petición sin platos o con una clave inventada escriba. */
+  const antes = llevarEnDisco().length;
+  const vacio = await postCrudo(pagina, '/admin/index.php', [['para_llevar', '1']]);
+  const raro = await postCrudo(pagina, '/admin/index.php', [['para_llevar', '1'], ['pl_key', 'd_no_existe']]);
+  informe.comprueba('E2E-PLL-07', 'sin plato o con una clave que no está en la carta: 422 y en disco no cambia nada',
+    vacio.status === 422 && raro.status === 422 && llevarEnDisco().length === antes,
+    `${vacio.status} / ${raro.status} · ${llevarEnDisco().length} marcados antes y después`);
+
+  /* Se deja el fixture como estaba: los siguientes bloques miran este mismo estado. */
+  await postCrudo(pagina, '/admin/index.php',
+    [['para_llevar', '0']].concat(llevarEnDisco().map((k) => ['pl_keys[]', k])));
+  informe.comprueba('E2E-PLL-08', 'fixture restaurado: la capa «para llevar» queda vacía',
+    llevarEnDisco().length === 0, JSON.stringify(llevarEnDisco()));
+}
+
+/* ================================================================== 6c. «Combina con»
+ * Lo que de verdad hay que contratar aquí es que el EMPAREJAMIENTO SOBREVIVA A QUE CAMBIEN LOS
+ * NÚMEROS. El número de un plato es su posición en la carta y la posición cambia sola: al
+ * retirar un plato anterior, todos los de detrás bajan uno. Si esto se guardara por número
+ * —que es lo cómodo, porque es lo que se ve— la pareja acabaría apuntando a otro plato sin que
+ * nadie tocara nada. Por eso la prueba retira un plato de en medio y vuelve a mirar.
+ */
+export async function e2eCombina(informe, { pagina, servidor, docroot }) {
+  informe.seccion('E2E Combina con: la pareja se guarda por identidad, no por número');
+  const url = servidor.url;
+  const combinaEnDisco = () => (leerEstado(docroot).combina || {});
+  await irA(pagina, url, 'platos');
+  await abrirTodo(pagina);
+
+  /* Tres platos con número: uno de origen y dos de destino, los tres de la misma pantalla. */
+  const platos = await pagina.evaluate(() => {
+    const out = [];
+    const vistos = {};
+    document.querySelectorAll('.pane[data-pane="platos"] .adm-platorow').forEach((f) => {
+      const c = f.querySelector('.camara[data-k]');
+      const n = f.querySelector('.adm-prow-n');
+      const nm = f.querySelector('.adm-orow-nm');
+      if (!c || !n || !nm) return;
+      const num = n.textContent.trim();
+      if (!num || vistos[c.dataset.k]) return;
+      vistos[c.dataset.k] = 1;
+      out.push({ k: c.dataset.k, num, nombre: nm.textContent.trim() });
+    });
+    return out.slice(0, 12);
+  });
+  if (platos.length < 4) { informe.blocked('E2E-CB-01', 'combina con', 'no hay platos numerados suficientes'); return; }
+  const origen = platos[0];
+  const destino1 = platos[5];
+  const destino2 = platos[6];
+  const enMedio = platos[2];               // uno ANTERIOR a los destinos: al retirarlo, bajan
+
+  const abrirHoja = async (k) => {
+    await limpiarToasts(pagina);
+    await clicVisible(pagina, `.pane[data-pane="platos"] .adm-platorow:has(.camara[data-k="${k}"]) .adm-prow-combina`);
+    await esperar(300);
+  };
+  await abrirHoja(origen.k);
+  const hoja = await pagina.evaluate(() => {
+    const h = document.getElementById('adm-combina');
+    const q = document.getElementById('adm-combina-q');
+    return {
+      abierta: !!h && !h.hidden,
+      titulo: (document.getElementById('adm-combina-t') || {}).textContent || '',
+      hayBuscador: !!q,
+      /* Sin escribir nada la lista está VACÍA a propósito: 312 filas en un móvil son treinta
+         pantallas y quien abre esto viene a buscar un plato concreto. */
+      listaVacia: document.getElementById('adm-combina-lista').children.length === 0,
+      focoEnCampo: document.activeElement.tagName === 'INPUT',
+    };
+  });
+  informe.comprueba('E2E-CB-01', 'la hoja abre con el nombre del plato, con buscador, sin lista hasta que se busca y sin abrir el teclado',
+    hoja.abierta && hoja.hayBuscador && hoja.listaVacia && hoja.focoEnCampo === false
+      && hoja.titulo.indexOf(origen.nombre) !== -1,
+    JSON.stringify(hoja));
+
+  /* Elegir dos destinos, uno a uno, buscándolos por su nombre como haría cualquiera. */
+  const elegir = async (d) => {
+    await pagina.evaluate((nombre) => {
+      const q = document.getElementById('adm-combina-q');
+      q.value = nombre;
+      q.dispatchEvent(new Event('input', { bubbles: true }));
+    }, d.nombre);
+    await esperar(200);
+    await pagina.evaluate((k) => {
+      const b = document.querySelector(`.adm-combina-fila[data-anade="${k}"]:not(:disabled)`);
+      if (b) b.click();
+    }, d.k);
+    await esperar(150);
+  };
+  await elegir(destino1);
+  await elegir(destino2);
+  const puestos = await pagina.evaluate(() => document.querySelectorAll('.adm-combina-chip').length);
+  await pagina.evaluate(() => document.getElementById('adm-combina-ok').click());
+  const guardado = await esperarA(async () => {
+    const m = combinaEnDisco()[origen.k];
+    return m && m.length === 2 ? m : null;
+  }, 9000);
+  informe.comprueba('E2E-CB-02', 'elegir dos destinos y guardar escribe la pareja por dishId, no por número',
+    puestos === 2 && Array.isArray(guardado)
+      && guardado.indexOf(destino1.k) !== -1 && guardado.indexOf(destino2.k) !== -1,
+    JSON.stringify({ puestos, guardado }));
+
+  const fila = await esperarA(async () => {
+    const v = await pagina.evaluate((k) => {
+      const b = document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"]) .adm-prow-combina`);
+      if (!b) return null;
+      const n = b.querySelector('.adm-prow-combina-n');
+      return { tiene: b.classList.contains('tiene'), n: n ? n.textContent.trim() : '', elegidos: b.dataset.elegidos || '' };
+    }, origen.k);
+    return v && v.tiene ? v : null;
+  }, 9000);
+  informe.comprueba('E2E-CB-03', 'la fila se repinta sin recargar: el enlace queda encendido, con su contador y con lo elegido dentro',
+    !!fila && fila.n === '2' && fila.elegidos.split(',').length === 2, JSON.stringify(fila));
+
+  /* EL NÚCLEO. Se retira un plato ANTERIOR a los destinos: sus números bajan uno. Lo que no
+     puede cambiar es a qué platos apunta la pareja. */
+  const numsAntes = await pagina.evaluate((ks) => ks.map((k) => {
+    const n = document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"]) .adm-prow-n`);
+    return n ? n.textContent.trim() : '';
+  }), [destino1.k, destino2.k]);
+  await postCrudo(pagina, '/admin/index.php', [['retirar_plato', enMedio.k], ['retirar_on', '1']]);
+  await irA(pagina, url, 'platos');
+  await abrirTodo(pagina);
+  const numsDespues = await pagina.evaluate((ks) => ks.map((k) => {
+    const n = document.querySelector(`.adm-platorow:has(.camara[data-k="${k}"]) .adm-prow-n`);
+    return n ? n.textContent.trim() : '';
+  }), [destino1.k, destino2.k]);
+  const trasRetirar = combinaEnDisco()[origen.k] || [];
+  informe.comprueba('E2E-CB-04', 'al retirar un plato anterior los números de los destinos BAJAN y la pareja sigue apuntando a los mismos platos',
+    numsAntes.join() !== numsDespues.join()
+      && trasRetirar.indexOf(destino1.k) !== -1 && trasRetirar.indexOf(destino2.k) !== -1,
+    `números ${numsAntes.join('/')} -> ${numsDespues.join('/')} · guardado ${JSON.stringify(trasRetirar)}`);
+  await postCrudo(pagina, '/admin/index.php', [['retirar_plato', enMedio.k], ['retirar_on', '0']]);
+
+  /* Lo que el servidor no puede aceptar, venga de donde venga. */
+  const csrfOk = await postCrudo(pagina, '/admin/index.php',
+    [['combina_set', '1'], ['cb_key', origen.k]]
+      .concat(platos.slice(1, 6).map((p) => ['cb_destinos[]', p.k])));       // cinco: pasa del tope
+  const conFantasma = await postCrudo(pagina, '/admin/index.php',
+    [['combina_set', '1'], ['cb_key', origen.k], ['cb_destinos[]', 'd_no_existe']]);
+  const siMismo = await postCrudo(pagina, '/admin/index.php',
+    [['combina_set', '1'], ['cb_key', origen.k], ['cb_destinos[]', origen.k]]);
+  informe.comprueba('E2E-CB-05', 'más de tres destinos o uno que no está en la carta: 422; y un plato consigo mismo se descarta en vez de guardarse',
+    csrfOk.status === 422 && conFantasma.status === 422 && siMismo.status === 200
+      && (combinaEnDisco()[origen.k] || []).indexOf(origen.k) === -1,
+    `${csrfOk.status} / ${conFantasma.status} / ${siMismo.status} · guardado ${JSON.stringify(combinaEnDisco()[origen.k] || [])}`);
+
+  /* La lista vacía BORRA la entrada, no deja una lista vacía colgando: es lo que mantiene el
+     mapa disperso, y es además cómo se deshace desde la hoja —quitar las pastillas y guardar—.
+     Sirve también de restauración del fixture para los bloques que vienen detrás. */
+  await postCrudo(pagina, '/admin/index.php', [['combina_set', '1'], ['cb_key', origen.k]]);
+  informe.comprueba('E2E-CB-06', 'guardar sin ningún destino borra la entrada en vez de dejar un hueco vacío',
+    !(origen.k in combinaEnDisco()), `mapa ${JSON.stringify(combinaEnDisco())}`);
+}
+
 /* ================================================================== 7. cámara: foto de plato */
 export async function e2eCamara(informe, { pagina, servidor, docroot, fixtures }) {
   informe.seccion('E2E cámara: subir, cambiar y quitar la foto de un plato');
@@ -3356,7 +3648,12 @@ export async function e2eRevisionHumana(informe, { navegador, servidor, docroot 
         /no hay ningún descuento/.test(off.pie || '') && (off.nota || '') === '', JSON.stringify({ pie: off.pie, nota: off.nota }));
       /* Encender: la ficha entera cambia de lectura sin recargar. */
       await conmutar(p, 'input[name="oferta_on"]', true);
-      await reposo(p, 700);
+      /* Al HECHO y no al reloj, por lo mismo que dice el comentario de tres líneas más abajo
+         para el sentido contrario: el autoguardado y su repintado pasan de 700 ms con la
+         máquina cargada, y entonces esto leía la ficha todavía apagada. Se vio corriendo dos
+         baterías a la vez. La espera de abajo ya se había arreglado así; ésta se había
+         quedado con el reloj. */
+      await esperarA(() => p.evaluate(() => !document.querySelector('.adm-f-ooferta').hasAttribute('data-apagada')), 6000);
       const on = await p.evaluate(() => {
         const ficha = document.querySelector('.adm-f-ooferta');
         return {
@@ -4348,8 +4645,13 @@ export async function e2eMovil(informe, { navegador, servidor, docroot }) {
             return { abierto: panel.matches(':popover-open'), filas };
           }, caja.id);
         }
-        informe.comprueba('E2E-MOV-04', 'el «⋯» cuelga de la fila (no del grupo de acciones), abre en móvil y conserva sus dos filas de 44',
-          !!caja && !!abre && abre.abierto && abre.filas.length === 2 && abre.filas.every((f) => f.h >= 44), JSON.stringify({ caja: !!caja, abre }));
+        /* TRES filas desde «Combina con» (13 sep 2026), no dos: el menú es donde viven, con el
+           dedo, las acciones que no son del día a día —cambiar el plato, emparejarlo y
+           retirarlo—. Lo que se contrata no es el número sino lo que protege al que lo usa:
+           que TODAS midan 44 de alto. Una fila de 26 entre dos de 44 es la que se toca por
+           error, y es exactamente lo que salió al añadir la tercera sin su regla. */
+        informe.comprueba('E2E-MOV-04', 'el «⋯» cuelga de la fila (no del grupo de acciones), abre en móvil y todas sus filas miden 44',
+          !!caja && !!abre && abre.abierto && abre.filas.length === 3 && abre.filas.every((f) => f.h >= 44), JSON.stringify({ caja: !!caja, abre }));
         informe.comprueba('E2E-MOV-04-red', 'consola y red limpias en la pantalla de móvil', erroresConsola(p).length === 0 && p.registro.fallidas.length === 0, [...erroresConsola(p), ...p.registro.fallidas].slice(0, 2).join(' | '));
       } finally { await p.contextoQa.close().catch(() => {}); }
     }
@@ -4515,7 +4817,12 @@ export async function e2eRejilla(informe, { navegador, servidor, docroot }) {
           cambiar = await p.evaluate((id) => ({ cerrado: !document.getElementById(id).matches(':popover-open'), hoja: !!document.getElementById('adm-alta') && !document.getElementById('adm-alta').hidden }), caja.id);
         }
         const ok = !!abre && abre.abierto && abre.entrada.includes('adm-mas-dentro') && abre.debajo && abre.alineado && abre.fijo
-          && abre.filas.length === 2 && abre.filas[0].txt === 'Cambiar' && /Retirar|Devolver|Borrar/.test(abre.filas[1].txt) && abre.filas.every((f) => f.h >= 44)
+          /* Tres filas desde «Combina con» (13 sep 2026). Se sigue contratando el ORDEN —lo
+             que cambia el plato primero, lo que lo saca de la carta al final, lejos de donde
+             cae el pulgar— y que las tres midan 44. */
+          && abre.filas.length === 3 && abre.filas[0].txt === 'Cambiar'
+          && /Combina/.test(abre.filas[1].txt)
+          && /Retirar|Devolver|Borrar/.test(abre.filas[2].txt) && abre.filas.every((f) => f.h >= 44)
           && cierraScroll && cierraScroll.cerrando && cierraScroll.salida.includes('adm-mas-fuera') && cierraScroll.cerrado
           && cierraFuera === true && cambiar && cambiar.cerrado && cambiar.hoja;
         informe.comprueba('E2E-REJ-03', 'con dedo, el «⋯» abre un menú fijo bajo su botón y alineado a su borde derecho, entra con adm-mas-dentro, lleva Cambiar y Retirar de 44, cierra animado con adm-mas-fuera por scroll y en seco al tocar fuera, y Cambiar abre la hoja',
@@ -6306,6 +6613,8 @@ export async function bateriaE2E(informe, { clon, fixtures, navegador }) {
   await conPagina(informe, 'platos', base, (c) => e2ePlatos(informe, c));
   await conPagina(informe, 'agotados', base, (c) => e2eAgotados(informe, c));
   await conPagina(informe, 'destacados', base, (c) => e2eDestacados(informe, c));
+  await conPagina(informe, 'para-llevar', base, (c) => e2eParaLlevar(informe, c));
+  await conPagina(informe, 'combina', base, (c) => e2eCombina(informe, c));
   await conPagina(informe, 'camara', base, (c) => e2eCamara(informe, c));
   await conPagina(informe, 'ajustar-precios', base, (c) => e2eAjustarPrecios(informe, c));
   await conPagina(informe, 'ofertas', base, (c) => e2eOfertas(informe, c));

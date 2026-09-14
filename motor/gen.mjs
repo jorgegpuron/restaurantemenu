@@ -1016,6 +1016,13 @@ const RUNTIME_STRINGS = HIGHLIGHTS.concat([
   /* la ficha de plato */
   'Close',
   'This dish has a photo',
+  /* «Para llevar» NO entra en HIGHLIGHTS y eso es la decisión, no un descuido: HIGHLIGHTS es
+     un vocabulario EXCLUYENTE —un plato lleva una etiqueta y sólo una— y esto se suma a la que
+     tenga. Vive en su propia capa de estado y en su propia ranura de la fila. */
+  'Takeaway',
+  /* «Combina con». El texto se compone en JS con los números de los destinos, así que no
+     puede vivir en el HTML: la línea se rehace cada vez que se abre una ficha. */
+  'Goes well with',
 ]);
 
 /* ---- vocabulario cerrado (HIGHLIGHTS/RUNTIME_STRINGS), IDIOMA BASE incluido ----
@@ -1084,6 +1091,7 @@ if (CLIENTE.alergenos.enOrigen === 'si' && platosConAlergenos === 0) {
   abortar("cliente.mjs: alergenos.enOrigen = 'si' pero ningun plato de carta.json declara alergenos.",
     "carga al menos un plato con `alergenos` en carta.json, o cambia enOrigen a 'no' si el dato no se ofrece en realidad");
 }
+
 
 const DIET_ICON = {
   gf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M12 21.5v-3.75"/><path d="M5.916 9.49l-.43 1.604c-.712 2.659 .866 5.392 3.524 6.104c.997 .268 1.994 .535 2.99 .802v-3.44c-.164 -2.105 -1.637 -3.879 -3.677 -4.426l-2.407 -.644"/><path d="M10.249 4.251c.007 -.007 .014 -.014 .021 -.021l1.73 -1.73"/><path d="M10.27 11.15c-.589 -.589 -1.017 -1.318 -1.246 -2.118"/><path d="M14.988 8.988c.229 -.834 .234 -1.713 .013 -2.549c-.221 -.836 -.659 -1.598 -1.271 -2.209l-1.73 -1.73"/><path d="M16.038 10.037l2.046 -.547l.431 1.604c.142 .53 .193 1.063 .162 1.583"/><path d="M16.506 16.505c-.45 .307 -.959 .544 -1.516 .694c-.997 .268 -1.994 .535 -2.99 .801v-3.44c.055 -.708 .259 -1.379 .582 -1.978"/></svg>',
@@ -1202,11 +1210,19 @@ const renderItem = (it, showSlot, icon, catName) => {
   const soldFlag = `<span class="sold-out-flag">${T('Sold out today', 'ui')}</span>`;
   const offerTag = `<span class="item-tag item-tag-offer" hidden></span>`;
   const highTag  = `<span class="item-tag item-tag-high" hidden></span>`;
+  /* RANURA PROPIA para «Para llevar», y no se puede reutilizar la del destacado: la fila
+     emite UN solo `.item-tag-high`, así que pintar la moto ahí borraría «Más vendido». Se
+     probó y pasó exactamente eso. Sale vacía y oculta, como las otras dos: sin JavaScript y
+     sin estado la carta sigue siendo correcta, sólo que sin las novedades del día.
+     VACÍA de verdad: el dibujo lo mete el runtime en las filas marcadas, igual que hace la
+     marca de foto. Emitirlo aquí costaba 124 KB en crudo —312 filas × el mismo SVG— para un
+     dibujo que lleva un puñado de platos al día. */
+  const llevarTag = `<span class="item-tag item-tag-llevar" hidden></span>`;
   /* El número va suelto delante del nombre, no dentro de .item-tags: en el móvil ocupaba una
      línea entera para sí — 312 platos × una fila = cinco pantallas de scroll — y como prefijo
      del nombre cabe en la misma línea. Las etiquetas sí conservan su línea, pero sólo las
      lleva un puñado de filas al día. */
-  const tags = `<span class="item-tags">${offerTag}${highTag}${dietMarks(catName, it.name)}${soldFlag}</span>`;
+  const tags = `<span class="item-tags">${offerTag}${highTag}${llevarTag}${dietMarks(catName, it.name)}${soldFlag}</span>`;
 
   const included = /^included$/i.test(it.price);
   const priceCell = included ? T('Included', 'ui') : esc(money(it.price));
@@ -2304,6 +2320,28 @@ html:not(.js) .lang-menu{position:static;display:block}
 @keyframes dsheet-entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 /* Una descripción vacía no debe dejar un hueco a la izquierda del precio. */
 .dsheet-desc:empty{display:none}
+/* ---- «Combina con» ----
+   Una línea, no una lista: son tres destinos como mucho y en una hoja que ya tiene foto,
+   nombre, descripción y precio, un bloque con título sería darle a esto más peso del que
+   tiene. Los números van en el acento del cliente y NO en el azul de enlace por defecto: el
+   azul sobre el degradado oscuro de la foto daba 1,3:1 y era ilegible justo cuando la hoja
+   tiene foto, que es siempre —esta línea sólo existe en platos con foto—. */
+.dsheet-combina{
+  margin:10px 0 0;min-width:0;
+  font-size:15px;line-height:1.45;color:rgba(255,255,255,.88);
+}
+.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-combina{color:var(--muted)}
+.dsheet-combina[hidden]{display:none}
+.dsheet-combina b{font-weight:600}
+.dsheet-combina .dsheet-ir{
+  /* 44 de alto de zona tocable sin engordar la línea: el relleno vertical es negativo en
+     margen, así que el texto sigue en su renglón y el dedo recibe una caja entera. */
+  display:inline-block;padding:12px 6px;margin:-12px -2px;
+  color:var(--accent);font-weight:600;text-decoration:none;
+  background:none;border:0;font-family:inherit;font-size:inherit;cursor:pointer;
+}
+.dsheet-combina .dsheet-ir:hover,
+.dsheet-combina .dsheet-ir:focus-visible{text-decoration:underline}
 /* Los alergenos de la ficha: junto al título por defecto (ajustarFichaAlergenos los deja ahí
    si caben enteros en su línea), o aquí abajo, como bloque propio, cuando no caben -- nunca
    la mitad en un sitio y la mitad en otro. Mismo catálogo de iconos y misma caja atómica
@@ -3100,6 +3138,23 @@ html:not(.js) .lang-menu{position:static;display:block}
 .item-tag-offer:not([hidden]):has(+ .item-tag-high:not([hidden])),
 .item-tag:has(+ .diet-marks),
 .item-tag:has(+ .sold-out-flag){margin-right:4px}
+/* ---- «Para llevar»: badge redondo, no pastilla con texto ----
+   Va en la línea de etiquetas como una más, pero REDONDO y sólo con el dibujo: es lo que
+   permite que un plato lleve su destacado Y esto sin que la línea se convierta en dos
+   pastillas de texto compitiendo. 18×18 es el alto exacto de la pastilla de al lado
+   —item-tag mide 18 por su line-height de 16 más el 1px de relleno arriba y abajo—, así
+   que las dos se apoyan en la misma base sin descuadrar la línea.
+   El dibujo a 13 dentro de 18 deja 2,5 de aire por lado: menos y la rueda toca el borde.
+   El role de imagen va en el span y su aria-label lo pone el runtime traducido; el SVG de
+   dentro va aria-hidden, que si no el lector lo lee dos veces. */
+.item-tag-llevar{
+  width:18px;height:18px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  vertical-align:middle;
+}
+.item-tag-llevar svg{width:13px;height:13px;display:block}
+.item-tag-high:not([hidden]):has(+ .item-tag-llevar:not([hidden])){margin-right:4px}
 .diet-marks:has(+ .sold-out-flag) .item-tag-diet:last-child{margin-right:4px}
 /* ---- sold out today ----
    Dimmed, struck and flagged — never hidden: a guest who came for that dish needs to see it
@@ -4658,6 +4713,10 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
         <p class="dsheet-precio" id="dsheet-precio"></p>
       </div>
       <div class="dsheet-alergenos" id="dsheet-alergenos" hidden></div>
+      <!-- «Combina con». Va DEBAJO de todo lo del plato: primero qué es y cuánto cuesta, y
+           sólo después con qué va bien. Sale vacía y oculta; la llena el runtime leyendo el
+           estado, y si el restaurante no ha emparejado nada no ocupa ni una línea. -->
+      <p class="dsheet-combina" id="dsheet-combina" hidden></p>
     </div>
   </div>
 </div>
@@ -4701,6 +4760,10 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
 ${veganNames.size ? `        <button type="button" class="ds-chip" data-filter="vegan" aria-pressed="false">${T('Vegan', 'tabs')} <span class="n"></span></button>
 ` : ''}${gfNames.size ? `        <button type="button" class="ds-chip" data-filter="gf" aria-pressed="false">${T('Gluten Free', 'tabs')} <span class="n"></span></button>
 ` : ''}        <button type="button" class="ds-chip" data-filter="offer" aria-pressed="false">${T('On offer', 'ui')} <span class="n"></span></button>
+        <!-- «Para llevar» se emite siempre y el runtime lo esconde mientras no haya ningún
+             plato marcado, igual que el de oferta: es un estado que enciende el panel, no una
+             propiedad escrita en la carta, así que no se puede decidir al compilar. -->
+        <button type="button" class="ds-chip" data-filter="llevar" aria-pressed="false" hidden>${T('Takeaway', 'ui')} <span class="n"></span></button>
       </div>
     </div>
 
@@ -6055,6 +6118,10 @@ ${sheet}
     var out = (estado && estado.soldOut) || {};
     var fotos = (estado && estado.fotos) || {};
     var tags = (estado && estado.tags) || {};
+    /* «Para llevar» es una LISTA, no un mapa: la capa dice quién lo lleva y nada más, igual
+       que la de retirados. Ausente = nadie, que es lo que hace que un estado.json de antes de
+       esta función siga valiendo sin migrarlo. */
+    var llevar = (estado && estado.paraLlevar) || [];
     var precios = (estado && estado.prices) || {};
     var cfg = offerCfg();
     var on = offerOn();
@@ -6120,6 +6187,28 @@ ${sheet}
           alto.hidden = true;
         }
       }
+
+      /* «Para llevar», en su ranura y sin tocar la del destacado. Con caída a la clave vieja,
+         como todo lo demás: un estado escrito por el panel anterior a la migración se sigue
+         aplicando. La fila se marca además con data-llevar para que el buscador filtre por
+         esto sin volver a leer el estado. */
+      var moto = row.querySelector('.item-tag-llevar');
+      var esLlevar = llevar.indexOf(key) !== -1 || (leg && llevar.indexOf(leg) !== -1);
+      if (moto) {
+        moto.hidden = !esLlevar;
+        if (esLlevar) {
+          if (!moto.firstChild) moto.innerHTML = ICONO_MOTO;
+          moto.setAttribute('role', 'img');
+          /* El rótulo se repone en cada pasada, no sólo al crearlo: render() vuelve a correr
+             al cambiar de idioma y si no, la moto se queda diciendo «Para llevar» en el
+             idioma de la carga. */
+          moto.setAttribute('aria-label', tr('Takeaway'));
+        } else {
+          moto.removeAttribute('role');
+          moto.removeAttribute('aria-label');
+        }
+      }
+      if (esLlevar) row.dataset.llevar = '1'; else delete row.dataset.llevar;
 
       // precio: primero el que haya puesto el panel, y encima la oferta si toca
       var precio = row.querySelector('.price');
@@ -7170,7 +7259,7 @@ ${DATOS_ACTIVO ? `
   var dsTotal = document.getElementById('ds-total');
   var dsHits = document.getElementById('ds-hits');
   var dsChips = [].slice.call(document.querySelectorAll('.ds-chip'));
-  var dsFiltros = { vegan: false, gf: false, offer: false, tag: '' };
+  var dsFiltros = { vegan: false, gf: false, offer: false, llevar: false, tag: '' };
   /* Las etiquetas del panel, en su orden. Cada una es un chip que sólo existe mientras
      algún plato la lleve —el panel las pone y las quita a diario— igual que el de oferta.
      Interpolado desde HIGHLIGHTS y no copiado a mano: una tercera lista aparte de esta misma
@@ -7352,10 +7441,16 @@ ${DATOS_ACTIVO ? `
   function dsAgotado(f) { return f.el.classList.contains('is-sold-out'); }
   function dsTag(f) { var t = f.el.querySelector('.item-tag-high:not([hidden])'); return t ? (t.dataset.tag || '') : ''; }
 
+  /* Se lee de la FILA y no del índice, igual que la oferta: «para llevar» lo enciende y lo
+     apaga el panel, y el índice sólo se rehace cuando cambian las filas. Un booleano guardado
+     aquí se quedaría viejo en cuanto el restaurante marcara un plato a media mañana. */
+  function dsLlevar(f) { return f.el.dataset.llevar === '1'; }
+
   function dsPasa(f, salvo) {
     if (dsFiltros.vegan && salvo !== 'vegan' && !f.vegan) return false;
     if (dsFiltros.gf && salvo !== 'gf' && !f.gf) return false;
     if (dsFiltros.offer && salvo !== 'offer' && !dsOferta(f)) return false;
+    if (dsFiltros.llevar && salvo !== 'llevar' && !dsLlevar(f)) return false;
     if (dsFiltros.tag && salvo !== 'tag' && dsTag(f) !== dsFiltros.tag) return false;
     return true;
   }
@@ -7389,6 +7484,21 @@ ${DATOS_ACTIVO ? `
       }
     }
 
+    /* Mismo trato para «Para llevar»: el chip existe mientras haya al menos un plato marcado,
+       y si el restaurante los desmarca todos con el filtro puesto, el filtro se suelta solo.
+       Un filtro encendido sobre una lista vacía deja la carta muda sin decir por qué. */
+    var chipLlevar = document.querySelector('.ds-chip[data-filter="llevar"]');
+    if (chipLlevar) {
+      var hayLlevar = false;
+      for (var l = 0; l < DS.length; l++) { if (!DS[l].el.hidden && dsLlevar(DS[l])) { hayLlevar = true; break; } }
+      chipLlevar.hidden = !hayLlevar;
+      if (!hayLlevar && dsFiltros.llevar) {
+        dsFiltros.llevar = false;
+        chipLlevar.setAttribute('aria-pressed', 'false');
+        dsPintar();
+      }
+    }
+
     /* Cuenta PLATOS, no filas, por lo mismo que la lista: el chip decía 53 y la lista entregaba
        48 en cuanto se dejaron de repetir los platos que están en varias pestañas. De los dos
        números, el que sobra es el del chip. */
@@ -7398,7 +7508,7 @@ ${DATOS_ACTIVO ? `
       for (var i = 0; i < DS.length; i++) {
         var f = DS[i];
         if (f.el.hidden || !dsPasa(f, k)) continue;
-        if (k === 'vegan' ? f.vegan : k === 'gf' ? f.gf : dsOferta(f)) suyas.push(f);
+        if (k === 'vegan' ? f.vegan : k === 'gf' ? f.gf : k === 'llevar' ? dsLlevar(f) : dsOferta(f)) suyas.push(f);
       }
       var hueco = chip.querySelector('.n');
       if (hueco) hueco.textContent = dsAgrupar(suyas).length;
@@ -7669,7 +7779,7 @@ ${DATOS_ACTIVO ? `
   }
 
   function dsQuitarFiltros() {
-    dsFiltros.vegan = dsFiltros.gf = dsFiltros.offer = false;
+    dsFiltros.vegan = dsFiltros.gf = dsFiltros.offer = dsFiltros.llevar = false;
     dsFiltros.tag = '';
     dsChips.forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
     document.querySelectorAll('.ds-chip-tag').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
@@ -7794,6 +7904,15 @@ ${DATOS_ACTIVO ? `
    *
    * La foto se pide al abrir y nunca antes: con cuarenta fotos, precargarlas son cuatro megas
    * en el wifi de un restaurante lleno. */
+  /* La moto de «Para llevar», del lado del runtime: el HTML emite la ranura vacía y el dibujo
+     entra sólo en las filas marcadas. Trazo 2.1 porque se dibuja a 13 px dentro del badge de
+     18: a 1.75 las dos ruedas se cerraban. */
+  var ICONO_MOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"'
+    + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M5 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/>'
+    + '<path d="M19 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/>'
+    + '<path d="M7.5 14h5l4 -4h-10.5m1.5 4l4 -4"/>'
+    + '<path d="M13 6h2l1.5 3"/></svg>';
   var ICONO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'
@@ -7814,6 +7933,85 @@ ${DATOS_ACTIVO ? `
 
   /* Todo sale de la fila. Si cambia el idioma o el panel cambia un precio, se vuelve a llamar a
      esto y la ficha dice lo mismo que la carta de debajo. */
+  /* ---- «Combina con» ----
+   * El emparejamiento se guarda por dishId, NUNCA por número, y esto es lo que hay que leer
+   * antes de tocar nada: el número de un plato es su POSICIÓN en la carta, y la posición
+   * cambia sola. Medido: al retirar dos platos anteriores, la Sopa de lentejas pasó del #07
+   * al #05. Guardar «combina con el 7» habría dejado la pareja apuntando a otro plato sin que
+   * nadie tocara nada. Así que se guarda la identidad y el número se lee de la fila destino
+   * en el momento de pintar.
+   *
+   * Un plato puede tener varias filas —Vegano y Sin gluten repiten platos— y sólo la de casa
+   * lleva número; las espejo lo dejan vacío. Se busca la que lo tenga, y si ninguna lo tiene
+   * se cae al nombre, que siempre existe. Un destino retirado no se pinta: su fila ya no está
+   * en el documento y una referencia a un plato que no se sirve es peor que ninguna. */
+  function filaDestino(id) {
+    var todas = document.querySelectorAll('.single-menu-items[data-key="' + id + '"]');
+    var conNumero = null, cualquiera = null;
+    for (var i = 0; i < todas.length; i++) {
+      /* Un RETIRADO no vale: el panel lo esconde con el atributo hidden en vez de quitarlo del
+         documento, así que sigue estando aquí y enlazarlo llevaría a una fila invisible —el
+         salto parecería no hacer nada—. Además no lleva número, porque un plato que no se
+         sirve no gasta uno. */
+      if (todas[i].hidden) continue;
+      if (!cualquiera) cualquiera = todas[i];
+      var n = todas[i].querySelector('.item-id');
+      if (n && n.textContent.trim() !== '') { conNumero = todas[i]; break; }
+    }
+    return conNumero || cualquiera || null;
+  }
+
+  function saltarAFila(el) {
+    if (!el) return;
+    var pane = el.closest('.tab-pane');
+    if (pane && typeof selectTab === 'function') selectTab(pane.id);
+    cerrarFicha();
+    setTimeout(function () {
+      el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      el.classList.remove('ds-flash');
+      void el.offsetWidth;                      // reinicia el destello aunque sea el mismo plato
+      el.classList.add('ds-flash');
+    }, reduce ? 0 : 260);
+  }
+
+  function pintarCombina(row) {
+    var caja = document.getElementById('dsheet-combina');
+    if (!caja) return;
+    caja.textContent = '';
+    var mapa = (estado && estado.combina) || {};
+    var ids = mapa[row.dataset.key] || mapa[row.dataset.legacy] || [];
+    if (!ids.length) { caja.hidden = true; return; }
+
+    var puestos = 0;
+    var rotulo = document.createElement('b');
+    rotulo.textContent = tr('Goes well with') + ' ';
+    caja.appendChild(rotulo);
+    for (var i = 0; i < ids.length; i++) {
+      var destino = filaDestino(ids[i]);
+      if (!destino) continue;                   // retirado o fuera de la carta: se omite
+      var num = destino.querySelector('.item-id');
+      var texto = num && num.textContent.trim() !== ''
+        ? '#' + num.textContent.trim()
+        : (destino.querySelector('.dish-name') || {}).textContent || '';
+      if (!texto) continue;
+      if (puestos) caja.appendChild(document.createTextNode(' · '));
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dsheet-ir';
+      b.textContent = texto;
+      /* El destino se guarda en el propio botón y no en una variable de la vuelta del bucle:
+         con var la variable es una sola para todas las vueltas y los tres botones acabarían
+         llevando al último. */
+      b.dataset.destino = ids[i];
+      caja.appendChild(b);
+      puestos++;
+    }
+    /* Si NINGUNO de los destinos sigue en la carta, la línea entera se va: un «Combina con»
+       sin nada detrás es peor que no decir nada. */
+    caja.hidden = puestos === 0;
+    if (puestos === 0) caja.textContent = '';
+  }
+
   function rellenarFicha(row) {
     if (!row) return;
     var h3 = row.querySelector('.menu-content h3');
@@ -7843,6 +8041,8 @@ ${DATOS_ACTIVO ? `
     var flag = row.querySelector('.sold-out-flag');
     fichaFlag.textContent = agotado && flag ? flag.textContent : '';
     fichaFlag.hidden = !agotado;
+
+    pintarCombina(row);
 
     var foto = row.dataset.foto;
     if (foto) {
@@ -7949,7 +8149,12 @@ ${DATOS_ACTIVO ? `    contarVista(row);
 
   if (ficha) {
     ficha.addEventListener('click', function (e) {
-      if (e.target.closest('[data-dclose]')) cerrarFicha();
+      if (e.target.closest('[data-dclose]')) { cerrarFicha(); return; }
+      /* Un destino de «Combina con»: cierra esta ficha, abre la pestaña del otro plato y lo
+         deja en pantalla con el mismo destello que usa el buscador. No abre la ficha del
+         destino: quien pulsa quiere VER el plato en su sitio, con su precio y sus vecinos. */
+      var ir = e.target.closest('.dsheet-ir');
+      if (ir) { saltarAFila(filaDestino(ir.dataset.destino)); }
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !ficha.hidden) cerrarFicha();

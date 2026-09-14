@@ -558,6 +558,8 @@ export const ui = {
   'Clear search': 'Borrar la búsqueda',
   'Filters': 'Filtros',
   'On offer': 'En oferta',
+  'Takeaway': 'Para llevar',
+  'Goes well with': 'Combina con',
   '{n} dishes': '{n} platos',
   '{n} dish': '{n} plato',
   'Nothing matches. Try another word.': 'Nada con eso. Prueba con otra palabra.',
