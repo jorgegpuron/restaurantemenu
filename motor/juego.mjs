@@ -21,6 +21,9 @@ export const GAME_STRINGS = [
   'Chilli, one point', 'Golden chilli, three points',
   'Ice, minus two points', 'Bomb, back to zero',
   'Score', 'Time', 'Streak', 'Ready?',
+  /* El combo y el tramo final (14 sep 2026). 'Streak' se queda en los diccionarios aunque
+     el HUD ya no lo pinte: no se borra vocabulario de un release a otro. */
+  'Combo', 'Rush!', '8 in a row ×2 · 16 in a row ×3',
   'Best today', 'Your score', 'New record!', 'Record',
   'Your name', 'Where are you from?', 'Other', 'Save', 'Skip',
 ];
@@ -425,7 +428,6 @@ h1{
     linear-gradient(90deg,transparent calc(33.333% - .5px),color-mix(in srgb,var(--surface) 14%,transparent) calc(33.333% - .5px),color-mix(in srgb,var(--surface) 14%,transparent) calc(33.333% + .5px),transparent calc(33.333% + .5px)),
     linear-gradient(90deg,transparent calc(66.666% - .5px),color-mix(in srgb,var(--surface) 14%,transparent) calc(66.666% - .5px),color-mix(in srgb,var(--surface) 14%,transparent) calc(66.666% + .5px),transparent calc(66.666% + .5px));
 }
-.board .linea{position:absolute;left:0;right:0;top:56px;height:1px;background:color-mix(in srgb,var(--surface) 28%,transparent);pointer-events:none}
 .spot{
   position:absolute;
   display:flex;align-items:center;justify-content:center;
@@ -448,7 +450,12 @@ h1{
    y caducar son lo mismo. Lineal a propósito: el ojo predice dónde va a estar. */
 .spot.viaje{transition:transform var(--vida) linear,opacity var(--t-fast) var(--ease-out)}
 .spot.out{opacity:0}
-.spot svg{width:34px;height:34px}
+/* El golpe de acierto (14 sep 2026): el dibujo crece x1,5 mientras el disco se apaga.
+   Antes la ficha solo se desvanecia en 120 ms y el toque no pesaba nada. El disco y el
+   dibujo son dos elementos a proposito: el transform del boton lo ocupa el viaje por el
+   carril (inline, desde el runtime) y no se puede pisar sin parar la ficha en seco. */
+.spot svg{width:34px;height:34px;transition:transform 140ms var(--ease-out)}
+.spot.hit svg{transform:scale(1.5)}
 .spot.gold{background:#f2c14e;color:#7a4a06}
 .spot.ice{background:#cfe9f2;color:#0d5b73}
 /* La bomba es un 5% mas grande que cualquier otra ficha: 67,2 contra 64. Que el peligro sea el
@@ -467,7 +474,7 @@ h1{
 }
 .spot.bomb svg{width:36px;height:36px}
 .spot:focus-visible{outline:3px solid var(--surface);outline-offset:2px}
-.spot.hit{opacity:0;transition:opacity 120ms var(--ease-out)}
+.spot.hit{opacity:0;transition:opacity 140ms var(--ease-out)}
 
 /* El marcador entero parpadea en rojo cuando revienta la bomba. El numero que sube dice cuanto,
    pero se pierde entre las fichas; esto dice QUE HA PASADO desde el rabillo del ojo. */
@@ -488,9 +495,10 @@ h1{
 /* el +1 / -2 que sube desde donde se ha tocado */
 .float{
   position:absolute;
-  margin:-10px 0 0 -20px;
-  width:40px;
-  font-family:var(--title-font);font-size:18px;font-weight:800;
+  margin:-13px 0 0 -28px;
+  width:56px;
+  /* 26px y no 18: a la velocidad de la partida el 18 no se llegaba a leer. */
+  font-family:var(--title-font);font-size:26px;font-weight:800;
   text-align:center;
   /* Sobre el fondo del tablero: crema para el +, y para el − --juego-float-malo (el rojo
      de la oferta aclarado, ver el :root de arriba) — el rojo puro no siempre se lee sobre
@@ -500,9 +508,41 @@ h1{
   animation:floatup 520ms var(--ease-out) forwards;
 }
 .float.bad{color:var(--juego-float-malo)}
+/* El dorado suma en su propio amarillo: es el mismo literal que pinta su ficha (11,16:1
+   sobre el tablero). Con el combo un dorado vale hasta +9 y merece verse distinto. */
+.float.gold{color:#f2c14e}
 @keyframes floatup{
   from{opacity:1;transform:translateY(0)}
   to{opacity:0;transform:translateY(-42px)}
+}
+
+/* ---------- el tramo final ----------
+   Los ultimos 8 segundos son el «Rush» que promete el nombre: el ritmo sube (ver
+   intervalo() en el runtime), salen mas dorados y este cartel lo anuncia una vez. Es la
+   misma banda inclinada que «Rush» en la portada, para que se lea como la misma cosa. */
+.rush{
+  position:absolute;left:50%;top:38%;z-index:3;
+  transform:translate(-50%,-50%) rotate(-4deg) scale(.6);
+  font-family:var(--title-font);font-size:44px;font-weight:800;letter-spacing:-.02em;
+  background:var(--juego-go);color:var(--metal-ink);
+  padding:.06em .3em;border-radius:.12em;
+  pointer-events:none;opacity:0;
+}
+.rush[hidden]{display:none}
+.rush.on{animation:rushIn 900ms var(--ease-out) forwards}
+@keyframes rushIn{
+  0%{opacity:0;transform:translate(-50%,-50%) rotate(-4deg) scale(.6)}
+  18%{opacity:1;transform:translate(-50%,-50%) rotate(-4deg) scale(1.08)}
+  30%{transform:translate(-50%,-50%) rotate(-4deg) scale(1)}
+  75%{opacity:1;transform:translate(-50%,-50%) rotate(-4deg) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) rotate(-4deg) scale(1.15)}
+}
+
+/* La regla del combo en la portada, bajo las fichas: una linea, sin parrafo. */
+.combo-regla{
+  margin:var(--s2) 0 0;
+  font-family:var(--title-font);font-size:13px;font-weight:600;letter-spacing:.04em;
+  font-variant-numeric:tabular-nums;color:var(--ink);
 }
 
 /* ---------- resultado ---------- */
@@ -601,6 +641,9 @@ h1{
 @media (prefers-reduced-motion:reduce){
   .spot,.spot.viaje{transition:opacity var(--t-fast) ease}
   .spot,.spot.out,.spot.hit{transform:none}
+  .spot svg{transition:none}
+  .spot.hit svg{transform:none}
+  .rush.on{animation:fadeout 900ms ease forwards;opacity:1;transform:translate(-50%,-50%)}
   .hud-val.pop,.count.tick{animation:none}
   .float{animation:fadeout 520ms ease forwards}
   @keyframes fadeout{from{opacity:1}to{opacity:0}}
@@ -638,8 +681,11 @@ h1{
       <span class="punto" data-t="ice"${TL('Ice, minus two points')}>
         <span class="ficha">${ICE}</span><span class="val">&#8722;2</span></span>
       <span class="punto" data-t="bomb"${TL('Bomb, back to zero')}>
-        <span class="ficha">${BOMB}</span><span class="val">0</span></span>
+        <span class="ficha">${BOMB}</span><span class="val">&rarr;0</span></span>
     </div>
+    <!-- «0» a secas se leia como «vale cero puntos», o sea, inofensiva. La flecha dice lo
+         que hace: te deja a cero. -->
+    <p class="combo-regla">${T('8 in a row ×2 · 16 in a row ×3', 'ui')}</p>
     <div class="actions">
       <button class="big-btn" id="btn-play" type="button">${PEPPER}${T('Play', 'ui')}</button>
       <a class="ghost-btn" href="./index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/></svg>${T('Back to the menu', 'ui')}</a>
@@ -666,12 +712,14 @@ h1{
         <span class="hud-val" id="score"${TL('Score')}>0</span>
       </div>
       <div class="hud-item der">
-        <span class="hud-lbl">${T('Streak', 'ui')}</span>
-        <span class="hud-val" id="racha">0</span>
+        <!-- La racha se ensenaba y no valia nada. Ahora es el combo: x1, x2 a los 8 aciertos
+             seguidos, x3 a los 16. Hielo y bomba lo devuelven a x1. -->
+        <span class="hud-lbl">${T('Combo', 'ui')}</span>
+        <span class="hud-val" id="racha">&times;1</span>
       </div>
     </div>
     <div class="bar" id="bar" style="width:100%"><i id="bar-fill"></i></div>
-    <div class="board" id="board" style="width:100%"><span class="linea" aria-hidden="true"></span></div>
+    <div class="board" id="board" style="width:100%"><span class="rush" id="rush" hidden aria-hidden="true">${T('Rush!', 'ui')}</span></div>
   </section>
 
   <!-- 4. resultado -->
@@ -1077,6 +1125,18 @@ h1{
   var puntos = 0, restante = DURACION, seEstaJugando = false;
   var racha = 0;                                              // toques seguidos sin hielo
   var elRacha = document.getElementById('racha');
+  var elRush = document.getElementById('rush');
+  var enRush = false;                                         // los ultimos 8 segundos
+  var RUSH_DESDE = 8;                                         // segundos restantes
+
+  /* El multiplicador del combo: x1, x2 a los 8 aciertos seguidos, x3 a los 16 y ahi se
+     queda. Es lo que convierte la racha en algo que importa: hasta ahora se contaba y no
+     valia nada. */
+  function multiplicador() { return racha >= 16 ? 3 : racha >= 8 ? 2 : 1; }
+  function pintarCombo(subio) {
+    elRacha.textContent = '\u00d7' + multiplicador();
+    if (subio) { elRacha.classList.remove('pop'); void elRacha.offsetWidth; elRacha.classList.add('pop'); }
+  }
   var tSpawn = null, tReloj = null, t0 = 0;
   var vivos = [];
 
@@ -1106,6 +1166,7 @@ h1{
     vivos.forEach(function (o) { clearTimeout(o.t); if (o.el.parentNode) o.el.remove(); });
     vivos = [];
     [].slice.call(board.querySelectorAll('.float')).forEach(function (f) { f.remove(); });
+    if (elRush) { elRush.hidden = true; elRush.classList.remove('on'); }
   }
 
   /* Dificultad: el ritmo sube y la vida de cada chile baja a lo largo de los 30 segundos.
@@ -1113,7 +1174,10 @@ h1{
   /* Un 10% mas lento que la primera version: sale mas suelto y aprieta igual al final. Las dos
      curvas se estiran a la vez — solo el hueco entre fichas dejaria la pantalla llena, y solo la
      vida las haria salir igual de rapido pero durar mas. */
-  function intervalo(prog) { return 682 - 330 * prog; }        // 682ms -> 352ms
+  /* El tramo final (14 sep 2026): en los ultimos 8 segundos el hueco entre fichas se
+     recorta a un 60% y la vida de cada una NO cambia. Mas fichas a la vez (4-5 en vez de
+     3), igual de legibles. Sin esto la partida acababa como empezaba. */
+  function intervalo(prog) { return (682 - 330 * prog) * (enRush ? 0.6 : 1); }   // 682ms -> 352ms (-> 211 en el rush)
   function vida(prog) { return 1650 - 715 * prog; }            // 1.65s -> 0.94s
 
   /* El nombre hablado de cada ficha. Son las mismas cuatro frases que la portada pone bajo el
@@ -1129,9 +1193,14 @@ h1{
     /* La bomba, primera y con banda propia. Un 5% al principio y un 8% al final: en una partida
        salen dos o tres. No hace falta mas, porque no es mala suerte — se ve venir, es la ficha
        mas grande de todas, y tocarla es una decision. */
-    if (r < 0.05 + 0.03 * prog) return 'bomb';
-    if (r < 0.13 + 0.08 * prog) return 'gold';                 // raro, y algo menos raro al final
-    if (r < 0.31 + 0.17 * prog) return 'ice';                  // el hielo aparece más según aprieta
+    var pBomba = 0.05 + 0.03 * prog;
+    /* En el rush el dorado sube al 18%: es el tramo en el que el combo ya esta alto y un
+       dorado vale hasta +9. Fuera del rush, raro y algo menos raro al final. */
+    var pDorado = enRush ? 0.18 : 0.08 + 0.05 * prog;
+    var pHielo = 0.18 + 0.09 * prog;                           // el hielo aparece más según aprieta
+    if (r < pBomba) return 'bomb';
+    if (r < pBomba + pDorado) return 'gold';
+    if (r < pBomba + pDorado + pHielo) return 'ice';
     return 'chilli';
   }
 
@@ -1192,7 +1261,8 @@ h1{
   function tocado(o, t, ev) {
     /* La bomba no resta: vacia. El delta que se ensena es lo que se acaba de perder, que es la
        unica cifra que importa en ese momento — un '-2' generico no diria nada. */
-    var delta = t === 'bomb' ? -puntos : t === 'gold' ? 3 : t === 'ice' ? -2 : 1;
+    var m = multiplicador();
+    var delta = t === 'bomb' ? -puntos : t === 'gold' ? 3 * m : t === 'ice' ? -2 : m;
     puntos = Math.max(0, puntos + delta);
     elScore.textContent = puntos;
     elScore.classList.remove('pop', 'boom');
@@ -1202,13 +1272,14 @@ h1{
     /* La bomba corta la racha siempre. Con la puntuacion a cero el delta sale -0, que no es
        menor que cero, y la racha seguia subiendo despues de tocar una bomba. */
     racha = (delta < 0 || t === 'bomb') ? 0 : racha + 1;
-    elRacha.textContent = racha;
-    if (delta > 0) { elRacha.classList.remove('pop'); void elRacha.offsetWidth; elRacha.classList.add('pop'); }
+    /* El HUD pinta el multiplicador, no la cuenta: salta solo cuando cambia. */
+    pintarCombo(multiplicador() !== m);
 
     /* La ficha está en movimiento: el +1 sale de donde está ahora, no de donde nació. */
     var rb = board.getBoundingClientRect(), re = o.el.getBoundingClientRect();
     var f = document.createElement('span');
-    f.className = 'float' + (delta < 0 ? ' bad' : '') + (t === 'bomb' ? ' boom' : '');
+    f.className = 'float' + (delta < 0 ? ' bad' : '') + (t === 'bomb' ? ' boom' : '')
+      + (t === 'gold' ? ' gold' : '');
     f.textContent = t === 'bomb' && delta === 0 ? '0' : (delta > 0 ? '+' : '') + delta;
     f.style.left = (re.left - rb.left + re.width / 2) + 'px';
     f.style.top = (re.top - rb.top + re.height / 2) + 'px';
@@ -1234,14 +1305,30 @@ h1{
     restante = Math.max(0, DURACION - (Date.now() - t0) / 1000);
     elClock.textContent = Math.ceil(restante);
     elFill.style.transform = 'scaleX(' + (restante / DURACION) + ')';
-    elBar.classList.toggle('warn', restante <= 5);
+    /* La barra se pone roja cuando entra el rush, y no a los 5 segundos como antes: las
+       dos senales tienen que decir lo mismo. */
+    elBar.classList.toggle('warn', restante <= RUSH_DESDE);
+    if (!enRush && restante <= RUSH_DESDE && restante > 0) entrarEnRush();
     if (restante <= 0) terminar();
+  }
+
+  /* El cartel «Rush!» sale una vez, 900 ms, y se retira solo. Con «menos movimiento» se
+     desvanece sin escalar (ver el CSS). */
+  function entrarEnRush() {
+    enRush = true;
+    if (!elRush) return;
+    elRush.hidden = false;
+    elRush.classList.remove('on');
+    void elRush.offsetWidth;
+    elRush.classList.add('on');
+    setTimeout(function () { if (elRush) { elRush.hidden = true; elRush.classList.remove('on'); } }, 1000);
   }
 
   function empezar() {
     puntos = 0;
     racha = 0;
-    elRacha.textContent = '0';
+    enRush = false;
+    pintarCombo(false);
     restante = DURACION;
     elScore.textContent = '0';
     elClock.textContent = DURACION;

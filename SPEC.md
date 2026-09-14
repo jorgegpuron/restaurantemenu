@@ -7480,3 +7480,58 @@ oferta con claves inventadas: `pct` y `'00:00'`, cuando en `estado.json` el desc
 sin su pastilla y la prueba medía pares que no eran el que descubrió el defecto: habría pasado en
 verde sin mirar el caso que falla. Corregidas las claves, y si algún día la fixtura no pinta ese
 par, la prueba se BLOQUEA en vez de pasar.
+
+## Chilli Rush: el combo, el tramo final y el golpe de acierto (14 Sep 2026)
+
+Primer release de la auditoría del juego de ese mismo día. Cinco cambios, todos en
+`motor/juego.mjs` y en los diccionarios; ni el panel ni `record.php` se tocan.
+
+**El techo lo ponía el generador, no el jugador.** Medido con un bot de toque perfecto contra
+producción: 60 fichas por partida (35 chiles, 9 dorados, 12 hielos, 4 bombas), máximo teórico
+62, bot 59, mejor humano 49. Con `vida()` entre 2,4 y 2,7 veces `intervalo()` nunca había más
+de tres fichas en el tablero, y una persona toca cuatro o cinco veces por segundo: el jugador
+esperaba a la ficha. Un jugador bueno llegaba al techo en dos partidas y ya no tenía nada que
+mejorar.
+
+**La racha se enseñaba y no valía nada.** Subía con cada acierto, se rompía con el hielo, ocupaba
+un tercio del HUD y no influía en la puntuación. Ahora es el **combo**: ×1, ×2 a partir de 8
+aciertos seguidos, ×3 a partir de 16 y ahí se queda. Chile y dorado suman su valor por el
+multiplicador (+1/+2/+3 y +3/+6/+9); el hielo resta 2 y devuelve el combo a ×1; la bomba deja a
+cero y también a ×1, regla sin cambio. El HUD derecho pasa de «Racha 17» a «Combo ×3» y salta
+sólo cuando cambia. `'Streak'` se queda en los diccionarios: no se borra vocabulario entre
+releases. En la portada, una línea bajo las fichas lo cuenta sin párrafo: «8 seguidos ×2 · 16
+seguidos ×3».
+
+**El tramo final.** En los últimos 8 segundos el hueco entre fichas se recorta al 60 % (de
+352 ms a 211 al final; medido 262 → 217) y el dorado sube al 18 %. La vida de cada ficha no
+cambia: son más fichas a la vez —cuatro o cinco en vez de tres—, igual de legibles. Un cartel
+«¡Rush!» sobre el tablero, la misma banda inclinada que «Rush» en la portada, lo anuncia una vez
+durante 900 ms, y la barra del tiempo se pone roja al entrar en el rush, a los 8 segundos y no a
+los 5 como antes: las dos señales tienen que decir lo mismo.
+
+**El golpe de acierto.** La ficha se apagaba en 120 ms y el toque no pesaba nada. Ahora el dibujo
+crece ×1,5 mientras el disco se desvanece en 140 ms. Son dos elementos a propósito: el
+`transform` del botón lo ocupa el viaje por el carril, puesto en línea desde el runtime, y
+pisarlo pararía la ficha en seco. El flotante sube de 18 a 26 px —a la velocidad de la partida
+el 18 no se llegaba a leer— y el del dorado va en su propio amarillo, el mismo literal que
+pinta su ficha (11,16:1 sobre el tablero). Con «menos movimiento», sólo opacidades, como antes.
+
+**Dos cosas pequeñas.** La bomba llevaba un «0» en la fila de valores de la portada, al lado de
+«+1», «+3» y «−2», y se leía como «vale cero puntos», es decir, inofensiva: ahora dice «→0». Y
+la línea horizontal a 56 px del borde superior del tablero no tenía ninguna función en el código
+y se leía como una meta: fuera.
+
+**Medido en local tras el cambio** (Chromium, 375×812, copia de `2-subir`): 60-63 fps sostenidos,
+cero fotogramas largos; ×2 en el octavo acierto y ×3 en el decimosexto; un hielo a ×3 resta 2 y
+deja ×1; el cartel sale con 8 en el reloj; máximo 4 fichas vivas en el rush contra 3 antes. Bot
+de toque perfecto: **161 puntos**; con un hielo tocado a propósito, 102. `RECORD_MAX` del
+servidor es 300 y no se toca.
+
+**Consecuencia para el propietario, fuera del código:** las marcas del podio actual son de otro
+juego. Antes de publicar conviene vaciar el podio desde el panel y revisar el objetivo del
+premio, porque un jugador bueno pasará de 100.
+
+Quedan para releases posteriores, del mismo informe: pantalla final honesta con el juego apagado
+o fuera del podio, el dorado con un aro que lo distinga sin leer, un degradado en el tablero
+para que la partida no sea negro sobre gris, la decisión sobre el vídeo de fondo (259 KB que
+casi no se ven), sonido opcional y un flash de bomba que se vea donde no hay vibración.
