@@ -1548,6 +1548,11 @@ en cada idioma y arrastraria con el los tres desplazamientos que le hacen sitio
 campo; abierta desde el boton flotante NO, porque en un movil eso levanta el teclado y tapa
 media hoja antes de que nadie haya pedido escribir.
 
+> **Caducado dos veces; la regla vigente es la de mas abajo, «El teclado no se levanta solo».**
+> Este parrafo describe el reparto original, cuando el boton flotante decia «Categorias». Al
+> renombrarlo «Buscar platos» las dos puertas pasaron a enfocar el campo, y eso devolvio el
+> teclado al movil por la otra puerta. Se lee aqui como historia, no como norma.
+
 De paso, la hoja se limita a 520 px y se centra por encima de 768: hasta ahora solo existia en
 el movil y ocupar 1570 px de ancho no es una hoja.
 

@@ -7660,10 +7660,19 @@ ${DATOS_ACTIVO ? `
     sheet.classList.add('is-open');
     fab.setAttribute('aria-expanded', 'true');
     bloquearFondo();
-    /* Abierta desde la lupa se enfoca el campo, que es a lo que se venia. Abierta desde el
-       boton de categorias NO: en un movil eso levanta el teclado y tapa media hoja antes de
-       que nadie haya pedido escribir. */
-    var foco = alBuscador
+    /* El foco entra SIEMPRE en la hoja -- es un dialogo con aria-modal, dejarlo fuera seria
+       un fallo de accesibilidad -- pero no siempre en el campo de escribir.
+
+       Se enfoca el campo solo con puntero fino. La hoja se llama <<Buscar platos>> y quien
+       la abre con raton viene a escribir: dejarle el cursor puesto es cumplir el rotulo.
+       Con el dedo NO, y esa es la regla que manda: enfocar un <input> en un movil levanta
+       el teclado del sistema, que se come media pantalla y tapa la lista de categorias
+       antes de que nadie haya pedido escribir. El campo esta arriba del todo y con su lupa
+       al lado: tocarlo es un gesto, y es un gesto que se pide, no que se impone.
+
+       Con el dedo el foco cae en la categoria actual, dentro del dialogo. esTactil() es la
+       misma prueba de '(pointer: coarse)' que usa el enlace de Instagram mas arriba. */
+    var foco = (alBuscador && !esTactil())
       ? document.getElementById('ds-q')
       : (sheet.querySelector('.sheet-item[aria-current="true"]') || sheet.querySelector('.sheet-close'));
     if (foco) foco.focus({ preventScroll: true });
@@ -7708,11 +7717,10 @@ ${DATOS_ACTIVO ? `
     closeTimer = setTimeout(finish, 400); // transitionend can be skipped on a hidden tab
   }
 
-  /* true y no false: el boton dice «Buscar platos», asi que abre con el foco en el campo y
-     el teclado a la vista. SPEC decidio lo contrario —«en un movil eso levanta el teclado y
-     tapa media hoja antes de que nadie haya pedido escribir»— y esa decision era correcta
-     CUANDO EL BOTON DECIA «Categorias»: nadie habia pedido escribir. Ahora el rotulo lo pide
-     por el. Un boton que promete buscar y abre una lista es peor que un teclado de mas. */
+  /* true en las dos puertas: las dos abren la MISMA hoja y el rotulo de las dos dice
+     «Buscar platos», asi que las dos piden lo mismo. Quien decide si eso acaba o no en el
+     campo de escribir es openSheet(), una sola vez y mirando el puntero -- ver alli. Ponerlo
+     aqui obligaria a repetir la regla en dos sitios, y dos sitios se separan. */
   fab.addEventListener('click', function () { openSheet(true); });
 
   var lupa = document.getElementById('nav-search');
