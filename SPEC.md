@@ -7240,3 +7240,48 @@ al elegir el alcance.
 pública. No van en `lotes.mjs`: ese fichero es el museo de fallos que llegaron a producción y
 esto es una función nueva. Siembran los emparejamientos en `estado.json` y lo devuelven como
 estaba: una batería no puede dejar la carta con platos emparejados que nadie pidió.
+
+## Tres arreglos de lo que el propietario vio en producción (14 Sep 2026)
+
+Los tres salieron de mirar la carta y el panel con las manos, y los tres se midieron antes de
+tocar nada.
+
+**1. El filete que no era de nadie, en Ofertas.** `.adm-ofr-cab` llevaba `border-bottom` y los
+tres módulos de la regla llevan `border-top`: cuatro bordes a la misma `y` —184 en los dos casos,
+medido a 1512—. Donde había módulo, el módulo lo tapaba; en los dos huecos entre ellos asomaba, y
+se leía como una línea suelta. Pasaba igual con la oferta encendida y apagada, porque el grid se
+pinta siempre. Se retira el de la cabecera: la separación la ponen los módulos con su propio
+borde, que además es el que dice dónde empieza cada uno. El `padding-bottom` se queda, que es el
+que da el aire. Lo vigila `E2E-OFR-05`, que exige que ningún borde más ancho que un módulo cruce
+por esa altura.
+
+**2. La moto de «para llevar», dos píxeles y medio baja.** Iba con `vertical-align:middle` y las
+pastillas de su línea con `vertical-align:3px`. Copiar el 3px tampoco valía, y merece la pena
+saber por qué: `vertical-align` mueve la BASE de cada caja, y no la tienen en el mismo sitio. La
+pastilla es `inline-block` con texto, así que su base es la del texto. La moto es `inline-flex`
+con un SVG dentro, y un SVG no tiene base propia: la caja hereda su borde inferior, que está 2,5
+por encima del suelo del círculo porque el dibujo mide 13 dentro de 18. Con 3px se iba 2,5
+ARRIBA, medido. De ahí el valor final: `0.5px`, los 3 de la pastilla menos esos 2,5. Si cambia el
+tamaño del dibujo hay que recalcularlo, y lo caza `CAR-34`, que compara los dos bordes inferiores.
+
+**3. La banda blanca de la ficha, y por qué era el mismo problema que «la foto no toca arriba».**
+Los puntos del carrusel nacieron en el flujo, debajo de la tarjeta y con su propio fondo de papel.
+Eso le colgaba a la ficha 31 px de blanco: la tarjeta dejaba de ser la foto y pasaba a ser «foto
+más tira», con la foto sin llegar al borde de abajo ni —por comparación— al de arriba. El
+propietario señaló las dos cosas por separado; eran una.
+
+Ahora los puntos van **encima de la foto**, fuera del flujo, y el panel vuelve a medir
+exactamente lo que mide el plato: 0 px de hueco arriba y 0 abajo, medido a 1280 y a 390. Tres
+detalles que conviene que consten:
+
+- La caja de los puntos va con `pointer-events:none` y sólo los puntos los reciben. Una franja
+  invisible de lado a lado en el borde inferior se comería el arrastre para cerrar, que es justo
+  por donde se empieza ese gesto.
+- El cuerpo reserva 22 px de renglón cuando hay pista, o «Combina con» les pasaría por encima.
+- Sobre papel —el plato al que se llega no tiene foto— el blanco desaparece y mandan los colores
+  de la carta. Se decide con `:has()` sobre la diapositiva activa, no con una clase que haya que
+  mantener desde el JavaScript: la verdad ya está en el DOM.
+
+Lo vigila `CAR-33`, que mide la geometría y exige que los puntos queden dentro de la foto. Se
+comprueba con la ficha CON pista y no con cualquiera: con un solo plato los puntos van ocultos,
+su caja mide cero y la comprobación pasaría sin mirar nada.

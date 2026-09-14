@@ -4530,6 +4530,47 @@ export async function e2eOfertasLinea(informe, { navegador, servidor }) {
         m.mismaLinea && m.mandoAlBorde && m.filtroCompleto && m.botonesIguales && m.tactiles && m.desborde <= 1, JSON.stringify(m));
     } finally { await p.contextoQa.close().catch(() => {}); }
   }
+
+  /* ---- ni un filete de más sobre los tres módulos ----
+     La cabecera llevaba `border-bottom` y los tres módulos llevan `border-top`: cuatro bordes
+     a la misma y. Donde había módulo, el módulo lo tapaba; en los dos huecos entre ellos
+     asomaba, y se leía como una línea suelta que no era de nadie. El propietario la vio en
+     producción. Lo que se contrata es el síntoma: que a la altura donde empiezan los módulos
+     NO haya ningún borde que abarque más que un módulo. */
+  {
+    const p = await nuevaPagina(navegador, { viewport: { width: 1512, height: 900 } });
+    try {
+      await entrarAlPanel(p, url);
+      await irA(p, url, 'ofertas', 400);
+      const m = await p.evaluate(() => {
+        const ficha = document.querySelector('.adm-f-ooferta');
+        if (!ficha) return { error: 'sin ficha de oferta' };
+        const mods = [...ficha.querySelectorAll('.adm-ofr-mod')].filter((x) => x.getBoundingClientRect().width > 0);
+        if (mods.length < 2) return { error: 'los modulos de la regla no se ven' };
+        const yMods = Math.round(mods[0].getBoundingClientRect().top);
+        const anchoMayor = Math.max(...mods.map((x) => x.getBoundingClientRect().width));
+        const largos = [];
+        ficha.querySelectorAll('*').forEach((el) => {
+          const caja = el.getBoundingClientRect();
+          if (caja.width <= anchoMayor + 1) return;         // un borde de módulo es legítimo
+          const cs = getComputedStyle(el);
+          for (const lado of ['Top', 'Bottom']) {
+            if (!parseFloat(cs['border' + lado + 'Width'])) continue;
+            const y = Math.round(lado === 'Top' ? caja.top : caja.bottom);
+            if (Math.abs(y - yMods) > 2) continue;
+            largos.push(String(el.className).split(' ')[0] + ' ' + lado);
+          }
+        });
+        return {
+          yMods,
+          bordesMod: mods.map((x) => parseFloat(getComputedStyle(x).borderTopWidth)),
+          largos,
+        };
+      });
+      informe.comprueba('E2E-OFR-05', 'ningún filete largo cruza por donde empiezan los tres módulos de la regla: la separación la ponen ellos',
+        !m.error && m.largos.length === 0 && m.bordesMod.every((b) => b === 1), JSON.stringify(m));
+    } finally { await p.contextoQa.close().catch(() => {}); }
+  }
 }
 
 /* ============================================================== 22a. la fila de Platos en movil

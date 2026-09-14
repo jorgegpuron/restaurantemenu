@@ -10758,13 +10758,19 @@ $CUENTAS = [
     .adm-f-cab .der.adm-a-platos{margin-left:0;flex:1 0 100%;justify-content:flex-start}
   }
   /* ================================================================= la oferta, el grid
-     Dos pisos. Arriba, la cabecera: quien, como esta, que pasa y cuanto abarca, con un
-     filete debajo. Abajo, los tres modulos en doce columnas repartidas 5 / 3 / 4.
+     Dos pisos. Arriba, la cabecera: quien, como esta, que pasa y cuanto abarca. Abajo, los
+     tres modulos en doce columnas repartidas 5 / 3 / 4.
      La escala de alturas NO es la del boceto de origen, que usaba 32: aqui los controles
-     miden 40 con raton y 44 con el dedo, que es el suelo de la casa. */
+     miden 40 con raton y 44 con el dedo, que es el suelo de la casa.
+     La cabecera NO lleva filete debajo, y esto hay que leerlo antes de devolverselo: su borde
+     inferior caia EXACTAMENTE en la misma y que el borde superior de los tres modulos —184 en
+     los dos casos, medido a 1512—. Donde hay modulo, el modulo lo tapa; en los dos huecos
+     entre ellos asomaba, y se leia como una linea suelta que no era de nadie. El propietario
+     la vio en produccion. La separacion la ponen los modulos con su propio borde, que ademas
+     es el que dice donde empieza cada uno. El padding se queda: es el que da el aire. */
   .adm-ofr-cab{
     display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap;
-    padding-bottom:var(--space-3);border-bottom:1px solid var(--sc-border);
+    padding-bottom:var(--space-3);
   }
   .adm-ofr-id{display:flex;align-items:center;gap:var(--space-3);flex:none}
   .adm-ofr-id h2{margin:0;font-size:var(--t2);letter-spacing:.04em;text-transform:uppercase}

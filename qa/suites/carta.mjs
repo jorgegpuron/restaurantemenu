@@ -334,7 +334,7 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
     ? readdirSync(path.join(docroot, 'assets', 'platos')).filter((f) => /\.(webp|png|jpg)$/.test(f))
     : [];
   const sinPista = (motivo) => {
-    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32']) {
+    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32', 'CAR-33', 'CAR-34']) {
       informe.blocked(id, 'la pista de la ficha' + suf, motivo);
     }
   };
@@ -361,6 +361,10 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       est.combina = Object.assign({}, est.combina);
       est.combina[platos[0].k] = [platos[1].k, platos[2].k];
       delete est.combina[platos[3].k];
+      /* El primero lleva ADEMÁS etiqueta y «para llevar»: es el caso que hace falta para medir
+         si el círculo de la moto se apoya en la misma base que la pastilla de al lado. */
+      est.tags = Object.assign({}, est.tags, { [platos[0].k]: 'Popular' });
+      est.paraLlevar = [platos[0].k];
       writeFileSync(estadoPath, JSON.stringify(est));
 
       pagina.limpiarRegistro();
@@ -436,6 +440,34 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
         && abierta.izqApagada === true,
         JSON.stringify({ activa: atras.activa, izq: atras.izqApagada, der: atras.derApagada, alPrincipio: abierta.izqApagada }));
 
+      /* La foto ES la ficha: ni banda de papel debajo ni hueco arriba. La primera versión de
+         los puntos iba en el flujo con su propio fondo, y le colgaba a la tarjeta 31 px de
+         blanco; el propietario lo vio en producción. Se contrata la geometría —el panel
+         empieza y acaba donde la foto— y que los puntos queden DENTRO de ella.
+         Se mide AQUÍ y no más abajo: hace falta la ficha con pista, que es la que tiene
+         puntos. Con un solo plato van ocultos y su caja mide cero, con lo que la
+         comprobación pasaría sin mirar nada. */
+      const sinBanda = await pagina.evaluate(() => {
+        const panel = document.getElementById('dsheet-panel');
+        const carta = document.querySelector('.dsheet-carta.es-activa');
+        const foto = carta.querySelector('.dsheet-foto');
+        const puntos = document.getElementById('dsheet-puntos');
+        const p = panel.getBoundingClientRect();
+        const f = foto.getBoundingClientRect();
+        const d = puntos.getBoundingClientRect();
+        return {
+          arriba: Math.round((f.top - p.top) * 10) / 10,
+          abajo: Math.round((p.bottom - f.bottom) * 10) / 10,
+          fondoPuntos: getComputedStyle(puntos).backgroundColor,
+          altoPuntos: Math.round(d.height * 10) / 10,
+          puntosDentro: d.height > 0 && d.bottom <= f.bottom + 1 && d.top >= f.top,
+        };
+      });
+      informe.comprueba('CAR-33', 'la ficha es la foto: sin banda de papel debajo de los puntos ni hueco arriba' + suf,
+        Math.abs(sinBanda.arriba) <= 1 && Math.abs(sinBanda.abajo) <= 1
+        && /rgba\(0, 0, 0, 0\)|transparent/.test(sinBanda.fondoPuntos) && sinBanda.puntosDentro,
+        JSON.stringify(sinBanda));
+
       await pagina.keyboard.press('Escape');
       await pagina.waitForTimeout(500);
 
@@ -449,7 +481,27 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       informe.comprueba('CAR-32', 'ni un error de consola en todo el recorrido de la ficha' + suf,
         pagina.registro.consola.length === 0, pagina.registro.consola.slice(0, 3).join(' | '));
 
-      await pagina.keyboard.press('Escape');
+      /* La moto de «para llevar» se apoya en la misma base que la pastilla de al lado. Iba con
+         vertical-align:middle y caía por debajo del renglón; se veía en producción. Las dos
+         cajas miden 18, así que si los bordes inferiores coinciden, están alineadas. */
+      const moto = await pagina.evaluate((k) => {
+        const fila = document.querySelector('.single-menu-items[data-key="' + k + '"]');
+        if (!fila) return { error: 'sin fila' };
+        const m = fila.querySelector('.item-tag-llevar:not([hidden])');
+        const otra = fila.querySelector('.item-tag-high:not([hidden]), .item-tag-diet:not([hidden])');
+        if (!m || !otra) return { error: 'faltan etiquetas', moto: !!m, otra: !!otra };
+        const a = m.getBoundingClientRect();
+        const b = otra.getBoundingClientRect();
+        return {
+          abajo: Math.round((a.bottom - b.bottom) * 100) / 100,
+          arriba: Math.round((a.top - b.top) * 100) / 100,
+          altoMoto: Math.round(a.height * 10) / 10, altoOtra: Math.round(b.height * 10) / 10,
+        };
+      }, platos[0].k);
+      informe.comprueba('CAR-34', 'el icono de «para llevar» se apoya en la misma base que la etiqueta de al lado' + suf,
+        !moto.error && Math.abs(moto.abajo) <= 0.6 && Math.abs(moto.arriba) <= 0.6,
+        JSON.stringify(moto));
+
       writeFileSync(estadoPath, estadoCarrusel);
     }
   }

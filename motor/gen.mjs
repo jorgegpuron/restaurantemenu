@@ -2379,21 +2379,32 @@ html:not(.js) .lang-menu{position:static;display:block}
 .dsheet-panel.esta-arrastrando .dsheet-via{transition:none}
 .dsheet-panel.esta-arrastrando{user-select:none;-webkit-user-select:none}
 /* ---- los puntos ----
-   Debajo de la tarjeta y en el flujo, no encima de la foto: sobre el degradado se cruzarían
-   con «Combina con», que es justo la línea que invita a pasar de plato. Con un solo plato no
-   se pintan. */
+   ENCIMA de la foto, no debajo de la tarjeta. La primera versión los puso en el flujo, con su
+   propio fondo de papel, y eso le colgaba a la ficha una banda blanca de 31 px: la tarjeta
+   dejaba de ser la foto y pasaba a ser «foto más tira», con la foto sin llegar ni al borde de
+   abajo ni, por comparación, al de arriba. El propietario lo vio en producción y tiene razón
+   —«la foto ES la ficha» es la decisión de origen de esta hoja—. Fuera del flujo, el panel
+   vuelve a medir exactamente lo que mide el plato.
+   El hueco entre puntos NO intercepta el toque: la caja va sin eventos y sólo los puntos los
+   reciben, o una franja invisible de lado a lado se comería el arrastre para cerrar justo en
+   el borde de abajo, que es por donde se empieza. */
 .dsheet-puntos{
-  flex:none;display:flex;align-items:center;justify-content:center;gap:14px;
-  padding:12px 0 calc(12px + env(safe-area-inset-bottom));
-  background:var(--surface);
+  position:absolute;z-index:2;left:0;right:0;
+  bottom:calc(10px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  pointer-events:none;
 }
 .dsheet-puntos[hidden]{display:none}
-/* Con puntos, el hueco de la barra del móvil lo pone la tira de puntos y no el cuerpo: si lo
-   pusieran los dos, la última línea del plato quedaría flotando a dos dedos del borde. */
-.dsheet-panel.tiene-via .dsheet-cuerpo{padding-bottom:var(--s3)}
+/* Con puntos, el cuerpo reserva su renglón: 22 px son los 7 del punto más el aire de los dos
+   lados. Sin esto, «Combina con» —que es justo la línea que invita a pasar de plato— les
+   pasaría por encima. */
+.dsheet-panel.tiene-via .dsheet-cuerpo{padding-bottom:calc(var(--s3) + 22px)}
 .dsheet-punto{
   position:relative;flex:none;width:7px;height:7px;padding:0;border:0;border-radius:50%;
-  background:color-mix(in srgb,var(--ink) 25%,transparent);
+  pointer-events:auto;
+  /* Sobre el degradado oscuro de la foto, blanco atenuado; el activo, blanco entero. El
+     acento no vale aquí: naranja sobre naranja de comida es lo que no se ve. */
+  background:rgba(255,255,255,.45);
   cursor:pointer;transition:background var(--t-fast) linear;
 }
 /* El punto mide 7 px y el dedo 44: el halo va en un ::before que no ocupa sitio, igual que en
@@ -2401,8 +2412,17 @@ html:not(.js) .lang-menu{position:static;display:block}
    ni uno más: con halos que se solapan, el toque se lo lleva el vecino de al lado. Ya pasó en
    la rejilla de Platos del panel y se midió. */
 .dsheet-punto::before{content:"";position:absolute;inset:-18px -7px}
-.dsheet-punto[aria-current="true"]{background:var(--accent)}
+.dsheet-punto[aria-current="true"]{background:#fff}
 .dsheet-punto:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+/* Sobre papel —el plato al que se llega no tiene foto— el blanco desaparece: ahí mandan los
+   colores de la carta. Se decide con la diapositiva activa y no con una clase que haya que
+   mantener desde el JavaScript: la verdad ya está en el DOM. */
+.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-punto{
+  background:color-mix(in srgb,var(--ink) 25%,transparent);
+}
+.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-punto[aria-current="true"]{
+  background:var(--accent);
+}
 /* ---- las flechas ----
    Sólo con ratón. En el móvil el gesto es el dedo y dos botones sobre la foto serían dos
    trozos de plato tapados. Quien las esconde en el móvil es el atributo hidden que pone el
@@ -3234,7 +3254,17 @@ html:not(.js) .lang-menu{position:static;display:block}
   width:18px;height:18px;padding:0;
   display:inline-flex;align-items:center;justify-content:center;
   border-radius:50%;
-  vertical-align:middle;
+  /* Alineacion con las pastillas de al lado, que es lo unico que se ve de esta linea.
+     Con vertical-align:middle el circulo caia mas bajo que «35% DTO.» y «VEGANO» —se veia en
+     produccion—. Copiar el 3px de .item-tag tampoco vale, y merece la pena saber por que: las
+     dos cajas miden 18 de alto, pero vertical-align mueve la BASE de cada una, y no la tienen
+     en el mismo sitio. La pastilla es inline-block con texto: su base es la del texto. Esto es
+     inline-flex con un SVG dentro, y un SVG no tiene base propia, asi que la caja hereda su
+     borde inferior — que esta 2,5 por encima del suelo del circulo, porque el dibujo mide 13
+     dentro de 18. Con 3px se iba 2,5 ARRIBA, medido. De ahi este valor: los 3px de la pastilla
+     menos esos 2,5. Si algun dia cambia el tamano del dibujo, cambia el numero — y lo caza
+     CAR-33, que compara los dos bordes inferiores. */
+  vertical-align:0.5px;
 }
 .item-tag-llevar svg{width:13px;height:13px;display:block}
 .item-tag-high:not([hidden]):has(+ .item-tag-llevar:not([hidden])){margin-right:4px}
