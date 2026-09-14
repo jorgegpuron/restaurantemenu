@@ -3653,6 +3653,63 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
    barra al desplazarse, y la barra translúcida está pensada para que la carta pase por debajo.
    Con :has() sin soporte esto no se aplica y queda el comportamiento de siempre: no empeora. */
 .head-tools:has(.lang-trigger[aria-expanded="true"]){z-index:35}
+/* ---- la barra plegada en un círculo, sólo en el móvil ----
+   Desplegada mide 267 px: a 320 son el 83,4 % del ancho de la pantalla, y lo que hay debajo es
+   la foto del restaurante. Plegada es un círculo de 44 con la bandera del idioma puesto.
+
+   La fila es la que se mueve, no la barra: se le anima el ANCHO de 0 a lo que mida su
+   contenido. Animar el ancho es la excepción a la regla de la casa de animar sólo transform y
+   opacity, la misma que ya se pagó en los puntos del hero: un scaleX sobre una píldora deforma
+   los extremos, y aquí además el contenido tiene que reflotar, no estirarse. Son dos controles
+   en un flex aislado, así que el coste real es nulo.
+
+   El ancho exacto lo escribe el runtime en píxeles: «Español» y «Deutsch» no miden lo mismo, y
+   auto no se puede animar. Al terminar de abrirse vuelve a auto, para que cambiar de idioma con
+   la barra abierta no la deje corta. */
+.head-tools-fila{display:flex;align-items:center;gap:4px;min-width:0}
+/* Los controles NO se encogen. Dos motivos, y los dos importan: recortada a 0 se aplastarían en
+   vez de quedarse fuera del recorte, y el ancho que el runtime mide para animar saldría mal. */
+.head-tools-fila > *{flex:none}
+.head-tools-b{display:none}
+@media (max-width:767px){
+  .head-tools-b{
+    flex:none;width:44px;height:44px;padding:0;
+    align-items:center;justify-content:center;
+    border:0;border-radius:50%;background:transparent;
+    cursor:pointer;
+  }
+  .head-tools-b[hidden]{display:none}
+  .head-tools-b:not([hidden]){display:flex}
+  .head-tools-b .lang-flag{width:24px;height:24px}
+  .head-tools-b .lang-flag img,
+  .head-tools-b .lang-flag svg{width:100%;height:100%;display:block;border-radius:50%}
+  /* Cerrada enseña la bandera; abierta, la × — nunca las dos. */
+  .head-tools-b .head-tools-x{width:19px;height:19px;color:var(--ink)}
+  .head-tools:not(.abierta) .head-tools-b .head-tools-x{display:none}
+  .head-tools.abierta .head-tools-b .lang-flag{display:none}
+  .head-tools-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .head-tools-b:active{transform:scale(.94)}
+  /* Sólo cuando el runtime ha tomado el mando: sin JavaScript el círculo no existe y la fila
+     no puede quedarse plegada sin nada que la abra. */
+  .head-tools.es-plegable .head-tools-fila{
+    /* El recorte es lo que permite animar el ancho, pero NO puede quedarse puesto: el menú de
+       idioma vive dentro de esta fila y se despliega hacia abajo, así que un overflow:hidden
+       permanente se lo come. Medido contra main: el menú acababa en 174 en vez de 226 y sus
+       opciones dejaban de recibir el toque. Por eso el recorte lo pone y lo quita el runtime:
+       mientras el ancho viaja y mientras está plegada, sí; abierta del todo, no. */
+    overflow:hidden;
+    transition:width var(--t-sheet-in) var(--ease-out),opacity var(--t-fast) linear;
+  }
+  .head-tools.es-plegable:not(.abierta) .head-tools-fila{opacity:0}
+  /* Plegada, el hueco entre el círculo y la fila SOBRA: la fila mide 0 pero el gap sigue
+     contando, y la barra salía de 56 × 52 — una caja no cuadrada con radio de píldora es un
+     óvalo, no un círculo. Se veía. Sin el hueco son 52 × 52 y el radio da un círculo de
+     verdad. */
+  .head-tools.es-plegable:not(.abierta){gap:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .head-tools-fila{transition:none}
+}
 /* ---- con foto, los controles van ENCIMA de ella ----
    Metidos 13px por sus dos lados desde la esquina de la foto. Alinearlos con el margen del
    contenido —34— los dejaria pegados al borde de la imagen, que no es "mismo margen": es
@@ -4560,7 +4617,23 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
              fila entera debajo del titulo: 65px de alto en un movil, para algo que se toca una
              vez y no se vuelve a tocar. Un desplegable lo deja en una esquina y devuelve ese
              alto a los platos, que es a lo que se viene. -->
-        <div class="head-tools">
+        <div class="head-tools" id="head-tools">
+          <!-- En el móvil esta barra se pliega en este círculo, que enseña la bandera del
+               idioma que está puesto. Desplegada mide 267 px de ancho: a 320 son el 83 % de
+               la pantalla tapando la foto, para dos controles que se tocan una vez.
+               El círculo sale oculto: lo destapa el runtime, y sólo por debajo de 768.
+               Sin JavaScript la barra se queda entera, que es como ha funcionado siempre. -->
+          <button type="button" class="head-tools-b" id="head-tools-b" hidden
+                  aria-expanded="false" aria-controls="head-tools-fila">
+            <span class="a11y">${T('Language', 'ui')}</span>
+            <span class="lang-flag" id="head-tools-flag" aria-hidden="true"></span>
+            <!-- Abierta, el mismo botón es la × de cerrar. Dos motivos: con la bandera puesta
+                 quedaban DOS banderas seguidas —la del círculo y la del selector, que ya la
+                 lleva— y sin la × la única forma de cerrar era tocar fuera, que hay que
+                 adivinar. -->
+            <svg class="head-tools-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12"/></svg>
+          </button>
+          <div class="head-tools-fila" id="head-tools-fila">
           <div class="txt-size" id="txt-size" role="group"${TL('Text size')}>
             <button type="button" class="txt-size-btn" data-escala="1" aria-pressed="true"${TL('Normal text')}>A</button>
             <button type="button" class="txt-size-btn" data-escala="1.15" aria-pressed="false"${TL('Large text')}>A</button>
@@ -4592,6 +4665,7 @@ ${IDIOMAS.map((l) => `              <button type="button" class="lang-opt" role=
                 <svg class="lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -9"/></svg>
               </button>`).join(String.fromCharCode(10))}
             </div>
+          </div>
           </div>
         </div>
 
@@ -7183,11 +7257,112 @@ ${DATOS_ACTIVO ? `
     });
   }
 
+  /* ---- la barra de la portada, plegada en un círculo (sólo móvil) ----
+   * Desplegada mide 267 px: a 320 son el 83 % del ancho, tapando la foto del restaurante para
+   * dos controles que se tocan una vez y no se vuelven a tocar. Plegada es la bandera del
+   * idioma puesto, y nada más.
+   *
+   * Todo lo decide el runtime, no una regla de ancho: sin JavaScript el círculo no llega a
+   * existir y la barra se queda entera, que es como ha funcionado siempre. Al revés —plegada
+   * por CSS— quien no tenga JavaScript se quedaría sin poder abrirla. */
+  (function () {
+    var tools = document.getElementById('head-tools');
+    var boton = document.getElementById('head-tools-b');
+    var fila = document.getElementById('head-tools-fila');
+    if (!tools || !boton || !fila) return;
+    var ANCHO_RATON = 768;
+    var abierta = false;
+
+    function plegable() { return window.innerWidth < ANCHO_RATON; }
+
+    /* Lo que mide la fila con su contenido de ahora. Se mide cada vez y no una sola: «Español»
+       y «Deutsch» no ocupan lo mismo, y el ancho de la animación tiene que ir en píxeles
+       porque auto no se puede interpolar.
+       Se lee scrollWidth SIN tocar el ancho, y esto es la lección: la primera versión ponía la
+       fila en auto para medir y lo devolvía después, pero leer scrollWidth obliga al navegador
+       a recalcular estilos CON ese auto puesto. El punto de partida de la transición pasaba a
+       ser el ancho final, no había cambio que animar, y por tanto no llegaba nunca el
+       transitionend que quita el recorte: el menú de idioma se quedaba cortado para siempre.
+       Con la fila recortada a 0, scrollWidth ya da el ancho del contenido — siempre que el
+       contenido no se encoja, que es lo que asegura el flex:none de los hijos. */
+    function anchoDeLaFila() { return fila.scrollWidth; }
+
+    function pintar(conViaje) {
+      if (!plegable()) {
+        tools.classList.remove('es-plegable', 'abierta');
+        boton.hidden = true;
+        boton.setAttribute('aria-expanded', 'false');
+        fila.style.width = '';
+        fila.style.overflow = '';
+        fila.removeAttribute('inert');
+        return;
+      }
+      tools.classList.add('es-plegable');
+      boton.hidden = false;
+      boton.setAttribute('aria-expanded', String(abierta));
+      tools.classList.toggle('abierta', abierta);
+      if (abierta) {
+        fila.removeAttribute('inert');
+        if (conViaje) {
+          /* Recortada mientras el ancho viaja, o el contenido se saldría de la caja que crece.
+             Se destapa al llegar, en transitionend. */
+          fila.style.overflow = 'hidden';
+          fila.style.width = anchoDeLaFila() + 'px';
+        } else {
+          fila.style.overflow = 'visible';
+          fila.style.width = 'auto';
+        }
+        return;
+      }
+      /* Cerrando: vuelve el recorte, y con él la posibilidad de animar. */
+      fila.style.overflow = 'hidden';
+      /* inert AHORA y no al final del viaje: mientras se cierra ya no debe poder recibir el
+         foco. Es lo único que saca de verdad un control del tabulador y del lector de
+         pantalla; esconderlo con CSS lo deja dentro de los dos. */
+      fila.setAttribute('inert', '');
+      if (!conViaje) { fila.style.width = '0px'; return; }
+      /* Del ancho real a cero, con un fotograma en medio: desde auto no hay nada que
+         interpolar y el cierre sería un salto. */
+      fila.style.width = anchoDeLaFila() + 'px';
+      void fila.offsetWidth;
+      fila.style.width = '0px';
+    }
+
+    /* Abierta del todo, vuelve a auto: si se quedara en los píxeles de la apertura, cambiar de
+       idioma con la barra abierta la dejaría corta con el ancho del idioma anterior. */
+    fila.addEventListener('transitionend', function (e) {
+      if (e.propertyName !== 'width' || !abierta || !plegable()) return;
+      fila.style.width = 'auto';
+      /* Y fuera el recorte: el menú de idioma cuelga de aquí y se despliega hacia abajo. */
+      fila.style.overflow = 'visible';
+    });
+    boton.addEventListener('click', function () { abierta = !abierta; pintar(true); });
+    /* Se pliega sola al elegir idioma, al tocar fuera y con Escape: lo mismo que ya hace el
+       menú de idioma, para que los dos se cierren igual. */
+    fila.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.lang-opt')) { abierta = false; pintar(true); }
+    });
+    document.addEventListener('pointerdown', function (e) {
+      if (!abierta || !plegable() || tools.contains(e.target)) return;
+      abierta = false; pintar(true);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !abierta || !plegable()) return;
+      abierta = false; pintar(true); boton.focus();
+    });
+    window.addEventListener('resize', function () { pintar(false); });
+    pintar(false);
+  })();
+
   function langPintar(lang) {
     var l = null;
     for (var i = 0; i < IDIOMAS.length; i++) if (IDIOMAS[i].code === lang) l = IDIOMAS[i];
     if (!l) return;
     if (langFlag) langFlag.innerHTML = l.flag;
+    /* La bandera del círculo que pliega la barra en el móvil: la misma, y se repone aquí para
+       que no haga falta acordarse de ella en ningún otro sitio. */
+    var flagPlegada = document.getElementById('head-tools-flag');
+    if (flagPlegada) flagPlegada.innerHTML = l.flag;
     if (langName) langName.textContent = l.name;
     langOpts.forEach(function (o) {
       o.setAttribute('aria-checked', String(o.dataset.lang === lang));

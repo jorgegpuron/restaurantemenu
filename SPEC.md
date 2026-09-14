@@ -7423,3 +7423,60 @@ límite editorial.
 **Las pruebas: dos, y la segunda no sobra.** `E2E-MA-01` comprueba que 26 caracteres se rechazan.
 `E2E-MA-01b` comprueba que **25 exactos SÍ se guardan**, que es la mitad que faltaba: con sólo la
 primera, subir el tope a 25 y dejar el rechazo en 21 por descuido habría pasado en verde.
+
+## La barra de la portada se pliega en un círculo, sólo en el móvil (14 Sep 2026)
+
+Desplegada mide **267 × 52 px**: a 320 son el **83,4 %** del ancho de la pantalla, y a 390 el
+68,5 %. Debajo está la foto del restaurante, y lo que tapa son dos controles que se tocan una
+vez y no se vuelven a tocar. Plegada es un círculo de 44 con la bandera del idioma puesto:
+**56 px**, el 17,5 % a 320.
+
+En el móvil la barra son sólo dos cosas —el tamaño de texto y el idioma—: la lupa es de
+escritorio (`@media (min-width:768px)`), porque en el móvil la puerta al buscador es el botón
+flotante de abajo.
+
+Decisiones, y por qué:
+
+- **El círculo se va con el scroll**, como la barra de siempre: es `absolute` dentro de la
+  portada. Fijarlo sería otra función y taparía plato.
+- **Abierta flota sobre la foto, no la empuja.** Empujarla movería el título y el carrusel cada
+  vez que alguien toca el idioma.
+- **Abierta, el mismo botón es la × de cerrar.** Con la bandera puesta quedaban DOS banderas
+  seguidas —la del círculo y la del selector, que ya la lleva— y sin la × la única forma de
+  cerrar era tocar fuera, que hay que adivinar.
+- **Se pliega sola** al elegir idioma, al tocar fuera y con Escape: lo mismo que ya hacía el
+  menú de idioma, para que los dos se cierren igual.
+- **Todo lo decide el runtime.** Sin JavaScript el círculo no llega a existir y la barra se
+  queda entera, que es como ha funcionado siempre. Plegada por CSS, quien no tenga JavaScript se
+  quedaría sin poder abrirla.
+- **Lo que la barra esconde va `inert`**, no sólo tapado: un control escondido con CSS sigue
+  estando en el tabulador y en el lector de pantalla. Es la misma trampa que ya costó una vez
+  con las flechas de la ficha.
+
+**Dos defectos propios, encontrados midiendo y no leyendo.**
+
+El primero: el `overflow:hidden` que permite animar el ancho **recortaba el menú de idioma**,
+que cuelga de esa misma fila y se despliega hacia abajo. Comparado contra `main`, el menú acababa
+en 174 en vez de 226 y sus opciones **dejaban de recibir el toque** — aunque seguía diciendo que
+era visible y con alto. Ahora el recorte lo pone y lo quita el runtime: mientras el ancho viaja y
+mientras está plegada, sí; abierta del todo, no.
+
+El segundo es más fino y merece quedar escrito. Para animar hace falta el ancho en píxeles,
+porque `auto` no se interpola. La primera versión lo medía poniendo la fila en `auto` y
+devolviéndola después — pero **leer `scrollWidth` obliga al navegador a recalcular estilos con
+ese `auto` puesto**. El punto de partida de la transición pasaba a ser el ancho final: no había
+nada que animar, no llegaba el `transitionend`, y el recorte del párrafo anterior no se quitaba
+nunca. Ahora se lee `scrollWidth` sin tocar el ancho, que ya da el contenido aun con la caja
+recortada a 0 — y los hijos llevan `flex:none` para que ahí no se encojan y falseen la medida.
+
+**Pruebas:** `CAR-36`, `CAR-37` y `CAR-38` en `qa/suites/carta.mjs`, midiendo a lo ancho de
+verdad y no leyendo el CSS. `CAR-37` comprueba el menú de idioma **abierto con la barra abierta**,
+y lo hace preguntando quién recibe el toque en su última opción: medir que «se ve» no bastaba,
+porque recortado seguía midiendo alto y devolviendo visible.
+
+**De paso, un agujero en una prueba de ayer.** `CAR-35` —los huecos de la moto— sembraba la
+oferta con claves inventadas: `pct` y `'00:00'`, cuando en `estado.json` el descuento es
+`percent` y el horario son minutos desde medianoche. La oferta no llegaba a correr, la fila salía
+sin su pastilla y la prueba medía pares que no eran el que descubrió el defecto: habría pasado en
+verde sin mirar el caso que falla. Corregidas las claves, y si algún día la fixtura no pinta ese
+par, la prueba se BLOQUEA en vez de pasar.

@@ -368,9 +368,13 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
          esta fila, CAR-35 pasaría sin haber mirado el caso que falla. */
       est.tags = Object.assign({}, est.tags, { [platos[0].k]: 'Popular' });
       est.paraLlevar = [platos[0].k, platos[1].k];
+      /* El horario va en MINUTOS desde medianoche y el descuento se llama `percent`: son las
+         claves reales de estado.json, no las que parecen. Escritas a ojo —'00:00' y `pct`— la
+         oferta no llegaba a correr y la fila salía sin su pastilla, con lo que CAR-35 medía
+         pares que no eran el que importa. */
       est.offer = Object.assign({}, est.offer, {
-        on: true, pct: 35, keys: [platos[1].k], cats: [],
-        from: '00:00', to: '23:59', days: [1, 2, 3, 4, 5, 6, 7], weekly: true,
+        on: true, percent: 35, keys: [platos[1].k], cats: [],
+        from: 0, to: 1439, days: [1, 2, 3, 4, 5, 6, 7],
       });
       writeFileSync(estadoPath, JSON.stringify(est));
 
@@ -565,13 +569,112 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
         });
         return salida;
       });
-      informe.comprueba('CAR-35', 'los huecos a los lados de la moto son los 4 px de etiqueta a etiqueta, no los 8 de separar del nombre' + suf,
-        huecos.length > 0 && huecos.every((h) => Math.abs(h.px - 4) <= 0.6),
-        JSON.stringify(huecos.slice(0, 6)));
+      /* El par que DESCUBRIÓ el defecto es oferta>moto, el que salta la ranura vacía del
+         destacado. Si la fixtura no llega a pintarlo, esto se BLOQUEA en vez de pasar: una
+         comprobación que no ha mirado el caso que falla no es un PASS. */
+      const conOferta = huecos.some((h) => h.par.indexOf('item-tag-offer') === 0);
+      if (!conOferta) {
+        informe.blocked('CAR-35', 'huecos a los lados de la moto' + suf,
+          'la fixtura no pintó ninguna fila con oferta y moto, que es el par que descubrió el defecto: '
+          + JSON.stringify(huecos.slice(0, 6)));
+      } else {
+        informe.comprueba('CAR-35', 'los huecos a los lados de la moto son los 4 px de etiqueta a etiqueta, no los 8 de separar del nombre' + suf,
+          huecos.length > 0 && huecos.every((h) => Math.abs(h.px - 4) <= 0.6),
+          JSON.stringify(huecos.slice(0, 6)));
+      }
 
       writeFileSync(estadoPath, estadoCarrusel);
     }
   }
+
+  /* ---------------------------------------------------------------- la barra de la portada
+   * En el móvil se pliega en un círculo con la bandera del idioma: desplegada mide 267 px, que
+   * a 320 son el 83 % del ancho tapando la foto del restaurante, para dos controles que se
+   * tocan una vez. Desde 768 no cambia nada.
+   *
+   * Se prueba a lo ancho de verdad y no leyendo el CSS: el plegado lo decide el runtime, y la
+   * diferencia entre «se ve» y «existe pero no se ve» sólo la da la geometría.
+   *
+   * Y se prueba el menú de idioma ABIERTO con la barra abierta. Ahí estuvo el defecto que
+   * costó encontrar: el recorte que permite animar el ancho se comía el menú, que cuelga de la
+   * misma fila y se despliega hacia abajo. Salía «visible» y con alto, pero sus opciones no
+   * recibían el toque. */
+  informe.seccion('la barra de la portada, plegada en el móvil' + suf);
+  const vpBarra = pagina.viewportSize();
+  await pagina.setViewportSize({ width: 390, height: 844 });
+  await pagina.goto(url + '/', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(1200);
+  const leerBarra = () => pagina.evaluate(() => {
+    const t = document.getElementById('head-tools');
+    const b = document.getElementById('head-tools-b');
+    const f = document.getElementById('head-tools-fila');
+    if (!t || !b || !f) return { error: 'la barra no tiene el círculo ni la fila' };
+    return {
+      circulo: !b.hidden && b.getBoundingClientRect().width > 0,
+      aria: b.getAttribute('aria-expanded'),
+      anchoBarra: Math.round(t.getBoundingClientRect().width),
+      anchoFila: Math.round(f.getBoundingClientRect().width),
+      inerte: f.hasAttribute('inert'),
+      conBandera: /<(img|svg)/i.test(document.getElementById('head-tools-flag').innerHTML || ''),
+      desbordePagina: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      /* Plegada tiene que ser un CÍRCULO, no un óvalo: el radio es de píldora, así que la caja
+         que lo lleva tiene que ser cuadrada. Salía 56 × 52 porque el hueco del flex seguía
+         contando con la fila a 0, y se veía. */
+      desnivelCaja: Math.round(Math.abs(t.getBoundingClientRect().width - t.getBoundingClientRect().height) * 10) / 10,
+    };
+  });
+  const plegada = await leerBarra();
+  informe.comprueba('CAR-36', 'en el móvil la barra arranca plegada en un círculo REDONDO con la bandera, y lo que esconde no está en el tabulador' + suf,
+    !plegada.error && plegada.circulo && plegada.aria === 'false'
+    && plegada.anchoFila === 0 && plegada.anchoBarra <= 60 && plegada.inerte
+    && plegada.conBandera && plegada.desbordePagina === 0
+    && plegada.desnivelCaja <= 0.6,
+    JSON.stringify(plegada));
+
+  await pagina.evaluate(() => document.getElementById('head-tools-b').click());
+  await pagina.waitForTimeout(800);
+  const abierta = await leerBarra();
+  /* Con la barra abierta, el menú de idioma tiene que recibir el toque en su última opción.
+     Medir que «se ve» no basta: recortado seguía midiendo alto y devolvía visible. */
+  await pagina.evaluate(() => document.getElementById('lang-trigger').click());
+  await pagina.waitForTimeout(500);
+  const menu = await pagina.evaluate(() => {
+    const m = document.getElementById('lang-menu');
+    const ops = [...m.querySelectorAll('.lang-opt')];
+    const ult = ops.length ? ops[ops.length - 1].getBoundingClientRect() : null;
+    const quien = ult
+      ? document.elementFromPoint(Math.round(ult.left + ult.width / 2), Math.round(ult.top + ult.height / 2))
+      : null;
+    return {
+      opciones: ops.length,
+      laUltimaLaRecibeElMenu: quien ? m.contains(quien) : null,
+      quienLaRecibe: quien ? (String(quien.className).split(' ')[0] || quien.tagName) : null,
+    };
+  });
+  informe.comprueba('CAR-37', 'al tocar el círculo la barra se despliega, y el menú de idioma no queda recortado por ella' + suf,
+    !abierta.error && abierta.aria === 'true' && abierta.anchoFila > 100 && !abierta.inerte
+    && abierta.desbordePagina === 0
+    && menu.opciones > 0 && menu.laUltimaLaRecibeElMenu === true,
+    JSON.stringify({ abierta, menu }));
+
+  await pagina.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await pagina.waitForTimeout(400);
+  await pagina.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await pagina.waitForTimeout(800);
+  const cerrada = await leerBarra();
+  /* Y en escritorio no hay círculo ni nada inerte: la barra es la de siempre. */
+  await pagina.setViewportSize({ width: 1280, height: 900 });
+  await pagina.goto(url + '/', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(1000);
+  const escritorio = await leerBarra();
+  informe.comprueba('CAR-38', 'tocar fuera la vuelve a plegar, y desde 768 no hay círculo ni nada fuera del tabulador' + suf,
+    !cerrada.error && cerrada.aria === 'false' && cerrada.anchoFila === 0 && cerrada.inerte
+    && !escritorio.error && escritorio.circulo === false && escritorio.inerte === false
+    && escritorio.anchoFila > 100,
+    JSON.stringify({ cerrada, escritorio }));
+  if (vpBarra) await pagina.setViewportSize(vpBarra);
+  await pagina.goto(url + '/', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(600);
 
   informe.seccion('endpoints publicos y fugas' + suf);
   const fugas = await pagina.evaluate(async () => {
