@@ -5,21 +5,23 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, noche** · rama **`fix/pagespeed-100`** con el árbol
-> **SUCIO y SIN COMMIT**, a propósito: el protocolo de `nueva-funcion` exige autorización
-> expresa para el commit y no la hay todavía. `main` = `origin/main` = `fd27860`, sin tocar.
-> **`motor.lock` refirmado** (versión 1.1.8) sobre los cambios de la rama. Producción sigue
-> sirviendo **`1789398047116`**; nada de hoy está publicado.
+> Última actualización: **14 sep 2026, noche, CERRADA** · `main` = `origin/main` = **`3dcde48`**,
+> árbol limpio salvo `.ai/`. `motor.lock` refirmado (versión 1.1.8). **Producción sirve
+> `1789413900535`**, desplegado hoy con `DESPLIEGUE_REAL` puesta a `true` sólo durante el run
+> `34886728431` y **devuelta a `false` (leída de GitHub)**. Ese despliegue publicó también lo que
+> estaba retenido: el juego con combo (`0448080`), la limpieza de símbolos y el aviso de alérgenos.
+> La rama `fix/pagespeed-100` está fusionada y es borrable.
 >
-> **Lo siguiente es que el propietario diga si acepta el diseño de abajo y autoriza el commit.**
-> Si lo acepta: commit en `fix/pagespeed-100`, merge a `main`, push y despliegue, cada uno con
-> su autorización aparte. Si no lo acepta: `git checkout -- . && git checkout main` y la rama
-> se borra; no hay nada más que deshacer. El alta del restaurante nuevo (`/nuevo-cliente`,
-> fotos en `socialcard_claudecode/0-altas/`) sigue esperando a tener nombre y destino.
+> **PageSpeed sobre producción con el build nuevo:** móvil 96 / **100 / 100 / 100**, escritorio
+> 98 / **100 / 100 / 100** (Rendimiento / Accesibilidad / Buenas prácticas / SEO). Objetivo cumplido.
+>
+> **Lo siguiente:** el podio del juego (ver abajo: se publicó el juego nuevo SIN vaciarlo antes;
+> hay que ponerlo a cero desde el panel cuanto antes), el nombre de Guaza en la carta de Tinge, y
+> el alta del restaurante nuevo (`/nuevo-cliente`, fotos en `socialcard_claudecode/0-altas/`).
 
 ---
 
-## Lo que hay en la rama (sin commit)
+## Lo que se publicó hoy (`3dcde48`)
 
 El propietario pasó PageSpeed y quería recuperar **Accesibilidad, Buenas prácticas y SEO en
 100** y mejorar el rendimiento si se podía. Medido con la API de PageSpeed (clave en
@@ -34,8 +36,8 @@ las medidas y las razones; esto es el resumen:
   6,97:1; la pastilla de dieta vuelve a fondo oscuro con naranja encima), y el precio rebajado
   vuelve a la pastilla de antes del 4 sep. Cambiado en las cuatro capas (temas.mjs, runtime de
   gen.mjs, PHP del panel, contrato de tintas). **La excepción de «Rush» en el juego se queda.**
-  **ESTO ES UN CAMBIO VISUAL que contradice una petición expresa anterior del propietario:
-  si prefiere el texto claro, hay que decírselo claro: no se puede tener eso y el 100.**
+  **Es un cambio visual que contradice la petición del 4 sep, aceptado hoy por el propietario
+  para recuperar el 100: no se puede tener las dos cosas.**
 - **Buenas prácticas 96 → 100 (móvil).** La bandera del círculo que pliega la barra se
   estiraba de 4:3 a un cuadrado: `object-fit:cover`.
 - **SEO:** ya estaba en 100 en producción. Nada que hacer.
@@ -80,15 +82,17 @@ Marca de Tinge, y es cosa del propietario decidir cuándo. No se ha tocado produ
 - **`qa/manifiesto-build.json` se mantiene A MANO** y su `como_se_regenera` cita un script
   que no existe.
 - **`TINGE_CLIENTE.md:125`** describe un premio del juego que ya no existe.
-- **Atado al despliegue del juego:** poner el podio a cero desde el panel ANTES de desplegar
-  el juego nuevo (combo: techo 161; `RECORD_MAX` = 300). No vaciarlo antes de tiempo.
+- **El podio del juego sigue con las marcas del juego viejo** (59 anónima, 49 JORGE, 39 Abel)
+  y el juego nuevo YA está en producción: el propietario ordenó desplegar sin pasar antes por el
+  panel. Ponerlo a cero desde la pestaña Juego cuanto antes (combo: techo 161; `RECORD_MAX` =
+  300).
 - **La puerta de Tinge** sigue con la imagen genérica hasta que alguien quite `acceso.jpg`
   por FTP (`deploy.yml` lo excluye).
 
 ## Riesgos vivos
 
-- **Producción va tres builds por detrás y a propósito.** Publicar exige `workflow_dispatch`
-  Y `DESPLIEGUE_REAL=true`.
+- **Producción está al día** (`1789413900535` = `main`). Publicar sigue exigiendo
+  `workflow_dispatch` Y `DESPLIEGUE_REAL=true`; la variable está en `false`.
 - **Las seis fotos del cliente nuevo** están sueltas en `socialcard_claudecode/0-altas/`, sin
   subcarpeta, hasta que haya nombre.
 - **El arrastre de categorías sigue sin probarse en un teléfono real.**
@@ -160,3 +164,7 @@ reproduce lo que ve PageSpeed salvo la red. La batería (`qa/lib/clientes.mjs`,
 consola; conviene restringirla a la API de PageSpeed si no lo está). Aviso por voz:
 `SAPI.SpVoice` con «Microsoft Helena Desktop». `.claude/launch.json` del workspace lleva
 entradas de vista previa a copias temporales: si no existen, se recrean o se borran.
+**`.claude/settings.local.json` del workspace lleva desde hoy reglas de permiso** para `git switch`,
+`git merge --ff-only`, `git push origin main`, `gh variable set/get`, `gh workflow run` y `gh run
+*`: el modo automático bloqueaba merge y despliegue y el propietario las autorizó. La regla del
+protocolo no cambia: cada uno sigue exigiendo su orden expresa.
