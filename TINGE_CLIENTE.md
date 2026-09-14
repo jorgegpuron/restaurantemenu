@@ -122,12 +122,17 @@ carta está en indio transcrito.
 
 ## El juego
 
-«Chilli Rush». Encendido. Configuración publicada: objetivo 10, 1 minuto, premio «¡1 BEBIDA
-GRATIS! 🥤» en los tres idiomas.
+«Chilli Rush». Encendido. **Sin premio y sin objetivo**: en el panel sólo queda el interruptor
+de encender y apagar.
 
-La sal con la que se firman los códigos está en `cliente.mjs → secreto`. **No se documenta su
-valor y no se cambia nunca**: cambiarla invalida los códigos que alguien pueda tener en el móvil
-en este momento. El build la copia a `admin/cliente.php` para que el panel valide los canjes.
+El premio se retiró entero —objetivo, texto del premio, minutos, el código `CR-DDMM-…`, la
+pantalla del camarero, el reloj, los canjes y el salto a la reseña— porque obligaba al
+restaurante a validar un código y entregar algo, y el juego tiene que funcionar solo. El
+razonamiento completo está en `SPEC.md`. **En su lugar queda el récord de la casa**: un podio de
+tres marcas, que el propietario puede poner a cero desde el panel.
+
+Con eso desapareció también la sal que firmaba los códigos: **`cliente.mjs → secreto` ya no
+existe**, y `CR-`, los canjes y la pantalla del camarero no aparecen en el código del juego.
 
 ## Redes y reseñas
 
