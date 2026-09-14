@@ -5,19 +5,21 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, noche.** `main` = `origin/main` = `3b63b97`; producción
-> sirve `1789417907465`. **Rama `feature/portada-estatica` con la portada estática hecha,
-> probada y SIN integrar**: el panel copia la primera foto a `assets/hero/portada-<ancho>.webp`
-> (píxel transparente si no hay fotos) y apunta `heroPortada`; la carta la precarga desde el
-> `<head>` (tras el viewport) y la pinta desde el marcado sin esperar a `estado.json`; el runtime
-> la confirma o la cambia cuando llega el estado. Lighthouse local: el retraso de carga de la
-> portada pasa de 1,5–2,7 s a 11 ms. `fast` 37, `smoke` 17, contrato en verde; `full` corrido
-> (ver informe). Diseño aprobado por el propietario. **Falta su orden para integrar y desplegar;
-> después, tres pasadas de PageSpeed móvil para confirmar que deja de oscilar.**
+> Última actualización: **14 sep 2026, cierre.** `main` = `origin/main` = **`d8a7cb4`**, una sola
+> rama aquí y en GitHub, árbol limpio salvo `.ai/`. **Producción sirve `1789420518285`** (run
+> `34897728610`, `DESPLIEGUE_REAL` devuelta a `false`). **La portada estática está en producción
+> y activa**: el propietario abrió el panel, los seis `assets/hero/portada-*.webp` responden 200
+> con `s-maxage=60`, y `estado.heroPortada` = `hero[0]`. Nada a medias.
 >
-> Al desplegar: la primera visita al panel de Tinge escribe los alias (conciliación); hasta
-> entonces la carta recibe 404 en la portada estática y hace lo de siempre. Conviene abrir el
-> panel justo después del despliegue.
+> **Lo que dio, medido:** en Chrome real con red lenta la foto se pide a los 0,4 s (antes, al
+> llegar `estado.json`, 1,5–2,7 s) y el LCP es la diapositiva estática a 1,6 s. Lighthouse
+> desde aquí: 95 (estrangulado real) y 96 (simulado), LCP 2,3–2,4 s. **PageSpeed desde Google
+> sigue en 85–89**: su PoP de Cloudflare está frío para los ficheros de TTL corto (`estado.json`
+> 20 s, `portada-*` 60 s) y sirve el alias desde el origen (~1 s), y su simulador no empieza a
+> pedir la foto hasta que baja el HTML entero (98 KB). Lo que queda por probar, y es de
+> Cloudflare, no de código: **Smart Tiered Cache** (gratis; un PoP frío pide al nivel superior
+> y no al origen) y, si el propietario abre un token de purga, purgar `portada-*` al cambiar la
+> foto para poder subir su TTL de borde.
 >
 > **Lo siguiente, en este orden:** (1) el podio del juego a cero desde el panel, que el juego
 > nuevo ya está en producción con marcas viejas; (2) el nombre «Bar / Restaurante Guaza» en la
