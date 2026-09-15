@@ -8227,3 +8227,52 @@ pasa por Apache. Comprobado ejecutando el `require` contra un build real y verif
 contraseña contra la constante resultante, no razonándolo.
 
 Motor 1.3.0 → 1.3.1.
+
+## El contrato se muda al pie, y el aviso sube arriba (15 Sep 2026)
+
+El propietario no encontraba el contador. Estaba en la barra lateral, y esa barra **sólo rotula
+con texto a partir de 1024 px**: en un portátil normal o en la tablet de la cocina el contrato
+sencillamente no existía. Lo compartía con el aviso de sesión, que sí puede permitirse
+desaparecer —quien no ve la barra tampoco necesita saber cuántos minutos le quedan—, pero un
+contrato no.
+
+### Dos sitios, dos trabajos
+
+- **La FECHA, siempre, en la chapa de versión del pie** (`.chapa-lic`), junto a los tres números
+  que ya viven ahí: `Versión … · panel … · carta … · licencia hasta 20/09/2027`. Ese pie se
+  pinta a todos los anchos. Es un **dato**, consultable, y no compite por la atención de nadie.
+- **El AVISO, sólo en los últimos días, arriba del todo** (`.msg`). Es una **alarma**.
+
+En el pie va la fecha y no la cuenta atrás: un «faltan 312 días» permanente es ruido que se
+convierte en decorado y deja de leerse. Los días sólo aparecen cuando importan.
+
+### El umbral baja de 30 a 7 días
+
+Por el mismo motivo. Un mes de cartel encima del panel, en una pantalla donde el restaurante
+entra todos los días, deja de verse a la semana. Siete días es tiempo de sobra para renovar y
+poco para acostumbrarse.
+
+### Lo ven los dos roles, y cada uno lee lo que puede hacer
+
+El restaurante, porque es quien tiene que pedir la renovación; el superadministrador, porque es
+quien la ejecuta. El texto cambia: al super, «Puedes renovarla en Ajustes > Licencia»; al
+restaurante, «Avisa a SocialCard para renovarla».
+
+### Lo que NO cambia
+
+La licencia **sigue sin cortar nada**. Vencida, el aviso lo dice con todas las letras —«La carta
+y el panel siguen funcionando»— y el panel sigue entero. Quien no renueve pierde el servicio
+cuando el propietario le retire la URL a mano, nunca porque un contador haya decidido cerrar una
+puerta.
+
+Y sin licencia escrita no se pinta **nada**: ni fecha ni aviso. Un molde y una demo no tienen
+plazo, y anunciarles uno sería mentir.
+
+### Las pruebas
+
+`E2E-LIC-08` y `08b` prueban **los dos lados del umbral**: a 8 días no avisa, a 7 sí. Un umbral
+probado sólo por dentro pasa igual con el número cambiado. `08c`/`08d` cubren los dos roles,
+`E2E-LIC-17` mide a 375 px —el fallo que motivó el cambio— y `E2E-LIC-18` vigila que el contador
+no vuelva a la barra lateral por la puerta de atrás.
+
+Motor 1.3.1 -> 1.3.2.

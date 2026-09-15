@@ -6406,21 +6406,14 @@ $CUENTAS = [
     .adm-sidebar-sesion{display:block}
   }
 
-  /* El contador de contrato. Mismo sitio, mismo tamaño y mismo criterio de aparición que el
-     aviso de sesión de aquí arriba: sólo a partir de 1024px, que es cuando la barra rotula
-     con texto y no es un riel de iconos.
-     Es INFORMACIÓN y nada más: no apaga ninguna acción del panel, no tapa nada y no existe
-     en la carta del comensal. Los colores no se inventan — ámbar y rojo son los del sistema,
-     los mismos que ya usa la sesión cuando le queda poco (.adm-sesion[data-poco]). */
-  .adm-sidebar-licencia{
-    display:none;margin:0 0 var(--space-2);padding:0 var(--space-3);
-    font-size:var(--t3);color:var(--sc-text-2);line-height:var(--lh-compacto);
-  }
-  @media (min-width:1024px){
-    .adm-sidebar-licencia{display:block}
-  }
-  .adm-sidebar-licencia.adm-lic-aviso{color:var(--sc-warn-ink);font-weight:600}
-  .adm-sidebar-licencia.adm-lic-vencida{color:var(--sc-bad-ink);font-weight:600}
+  /* El contrato se lee en dos sitios y cada uno hace un trabajo distinto:
+       - la FECHA, siempre, en la chapa de versión del pie (.chapa-lic). Es un dato.
+       - el AVISO, sólo en los últimos días, arriba del todo (.msg). Es una alarma.
+     Estuvo en la barra lateral y fue un error: ahí sólo se pinta a partir de 1024 px, así que
+     en un portátil normal o en la tablet de la cocina no se veía. */
+  .chapa-lic{white-space:nowrap}
+  .chapa-lic.adm-lic-aviso{color:var(--sc-warn-ink);font-weight:600}
+  .chapa-lic.adm-lic-vencida{color:var(--sc-bad-ink);font-weight:600}
 
   /* El tooltip sólo hace falta cuando el icono va solo (tablet): a partir de 1024px ya hay
      rótulo visible y duplicarlo sería ruido. El nombre accesible del botón es aria-label,
@@ -7633,6 +7626,11 @@ $CUENTAS = [
   }
   .msg.ok{background:var(--sc-ok-bg);color:var(--sc-ok-ink)}
   .msg.bad{background:var(--sc-bad-bg);color:var(--ui-state-error)}
+  /* La tercera, que faltaba: aviso. Existía la necesidad —el cartel de migración se pintaba con
+     un #fff6e0 escrito a mano— pero no la variante, así que cada aviso nuevo se inventaba su
+     amarillo. Con los tokens no hace falta inventar nada y, sobre todo, CAMBIA EN OSCURO: un
+     hexadecimal claro a pelo se queda siendo un bloque chillón cuando el panel va en oscuro. */
+  .msg.avisa{background:var(--sc-warn-bg);color:var(--sc-warn-ink)}
   .msg code{font-family:ui-monospace,monospace;font-size:.92em}
   .demo-salir{margin-top:var(--s2)}
   .demo-salir > summary{
@@ -12245,6 +12243,34 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <?php if ($error): ?>toast(<?= json_encode($error, JSON_UNESCAPED_UNICODE) ?>, 'bad');<?php endif; ?>
   </script>
 
+  <?php /* ------------------------------------------------------- aviso de vencimiento
+           Arriba del todo y para LOS DOS ROLES: el restaurante, porque es quien tiene que
+           pedir la renovación, y el superadministrador, porque es quien la ejecuta.
+
+           Sólo en los últimos días (LICENCIA_AVISO_DIAS) y a partir del vencimiento. El resto
+           del año no se pinta: un cartel permanente se vuelve decorado y deja de leerse.
+
+           No bloquea NADA. La carta del comensal no se entera de esto, y el panel sigue
+           entero: quien no renueve pierde el servicio cuando el propietario se lo retire a
+           mano, no porque un contador haya decidido cerrar una puerta. */
+        $lic_avisa = licencia_dias_restantes();
+        if ($lic_avisa !== null && $lic_avisa <= LICENCIA_AVISO_DIAS): ?>
+    <div class="msg <?= $lic_avisa <= 0 ? 'bad' : 'avisa' ?>">
+      <?php if ($lic_avisa > 0): ?>
+        <strong>La licencia vence el <?= h(licencia_dia(LICENCIA_VENCE)) ?></strong> —
+        <?= licencia_frase((int) $lic_avisa) ?>.
+        <?php if ($super): ?>Puedes renovarla en Ajustes &gt; Licencia.<?php else: ?>Avisa a SocialCard para renovarla.<?php endif; ?>
+      <?php elseif ($lic_avisa === 0): ?>
+        <strong>La licencia vence hoy</strong>, <?= h(licencia_dia(LICENCIA_VENCE)) ?>.
+        <?php if ($super): ?>Renuévala en Ajustes &gt; Licencia.<?php else: ?>Avisa a SocialCard para renovarla.<?php endif; ?>
+      <?php else: ?>
+        <strong>La licencia venció el <?= h(licencia_dia(LICENCIA_VENCE)) ?></strong>
+        (<?= licencia_frase((int) $lic_avisa) ?>). La carta y el panel siguen funcionando.
+        <?php if ($super): ?>Renuévala en Ajustes &gt; Licencia.<?php else: ?>Avisa a SocialCard para renovarla.<?php endif; ?>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+
   <?php if (!$lista): ?>
     <div class="msg bad">No encuentro <code>platos.json</code>. Súbelo junto a este archivo.</div>
   <?php else: ?>
@@ -12442,18 +12468,11 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                desaparecen, sólo cambian de sitio según haya donde ponerlos. */ ?>
       <p class="adm-sidebar-marca"><?= h(CLIENTE_NOMBRE) ?></p>
       <p class="adm-sidebar-fecha"><?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
-      <?php /* El contrato. Sin licencia escrita NO SE PINTA NADA: ni «sin contrato» ni un
-               cero. Un molde y una demo no tienen plazo, y anunciarles uno sería mentir.
-               Nunca bloquea: es una línea de texto. */
-            $lic_d = licencia_dias_restantes();
-            if ($lic_d !== null):
-              $lic_clase = $lic_d <= 0 ? 'vencida' : ($lic_d <= LICENCIA_AVISO_DIAS ? 'aviso' : 'ok');
-      ?>
-        <p class="adm-sidebar-licencia adm-lic-<?= $lic_clase ?>">
-          <?= $lic_d > 0 ? 'Contrato: ' . (int) $lic_d . ($lic_d === 1 ? ' día' : ' días')
-                : ($lic_d === 0 ? 'Contrato: vence hoy' : 'Contrato vencido') ?>
-        </p>
-      <?php endif; ?>
+      <?php /* Aquí vivía el contador de contrato, y era el sitio equivocado: esta barra sólo
+               rotula con texto a partir de 1024 px, así que en un portátil normal o en la
+               tablet de la cocina el contador no existía. Se ha mudado a la chapa de versión
+               del pie, que se pinta a todos los anchos. El aviso de los últimos días es otra
+               cosa y va arriba del todo, no escondido en una barra. */ ?>
       <?php /* La barra y el tiempo que queda, y nada mas. «Servicio en curso» no decia nada
                que no dijera ya el hecho de estar dentro, y «se cierra en 30 min» era un
                numero fijo que decia lo mismo al entrar que veintinueve minutos despues. */ ?>
@@ -18382,6 +18401,17 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
     <?php endif; ?>
   </span>
   <span class="chapa-id">panel <?= h(BUILD_ID !== '' ? BUILD_ID : '?') ?> · carta <?= h($cartaBuild !== '' ? $cartaBuild : '?') ?></span>
+  <?php /* La licencia, junto a los otros tres números y con el mismo peso: un dato del pie.
+           Sin contrato NO SE PINTA NADA — ni «sin licencia» ni un cero: un molde o una demo no
+           tienen plazo y anunciarles uno sería mentir. Va en su propio <span> para que baje
+           entera cuando no quepa, como los otros dos. */
+        $lic_pie = licencia_dias_restantes();
+        if ($lic_pie !== null): ?>
+    <span class="chapa-lic <?= $lic_pie <= 0 ? 'adm-lic-vencida' : ($lic_pie <= LICENCIA_AVISO_DIAS ? 'adm-lic-aviso' : '') ?>">
+      <?= $lic_pie < 0 ? 'licencia vencida el ' . h(licencia_dia(LICENCIA_VENCE))
+            : 'licencia hasta ' . h(licencia_dia(LICENCIA_VENCE)) ?>
+    </span>
+  <?php endif; ?>
   <?php if (BUILD_ID !== '' && $cartaBuild !== '' && !$cuadra): ?>
     <span class="chapa-mal">la carta de al lado es de otra compilación: la subida se quedó a medias</span>
   <?php endif; ?>

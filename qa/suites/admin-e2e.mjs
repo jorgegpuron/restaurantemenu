@@ -2475,10 +2475,18 @@ export async function e2eLicencia(informe, { navegador, servidor, docroot, clave
   const sembrarLic = (alta, vence, veces) => writeFileSync(licPhp,
     `<?php\ndefine('LICENCIA_ALTA',  '${alta}');\ndefine('LICENCIA_VENCE', '${vence}');\ndefine('LICENCIA_RENOVACIONES', ${veces});\n`);
 
-  /* El contador vive en la barra lateral y sólo se pinta a partir de 1024px, igual que el
-     aviso de sesión que ya vivía ahí. Se mide con la ventana ancha a propósito. */
+  /* La FECHA vive en la chapa de versión del pie, que se pinta a TODOS los anchos. Estuvo en
+     la barra lateral y fue un error: allí sólo aparece a partir de 1024 px, así que en un
+     portátil normal o en la tablet de la cocina el contrato no se veía. Por eso estas pruebas
+     lo miden también a 375 px (E2E-LIC-17). */
   const contador = (p) => p.evaluate(() => {
-    const e = document.querySelector('.adm-sidebar-licencia');
+    const e = document.querySelector('.chapa-lic');
+    if (!e) return null;
+    return { texto: e.textContent.trim().replace(/\s+/g, ' '), clase: e.className, visible: !!e.offsetParent };
+  });
+  /* El AVISO es otra cosa: sólo en los últimos días, arriba del todo, y para los dos roles. */
+  const aviso = (p) => p.evaluate(() => {
+    const e = [...document.querySelectorAll('.msg')].find((m) => /licencia/i.test(m.textContent));
     if (!e) return null;
     return { texto: e.textContent.trim().replace(/\s+/g, ' '), clase: e.className, visible: !!e.offsetParent };
   });
@@ -2498,8 +2506,11 @@ export async function e2eLicencia(informe, { navegador, servidor, docroot, clave
     l0 !== null && l0.alta === hoy && l0.vence === sumaDias(hoy, 370) && l0.renovaciones === 0, JSON.stringify(l0));
 
   const c0 = await contador(sup);
-  informe.comprueba('E2E-LIC-02', 'el contador sale en la barra con los días que quedan y sin color de alarma',
-    c0 !== null && c0.visible && /Contrato: 370 d/.test(c0.texto) && /adm-lic-ok/.test(c0.clase), JSON.stringify(c0));
+  const a0 = await aviso(sup);
+  informe.comprueba('E2E-LIC-02', 'la fecha sale en el pie, sin color de alarma, y con 370 días por delante NO hay aviso arriba',
+    c0 !== null && c0.visible && /licencia hasta \d{2}\/\d{2}\/\d{4}/.test(c0.texto)
+      && !/adm-lic-(aviso|vencida)/.test(c0.clase) && a0 === null,
+    `${JSON.stringify(c0)} | aviso: ${a0 ? a0.texto : 'ninguno'}`);
 
   /* Puerta 1: la contraseña de superadministrador otra vez, aunque la sesión ya esté dentro. Una
      tablet de cocina olvidada con la sesión abierta no puede alargar un contrato. */
@@ -2526,20 +2537,64 @@ export async function e2eLicencia(informe, { navegador, servidor, docroot, clave
   sembrarLic(sumaDias(hoy, -400), sumaDias(hoy, -30), 3);
   await irA(sup, url, 'ajustes');
   const cVenc = await contador(sup);
+  const aVenc = await aviso(sup);
   const panelVivo = await sup.evaluate(() => !document.querySelector('#clave') && !!document.querySelector('[data-tab]'));
-  informe.comprueba('E2E-LIC-06', 'un contrato vencido avisa en rojo y NO cierra el panel: la licencia nunca corta nada',
-    cVenc !== null && /Contrato vencido/.test(cVenc.texto) && /adm-lic-vencida/.test(cVenc.clase) && panelVivo, JSON.stringify(cVenc));
+  informe.comprueba('E2E-LIC-06', 'un contrato vencido avisa arriba y en rojo en el pie, y NO cierra el panel: la licencia nunca corta nada',
+    cVenc !== null && /licencia vencida el \d{2}\/\d{2}\/\d{4}/.test(cVenc.texto) && /adm-lic-vencida/.test(cVenc.clase)
+      && aVenc !== null && aVenc.visible && /venció el/.test(aVenc.texto)
+      && /siguen funcionando/.test(aVenc.texto) && panelVivo,
+    `${JSON.stringify(cVenc)} | ${aVenc ? aVenc.texto.slice(0, 80) : 'SIN AVISO'}`);
   await postCrudo(sup, '/admin/index.php', [['renovar_licencia', '1'], ['super', claveSuper]]);
   const l2 = leerLic();
   informe.comprueba('E2E-LIC-07', 'renovar un contrato vencido suma 370 a HOY, no al vencimiento viejo, y conserva el alta',
     l2.vence === sumaDias(hoy, 370) && l2.alta === sumaDias(hoy, -400) && l2.renovaciones === 4, JSON.stringify(l2));
 
-  /* El aviso en ámbar: menos de 30 días. */
-  sembrarLic(sumaDias(hoy, -360), sumaDias(hoy, 10), 0);
+  /* El umbral del aviso: 7 días. Se comprueban los DOS lados de la frontera, porque un umbral
+     que sólo se prueba por dentro pasa igual con el número cambiado. */
+  sembrarLic(sumaDias(hoy, -360), sumaDias(hoy, 8), 0);
+  await irA(sup, url, 'ajustes');
+  const fuera = await aviso(sup);
+  const cFuera = await contador(sup);
+  informe.comprueba('E2E-LIC-08', 'a 8 días todavía NO hay aviso, y el pie sigue sin color de alarma',
+    fuera === null && cFuera !== null && !/adm-lic-(aviso|vencida)/.test(cFuera.clase),
+    `aviso: ${fuera ? fuera.texto : 'ninguno'} | pie: ${cFuera ? cFuera.clase : '-'}`);
+
+  sembrarLic(sumaDias(hoy, -360), sumaDias(hoy, 7), 0);
   await irA(sup, url, 'ajustes');
   const cAviso = await contador(sup);
-  informe.comprueba('E2E-LIC-08', 'a menos de 30 días el contador avisa en ámbar sin cambiar de sitio',
-    cAviso !== null && /Contrato: 10 d/.test(cAviso.texto) && /adm-lic-aviso/.test(cAviso.clase), JSON.stringify(cAviso));
+  const aAviso = await aviso(sup);
+  informe.comprueba('E2E-LIC-08b', 'a 7 días aparece el aviso arriba y el pie se pone en ámbar',
+    aAviso !== null && aAviso.visible && /vence el \d{2}\/\d{2}\/\d{4}/.test(aAviso.texto)
+      && /7 días restantes/.test(aAviso.texto)
+      && cAviso !== null && /adm-lic-aviso/.test(cAviso.clase),
+    `${aAviso ? aAviso.texto.slice(0, 70) : 'SIN AVISO'} | ${cAviso ? cAviso.clase : '-'}`);
+
+  /* Los dos roles lo ven, y cada uno lee lo que puede hacer al respecto. */
+  informe.comprueba('E2E-LIC-08c', 'el superadministrador ve el aviso y se le dice que puede renovar él mismo',
+    aAviso !== null && /Puedes renovarla en Ajustes/.test(aAviso.texto), aAviso ? aAviso.texto.slice(-60) : '-');
+
+  const restAv = await nuevaPagina(navegador);
+  await entrarAlPanel(restAv, url);
+  const aRest = await aviso(restAv);
+  informe.comprueba('E2E-LIC-08d', 'el restaurante ve el MISMO aviso, y a él se le dice que avise a SocialCard',
+    aRest !== null && aRest.visible && /vence el/.test(aRest.texto)
+      && /Avisa a SocialCard/.test(aRest.texto) && !/Puedes renovarla/.test(aRest.texto),
+    aRest ? aRest.texto.slice(-60) : 'SIN AVISO');
+
+  /* Y el motivo de toda esta mudanza: en un móvil tiene que verse. Antes no se veía. */
+  await restAv.setViewportSize({ width: 375, height: 812 });
+  await restAv.reload({ waitUntil: 'domcontentloaded' });
+  const movil = await restAv.evaluate(() => {
+    const lic = document.querySelector('.chapa-lic');
+    const msg = [...document.querySelectorAll('.msg')].find((m) => /licencia/i.test(m.textContent));
+    return {
+      pie: !!(lic && lic.offsetParent), aviso: !!(msg && msg.offsetParent),
+      desborda: document.documentElement.scrollWidth > window.innerWidth,
+    };
+  });
+  informe.comprueba('E2E-LIC-17', 'a 375 px se ven la fecha del pie y el aviso, y nada desborda a lo ancho',
+    movil.pie && movil.aviso && !movil.desborda, JSON.stringify(movil));
+  await restAv.contextoQa.close().catch(() => {});
 
   /* Un fichero corrupto se comporta como si no hubiera licencia: nunca como fechas inventadas y
      nunca tirando el panel. Es lo que separa «no factura» de «no funciona». */
@@ -2557,13 +2612,20 @@ export async function e2eLicencia(informe, { navegador, servidor, docroot, clave
   const sinLic = await sup.evaluate(() => {
     const f = document.querySelector('.adm-f-clisuper');
     return {
-      contador: !!document.querySelector('.adm-sidebar-licencia'),
+      pie: !!document.querySelector('.chapa-lic'),
+      aviso: !!([...document.querySelectorAll('.msg')].find((m) => /licencia/i.test(m.textContent))),
+      restoBarra: !!document.querySelector('.adm-sidebar-licencia'),
       boton: f?.querySelector('button[type="submit"]')?.textContent.trim() || '',
       txt: f?.textContent || '',
     };
   });
-  informe.comprueba('E2E-LIC-10', 'sin contrato no se pinta ningún contador, y la ficha ofrece «Iniciar contrato»',
-    !sinLic.contador && sinLic.boton === 'Iniciar contrato' && /no tiene contrato/.test(sinLic.txt), JSON.stringify(sinLic));
+  informe.comprueba('E2E-LIC-10', 'sin contrato no se pinta NADA —ni fecha en el pie ni aviso— y la ficha ofrece «Iniciar contrato»',
+    !sinLic.pie && !sinLic.aviso && sinLic.boton === 'Iniciar contrato' && /no tiene contrato/.test(sinLic.txt),
+    JSON.stringify(sinLic));
+  /* Y el sitio viejo no puede volver por la puerta de atrás: si un día reapareciera en la barra
+     lateral, el contrato volvería a ser invisible por debajo de 1024 px. */
+  informe.comprueba('E2E-LIC-18', 'el contador ya no existe en la barra lateral, donde no se veía en móvil',
+    !sinLic.restoBarra);
 
   /* Restablecer la contraseña del restaurante NO es un alta: es el rescate. guardar_clave() tiene
      tres llamadores y sólo dos son altas; si el contrato naciera aquí, un cliente que pierde su

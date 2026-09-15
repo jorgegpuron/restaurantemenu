@@ -138,9 +138,14 @@ define('LICENCIA_PATH', __DIR__ . '/licencia.php');
  * cruza con un fin de semana no deje el contrato en rojo. */
 define('LICENCIA_DIAS', 370);
 
-/* A partir de aquí el contador del panel avisa en ámbar. Un mes es el aviso que de verdad
- * da tiempo a renovar sin prisa. */
-define('LICENCIA_AVISO_DIAS', 30);
+/* A partir de aquí el panel enseña el aviso de vencimiento, arriba del todo y para los dos
+ * roles. Siete días y no treinta: un mes de cartel permanente se convierte en parte del
+ * decorado y deja de leerse, y el restaurante entra aquí todos los días. Una semana es
+ * tiempo de sobra para renovar y poco para acostumbrarse al aviso.
+ *
+ * La FECHA de vencimiento, en cambio, se ve siempre en el pie del panel: eso es un dato, no
+ * una alarma, y no compite por la atención de nadie. */
+define('LICENCIA_AVISO_DIAS', 7);
 
 /* La licencia NUNCA corta nada: ni la carta del comensal, ni el panel, ni una sola acción.
  * Es información y solo información. Está escrito aquí, y no solo en la documentación,
