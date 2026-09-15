@@ -9751,10 +9751,20 @@ const politicaHtaccess = (nombre, bloque, ancla) => {
    normal ni la guardia que impide reutilizar un token. Sus vecinos (clave.php, intentos.json,
    accesos.log) ya estaban denegados; esta se quedaba fuera solo porque su extension no entraba
    en ningun FilesMatch. Va al final: el orden de los FilesMatch no cambia el resultado. */
-/* Y los dos .php que el BUILD hornea con un secreto dentro: superadmin.php (el hash de la
-   llave maestra, la misma en todos los clientes) y activacion.php (el hash del token de alta).
-   Se quedaron fuera del FilesMatch de clave.php y superclave.php por no existir cuando se
-   escribio aquella regla.
+/* Y los tres .php de estado que se quedaron fuera del FilesMatch de clave.php y superclave.php
+   por no existir cuando se escribio aquella regla: superadmin.php (el hash de la llave maestra,
+   la misma en todos los clientes), activacion.php (el hash del token de alta) y licencia.php
+   (el contrato del cliente: alta, vencimiento y renovaciones).
+
+   licencia.php no lleva ningun secreto —son fechas y un contador— y se anade igual. El motivo
+   no depende de lo que valga el contenido: es un fichero de ESTADO en una carpeta que no sirve
+   estado, y la regla de al lado ya dice por que ("dos cierres valen mas que uno").
+
+   Se encontro midiendo produccion despues de desplegar, no leyendo el codigo: licencia.php
+   devolvia 200 mientras clave, superclave, superadmin, activacion y config devolvian 403. La
+   auditoria previa habia dado por hecho que "va en admin/, que el .htaccess no sirve" — y ese
+   .htaccess deniega POR NOMBRE, asi que dar por protegido lo que no esta en la lista era dar
+   por hecha una proteccion sin comprobarla.
    El argumento para denegarlos es EL MISMO que el propietario dejo escrito alli —«al ser PHP no
    se serviria su contenido aunque se pidiera, pero se deniega igual: dos cierres valen mas que
    uno»— y aqui pesa mas, no menos: si un dia PHP dejara de ejecutarse en esta carpeta (cambio de
@@ -9769,10 +9779,11 @@ politicaHtaccess('admin/.htaccess', [
   '  Require all denied',
   '</FilesMatch>',
   '',
-  '# superadmin.php y activacion.php los escribe el build con un hash dentro. Mismo doble',
-  '# cierre que clave.php y superclave.php: PHP no serviria su contenido, pero no se confia',
-  '# solo en eso. PHP los lee con require() del disco, que no pasa por Apache.',
-  '<FilesMatch "^(superadmin|activacion)\\.php$">',
+  '# superadmin.php y activacion.php los escribe el build con un hash dentro, y licencia.php lo',
+  '# escribe el panel con el contrato del cliente. Mismo doble cierre que clave.php y',
+  '# superclave.php: PHP no serviria su contenido, pero no se confia solo en eso. PHP los lee',
+  '# con require() del disco, que no pasa por Apache.',
+  '<FilesMatch "^(superadmin|activacion|licencia)\\.php$">',
   '  Require all denied',
   '</FilesMatch>',
 ]);

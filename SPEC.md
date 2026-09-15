@@ -8276,3 +8276,21 @@ probado sólo por dentro pasa igual con el número cambiado. `08c`/`08d` cubren 
 no vuelva a la barra lateral por la puerta de atrás.
 
 Motor 1.3.1 -> 1.3.2.
+
+### `licencia.php`, el sexto que le faltaba el cierre (15 Sep 2026)
+
+Encontrado **midiendo producción después de desplegar**, no leyendo el código: `licencia.php`
+devolvía **200** mientras `clave`, `superclave`, `superadmin`, `activacion` y `config` devolvían
+403.
+
+No filtraba nada —PHP lo ejecuta y sólo define constantes, así que la respuesta eran 0 bytes— y
+su contenido no es un secreto: fechas y un contador. Se cierra igual, y el motivo no depende de
+lo que valga el contenido: es un fichero de **estado** en una carpeta que no sirve estado, y si
+un día PHP dejara de ejecutarse ahí expondría el contrato del cliente.
+
+Lo que hay que aprender de esto no es la línea que faltaba, sino **cómo se coló**: la auditoría
+previa dio por hecho que «va en `admin/`, que el `.htaccess` no sirve». Ese `.htaccess` deniega
+**por nombre**, no por carpeta. Dar por protegido lo que no está en la lista es dar por hecha una
+protección sin comprobarla — y la comprobación costaba un `curl`.
+
+Motor 1.3.2 -> 1.3.3.
