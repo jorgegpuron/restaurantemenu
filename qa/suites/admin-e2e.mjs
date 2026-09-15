@@ -2793,6 +2793,70 @@ export async function e2eTemas(informe, { pagina, servidor, docroot, navegador }
   informe.comprueba('E2E-TE-11', 'una sesión nueva sin preferencia arranca en oscuro aunque el sistema prefiera claro (de fábrica desde el 12 Sep 2026, decisión del guion del <head>)',
     /(^| )dark( |$)/.test(recepcion.clase) && !/(^| )light( |$)/.test(recepcion.clase), JSON.stringify(recepcion));
 
+  /* ---- el selector de tema en las DOS barras estrechas ----
+   * El propietario lo vio el 15 sep 2026: en el riel de escritorio salía «Cl|Oscur», los dos
+   * rótulos peleando por 68 px. La regla que los esconde existía, pero vivía dentro de un
+   * @media (max-width:1023.98px) —tablet— y el riel es una CLASE (html.adm-riel) que el usuario
+   * enciende a partir de 1024, así que quedaba fuera.
+   *
+   * Se miden los DOS estados en la misma prueba y a lo ancho de escritorio, porque el fallo no
+   * está en ninguno de los dos por separado sino en que uno se olvidó: separar esto en dos
+   * comprobaciones permitiría que una pasara sola y diera la falsa sensación de cubierto.
+   *
+   * Y se mide lo que se VE —el ancho del rótulo y que el segmentado apile— más lo que OYE un
+   * lector de pantalla: los nombres se esconden con clip-path, no con display:none, así que
+   * tienen que seguir en el árbol de accesibilidad. Esconderlos de la forma fácil rompería el
+   * botón para quien no ve el icono, y ninguna medida de píxeles lo notaría. */
+  await pagina.setViewportSize({ width: 1280, height: 900 });
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  await esperar(250);
+  const mideTema = () => pagina.evaluate(() => {
+    const seg = document.querySelector('.adm-sidebar .adm-tema-seg');
+    if (!seg) return { error: 'sin segmentado en la barra' };
+    const ops = [...seg.querySelectorAll('.adm-tema-op')];
+    const rotulos = ops.map((b) => b.querySelector('span')).filter(Boolean);
+    const caja = seg.getBoundingClientRect();
+    return {
+      riel: document.documentElement.classList.contains('adm-riel'),
+      columna: getComputedStyle(seg).flexDirection === 'column',
+      anchoSegmentado: Math.round(caja.width),
+      anchoBarra: Math.round(document.querySelector('.adm-sidebar').getBoundingClientRect().width),
+      /* Si el rótulo mide más de un par de píxeles, se está pintando. */
+      rotulosAnchos: rotulos.map((s) => Math.round(s.getBoundingClientRect().width)),
+      /* Y su texto sigue ahí para quien no ve el icono. */
+      rotulosTexto: rotulos.map((s) => s.textContent.trim()),
+      /* Nada puede salirse de la barra: era el síntoma exacto del fallo. */
+      desborde: Math.max(0, Math.round(seg.scrollWidth - seg.clientWidth)),
+    };
+  });
+  const anchaEscritorio = await mideTema();
+  await pagina.click('#adm-plegar');
+  await esperar(250);
+  const enRiel = await mideTema();
+  /* Y tablet, que es la que ya funcionaba: si alguien retira aquella regla creyendo que la
+     nueva la sustituye, aquí salta. Se sale del riel antes, para medir la barra por su ancho
+     y no por la clase. */
+  await pagina.click('#adm-plegar');
+  await esperar(150);
+  await pagina.setViewportSize({ width: 900, height: 900 });
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  await esperar(250);
+  const enTablet = await mideTema();
+  const escondidos = (m) => !m.error && m.columna === true
+    && m.rotulosAnchos.length === 2 && m.rotulosAnchos.every((w) => w <= 2)
+    && m.rotulosTexto.length === 2 && m.rotulosTexto.every((t) => t.length > 0)
+    && m.desborde === 0;
+  informe.comprueba('E2E-TE-12', 'en las DOS barras estrechas —el riel de escritorio y tablet— el selector de tema apila y esconde sus rótulos a la vista, sin perderlos para el lector de pantalla',
+    escondidos(enRiel) && escondidos(enTablet),
+    JSON.stringify({ riel: enRiel, tablet: enTablet }));
+  informe.comprueba('E2E-TE-13', 'con la barra ANCHA los dos nombres se siguen viendo: esconderlos es cosa del riel, no del selector',
+    !anchaEscritorio.error && anchaEscritorio.riel === false
+    && anchaEscritorio.rotulosAnchos.every((w) => w > 2),
+    JSON.stringify(anchaEscritorio));
+  await pagina.setViewportSize({ width: 1280, height: 900 });
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  await esperar(250);
+
   /* ---- la excepción de contraste, registrada ----
    * La tinta crema sobre el naranja de marca NO llega al 4,5:1 de WCAG AA. Es una decisión
    * expresa del propietario, tomada con el número delante: la alternativa que sí cumplía

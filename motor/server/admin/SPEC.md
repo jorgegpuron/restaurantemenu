@@ -5597,3 +5597,44 @@ Tres cambios pequeños, pedidos ya con "Bienvenida" en producción:
   `FAST-07` exige que sean sólo tres (`admin/cliente.php`, `index.html`, `version.json`) —
   las dos páginas habrían diferido en cada build sin haber cambiado de verdad. Con el hash
   del icono, la URL sólo cambia el día que alguien sustituya el icono — ni un build antes.
+
+## El selector de tema en el riel, y las dos barras estrechas (15 Sep 2026)
+
+El propietario lo vio en su escritorio: en el riel —la barra lateral plegada a iconos— el
+selector de tema sacaba «Cl|Oscur», los dos rótulos peleando por 68 px.
+
+La regla que los esconde **ya existía**, pero vivía dentro de un `@media (max-width:1023.98px)`.
+Su comentario decía «en riel, la barra lateral estrecha, **por debajo de 1024**», y ahí está el
+malentendido entero: **`adm-riel` no es un ancho, es una clase** que el usuario enciende con
+`#adm-plegar` y que sólo tiene efecto **a partir de 1024**. La regla, escrita con un ancho en vez
+de con el estado real, no podía llegar nunca al caso que decía cubrir.
+
+### Hay dos, y conviene decirlo en voz alta
+
+| Estado | Cómo se activa | Dónde vive su CSS |
+|---|---|---|
+| Tablet | el ancho de la pantalla, 768–1023.98 | `@media (max-width:1023.98px)` |
+| Riel de escritorio | `html.adm-riel`, decisión del usuario, ≥1024 | `@media (min-width:1024px)` |
+
+Los destinos de navegación ya trataban los dos por separado —`.adm-nav-item .txt` se esconde en
+las dos ramas—; el selector de tema sólo tenía la primera.
+
+### Por qué se duplican dos declaraciones en vez de inventar una clase
+
+Son dos líneas. Una clase nueva en el HTML habría que mantenerla en las dos copias del selector
+—la de la barra y la de la hoja móvil— y en cualquier tercera que aparezca, y el bug de hoy es
+precisamente el de una pieza que se olvidó. La duplicación se deja **a la vista**, y cada copia
+lleva un comentario que nombra el otro estado: quien toque una se encuentra con la otra escrita
+delante.
+
+### Los rótulos se esconden, no se borran
+
+`clip-path:inset(50%)` y 1 px de caja, **no `display:none`**. El botón se queda con su icono, y
+quien no lo ve sigue oyendo «Claro» y «Oscuro». Un `display:none` habría pasado igual cualquier
+medida de píxeles y habría roto el control para quien usa lector de pantalla.
+
+`E2E-TE-12` mide los **dos** estados en una sola comprobación, a propósito: separarlas dejaría que
+una pasara sola y diera el asunto por cubierto, que es exactamente como se coló esto. Mide el
+rótulo a ≤ 2 px, el segmentado apilado, el desborde a 0 **y** que el texto siga en el árbol.
+`E2E-TE-13` es el contraejemplo —barra ancha, rótulos de 30 y 41 px—: sin ella, un `display:none`
+global pasaría las dos.

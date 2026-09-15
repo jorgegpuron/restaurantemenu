@@ -6536,6 +6536,21 @@ $CUENTAS = [
     html.adm-riel .adm-nav-item{justify-content:center;padding:0}
     html.adm-riel .adm-nav-item .txt{display:none}
     html.adm-riel .adm-nav-item .n{position:absolute;top:2px;right:2px;margin-left:0;min-width:18px;height:18px;padding:0 4px}
+    /* EL TEMA, lo mismo que hacen los destinos de aqui arriba y que el segmentado ya hacia en
+       tablet. Faltaba, y se veia: los rotulos «Claro» y «Oscuro» peleaban por los 68 px del
+       riel y salia un «Cl|Oscur» pisado. El propietario lo reporto el 15 sep 2026.
+       La regla de tablet existe, pero esta capada en max-width:1023.98 -- y su comentario dice
+       «en riel, la barra estrecha, POR DEBAJO de 1024», que es justo el malentendido: adm-riel
+       es una clase de ESCRITORIO que el usuario enciende, no un ancho. Hay DOS barras estrechas
+       distintas y aquella regla solo cubria una.
+       Se repiten las dos declaraciones en vez de inventar una clase nueva en el HTML: son dos
+       lineas, se ven juntas desde aqui, y el comentario nombra los dos estados para que el
+       siguiente que toque una se acuerde de la otra. E2E-TE-12 mide los DOS en la misma
+       comprobacion, precisamente para que no se pueda dar por cubierto pasando solo uno. */
+    html.adm-riel .adm-sidebar .adm-tema-seg{flex-direction:column}
+    html.adm-riel .adm-sidebar .adm-tema-op span{
+      position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;
+    }
     /* El tooltip propio se queda FUERA del riel de escritorio, y con el se va el scroll
        horizontal que salia en la barra: vive en position:absolute a `100% + 10px` para
        salirse de los 68px a proposito, y eso engorda el area de desplazamiento de una caja
@@ -6627,8 +6642,16 @@ $CUENTAS = [
   }
   .adm-tema-op:hover[aria-pressed="false"]{color:var(--sc-text)}
   .adm-tema-op:focus-visible{outline:var(--focus-anillo);outline-offset:1px}
-  /* En riel —la barra lateral estrecha, por debajo de 1024— no cabe el texto: quedan los
-     iconos uno encima del otro. La hoja móvil mantiene siempre los dos nombres visibles. */
+  /* Barra lateral ESTRECHA: no cabe el texto, quedan los iconos uno encima del otro y los
+     nombres se esconden a la vista pero siguen ahí para el lector de pantalla. La hoja móvil
+     mantiene siempre los dos nombres visibles.
+     OJO: hay DOS estados estrechos distintos y este bloque sólo cubre el primero.
+       1. tablet, 768–1023.98 — el ancho lo decide la pantalla, y es lo que mide este @media;
+       2. el RIEL de escritorio (html.adm-riel), que es una clase que enciende el usuario a
+          partir de 1024 y por tanto queda FUERA de este max-width.
+     El 2 faltaba y se veía: «Cl|Oscur» pisado en los 68 px del riel (15 sep 2026). Su copia
+     de estas dos declaraciones vive en el bloque de @media (min-width:1024px), junto al resto
+     de reglas del riel. Si se cambia una, hay que cambiar la otra. */
   @media (max-width:1023.98px){
     .adm-sidebar .adm-tema-seg{flex-direction:column}
     .adm-sidebar .adm-tema-op span{
