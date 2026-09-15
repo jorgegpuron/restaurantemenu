@@ -8460,3 +8460,44 @@ da igual —no hay cliente real detrás—, pero en un cliente de verdad el issu
 no viaja solo a un alta nueva.
 
 Motor 1.3.4 -> 1.4.0: el motor gana una superficie pública nueva, no sólo un arreglo.
+
+## La alarma que salía verde sin mirar nada (15 Sep 2026)
+
+El cron de licencia se publicó, se disparó a mano contra producción **y salió en verde diciendo
+que este cliente no tiene contrato** — mientras el endpoint, en la misma línea del log, contestaba
+que le quedan 370 días:
+
+```
+respuesta: {"vence":"2027-09-20","alta":"2026-09-15","dias":370}
+##[notice]Este cliente no tiene licencia escrita (molde o demo). No se factura y no se avisa.
+```
+
+El `jq` preguntaba `if .licencia == null`. Esa clave sólo existía en la respuesta **sin** contrato;
+la respuesta con contrato traía `vence`, `alta` y `dias` y ninguna `licencia`. **`jq` no distingue
+«clave ausente» de «clave a null»**, así que la condición era cierta siempre y el aviso no se
+habría abierto nunca. Mañana a las 06:23 el run habría salido verde otra vez.
+
+Es exactamente el fallo contra el que se diseñó la pieza —«una alarma que no puede mirar tiene que
+decirlo»— entrando por la única puerta que no se vigilaba: la alarma **sí** podía mirar, y lo que
+leía no significaba lo que ella creía.
+
+### Los dos lados, y por qué los dos
+
+- El endpoint emite **`licencia` en las dos ramas** (`true` con contrato, `null` sin él). Una clave
+  que sólo aparece en una de las dos ramas no es un discriminador: es una trampa.
+- El cron pregunta por **`.dias`**, que es el dato del que depende la decisión, y no por un rótulo
+  que diga si lo hay. Una alarma mira el número que la hace saltar.
+
+### Lo que no lo cazó, y la prueba que sí
+
+`MC-59..65` comprueban la forma del PHP por un lado y la del workflow por el otro, y las siete
+pasaban. Lo que falla aquí no está en ninguna de las dos piezas: está en **la junta**. `MC-66` es
+lo único que la mira — extrae las claves que el `jq` del cron lee y las exige presentes en el
+`json_encode` de la rama con contrato. Comprobada por los dos lados: **FAIL** sobre la forma vieja,
+**PASS** sobre la nueva.
+
+La lección, que vale para lo que venga: **dos ficheros correctos no hacen un sistema correcto.**
+Y una pieza que sólo se puede probar de verdad disparándola contra producción hay que **dispararla**
+—una vez, a mano, mirando el log— antes de darla por buena.
+
+Motor 1.4.0 -> 1.4.1.

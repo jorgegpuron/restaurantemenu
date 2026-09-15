@@ -542,6 +542,26 @@ export async function pruebasMulticliente(informe, { proyectoSemilla, navegador,
     informe.comprueba('MC-65', 'el Secret del endpoint llega al paso que compila',
       /LICENCIA_TOKEN:\s*\$\{\{\s*secrets\.LICENCIA_TOKEN\s*\}\}/.test(wf));
 
+    /* Y las dos piezas hablando el MISMO idioma, que es donde vivio el fallo que ninguna de
+       las de arriba podia ver. El cron preguntaba `.licencia == null` y la respuesta CON
+       contrato no traia esa clave: jq no distingue «ausente» de «null», asi que salia siempre
+       la rama de «este cliente no se factura», el aviso no se abria nunca y el run quedaba en
+       VERDE — la peor forma de fallar que tiene una alarma. Se vio disparando el cron a mano
+       contra produccion el 15 sep 2026, no leyendo ninguno de los dos ficheros.
+       Comprobar la forma del PHP por un lado y la del workflow por otro NO basta: lo que
+       falla es la junta, y esto es lo unico que la mira. */
+    const cron = readFileSync(path.join(CLIENTE, '.github', 'workflows', 'licencia.yml'), 'utf8');
+    const leidas = [...new Set([...cron.matchAll(/jq -r '[^']*'/g)]
+      .flatMap((m) => [...m[0].matchAll(/\.([a-z]+)\b/g)].map((k) => k[1])))];
+    /* La rama CON contrato es el ultimo json_encode del fichero generado. */
+    const bloque = codigoEnd.slice(codigoEnd.lastIndexOf('json_encode(['));
+    const emitidas = [...new Set([...bloque.matchAll(/'([a-z]+)'\s*=>/g)].map((m) => m[1]))];
+    const huerfanas = leidas.filter((k) => !emitidas.includes(k));
+    informe.comprueba('MC-66', 'el cron solo pregunta por claves que el endpoint emite CUANDO hay contrato',
+      leidas.length > 0 && emitidas.length > 0 && huerfanas.length === 0,
+      `lee: ${leidas.join(', ') || '(ninguna)'} | emite: ${emitidas.join(', ') || '(ninguna)'}`
+      + (huerfanas.length ? ` | HUERFANAS: ${huerfanas.join(', ')}` : ''));
+
     const gi = readFileSync(path.join(CLIENTE, '.gitignore'), 'utf8').split('\n').map((l) => l.trim());
     informe.comprueba('MC-57', 'el repositorio ignora el contrato y la llave maestra: ni un secreto compartido versionado',
       gi.includes('server/admin/licencia.php') && gi.includes('server/admin/superadmin.php'),

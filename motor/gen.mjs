@@ -9545,7 +9545,13 @@ if (process.env.LICENCIA_TOKEN) {
       "  echo json_encode(['licencia' => null, 'error' => 'fecha ilegible'], JSON_UNESCAPED_UNICODE);",
       '  exit;',
       '}',
+      /* `licencia` va SIEMPRE, en las dos ramas. Sin ella la respuesta con contrato no tenia
+         esa clave y el cron preguntaba `.licencia == null`: jq no distingue «clave ausente» de
+         «clave a null», asi que daba SIEMPRE la rama de «este cliente no se factura» y el aviso
+         no se abria nunca — con el run en VERDE, que es la peor forma de fallar que tiene una
+         alarma. Medido contra produccion el 15 sep 2026 disparando el cron a mano. */
       "echo json_encode([",
+      "  'licencia' => true,",
       "  'vence' => LICENCIA_VENCE,",
       "  'alta'  => defined('LICENCIA_ALTA') ? LICENCIA_ALTA : null,",
       "  'dias'  => (int) $__hoy->diff($__v)->format('%r%a'),",

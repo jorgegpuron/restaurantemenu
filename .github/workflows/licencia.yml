@@ -53,8 +53,15 @@ jobs:
           # peor que no tener alarma.
           cuerpo=$(curl -sS --fail-with-body --max-time 20 -H "X-Licencia-Token: $TOKEN" "$URL")
           echo "respuesta: $cuerpo"
-          dias=$(echo "$cuerpo" | jq -r 'if .licencia == null then "null" else .dias end')
-          vence=$(echo "$cuerpo" | jq -r 'if .licencia == null then "" else .vence end')
+          # Se pregunta por .dias, que es EL DATO que hace falta, y no por una clave aparte que
+          # diga si lo hay. La primera version preguntaba `.licencia == null` y la respuesta con
+          # contrato no traia esa clave: jq no distingue «ausente» de «null», asi que salia
+          # siempre la rama de «este cliente no se factura» y el aviso no se abria nunca, con el
+          # run en VERDE. Se vio disparando el cron a mano contra produccion el 15 sep 2026.
+          # El endpoint emite ademas `licencia` en las DOS ramas; aqui se comprueba `.dias`
+          # porque una alarma tiene que mirar el numero del que depende, no un rotulo.
+          dias=$(echo "$cuerpo" | jq -r 'if (.dias | type) == "number" then .dias else "null" end')
+          vence=$(echo "$cuerpo" | jq -r 'if (.dias | type) == "number" then .vence else "" end')
           echo "dias=$dias"   >> "$GITHUB_OUTPUT"
           echo "vence=$vence" >> "$GITHUB_OUTPUT"
 

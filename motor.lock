@@ -1,6 +1,6 @@
 {
  "formato": "motor.lock/1",
- "version": "1.4.0",
+ "version": "1.4.1",
  "esquemaEstado": 2,
  "esquemaCarta": "carta/2",
  "fecha": "2026-09-15",
@@ -57,7 +57,7 @@
   "contrato-salida.mjs": "64eadcde699ac93e8e552c8dca77efcb4409e5a57df3f4d7549e8bbb7141be55",
   "entorno.mjs": "9bac6a4fd00553f8c5646a2b50a0ab10edb35fb66d6590fff3470b1ab6b3ab64",
   "error404.mjs": "279d62895ac5269ccd46c060a1956a37b9a3507f4cd49d6ca5329df9a5bce9df",
-  "gen.mjs": "95150c7197ffde1afd0383495bb836d908a022960c29037dfe39dcaa5098caec",
+  "gen.mjs": "25c3903cd453d1ce0356bad136ecd2f90e3c6f63f04c15a40c39ec58de087249",
   "iconos/alergenos-oficiales/celery.svg": "d1f31ae9f5680e515c611857e2b10082820de4eda79b98450d85d0d1726004a2",
   "iconos/alergenos-oficiales/cereals_gluten.svg": "dd8f8004c0aabba8beef794c4d350ec826a22d574ab12b358539a1c9a71486ff",
   "iconos/alergenos-oficiales/crustaceans.svg": "34b962437e9d6f12f7583969e3310bfabd368c0e1339074a70f6f4b2669d41d1",
