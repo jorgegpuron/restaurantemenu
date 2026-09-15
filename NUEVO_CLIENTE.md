@@ -360,19 +360,39 @@ Orden interno, y por qué importa el orden — **nunca `--push` en la creación 
 1. `git init` (si hace falta) + `git add -A` + commit inicial, y comprueba que el árbol queda
    limpio.
 2. `gh repo create --private`, **sin push todavía**.
-3. `gh secret set`, los cinco, todos por STDIN (nunca por `--body` ni como argumento de línea de
+3. `gh secret set`, los cinco que pone la herramienta, todos por STDIN (nunca por `--body` ni como argumento de línea de
    comandos — un argumento de proceso es visible para cualquier otro proceso de la máquina
    mientras `gh` corre; STDIN no):
    - `FTP_REMOTE_PATH` = `/<slug>/` — generada, no se escribe a mano ni se copia de otro cliente.
    - `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` — los del entorno del operador, reutilizados
      tal cual.
    - `PANEL_ACTIVACION_HASH` = el hash SHA-256 de un token real, generado aquí mismo.
+
+   Y uno más, **a mano** (ver el aviso de abajo):
+   - `SUPERADMIN_PASSWORD_HASH` = el hash bcrypt de **la llave maestra del propietario**. No se
+     genera una por cliente: es **la misma contraseña en todos**, y lo que se copia aquí es el
+     mismo hash que ya tienen los demás repositorios. `gen.mjs` lo hornea en
+     `admin/superadmin.php`, que sí sube por FTP, y así el cliente nuevo nace con tu acceso
+     puesto sin tocar el servidor. Si falta, el build **no aborta**: avisa, y ese cliente se
+     queda sin llave maestra —no podrías ni renovar su licencia desde el panel— salvo que le
+     subas `superclave.php` a mano.
 4. **El token de activación se imprime en la consola, una sola vez.** No se repite, no se
    guarda en ningún sitio legible. Apúntalo en este momento.
 5. `DESPLIEGUE_REAL` se pone explícitamente en `false`.
 6. **Verificación antes de empujar**: lee de vuelta los cinco secrets y la variable. Si falta
    alguno o la variable no es `false`, para ahí — no empuja nada.
 7. Sólo entonces, `git push -u origin main`.
+
+> 🔧 **`SUPERADMIN_PASSWORD_HASH` todavía hay que ponerlo a mano.** `--publicar-github` pone
+> cinco secrets y verifica esos cinco nombres; éste no está entre ellos. Hasta que la
+> herramienta lo incorpore, después del paso 3 y **antes del paso 6**:
+>
+> ```bash
+> gh secret set SUPERADMIN_PASSWORD_HASH --repo <owner>/<repo>
+> ```
+>
+> y pega el hash por STDIN, nunca con `--body`. Si se olvida, el despliegue sale bien y el
+> cliente queda sin la llave del propietario: no podrías ni renovarle la licencia desde el panel.
 
 Ese push ya dispara el workflow — con `DESPLIEGUE_REAL=false` corre en ensayo (dry-run), igual
 que cualquier push posterior mientras la variable siga en `false`.
@@ -628,6 +648,9 @@ Antes de dar el alta por terminada, todo esto tiene que estar en verde:
 - [ ] Panel pidiendo el token de activación, **no** ofreciendo poner contraseña
 - [ ] Contraseña creada y `admin/activacion.consumida` presente en el servidor
 - [ ] `--cerrar-activacion` ejecutado (Secret de GitHub también muerto)
+- [ ] `SUPERADMIN_PASSWORD_HASH` puesto, con **el mismo hash que los demás clientes**, y
+      `admin/superadmin.php` presente en el servidor tras el despliegue
+- [ ] La llave maestra entra de verdad en el panel nuevo (probarla, no darla por buena)
 - [ ] `estado-EJEMPLO.json` renombrado a `estado.json` en el servidor
 - [ ] Batería de pruebas al 100 %
 - [ ] `motor.lock` del cliente nuevo idéntico al de Tinge (mismo motor, byte a byte)

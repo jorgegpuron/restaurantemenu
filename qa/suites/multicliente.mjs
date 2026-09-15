@@ -8,7 +8,7 @@
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
-import { NODE, CLIENTE, MOTOR, carpetaTemporal } from '../lib/entorno.mjs';
+import { NODE, PHP, CLIENTE, MOTOR, carpetaTemporal } from '../lib/entorno.mjs';
 import { correr } from '../lib/proc.mjs';
 import {
   altaCliente, detectar, buildLocal, compilar, verificarBuild, lock, docrootDesde,
@@ -440,6 +440,86 @@ export async function pruebasMulticliente(informe, { proyectoSemilla, navegador,
     } catch { mismoPanel = false; }
     informe.comprueba('MC-46', 'el panel del cliente nuevo es exactamente el del motor: lo que se arregle aqui llega a todos',
       mismoPanel, mismoPanel ? 'identico' : 'el panel del cliente nuevo NO coincide con el del motor');
+  }
+
+  /* ============================================ licencia y llave maestra del propietario
+   * Las dos son multicliente y las dos van por caminos OPUESTOS a proposito, asi que el sitio
+   * de vigilarlas es aqui y no en la bateria del panel:
+   *
+   *   - admin/superadmin.php  lo GENERA el build desde un Secret y TIENE que subir por FTP.
+   *     Es la misma llave en todos los clientes: por eso un alta nueva nace con el acceso del
+   *     propietario puesto.
+   *   - admin/licencia.php    lo escribe el PANEL en produccion, el build no lo genera jamas
+   *     y el FTP lo excluye. Es el contrato de ese cliente, y pisarlo lo devolveria atras.
+   *
+   * Confundirlos es el fallo caro: generar licencia.php borraria contratos en cada despliegue,
+   * y excluir superadmin.php dejaria al propietario sin llave en los clientes nuevos. */
+  informe.seccion('licencia y llave maestra: dos ficheros con caminos opuestos');
+  {
+    const sinSecret = { ...process.env };
+    delete sinSecret.SUPERADMIN_PASSWORD_HASH;
+    sinSecret.PANEL_ACTIVACION_HASH = hashActivacion();
+    const g0 = correr(NODE, ['gen.mjs'], { cwd: completo.proyecto, env: sinSecret });
+    const hay0 = existsSync(path.join(completo.salida, 'admin', 'superadmin.php'));
+    informe.comprueba('MC-50', 'sin el Secret no se escribe la llave maestra y el build NO se aborta: avisa y sigue',
+      g0.ok && !hay0 && /::warning::.*SUPERADMIN_PASSWORD_HASH/.test(g0.texto),
+      `codigo ${g0.codigo} | superadmin.php ${hay0 ? 'presente' : 'ausente'}`);
+
+    /* Un hash bcrypt de verdad, no una cadena cualquiera: lleva `$` y es justo lo que rompia
+       la primera version de esto. En una cadena PHP de comillas dobles, `$2y$10$abc...` se
+       interpola y la constante se queda en `$2y$10`. Se comprueba leyendolo CON PHP y
+       verificando la contrasena, que es lo unico que demuestra que llego entero. */
+    const claveMaestra = 'llave-maestra-qa-1234';
+    const hashMaestra = correr(PHP, ['-r', `echo password_hash(${JSON.stringify(claveMaestra)}, PASSWORD_DEFAULT);`]).salida.trim();
+    const conSecret = { ...sinSecret, SUPERADMIN_PASSWORD_HASH: hashMaestra };
+    const g1 = correr(NODE, ['gen.mjs'], { cwd: completo.proyecto, env: conSecret });
+    const fSuper = path.join(completo.salida, 'admin', 'superadmin.php');
+    const leido = existsSync(fSuper)
+      ? correr(PHP, ['-r', `require ${JSON.stringify(fSuper)}; var_dump(password_verify(${JSON.stringify(claveMaestra)}, SUPERADMIN_HASH));`])
+      : { texto: 'no se genero el fichero' };
+    informe.comprueba('MC-51', 'con el Secret, la llave maestra se genera y llega INTACTA a PHP: el hash con $ no se interpola',
+      g1.ok && existsSync(fSuper) && /bool\(true\)/.test(leido.texto), leido.texto.trim().split('\n').slice(-1)[0]);
+
+    /* Y el reves, que es el fallo que de verdad se pago: compilar CON el Secret y despues SIN
+       el tiene que DEJAR DE PUBLICAR la llave, no conservar la vieja. generado/ es la carpeta
+       intermedia y viaja entera a 2-subir, asi que lo que un build ya no escribe pero sigue ahi
+       se publica igual. Quitar el Secret no quitaba la llave, y en CI no se veia porque cada
+       run es un checkout limpio: solo pasaba en la maquina de quien compila. */
+    const g2 = correr(NODE, ['gen.mjs'], { cwd: completo.proyecto, env: sinSecret });
+    informe.comprueba('MC-58', 'quitar el Secret quita la llave de la salida: generado/ se vacia en cada build',
+      g2.ok && !existsSync(fSuper)
+      && !existsSync(path.join(completo.proyecto, 'generado', 'admin', 'superadmin.php')),
+      existsSync(fSuper) ? 'la llave VIEJA sigue publicada' : 'la salida ya no la lleva');
+
+    /* Lo que el build NO puede generar nunca. licencia.php aqui es lo importante: si un dia
+       el build lo escribiera, cada despliegue devolveria el contrato del cliente a cero. */
+    const prohibidos = ['admin/licencia.php', 'admin/clave.php', 'admin/superclave.php', 'estado.json', 'record.json']
+      .filter((f) => existsSync(path.join(completo.salida, f)));
+    informe.comprueba('MC-52', 'el build no genera ningun dato de produccion, y el contrato del cliente el primero',
+      prohibidos.length === 0, prohibidos.length ? 'GENERADOS: ' + prohibidos.join(', ') : 'ninguno');
+
+    informe.comprueba('MC-53', 'un cliente recien dado de alta nace SIN contrato: no es facturable hasta que alguien lo inicie',
+      !existsSync(path.join(completo.proyecto, 'server', 'admin', 'licencia.php'))
+      && !existsSync(path.join(vacio.proyecto, 'server', 'admin', 'licencia.php')));
+
+    /* El workflow: las dos guardias y la lista de exclusion, leidas del fichero real. Es la
+       unica forma de que un `exclude` mal editado salte aqui y no en el primer despliegue. */
+    const wf = readFileSync(path.join(CLIENTE, '.github', 'workflows', 'deploy.yml'), 'utf8');
+    const guardia = (wf.match(/for f in ([^;]+); do/) || [])[1] || '';
+    const exclude = ((wf.match(/exclude:\s*\|([\s\S]*?)\n\s*(?:#|-\s|\w+:)/) || [])[1] || '')
+      .split('\n').map((l) => l.trim()).filter(Boolean);
+    informe.comprueba('MC-54', 'el workflow aborta el build si genera licencia.php, y NO vigila superadmin.php (ese si es del build)',
+      /admin\/licencia\.php/.test(guardia) && !/admin\/superadmin\.php/.test(guardia), guardia.trim());
+    informe.comprueba('MC-55', 'el FTP excluye licencia.php y SUBE superadmin.php',
+      exclude.includes('admin/licencia.php') && exclude.includes('admin/superclave.php')
+      && !exclude.includes('admin/superadmin.php'),
+      exclude.filter((l) => /licencia|super/.test(l)).join(' | ') || `(${exclude.length} patrones leidos)`);
+    informe.comprueba('MC-56', 'el Secret llega al paso que compila', /SUPERADMIN_PASSWORD_HASH:\s*\$\{\{\s*secrets\.SUPERADMIN_PASSWORD_HASH\s*\}\}/.test(wf));
+
+    const gi = readFileSync(path.join(CLIENTE, '.gitignore'), 'utf8').split('\n').map((l) => l.trim());
+    informe.comprueba('MC-57', 'el repositorio ignora el contrato y la llave maestra: ni un secreto compartido versionado',
+      gi.includes('server/admin/licencia.php') && gi.includes('server/admin/superadmin.php'),
+      gi.filter((l) => /licencia|superadmin/.test(l)).join(' | '));
   }
 
   informe.blocked('MC-32', '--publicar-github y --cerrar-activacion',

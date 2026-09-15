@@ -2315,14 +2315,103 @@ function matar_hash_activacion_local(): bool {
   return true;
 }
 
-/* La del superadministrador se escribe igual, en su propio archivo. Sólo la toca el propio
-   superadministrador (o quien tenga FTP); ninguna acción del rol restaurante llega aquí. */
-function guardar_superclave(string $hash): bool {
-  $f   = __DIR__ . '/superclave.php';
+/* La contraseña del SUPERADMINISTRADOR no se escribe desde aquí y no hay ninguna función
+   que lo haga. Es la misma llave en todos los clientes (ver config.php): cambiarla desde un
+   panel dejaría a ESE cliente con una llave distinta y en silencio, y el propietario
+   creyendo que tiene una cuando tiene dos. Se cambia en el Secret SUPERADMIN_PASSWORD_HASH
+   del repositorio y viaja en el siguiente despliegue; para una urgencia, superclave.php por
+   FTP, que gana al fichero del build. */
+
+/* La sesión se liga a la versión de la contraseña con la que se abrió: la fecha de su
+ * archivo. Cambiar la contraseña —el gesto de quien sospecha que alguien más la tiene—
+ * expulsa así a cualquier sesión ya abierta, y no sólo a las futuras.
+ *
+ * Para el superadministrador hay que mirar EL FICHERO QUE DE VERDAD MANDA, que puede ser
+ * superclave.php o superadmin.php según la precedencia de config.php. Mirar siempre
+ * superclave.php —como se hacía cuando era el único— dejaba vivas todas las sesiones
+ * abiertas al rotar la llave maestra por el Secret, que es justo lo que esta comprobación
+ * existe para impedir. Con el hash en variable de entorno no hay archivo que mirar y se
+ * devuelve un valor fijo. */
+function clave_ref(string $rol): int {
+  if ($rol === 'super') {
+    if (SUPERADMIN_ORIGEN === 'entorno') return -1;
+    if (SUPERADMIN_REF_PATH === '')      return 0;
+    return (int) @filemtime(SUPERADMIN_REF_PATH);
+  }
+  return (int) @filemtime(__DIR__ . '/clave.php');
+}
+
+/* ------------------------------------------------------------------------- LICENCIA
+ * El contrato de este cliente: cuándo empezó, cuándo vence y cuántas veces se ha renovado.
+ * Vive en admin/licencia.php, lo escribe este panel y NUNCA lo toca el build (ver
+ * config.php). Es información: no cierra nada, no bloquea nada y no aparece en la carta.
+ *
+ * Todo el cálculo va en DÍAS DE CALENDARIO y en la zona horaria del CONTRATO (TZ, que sale
+ * de cliente.mjs), no en diferencias de marcas de tiempo ni en la hora del servidor. Un
+ * contrato no puede vencer a una hora distinta según dónde esté alojado, y un contador que
+ * baja a media tarde porque han pasado 24 horas exactas es un contador que miente. */
+
+/* Hoy, a las 00:00 del reloj del restaurante. Si la zona horaria del contrato fuera
+ * inválida —un cliente.php a medias—, UTC: el contador se desplaza como mucho un día y no
+ * se cae nada. */
+function licencia_hoy(): DateTimeImmutable {
+  try { $tz = new DateTimeZone(TZ); } catch (Exception $e) { $tz = new DateTimeZone('UTC'); }
+  return (new DateTimeImmutable('now', $tz))->setTime(0, 0, 0);
+}
+
+/* Una fecha del fichero, o null si no es exactamente YYYY-MM-DD y un día que existe.
+ * Estricto a propósito: un fichero corrupto tiene que comportarse como si no hubiera
+ * licencia, nunca como una licencia con fechas inventadas. */
+function licencia_fecha(string $s): ?DateTimeImmutable {
+  if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) return null;
+  try { $tz = new DateTimeZone(TZ); } catch (Exception $e) { $tz = new DateTimeZone('UTC'); }
+  $d = DateTimeImmutable::createFromFormat('!Y-m-d', $s, $tz);
+  // createFromFormat acepta 2026-02-31 y lo desplaza a marzo: si no vuelve igual, no vale.
+  if (!$d || $d->format('Y-m-d') !== $s) return null;
+  return $d;
+}
+
+/* ¿Hay contrato legible? Un fichero ausente y uno corrupto dan lo mismo: no. */
+function licencia_hay(): bool {
+  return licencia_fecha(LICENCIA_ALTA) !== null && licencia_fecha(LICENCIA_VENCE) !== null;
+}
+
+/* Días de calendario que quedan. Negativo si ya venció, 0 el mismo día del vencimiento.
+ * null si no hay contrato: quien pregunte tiene que distinguir «le quedan cero» de «no
+ * tiene», y un 0 para las dos cosas pinta «vencido» en un molde que nunca se vendió. */
+function licencia_dias_restantes(): ?int {
+  $vence = licencia_fecha(LICENCIA_VENCE);
+  if ($vence === null || licencia_fecha(LICENCIA_ALTA) === null) return null;
+  return (int) licencia_hoy()->diff($vence)->format('%r%a');
+}
+
+/* Una fecha del contrato, escrita como se lee en español. Si no fuera válida se devuelve tal
+ * cual: un rótulo raro es mejor que una cadena vacía donde debería haber una fecha. */
+function licencia_dia(string $iso): string {
+  $d = licencia_fecha($iso);
+  return $d ? $d->format('d/m/Y') : $iso;
+}
+
+/* Los días que quedan, en una frase. Existe para no repetir el singular en cuatro sitios y
+ * para no dejar «1 días» ni «día(s)» a la vista de nadie. */
+function licencia_frase(int $dias): string {
+  if ($dias > 0)  return $dias . ($dias === 1 ? ' día restante' : ' días restantes');
+  if ($dias === 0) return 'vence hoy';
+  $v = abs($dias);
+  return 'vencida hace ' . $v . ($v === 1 ? ' día' : ' días');
+}
+
+/* Escribe el fichero entero. Mismo patrón atómico que guardar_clave(): fichero temporal y
+ * rename, para que una escritura interrumpida no deje un contrato a medias. */
+function licencia_escribir(string $alta, string $vence, int $renovaciones): bool {
+  $f   = LICENCIA_PATH;
   $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
   $php = "<?php" . PHP_EOL
-       . "// Hash del SUPERADMINISTRADOR. Generado con hash.php; no lo edites a mano." . PHP_EOL
-       . "define('SUPERADMIN_HASH', '" . addslashes($hash) . "');" . PHP_EOL;
+       . "// Licencia del servicio. La escribe el panel: no la edites a mano y no la subas" . PHP_EOL
+       . "// por FTP encima, o el contrato de este cliente vuelve atrás." . PHP_EOL
+       . "define('LICENCIA_ALTA',  '" . addslashes($alta) . "');" . PHP_EOL
+       . "define('LICENCIA_VENCE', '" . addslashes($vence) . "');" . PHP_EOL
+       . "define('LICENCIA_RENOVACIONES', " . $renovaciones . ");" . PHP_EOL;
   if (@file_put_contents($tmp, $php, LOCK_EX) === false) return false;
   @chmod($tmp, 0644);
   if (!@rename($tmp, $f)) { @unlink($tmp); return false; }
@@ -2331,16 +2420,54 @@ function guardar_superclave(string $hash): bool {
   return true;
 }
 
-/* La sesión se liga a la versión de la contraseña con la que se abrió: la fecha de su
- * archivo. Cambiar la contraseña —el gesto de quien sospecha que alguien más la tiene—
- * expulsa así a cualquier sesión ya abierta, y no sólo a las futuras. Con el hash en
- * variable de entorno no hay archivo que mirar y se devuelve un valor fijo. */
-function clave_ref(string $rol): int {
-  if ($rol === 'super') {
-    if ((string) getenv('SUPERADMIN_PASSWORD_HASH') !== '') return -1;
-    return (int) @filemtime(__DIR__ . '/superclave.php');
+/* Arranca el contrato. IDEMPOTENTE: si el fichero ya existe no lo toca y devuelve true, de
+ * modo que da igual cuántas veces se llame.
+ *
+ * Se llama SOLO desde los dos sitios en que el restaurante pone su PRIMERA contraseña: la
+ * configuración inicial y la salida del modo demo. NO va dentro de guardar_clave(), que
+ * tiene un tercer llamador —el restablecimiento por el superadministrador— y ése es un
+ * rescate, no un alta: un cliente que pierde su contraseña no estrena contrato.
+ *
+ * Y por eso mismo es un fichero propio y no la fecha de clave.php: devolver un cliente a
+ * modo demo borrando clave.php no puede reiniciar su año. */
+function arrancar_licencia(): bool {
+  if (is_file(LICENCIA_PATH)) return true;
+  $hoy = licencia_hoy();
+  return licencia_escribir(
+    $hoy->format('Y-m-d'),
+    $hoy->modify('+' . LICENCIA_DIAS . ' days')->format('Y-m-d'),
+    0
+  );
+}
+
+/* Suma otro periodo. La cuenta, que es la decisión de negocio:
+ *   - contrato VIGENTE  -> se suma al vencimiento actual. Quien renueva con tres días de
+ *     antelación no los regala.
+ *   - contrato VENCIDO  -> se suma a hoy. Quien renueva dos meses tarde no paga dos meses
+ *     que no tuvo.
+ * Sin contrato previo, lo crea desde hoy: es la vía para dar de alta la licencia de un
+ * cliente que ya tenía contraseña antes de que esto existiera.
+ *
+ * LICENCIA_ALTA no cambia nunca: es la antigüedad del cliente, no el periodo en curso.
+ *
+ * Devuelve el vencimiento nuevo, o null si no se pudo escribir. Lo devuelve en vez de que
+ * quien llama lo recalcule: las constantes de esta petición son las que cargó config.php
+ * ANTES de escribir, así que después de esto ya no dicen la verdad hasta la siguiente
+ * petición. */
+function licencia_renovar(): ?string {
+  $hoy   = licencia_hoy();
+  $alta  = licencia_fecha(LICENCIA_ALTA);
+  $vence = licencia_fecha(LICENCIA_VENCE);
+  if ($alta === null || $vence === null) {
+    $alta = $hoy;
+    $base = $hoy;
+    $veces = (int) LICENCIA_RENOVACIONES;        // sin contrato previo no hay renovación que contar
+  } else {
+    $base  = ($vence > $hoy) ? $vence : $hoy;
+    $veces = (int) LICENCIA_RENOVACIONES + 1;
   }
-  return (int) @filemtime(__DIR__ . '/clave.php');
+  $nuevo = $base->modify('+' . LICENCIA_DIAS . ' days')->format('Y-m-d');
+  return licencia_escribir($alta->format('Y-m-d'), $nuevo, $veces) ? $nuevo : null;
 }
 
 /* ---------------------------------------------------------------- fuerza bruta
@@ -2503,9 +2630,11 @@ if ($demo) {
 $rol = $demo ? 'demo' : (string) ($_SESSION['rol'] ?? 'cliente');
 if (!$dentro) $rol = '';
 $super = ($rol === 'super');
-/* El hash del superadmin puede venir de una variable de entorno; entonces no hay archivo que
- * reescribir y su cambio de contraseña se hace donde viva la variable. */
-$super_en_entorno = (string) getenv('SUPERADMIN_PASSWORD_HASH') !== '';
+/* Aquí vivía $super_en_entorno, que sólo servía para decidir si el panel podía reescribir el
+ * hash del superadministrador. Ya no hay ninguna acción que lo reescriba —la llave es la
+ * misma en todos los clientes y se cambia en el Secret del repositorio—, así que la variable
+ * se fue con ella. De dónde sale el hash lo dice SUPERADMIN_ORIGEN (config.php), y quien lo
+ * necesita es clave_ref(). */
 
 /* Primera vez: se elige contraseña y el panel escribe clave.php él mismo. Si la carpeta no
  * deja escribir, enseña el archivo para crearlo a mano.
@@ -2549,6 +2678,11 @@ if ($sin_configurar && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_
     $clave_escrita = guardar_clave($hash_nuevo);
     if ($clave_escrita) {
       registrar_acceso('contraseña del restaurante configurada por primera vez');
+      /* El alta: aquí y sólo aquí (y en la salida de demo) arranca el contrato. Si no se
+       * pudiera escribir, el alta NO se bloquea — la contraseña ya está guardada y dejar al
+       * restaurante fuera por el contador sería el peor cambio posible. Queda el rastro, y
+       * el propietario lo arregla con «Iniciar contrato». */
+      if (!arrancar_licencia()) registrar_acceso('AVISO: no se pudo escribir licencia.php en el alta');
       if ($activacion_requerida) {
         marcar_activacion_consumida();
         matar_hash_activacion_local();
@@ -2576,6 +2710,8 @@ if ($demo && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['sali
   } elseif (guardar_clave(password_hash($nueva, PASSWORD_DEFAULT))) {
     limpiar_fallos();
     registrar_acceso('demo cerrado: contraseña del restaurante configurada');
+    // El propio código define este paso como «exactamente poner la primera contraseña»: es un alta.
+    if (!arrancar_licencia()) registrar_acceso('AVISO: no se pudo escribir licencia.php en el alta');
     header('Location: index.php');
     exit;
   } else {
@@ -2591,8 +2727,12 @@ if ($demo && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['sali
  * Dos acciones propias, ninguna al alcance del restaurante:
  *   - Restablecer la contraseña del cliente cuando la pierde o la bloquea. Es el rescate
  *     que motiva el rol: el restaurante recupera su panel sin tocar el servidor.
- *   - Cambiar la suya propia, pidiendo la actual (sólo si vive en superclave.php; si vive
- *     en una variable de entorno, se cambia allí y aquí no hay nada que escribir). */
+ *   - Renovar la licencia del servicio.
+ *
+ * Cambiar su PROPIA contraseña ya no está aquí y no volverá: la llave del superadmin es la
+ * misma en todos los clientes y se cambia en el Secret del repositorio (ver config.php).
+ * Cambiarla desde un panel dejaba ese cliente con una llave distinta sin que nadie se
+ * enterara. */
 if ($dentro && $super && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['reset_cliente'])) {
   if (!hash_equals((string) ($_SESSION['csrf'] ?? ''), (string) ($_POST['csrf'] ?? ''))) {
     $error = 'La sesión ha caducado. Vuelve a entrar.';
@@ -2606,22 +2746,25 @@ if ($dentro && $super && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset(
   }
 }
 
-if ($dentro && $super && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['cambiar_super'])) {
+/* Renovar la licencia. Pide REESCRIBIR la contraseña de superadministrador además de tener
+ * la sesión abierta, igual que las otras puertas sensibles del rol: una tablet de cocina
+ * olvidada con la sesión dentro no puede alargar un contrato.
+ *
+ * Es lo único de todo el panel que mueve la licencia, y sólo el rol super llega. */
+if ($dentro && $super && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['renovar_licencia'])) {
+  $habia = licencia_hay();
   if (!hash_equals((string) ($_SESSION['csrf'] ?? ''), (string) ($_POST['csrf'] ?? ''))) {
     $error = 'La sesión ha caducado. Vuelve a entrar.';
-  } elseif ($super_en_entorno) {
-    $error = 'Tu hash vive en la variable de entorno SUPERADMIN_PASSWORD_HASH: cámbialo allí.';
-  } elseif (!password_verify((string) ($_POST['super_actual'] ?? ''), SUPERADMIN_HASH)) {
-    registrar_acceso('cambio de clave super rechazado: actual incorrecta');
-    $error = 'Tu contraseña actual no es correcta.';
-  } elseif (strlen((string) ($_POST['super_nueva'] ?? '')) < 12) {
-    $error = 'La contraseña de superadministrador necesita al menos 12 caracteres.';
-  } elseif (guardar_superclave(password_hash((string) $_POST['super_nueva'], PASSWORD_DEFAULT))) {
-    registrar_acceso('contraseña de superadmin cambiada');
-    $_SESSION['clave_ref'] = clave_ref('super');     // esta sesión sigue; las demás se expulsan
-    $aviso = 'Contraseña de superadministrador cambiada.';
+  } elseif (!password_verify((string) ($_POST['super'] ?? ''), SUPERADMIN_HASH)) {
+    apuntar_fallo();
+    registrar_acceso('renovación de licencia rechazada: superadmin incorrecto');
+    $error = 'La contraseña de superadministrador no es correcta.';
+  } elseif (($vence_nuevo = licencia_renovar()) !== null) {
+    limpiar_fallos();
+    registrar_acceso($habia ? 'licencia renovada (super)' : 'licencia iniciada (super)');
+    $aviso = ($habia ? 'Licencia renovada' : 'Contrato iniciado') . '. Vence el ' . licencia_dia($vence_nuevo) . '.';
   } else {
-    $error = 'No se ha podido escribir superclave.php. Revisa los permisos de la carpeta admin/.';
+    $error = 'No se ha podido escribir licencia.php. Revisa los permisos de la carpeta admin/.';
   }
 }
 
@@ -6262,6 +6405,22 @@ $CUENTAS = [
   @media (min-width:1024px){
     .adm-sidebar-sesion{display:block}
   }
+
+  /* El contador de contrato. Mismo sitio, mismo tamaño y mismo criterio de aparición que el
+     aviso de sesión de aquí arriba: sólo a partir de 1024px, que es cuando la barra rotula
+     con texto y no es un riel de iconos.
+     Es INFORMACIÓN y nada más: no apaga ninguna acción del panel, no tapa nada y no existe
+     en la carta del comensal. Los colores no se inventan — ámbar y rojo son los del sistema,
+     los mismos que ya usa la sesión cuando le queda poco (.adm-sesion[data-poco]). */
+  .adm-sidebar-licencia{
+    display:none;margin:0 0 var(--space-2);padding:0 var(--space-3);
+    font-size:var(--t3);color:var(--sc-text-2);line-height:var(--lh-compacto);
+  }
+  @media (min-width:1024px){
+    .adm-sidebar-licencia{display:block}
+  }
+  .adm-sidebar-licencia.adm-lic-aviso{color:var(--sc-warn-ink);font-weight:600}
+  .adm-sidebar-licencia.adm-lic-vencida{color:var(--sc-bad-ink);font-weight:600}
 
   /* El tooltip sólo hace falta cuando el icono va solo (tablet): a partir de 1024px ya hay
      rótulo visible y duplicarlo sería ruido. El nombre accesible del botón es aria-label,
@@ -12283,6 +12442,18 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
                desaparecen, sólo cambian de sitio según haya donde ponerlos. */ ?>
       <p class="adm-sidebar-marca"><?= h(CLIENTE_NOMBRE) ?></p>
       <p class="adm-sidebar-fecha"><?= h(dia_semana($hoyReal)) ?>, <?= h((new DateTimeImmutable($hoyReal))->format("d/m/y")) ?></p>
+      <?php /* El contrato. Sin licencia escrita NO SE PINTA NADA: ni «sin contrato» ni un
+               cero. Un molde y una demo no tienen plazo, y anunciarles uno sería mentir.
+               Nunca bloquea: es una línea de texto. */
+            $lic_d = licencia_dias_restantes();
+            if ($lic_d !== null):
+              $lic_clase = $lic_d <= 0 ? 'vencida' : ($lic_d <= LICENCIA_AVISO_DIAS ? 'aviso' : 'ok');
+      ?>
+        <p class="adm-sidebar-licencia adm-lic-<?= $lic_clase ?>">
+          <?= $lic_d > 0 ? 'Contrato: ' . (int) $lic_d . ($lic_d === 1 ? ' día' : ' días')
+                : ($lic_d === 0 ? 'Contrato: vence hoy' : 'Contrato vencido') ?>
+        </p>
+      <?php endif; ?>
       <?php /* La barra y el tiempo que queda, y nada mas. «Servicio en curso» no decia nada
                que no dijera ya el hecho de estar dentro, y «se cierra en 30 min» era un
                numero fijo que decia lo mismo al entrar que veintinueve minutos despues. */ ?>
@@ -17729,36 +17900,49 @@ define('ADMIN_HASH', '<?= h($hash_nuevo) ?>');</textarea>
           </div>
         </details>
 
-        <?php /* ------------------------------------------------ mi propia contraseña */ ?>
+        <?php /* ------------------------------------------------------------- licencia
+                 Sustituye a la ficha «Mi contraseña», que se retiró: la llave del
+                 superadministrador es la misma en todos los clientes y se cambia en el
+                 Secret del repositorio, nunca desde un panel (ver config.php). Este hueco
+                 lo ocupa ahora lo único que el propietario SÍ hace cliente a cliente.
+
+                 Misma ficha, mismas clases, mismo bento: no hay diseño nuevo que aprobar. */
+              $lic_hay   = licencia_hay();
+              $lic_dias  = licencia_dias_restantes();
+        ?>
         <details class="adm-f adm-f-super adm-f-plega adm-f-clisuper">
           <summary>
-            <span class="adm-f-ico"><?php /* Lucide «lock» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
-            <span class="adm-f-tit">Mi contraseña</span>
+            <span class="adm-f-ico"><?php /* Lucide «calendar-clock» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><circle cx="16" cy="16" r="6"/><path d="M16 14v2l1 1"/></svg></span>
+            <span class="adm-f-tit">Licencia</span>
             <span class="adm-f-plega-v"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
           </summary>
           <div class="adm-f-plega-cuerpo">
-            <?php if ($super_en_entorno): ?>
+            <?php if ($lic_hay): ?>
               <p class="adm-f-txt">
-                Tu hash vive en la variable de entorno <code>SUPERADMIN_PASSWORD_HASH</code>.
-                Genera uno nuevo con <code>hash.php</code> y cámbialo donde esté definida la
-                variable; desde aquí no se puede escribir.
+                Alta el <strong><?= h(licencia_dia(LICENCIA_ALTA)) ?></strong>. Vence el
+                <strong><?= h(licencia_dia(LICENCIA_VENCE)) ?></strong>
+                (<?= h(licencia_frase((int) $lic_dias)) ?>).
+                <?= (int) LICENCIA_RENOVACIONES === 0 ? 'Sin renovaciones todavía.'
+                    : 'Renovada ' . (int) LICENCIA_RENOVACIONES . (LICENCIA_RENOVACIONES === 1 ? ' vez.' : ' veces.') ?>
+              </p>
+              <p class="adm-f-txt">
+                Renovar suma <?= (int) LICENCIA_DIAS ?> días al vencimiento actual si el contrato
+                sigue vigente, y a hoy si ya venció.
               </p>
             <?php else: ?>
-              <p class="adm-aviso-seg">
-                <?php /* Lucide «triangle-alert» */ ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-                <span>Cambiarla expulsa a cualquier otra sesión de superadministrador abierta.
-                  Esta sigue dentro.</span>
+              <p class="adm-f-txt">
+                Este cliente <strong>no tiene contrato</strong>: no se le cuenta ningún plazo y no
+                ve ningún contador. Es lo normal en un molde o en una demo. Iniciarlo cuenta
+                <?= (int) LICENCIA_DIAS ?> días desde hoy.
               </p>
-              <form method="post" class="adm-form-seg">
-                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="cambiar_super" value="1">
-                <label class="adm-lbl" for="super-actual">Contraseña actual</label>
-                <input class="adm-campo" type="password" id="super-actual" name="super_actual" autocomplete="current-password" required>
-                <label class="adm-lbl" for="super-nueva">Contraseña nueva <span class="opt">(mín. 12)</span></label>
-                <input class="adm-campo" type="password" id="super-nueva" name="super_nueva" autocomplete="new-password" required>
-                <button class="adm-btn" type="submit">Cambiar</button>
-              </form>
             <?php endif; ?>
+            <form method="post" class="adm-form-seg">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+              <input type="hidden" name="renovar_licencia" value="1">
+              <label class="adm-lbl" for="lic-super">Tu contraseña de superadministrador</label>
+              <input class="adm-campo" type="password" id="lic-super" name="super" autocomplete="current-password" required>
+              <button class="adm-btn" type="submit"><?= $lic_hay ? 'Renovar ' . (int) LICENCIA_DIAS . ' días' : 'Iniciar contrato' ?></button>
+            </form>
           </div>
         </details>
 

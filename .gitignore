@@ -19,6 +19,13 @@ server/admin/copias/
 server/admin/activacion.consumida
 server/admin/activacion.php
 
+# La licencia del servicio: la escribe el panel en producción y es un dato de ese cliente,
+# no del proyecto. Y la llave maestra del propietario, que escribe gen.mjs desde el Secret
+# SUPERADMIN_PASSWORD_HASH — es la misma en todos los clientes, así que aquí dentro sería
+# un secreto compartido publicado en un repositorio que además es público.
+server/admin/licencia.php
+server/admin/superadmin.php
+
 # Vídeo original de la puerta y cualquier fuente pesada que no compile: viven fuera del repo.
 *.mov
 *.mp4

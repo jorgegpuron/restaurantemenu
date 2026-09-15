@@ -1250,39 +1250,15 @@
       "estado": "cubierto"
     },
     {
-      "id": "AC-SUPER-CAMBIAR",
-      "clave": "cambiar_super",
-      "donde": "sesion de superadministrador",
-      "prueba": "admin.mjs::superadmin",
-      "esperado": "cambia la clave del superadministrador",
-      "caso_positivo": "actual correcta y nueva de 8+",
-      "entrada_invalida": "actual incorrecta -> rechazada",
-      "persistencia": "admin/superclave.php reescrito; la sesion abierta se expulsa",
-      "reflejo_publico": "ninguno",
-      "estado": "cubierto"
-    },
-    {
-      "id": "AC-SUPER-ACTUAL",
-      "clave": "super_actual",
-      "donde": "cambio de clave del super",
-      "prueba": "admin.mjs::superadmin",
-      "esperado": "verifica la clave actual",
-      "caso_positivo": "la correcta",
-      "entrada_invalida": "incorrecta -> rechazada",
-      "persistencia": "admin/superclave.php reescrito; la sesion abierta se expulsa",
-      "reflejo_publico": "ninguno",
-      "estado": "cubierto"
-    },
-    {
-      "id": "AC-SUPER-NUEVA",
-      "clave": "super_nueva",
-      "donde": "cambio de clave del super",
-      "prueba": "admin.mjs::superadmin",
-      "esperado": "guarda la clave nueva",
-      "caso_positivo": "8+ caracteres",
-      "entrada_invalida": "corta -> rechazada",
-      "persistencia": "admin/superclave.php reescrito; la sesion abierta se expulsa",
-      "reflejo_publico": "ninguno",
+      "id": "AC-LIC-RENOVAR",
+      "clave": "renovar_licencia",
+      "donde": "ficha Licencia de Ajustes, solo rol super",
+      "prueba": "admin-e2e.mjs::licencia (E2E-LIC-01..16) + admin.mjs::superadmin",
+      "esperado": "renueva el contrato del cliente: vigente suma al vencimiento, vencida suma a hoy, y sin contrato lo crea desde hoy",
+      "caso_positivo": "rol super + CSRF valido + la contrasena de superadministrador reescrita",
+      "entrada_invalida": "contrasena de super incorrecta -> rechazada y registrada; CSRF invalido -> 403; rol restaurante -> no llega",
+      "persistencia": "admin/licencia.php reescrito (alta, vencimiento y contador de renovaciones) + linea en accesos.log",
+      "reflejo_publico": "ninguno: la licencia NUNCA toca la carta del comensal ni bloquea el panel",
       "estado": "cubierto"
     },
     {

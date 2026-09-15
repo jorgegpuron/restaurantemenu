@@ -99,10 +99,17 @@ jobs:
       # en su cliente.mjs. Si este cliente no lo declara, aqui llega vacio y gen.mjs no
       # escribe nada con el — mismo build de siempre. Si el repositorio no tiene este
       # Secret, la variable de entorno simplemente no existe: no es un error.
+      #
+      # SUPERADMIN_PASSWORD_HASH: la llave maestra del propietario, LA MISMA en todos los
+      # clientes. gen.mjs la hornea en admin/superadmin.php, que si sube por FTP (no como
+      # admin/superclave.php, que es el manual y esta excluido mas abajo). Si falta el
+      # Secret, gen.mjs avisa y no aborta: ese cliente se queda sin llave maestra salvo que
+      # tenga superclave.php puesto a mano en el servidor.
       - name: Compilar la carta
         working-directory: tinge_of_turmeric/1-proyecto
         env:
           PANEL_ACTIVACION_HASH: ${{ secrets.PANEL_ACTIVACION_HASH }}
+          SUPERADMIN_PASSWORD_HASH: ${{ secrets.SUPERADMIN_PASSWORD_HASH }}
         run: node gen.mjs
 
       # Una carta rota es peor que una carta vieja. Si el build no dejo lo minimo, se para aqui
@@ -122,7 +129,10 @@ jobs:
       - name: Comprobar que no se ha generado nada de produccion
         working-directory: tinge_of_turmeric/2-subir
         run: |
-          for f in estado.json record.json admin/clave.php admin/superclave.php; do
+          # admin/licencia.php esta aqui y NO admin/superadmin.php: el primero lo escribe el
+          # panel en produccion y el build no debe generarlo jamas —pisarlo devolveria el
+          # contrato de un cliente hacia atras—; el segundo lo genera el build a proposito.
+          for f in estado.json record.json admin/clave.php admin/superclave.php admin/licencia.php; do
             if [ -e "$f" ]; then
               echo "::error::El build ha generado $f, que es un dato de produccion. Abortado."
               exit 1
@@ -171,6 +181,10 @@ jobs:
           dry-run: false
           log-level: standard
           # Lo excluido no se sube y tampoco se borra: son datos del servidor, no del proyecto.
+          # admin/licencia.php esta en la lista por lo mismo que clave.php: lo escribe el
+          # panel y subir encima devolveria el contrato del cliente hacia atras.
+          # admin/superadmin.php NO esta, y es deliberado: esa es la llave maestra que el
+          # build genera desde el Secret y que TIENE que subir en cada despliegue.
           exclude: |
             **/.git*
             **/.git*/**
@@ -181,6 +195,7 @@ jobs:
             assets/publicidad/**
             admin/clave.php
             admin/superclave.php
+            admin/licencia.php
             admin/activacion.consumida
             admin/intentos.json
             admin/accesos.log

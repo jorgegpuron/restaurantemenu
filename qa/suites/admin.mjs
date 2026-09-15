@@ -441,30 +441,58 @@ export async function pruebasSuperadmin(informe, { pagina, servidor, docroot, cl
   informe.comprueba('ADM-32', 'una contrasena corta se rechaza tambien desde el super',
     /8 caracteres|al menos 8/.test(corta.mensaje), corta.mensaje);
 
-  const claveSuperNueva = 'clave-super-qa-nueva-8765';
-  const hayCambio = await pagina.evaluate(() => !!document.querySelector('input[name="cambiar_super"]'));
-  if (!hayCambio) {
-    informe.fail('ADM-33', 'cambiar la clave del propio superadministrador',
-      'no aparece el formulario: el hash vive en la variable de entorno del hosting');
-  } else {
-    const mal = await postCrudo(pagina, '/admin/index.php',
-      [['cambiar_super', '1'], ['super_actual', 'esta-no-es-la-actual'], ['super_nueva', claveSuperNueva]]);
-    const bien = await postCrudo(pagina, '/admin/index.php',
-      [['cambiar_super', '1'], ['super_actual', clave], ['super_nueva', claveSuperNueva]]);
-    informe.comprueba('ADM-33', 'una clave actual equivocada no cambia la del super',
-      /no es correcta|incorrecta/i.test(mal.mensaje) && bien.status === 200, JSON.stringify({ mal, bien }));
-    await pagina.goto(servidor.url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
-    await pagina.goto(servidor.url + '/admin/', { waitUntil: 'domcontentloaded' });
-    await pagina.waitForTimeout(250);
-    if (await pagina.$('#clave')) {
-      await pagina.fill('#clave', claveSuperNueva);
-      await pagina.click('button[type="submit"]');
-      await pagina.waitForLoadState('networkidle').catch(() => {});
-      await pagina.waitForTimeout(350);
-    }
-    await irA(pagina, servidor.url, 'ajustes');
-    informe.comprueba('ADM-34', 'la clave nueva del super abre su sesion',
-      await pagina.evaluate(() => !!document.querySelector('input[name="reset_cliente"]')));
-  }
+  /* ADM-33 cambio de bando. Antes contrataba que el superadministrador cambiara su propia
+     contrasena desde el panel; esa accion se retiro. La llave del super es LA MISMA en todos
+     los clientes y se cambia en el Secret del repositorio: cambiarla desde un panel dejaba a
+     ese cliente con una llave distinta en silencio, con el propietario creyendo que tenia una
+     y teniendo dos.
+     Ahora contrata lo contrario, y con el POST entero —no mirando si el formulario se pinta,
+     que no demuestra nada—: con sesion de super valida y CSRF bueno, superclave.php tiene que
+     quedar byte a byte igual. */
+  const superPhp = path.join(docroot, 'admin', 'superclave.php');
+  const antes = existsSync(superPhp) ? readFileSync(superPhp, 'utf8') : null;
+  const intento = await postCrudo(pagina, '/admin/index.php',
+    [['cambiar_super', '1'], ['super_actual', clave], ['super_nueva', 'clave-super-qa-nueva-8765']]);
+  const despues = existsSync(superPhp) ? readFileSync(superPhp, 'utf8') : null;
+  informe.comprueba('ADM-33', 'cambiar la clave del super ya no es una accion del panel: el POST no escribe nada',
+    antes === despues && !/superadministrador cambiada/.test(intento.mensaje),
+    antes === despues ? 'superclave.php intacto' : 'superclave.php MODIFICADO');
+
+  /* Y la consecuencia observable: la contrasena que ese POST intento poner no entra, y la de
+     siempre sigue entrando. */
+  await pagina.goto(servidor.url + '/admin/?salir=1', { waitUntil: 'domcontentloaded' });
+  await pagina.goto(servidor.url + '/admin/', { waitUntil: 'domcontentloaded' });
+  await pagina.waitForTimeout(250);
+  await pagina.fill('#clave', 'clave-super-qa-nueva-8765');
+  await pagina.click('button[type="submit"]');
+  await pagina.waitForLoadState('networkidle').catch(() => {});
+  await pagina.waitForTimeout(300);
+  const inventadaFuera = await pagina.evaluate(() => !!document.querySelector('#clave'));
+  await pagina.fill('#clave', clave);
+  await pagina.click('button[type="submit"]');
+  await pagina.waitForLoadState('networkidle').catch(() => {});
+  await pagina.waitForTimeout(350);
+  await irA(pagina, servidor.url, 'ajustes');
+  informe.comprueba('ADM-34', 'la clave inventada no entra y la de siempre si: la llave maestra no se toca desde aqui',
+    inventadaFuera && await pagina.evaluate(() => !!document.querySelector('input[name="reset_cliente"]')));
+
+  /* La licencia, en su version corta: el camino feliz y las dos puertas. El recorrido completo
+     —aritmetica, contador de la barra, fichero corrupto, rol restaurante— vive en
+     admin-e2e.mjs::licencia (E2E-LIC-01..16); aqui basta con que la accion exista, este cerrada
+     y escriba donde tiene que escribir. */
+  const licPhp = path.join(docroot, 'admin', 'licencia.php');
+  const licAntes = existsSync(licPhp) ? readFileSync(licPhp, 'utf8') : null;
+  const licMal = await postCrudo(pagina, '/admin/index.php',
+    [['renovar_licencia', '1'], ['super', 'esta-no-es-la-de-super']]);
+  informe.comprueba('ADM-35', 'renovar la licencia con la contrasena de super equivocada se rechaza y no escribe',
+    /superadministrador no es correcta/.test(licMal.mensaje)
+    && (existsSync(licPhp) ? readFileSync(licPhp, 'utf8') : null) === licAntes, licMal.mensaje);
+
+  const licBien = await postCrudo(pagina, '/admin/index.php', [['renovar_licencia', '1'], ['super', clave]]);
+  const licDespues = existsSync(licPhp) ? readFileSync(licPhp, 'utf8') : null;
+  informe.comprueba('ADM-36', 'renovar con la contrasena correcta escribe licencia.php y confirma con la fecha',
+    licDespues !== null && licDespues !== licAntes
+    && /LICENCIA_VENCE/.test(licDespues) && /Vence el \d{2}\/\d{2}\/\d{4}/.test(licBien.mensaje),
+    licBien.mensaje);
   return informe;
 }

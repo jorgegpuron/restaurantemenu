@@ -51,21 +51,56 @@ if (!defined('ADMIN_HASH')) define('ADMIN_HASH', '');
  * Acceso del propietario técnico, independiente del restaurante: entra aunque el cliente
  * cambie, olvide o bloquee su contraseña. Aquí no vive la contraseña ni su hash.
  *
- * El hash se busca en dos sitios, por este orden:
+ * ES LA MISMA CONTRASEÑA EN TODOS LOS CLIENTES. No se genera una por restaurante: el
+ * propietario tiene UNA llave maestra y con ella entra en cualquier panel. La
+ * contrapartida está asumida y hay que tenerla presente: una fuga afecta a todos a la vez,
+ * y por eso el orden de abajo deja siempre una vía para aislar un cliente sin esperar a un
+ * despliegue.
+ *
+ * El hash se busca en tres sitios, por este orden, y MANDA EL PRIMERO QUE APAREZCA:
  *   1. La variable de entorno SUPERADMIN_PASSWORD_HASH (SetEnv en un .htaccess privado,
  *      o el gestor de variables del hosting, si lo tiene).
- *   2. El archivo admin/superclave.php, que NO forma parte del build: se crea una vez con
- *      hash.php (léelo) o a mano, y ninguna subida de la carta lo pisa. El panel del
- *      restaurante no tiene ninguna acción que lo lea, lo escriba ni lo borre.
+ *   2. El archivo admin/superclave.php, que NO forma parte del build: se crea a mano con
+ *      hash.php (léelo) y ninguna subida de la carta lo pisa.
+ *   3. El archivo admin/superadmin.php, que SÍ forma parte del build: lo escribe gen.mjs
+ *      desde el Secret SUPERADMIN_PASSWORD_HASH del repositorio y cada despliegue lo
+ *      renueva. Es el caso normal, y es lo que hace que un alta nueva nazca con la llave
+ *      del propietario puesta sin tocar el FTP.
+ *
+ * El orden importa y no es casual: el fichero MANUAL gana al del build. Si un día hay que
+ * cerrar el acceso a un cliente concreto de inmediato, se sube superclave.php por FTP y
+ * surte efecto ya; si mandara el build, habría que esperar a un despliegue. Por el mismo
+ * motivo el panel NO tiene ninguna acción que escriba ni borre ninguno de los dos: la
+ * llave maestra se cambia en el Secret del repositorio, nunca desde dentro de un panel,
+ * porque cambiarla en uno solo dejaría a ese cliente con una llave distinta en silencio.
  *
  * Si ninguno existe, el rol simplemente no está disponible: nada se inventa. */
 $__sh = getenv('SUPERADMIN_PASSWORD_HASH');
 if (is_string($__sh) && $__sh !== '') {
   define('SUPERADMIN_HASH', $__sh);
-} elseif (is_file(__DIR__ . '/superclave.php')) {
-  require __DIR__ . '/superclave.php';
+  define('SUPERADMIN_ORIGEN', 'entorno');
+} else {
+  /* Se prueban en orden y gana el primero que DEFINA la constante. Un fichero que existe
+   * pero no define nada —truncado por un FTP caído a medias— no cuenta: se sigue al
+   * siguiente. En cambio uno que la define VACÍA sí corta la búsqueda, y el rol queda no
+   * disponible; es deliberado, porque una constante en PHP no se puede redefinir y lo
+   * contrario sería un `define()` duplicado con aviso. Falla cerrado, que es el lado
+   * correcto al que fallar en una puerta de acceso. */
+  foreach (['superclave' => 'manual', 'superadmin' => 'build'] as $__f => $__origen) {
+    if (defined('SUPERADMIN_HASH')) break;
+    if (is_file(__DIR__ . '/' . $__f . '.php')) require __DIR__ . '/' . $__f . '.php';
+    if (defined('SUPERADMIN_HASH') && SUPERADMIN_HASH !== '') {
+      define('SUPERADMIN_ORIGEN', $__origen);
+      define('SUPERADMIN_REF_PATH', __DIR__ . '/' . $__f . '.php');
+    }
+  }
+  unset($__f, $__origen);
 }
 if (!defined('SUPERADMIN_HASH')) define('SUPERADMIN_HASH', '');
+/* Sin hash no hay origen, y con la variable de entorno no hay fichero cuyo mtime mirar:
+ * clave_ref('super') lo resuelve con estas dos constantes y no adivinando rutas. */
+if (!defined('SUPERADMIN_ORIGEN'))   define('SUPERADMIN_ORIGEN', '');
+if (!defined('SUPERADMIN_REF_PATH')) define('SUPERADMIN_REF_PATH', '');
 unset($__sh);
 
 /* ------------------------------------------------------------ ACTIVACION DEL PANEL
@@ -80,6 +115,41 @@ if (!defined('PANEL_ACTIVACION_HASH')) define('PANEL_ACTIVACION_HASH', '');
  * parte del build, ninguna subida la pisa ni la borra: es la guardia primaria de que un
  * token de activacion no sirve dos veces, pase lo que pase con PANEL_ACTIVACION_HASH. */
 define('ACTIVACION_CONSUMIDA_PATH', __DIR__ . '/activacion.consumida');
+
+/* ------------------------------------------------------------------------ LICENCIA
+ * El servicio se vende por un año. Este es el único sitio del producto donde ese contrato
+ * existe: la fecha de alta, la de vencimiento y cuántas veces se ha renovado.
+ *
+ * El fichero lo escribe EL PANEL en producción, igual que clave.php, y por las mismas
+ * razones: el build no lo genera nunca, el despliegue lo excluye, y así una subida de la
+ * carta no puede pisar el contrato de nadie. En .php y no en .json porque el .htaccess de
+ * esta carpeta deniega los .json y esto lo tiene que leer PHP desde dentro.
+ *
+ * El VENCIMIENTO se guarda absoluto en vez de calcularse en cada lectura. Si mañana la
+ * política comercial deja de ser 370 días, los contratos ya firmados no se mueven solos:
+ * la constante de abajo solo interviene al crear un contrato y al renovarlo.
+ *
+ * Si el fichero no existe, este cliente NO tiene contrato: no hay cuenta atrás, no hay
+ * aviso y no falla nada. Es lo que le pasa a un molde o a una demo, y sale así solo, sin
+ * ninguna excepción escrita por cliente. */
+define('LICENCIA_PATH', __DIR__ . '/licencia.php');
+
+/* 370 y no 365: el año vendido más cinco días de gracia para que una renovación que se
+ * cruza con un fin de semana no deje el contrato en rojo. */
+define('LICENCIA_DIAS', 370);
+
+/* A partir de aquí el contador del panel avisa en ámbar. Un mes es el aviso que de verdad
+ * da tiempo a renovar sin prisa. */
+define('LICENCIA_AVISO_DIAS', 30);
+
+/* La licencia NUNCA corta nada: ni la carta del comensal, ni el panel, ni una sola acción.
+ * Es información y solo información. Está escrito aquí, y no solo en la documentación,
+ * porque es la decisión que impide que un fallo del contador tumbe el negocio de alguien
+ * que está al día. */
+if (is_file(LICENCIA_PATH)) require LICENCIA_PATH;
+if (!defined('LICENCIA_ALTA'))         define('LICENCIA_ALTA', '');
+if (!defined('LICENCIA_VENCE'))        define('LICENCIA_VENCE', '');
+if (!defined('LICENCIA_RENOVACIONES')) define('LICENCIA_RENOVACIONES', 0);
 
 /* Fuerza bruta: tras MAX_FALLOS contraseñas mal seguidas desde una misma IP, esa IP espera
  * BLOQUEO_MINUTOS. El registro vive en un JSON que el .htaccess no sirve. */

@@ -2348,11 +2348,16 @@ export async function e2eSuperadmin(informe, { navegador, servidor, docroot, cla
   await irA(sup, url, 'ajustes');
   const fichas = await sup.evaluate(() => ({
     super: document.querySelectorAll('.adm-f-super').length, reset: !!document.querySelector('input[name="reset_cliente"]'),
-    cambiar: !!document.querySelector('input[name="cambiar_super"]'), log: !!document.querySelector('pre.adm-log'),
+    /* La ficha «Mi contraseña» se retiró: la llave del superadministrador es la misma en todos
+       los clientes y se cambia en el Secret del repositorio, no desde un panel. Su hueco lo
+       ocupa «Licencia», que es lo único que el propietario sí hace cliente a cliente. */
+    cambiar: !!document.querySelector('input[name="cambiar_super"]'),
+    licencia: !!document.querySelector('input[name="renovar_licencia"]'),
+    log: !!document.querySelector('pre.adm-log'),
     indicador: (() => { const e = document.querySelector('.adm-super-indicador'); const r = e?.getBoundingClientRect(); return { existe: !!e, etiqueta: e?.getAttribute('aria-label'), ancho: Math.round(r?.width || 0), alto: Math.round(r?.height || 0) }; })(),
   }));
-  informe.comprueba('E2E-SU-01', 'con la contraseña de super se entra por la misma casilla, Ajustes enseña sus tres fichas y el indicador compacto',
-    fichas.super === 3 && fichas.reset && fichas.cambiar && fichas.log && fichas.indicador.existe
+  informe.comprueba('E2E-SU-01', 'con la contraseña de super se entra por la misma casilla, Ajustes enseña sus tres fichas (restablecer, licencia, registro) y el indicador compacto',
+    fichas.super === 3 && fichas.reset && fichas.licencia && !fichas.cambiar && fichas.log && fichas.indicador.existe
       && fichas.indicador.etiqueta === 'Sesión de superadministrador' && fichas.indicador.ancho === 40 && fichas.indicador.alto === 40, JSON.stringify(fichas));
 
   /* CSRF también aquí. */
@@ -2385,22 +2390,31 @@ export async function e2eSuperadmin(informe, { navegador, servidor, docroot, cla
   informe.comprueba('E2E-SU-06', 'la contraseña vieja ya no entra y la nueva sí', vieja && nueva);
   await rest.contextoQa.close().catch(() => {});
 
-  /* Cambiar la del super: actual mal, nueva corta, y la buena; su propia sesión sobrevive. */
-  const actualMal = await postCrudo(sup, '/admin/index.php', [['cambiar_super', '1'], ['super_actual', 'no-es'], ['super_nueva', 'super-nueva-clave-larga-1']]);
-  const nuevaCorta = await postCrudo(sup, '/admin/index.php', [['cambiar_super', '1'], ['super_actual', claveSuper], ['super_nueva', 'corta-11ch']]);
-  const cambiada = await postCrudo(sup, '/admin/index.php', [['cambiar_super', '1'], ['super_actual', claveSuper], ['super_nueva', 'super-nueva-clave-larga-1']]);
-  await sup.reload({ waitUntil: 'domcontentloaded' });
-  const sigue = await sup.evaluate(() => !document.querySelector('#clave'));
-  informe.comprueba('E2E-SU-07', 'cambiar la contraseña de super: actual incorrecta y nueva corta se rechazan; la buena se cambia y esta sesión sigue',
-    /actual no es correcta/.test(actualMal.mensaje) && /al menos 12 caracteres/.test(nuevaCorta.mensaje) && /superadministrador cambiada/.test(cambiada.mensaje) && sigue,
-    `${actualMal.mensaje} | ${nuevaCorta.mensaje} | ${cambiada.mensaje}`);
+  /* La acción de cambiar la contraseña del superadministrador YA NO EXISTE, y tiene que no
+     existir de verdad: no basta con que el formulario no se pinte. Se lanza el POST entero, con
+     sesión de super válida y CSRF bueno, y superclave.php tiene que quedar byte a byte igual.
+     La llave maestra es la misma en todos los clientes: cambiarla desde un panel dejaba ese
+     cliente con una llave distinta y en silencio. */
+  const superPhpSU = path.join(docroot, 'admin', 'superclave.php');
+  const s0 = hashDe(superPhpSU);
+  const intento = await postCrudo(sup, '/admin/index.php', [['cambiar_super', '1'], ['super_actual', claveSuper], ['super_nueva', 'super-nueva-clave-larga-1']]);
+  informe.comprueba('E2E-SU-07', 'cambiar_super ya no es una acción: con sesión de super y CSRF válido no escribe nada ni confirma nada',
+    hashDe(superPhpSU) === s0 && !/superadministrador cambiada/.test(intento.mensaje),
+    `superclave.php ${hashDe(superPhpSU) === s0 ? 'intacto' : 'MODIFICADO'} | ${intento.mensaje}`);
+
+  /* Y la consecuencia: la contraseña de siempre sigue siendo la única que entra. */
   const otra = await nuevaPagina(navegador);
   await otra.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
   await otra.fill('#clave', 'super-nueva-clave-larga-1');
   await otra.click('button[type="submit"]');
   await otra.waitForLoadState('networkidle').catch(() => {});
+  const inventadaFuera = await otra.evaluate(() => !!document.querySelector('#clave'));
+  await otra.fill('#clave', claveSuper);
+  await otra.click('button[type="submit"]');
+  await otra.waitForLoadState('networkidle').catch(() => {});
   await irA(otra, url, 'ajustes');
-  informe.comprueba('E2E-SU-08', 'la nueva contraseña de super entra en otra sesión', await otra.evaluate(() => document.querySelectorAll('.adm-f-super').length === 3));
+  informe.comprueba('E2E-SU-08', 'la contraseña que el POST intentó poner no entra, y la de siempre sí',
+    inventadaFuera && await otra.evaluate(() => document.querySelectorAll('.adm-f-super').length === 3));
   await otra.contextoQa.close().catch(() => {});
 
   /* El registro de accesos. */
@@ -2410,13 +2424,189 @@ export async function e2eSuperadmin(informe, { navegador, servidor, docroot, cla
     return { texto: pre ? pre.textContent : '', aria: pre ? pre.getAttribute('aria-label') : '' };
   });
   const fichero = readFileSync(path.join(docroot, 'admin', 'accesos.log'), 'utf8');
-  informe.comprueba('E2E-SU-09', 'el registro lista las entradas correctas, el restablecimiento y el cambio de super, con su contador',
-    /entrada correcta \(super\)/.test(log.texto) && /restablecida \(super\)/.test(log.texto) && /superadmin cambiada/.test(log.texto) && /Últimas \d+ líneas/.test(log.aria),
+  informe.comprueba('E2E-SU-09', 'el registro lista las entradas correctas y el restablecimiento, con su contador',
+    /entrada correcta \(super\)/.test(log.texto) && /restablecida \(super\)/.test(log.texto) && /Últimas \d+ líneas/.test(log.aria),
     log.aria);
+  /* Y NO puede listar un cambio de superclave, porque ya no se puede cambiar desde aquí. */
+  informe.comprueba('E2E-SU-12', 'el registro no menciona ningún cambio de contraseña de superadmin',
+    !/superadmin cambiada/.test(fichero), fichero.split('\n').filter((l) => /super/.test(l)).slice(-2).join(' | '));
   informe.comprueba('E2E-SU-10', 'el registro no contiene hashes ni contraseñas',
     !/\$2y\$/.test(fichero) && !fichero.includes(claveSuper) && !fichero.includes('clave-nueva-restaurante-1') && !fichero.includes(CLAVE_QA), `${fichero.split('\n').length} líneas`);
   const avisos = servidor.avisos();
   informe.comprueba('E2E-SU-11', 'sin warnings de PHP en el flujo de superadministrador', avisos.length === 0, avisos.slice(0, 3).join(' | '));
+  await sup.contextoQa.close().catch(() => {});
+}
+
+/* ================================================================== 15-bis. LICENCIA
+ * El contrato del cliente: nace con la primera contraseña, se ve en la barra, y sólo el
+ * superadministrador lo renueva. Lo que estas pruebas vigilan, por orden de gravedad:
+ *
+ *   1. Que NUNCA corte nada. La licencia es información; si algún día una comprobación de
+ *      fecha empieza a cerrar el panel, esto tiene que ponerse rojo.
+ *   2. Que un cliente sin licencia —un molde, una demo— no vea ningún contador ni ningún
+ *      «sin contrato», y que el panel funcione igual.
+ *   3. Que la aritmética sea la acordada: vigente suma al vencimiento, vencida suma a hoy.
+ *   4. Que un fichero corrupto se comporte como si no existiera, y no como fechas inventadas.
+ *
+ * El docroot llega con clave.php ya puesto (lo escribe entrarAlPanel al configurar el panel),
+ * así que NO hay licencia: ése es justo el estado de Tinge y de cualquier cliente anterior a
+ * esta función, y el punto de partida de «Iniciar contrato». */
+export async function e2eLicencia(informe, { navegador, servidor, docroot, claveSuper }) {
+  informe.seccion('E2E licencia: contrato, contador en la barra, renovación y casos rotos');
+  const url = servidor.url;
+  const licPhp = path.join(docroot, 'admin', 'licencia.php');
+  const hoy = fechaEn();
+
+  /* Lee las tres constantes del fichero sin pasar por PHP: si el formato cambiara, estas
+     pruebas tienen que enterarse y no seguir leyendo un fichero que ya no es el que se lee. */
+  const leerLic = () => {
+    if (!existsSync(licPhp)) return null;
+    const t = readFileSync(licPhp, 'utf8');
+    const uno = (re) => (t.match(re) || [])[1] ?? null;
+    return {
+      alta: uno(/LICENCIA_ALTA',\s*'([\d-]+)'/),
+      vence: uno(/LICENCIA_VENCE',\s*'([\d-]+)'/),
+      renovaciones: Number(uno(/LICENCIA_RENOVACIONES',\s*(\d+)/)),
+    };
+  };
+  /* Siembra un contrato concreto para llegar a estados que tardarían meses en darse solos:
+     vencido, a punto de vencer, o con fechas imposibles. Escribe el MISMO formato que escribe
+     el panel, así que si el formato cambiara estas pruebas se enterarían. */
+  const sembrarLic = (alta, vence, veces) => writeFileSync(licPhp,
+    `<?php\ndefine('LICENCIA_ALTA',  '${alta}');\ndefine('LICENCIA_VENCE', '${vence}');\ndefine('LICENCIA_RENOVACIONES', ${veces});\n`);
+
+  /* El contador vive en la barra lateral y sólo se pinta a partir de 1024px, igual que el
+     aviso de sesión que ya vivía ahí. Se mide con la ventana ancha a propósito. */
+  const contador = (p) => p.evaluate(() => {
+    const e = document.querySelector('.adm-sidebar-licencia');
+    if (!e) return null;
+    return { texto: e.textContent.trim().replace(/\s+/g, ' '), clase: e.className, visible: !!e.offsetParent };
+  });
+
+  const sup = await nuevaPagina(navegador);
+  await sup.setViewportSize({ width: 1280, height: 900 });
+  await sup.goto(url + '/admin/', { waitUntil: 'domcontentloaded' });
+  await sup.fill('#clave', claveSuper);
+  await sup.click('button[type="submit"]');
+  await sup.waitForLoadState('networkidle').catch(() => {});
+
+  /* El panel de este docroot ya se configuró (entrarAlPanel puso la primera contraseña), y ESO
+     es un alta: el contrato tiene que existir ya, sin que nadie lo pida. Es la prueba más
+     importante del bloque — si el contrato no naciera aquí, no nacería nunca. */
+  const l0 = leerLic();
+  informe.comprueba('E2E-LIC-01', 'poner la primera contraseña crea el contrato: alta = hoy y vencimiento = hoy + 370',
+    l0 !== null && l0.alta === hoy && l0.vence === sumaDias(hoy, 370) && l0.renovaciones === 0, JSON.stringify(l0));
+
+  const c0 = await contador(sup);
+  informe.comprueba('E2E-LIC-02', 'el contador sale en la barra con los días que quedan y sin color de alarma',
+    c0 !== null && c0.visible && /Contrato: 370 d/.test(c0.texto) && /adm-lic-ok/.test(c0.clase), JSON.stringify(c0));
+
+  /* Puerta 1: la contraseña de superadministrador otra vez, aunque la sesión ya esté dentro. Una
+     tablet de cocina olvidada con la sesión abierta no puede alargar un contrato. */
+  const antesMala = readFileSync(licPhp, 'utf8');
+  const mala = await postCrudo(sup, '/admin/index.php', [['renovar_licencia', '1'], ['super', 'no-es-la-buena']]);
+  informe.comprueba('E2E-LIC-03', 'renovar con la contraseña de super incorrecta se rechaza y no mueve el contrato',
+    /superadministrador no es correcta/.test(mala.mensaje) && readFileSync(licPhp, 'utf8') === antesMala, mala.mensaje);
+
+  /* Puerta 2: CSRF, como en toda acción POST del panel. */
+  const csrfMal = await conFalloEsperado(sup, () => postCrudo(sup, '/admin/index.php', [['renovar_licencia', '1'], ['super', claveSuper]], { csrfValido: false }));
+  informe.comprueba('E2E-LIC-04', 'renovar sin CSRF válido: 403 y el contrato intacto',
+    csrfMal.status === 403 && readFileSync(licPhp, 'utf8') === antesMala, `HTTP ${csrfMal.status}`);
+
+  /* Renovar un contrato VIGENTE suma al VENCIMIENTO, no a hoy: quien renueva antes de tiempo no
+     regala los días que le quedaban. Y el alta no se mueve nunca. */
+  const renovada = await postCrudo(sup, '/admin/index.php', [['renovar_licencia', '1'], ['super', claveSuper]]);
+  const l1 = leerLic();
+  informe.comprueba('E2E-LIC-05', 'renovar un contrato vigente suma 370 al VENCIMIENTO, deja el alta intacta y cuenta la renovación',
+    l1.alta === hoy && l1.vence === sumaDias(hoy, 740) && l1.renovaciones === 1 && /Licencia renovada/.test(renovada.mensaje),
+    `${JSON.stringify(l1)} | ${renovada.mensaje}`);
+
+  /* Un contrato VENCIDO: se siembra a mano, se comprueba que avisa y que NO cierra nada, y se
+     renueva desde HOY — quien renueva dos meses tarde no paga dos meses que no tuvo. */
+  sembrarLic(sumaDias(hoy, -400), sumaDias(hoy, -30), 3);
+  await irA(sup, url, 'ajustes');
+  const cVenc = await contador(sup);
+  const panelVivo = await sup.evaluate(() => !document.querySelector('#clave') && !!document.querySelector('[data-tab]'));
+  informe.comprueba('E2E-LIC-06', 'un contrato vencido avisa en rojo y NO cierra el panel: la licencia nunca corta nada',
+    cVenc !== null && /Contrato vencido/.test(cVenc.texto) && /adm-lic-vencida/.test(cVenc.clase) && panelVivo, JSON.stringify(cVenc));
+  await postCrudo(sup, '/admin/index.php', [['renovar_licencia', '1'], ['super', claveSuper]]);
+  const l2 = leerLic();
+  informe.comprueba('E2E-LIC-07', 'renovar un contrato vencido suma 370 a HOY, no al vencimiento viejo, y conserva el alta',
+    l2.vence === sumaDias(hoy, 370) && l2.alta === sumaDias(hoy, -400) && l2.renovaciones === 4, JSON.stringify(l2));
+
+  /* El aviso en ámbar: menos de 30 días. */
+  sembrarLic(sumaDias(hoy, -360), sumaDias(hoy, 10), 0);
+  await irA(sup, url, 'ajustes');
+  const cAviso = await contador(sup);
+  informe.comprueba('E2E-LIC-08', 'a menos de 30 días el contador avisa en ámbar sin cambiar de sitio',
+    cAviso !== null && /Contrato: 10 d/.test(cAviso.texto) && /adm-lic-aviso/.test(cAviso.clase), JSON.stringify(cAviso));
+
+  /* Un fichero corrupto se comporta como si no hubiera licencia: nunca como fechas inventadas y
+     nunca tirando el panel. Es lo que separa «no factura» de «no funciona». */
+  sembrarLic('ayer', '2026-02-31', 0);
+  await irA(sup, url, 'ajustes');
+  const cRoto = await contador(sup);
+  const vivoRoto = await sup.evaluate(() => !document.querySelector('#clave') && !!document.querySelector('[data-tab]'));
+  informe.comprueba('E2E-LIC-09', 'una licencia con fechas imposibles se trata como si no existiera y el panel sigue en pie',
+    cRoto === null && vivoRoto, JSON.stringify(cRoto));
+
+  /* Sin contrato: ni contador ni un «sin contrato» en la barra, y la ficha ofrece iniciarlo. Es
+     el estado de un molde, de una demo y de cualquier cliente anterior a esta función. */
+  unlinkSync(licPhp);
+  await irA(sup, url, 'ajustes');
+  const sinLic = await sup.evaluate(() => {
+    const f = document.querySelector('.adm-f-clisuper');
+    return {
+      contador: !!document.querySelector('.adm-sidebar-licencia'),
+      boton: f?.querySelector('button[type="submit"]')?.textContent.trim() || '',
+      txt: f?.textContent || '',
+    };
+  });
+  informe.comprueba('E2E-LIC-10', 'sin contrato no se pinta ningún contador, y la ficha ofrece «Iniciar contrato»',
+    !sinLic.contador && sinLic.boton === 'Iniciar contrato' && /no tiene contrato/.test(sinLic.txt), JSON.stringify(sinLic));
+
+  /* Restablecer la contraseña del restaurante NO es un alta: es el rescate. guardar_clave() tiene
+     tres llamadores y sólo dos son altas; si el contrato naciera aquí, un cliente que pierde su
+     contraseña estrenaría contrato cada vez que se la restablecen. */
+  await postCrudo(sup, '/admin/index.php', [['reset_cliente', '1'], ['cliente_nueva', 'clave-rescate-e2e-1']]);
+  informe.comprueba('E2E-LIC-11', 'restablecer la contraseña del restaurante NO crea contrato: el rescate no es un alta',
+    leerLic() === null, leerLic() === null ? 'sigue sin contrato' : JSON.stringify(leerLic()));
+
+  /* El alta manual del contrato: la vía para un cliente que ya tenía contraseña antes de esto. */
+  const iniciada = await postCrudo(sup, '/admin/index.php', [['renovar_licencia', '1'], ['super', claveSuper]]);
+  const l3 = leerLic();
+  /* El aviso enseña la fecha como se lee en español (d/m/Y), no en ISO: el fichero guarda
+     YYYY-MM-DD y la interfaz nunca lo enseña crudo. Si un día se cambiara el formato, esta
+     comprobación se entera. */
+  const enEspanol = (iso) => iso.split('-').reverse().join('/');
+  informe.comprueba('E2E-LIC-12', '«Iniciar contrato» crea la licencia desde hoy y lo confirma con la fecha en d/m/Y',
+    l3 !== null && l3.alta === hoy && l3.vence === sumaDias(hoy, 370)
+      && /Contrato iniciado/.test(iniciada.mensaje) && iniciada.mensaje.includes(enEspanol(sumaDias(hoy, 370))),
+    `${JSON.stringify(l3)} | ${iniciada.mensaje}`);
+
+  /* El restaurante no toca el contrato: ni ve la ficha, ni su POST llega. */
+  const antesRest = readFileSync(licPhp, 'utf8');
+  const rest = await nuevaPagina(navegador);
+  await rest.setViewportSize({ width: 1280, height: 900 });
+  await entrarAlPanel(rest, url, 'clave-rescate-e2e-1');
+  await irA(rest, url, 'ajustes');
+  const veFicha = await rest.evaluate(() => !!document.querySelector('input[name="renovar_licencia"]'));
+  await postCrudo(rest, '/admin/index.php', [['renovar_licencia', '1'], ['super', claveSuper]]);
+  informe.comprueba('E2E-LIC-13', 'el rol restaurante no ve la ficha de licencia y su POST directo no mueve el contrato',
+    !veFicha && readFileSync(licPhp, 'utf8') === antesRest, `ficha ${veFicha}`);
+  await rest.contextoQa.close().catch(() => {});
+
+  /* El rastro: quién movió el contrato y cuándo, sin un solo secreto dentro. */
+  const registro = readFileSync(path.join(docroot, 'admin', 'accesos.log'), 'utf8');
+  informe.comprueba('E2E-LIC-14', 'el registro apunta el alta, las renovaciones y los intentos rechazados',
+    /licencia iniciada \(super\)/.test(registro) && /licencia renovada \(super\)/.test(registro)
+      && /de licencia rechazada/.test(registro),
+    registro.split('\n').filter((l) => /licencia/i.test(l)).length + ' líneas de licencia');
+  informe.comprueba('E2E-LIC-15', 'el registro de licencia no filtra contraseñas ni hashes',
+    !/\$2y\$/.test(registro) && !registro.includes(claveSuper), `${registro.split('\n').length} líneas`);
+
+  informe.comprueba('E2E-LIC-16', 'sin warnings de PHP en todo el flujo de licencia', servidor.avisos().length === 0,
+    servidor.avisos().slice(0, 3).join(' | '));
   await sup.contextoQa.close().catch(() => {});
 }
 
@@ -6760,6 +6950,17 @@ export async function bateriaE2E(informe, { clon, fixtures, navegador }) {
   writeFileSync(path.join(docSuper, 'admin', 'superclave.php'), `<?php\ndefine('SUPERADMIN_HASH', ${enPhp(hashSuper)});\n`);
   await correrBloque(informe, 'superadmin', () => e2eSuperadmin(informe, { navegador, servidor: srvSuper, docroot: docSuper, claveSuper }));
   srvSuper.parar();
+
+  /* La licencia va en su PROPIO docroot y no en el del superadministrador: aquel llega con el
+     registro y la contraseña del restaurante ya cambiados por sus pruebas, y aquí hace falta un
+     cliente recién configurado —clave.php puesto, licencia.php no— que es el estado real de
+     cualquier cliente anterior a esta función. */
+  const docLic = docrootDesde(clon.salida, 'e2e_lic');
+  const srvLic = await abrir(docLic, { gd: true, mbstring: true });
+  const tmpLic = await nuevaPagina(navegador); await entrarAlPanel(tmpLic, srvLic.url); await tmpLic.contextoQa.close().catch(() => {});
+  writeFileSync(path.join(docLic, 'admin', 'superclave.php'), `<?php\ndefine('SUPERADMIN_HASH', ${enPhp(hashSuper)});\n`);
+  await correrBloque(informe, 'licencia', () => e2eLicencia(informe, { navegador, servidor: srvLic, docroot: docLic, claveSuper }));
+  srvLic.parar();
 
   const docBloq = docrootDesde(clon.salida, 'e2e_bloq');
   const srvBloq = await abrir(docBloq, { gd: true, mbstring: true });

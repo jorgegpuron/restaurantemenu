@@ -8075,3 +8075,133 @@ Y un defecto conocido se cierra: `E4` («`--detectar` no revisa `server/**`»). 
 `--detectar` lo cerró y la batería lo cantó sola como `UNEXPECTED PASS`. La comprobación se
 queda, cambiando de papel: deja de decir «esto sigue roto» y pasa a decir «esto no se puede
 volver a romper».
+
+## La licencia de 370 días y una sola llave maestra para todos los clientes (15 Sep 2026)
+
+El servicio se vende por un año, y hasta hoy ese contrato no existía en ninguna parte del
+producto: vivía sólo en la relación comercial. Sin fecha guardada no hay cuenta atrás para el
+restaurante ni alarma para el propietario, y las renovaciones dependen de que alguien se acuerde.
+
+A la vez, el acceso de superadministrador exigía generar y colocar a mano una contraseña por
+cliente. Las dos cosas entran juntas porque **la renovación las une**: si la licencia no corta
+nada sola, alguien tiene que extenderla, y quien la extiende es el superadministrador. La llave
+maestra deja de ser sólo un acceso de rescate y pasa a ser la llave con la que se factura.
+
+### Las cinco decisiones del propietario
+
+1. **El reloj arranca cuando el restaurante crea su contraseña.** No al desplegar (contaría
+   semanas que el cliente no ha usado) ni a mano (se olvida).
+2. **370 días**: el año vendido más cinco de gracia, para que una renovación que cae en fin de
+   semana no deje el contrato en rojo.
+3. **El día cero no corta nada.** La licencia es información y sólo información: avisa. Ni la
+   carta del comensal ni el panel se tocan. Es la decisión que impide que un fallo del contador
+   tumbe el negocio de alguien que está al día, y por eso está escrita en `config.php` y no sólo
+   aquí.
+4. **Renueva el propietario desde el panel del cliente**, con rol `super`. Sin FTP y sin build.
+5. **La llave maestra la escribe el build** desde un Secret del repositorio.
+
+### Dónde vive cada cosa, y por qué en sitios opuestos
+
+| Fichero | Quién lo escribe | ¿Sube por FTP? | Por qué |
+|---|---|---|---|
+| `admin/licencia.php` | El panel, en producción | **No, excluido** | Es el contrato de ese cliente. Subir encima lo devolvería atrás |
+| `admin/superadmin.php` | `gen.mjs`, desde el Secret | **Sí** | Es la misma llave en todos: así un alta nace con el acceso puesto |
+| `admin/superclave.php` | A mano, por FTP | No, excluido | El botón de pánico. Manda sobre el del build |
+
+Confundir los dos primeros es el fallo caro, y por eso hay prueba de los dos lados: generar
+`licencia.php` borraría contratos en cada despliegue, y excluir `superadmin.php` dejaría al
+propietario sin llave en los clientes nuevos.
+
+`admin/superclave.php` **no podía** ser el fichero que escribiera el build: está en dos guardias
+del despliegue —la que aborta si el build lo genera y la que lo excluye del FTP—, y las dos son
+correctas y se quedan. El camino bueno ya estaba inventado en el repositorio: es el de
+`admin/activacion.php`.
+
+### El orden de precedencia, que no es casual
+
+Variable de entorno → `superclave.php` (manual) → `superadmin.php` (build). **El manual gana al
+build** a propósito: si hay que cerrar el acceso a un cliente concreto de inmediato, se sube un
+fichero por FTP y surte efecto ya. Si mandara el build, habría que esperar a un despliegue.
+
+### Lo que se retira
+
+La acción de **cambiar la contraseña del superadministrador desde el panel**. Con una llave para
+todos, cambiarla en un panel deja a ese cliente con una llave distinta en silencio: el propietario
+creyendo que tiene una y teniendo dos. Se cambia en el Secret y se redespliega. `E2E-SU-07` deja
+de comprobar que el cambio funciona y pasa a comprobar que **el POST entero no escribe nada**, con
+sesión de super válida y CSRF bueno: que un formulario no se pinte no demuestra que la acción no
+exista.
+
+Y `clave_ref('super')` pasa a mirar **el fichero que de verdad manda** según esa precedencia. Antes
+miraba siempre `superclave.php`, que era el único; dejarlo así habría hecho que rotar la llave
+maestra por el Secret dejara vivas todas las sesiones abiertas, que es justo lo que esa
+comprobación existe para impedir.
+
+### El `$` que se comía media llave
+
+Un hash bcrypt es `$2y$10$<sal><hash>`. La primera versión de `gen.mjs` lo escribía con
+`JSON.stringify`, igual que hace la activación, y eso produce una cadena PHP de **comillas
+dobles**: ahí el tercer `$` seguido de letras es interpolación de variable, y PHP se comía el
+resto. La constante llegaba a producción valiendo `$2y$10` y la llave maestra quedaba rota.
+
+Medido, no supuesto: `password_verify` devolvía `false` y PHP avisaba de una variable indefinida
+con el nombre de la sal dentro. Se escribe con comillas simples y escape. La activación nunca lo
+sufrió porque su hash es SHA-256 en hexadecimal y ahí no hay ningún `$`. `MC-51` lo vigila leyendo
+el fichero **con PHP** y verificando la contraseña: es lo único que demuestra que llegó entero.
+
+### La aritmética de la renovación
+
+- Contrato **vigente**: los 370 días se suman al **vencimiento actual**. Quien renueva con tres
+  días de antelación no los regala.
+- Contrato **vencido**: se suman a **hoy**. Quien renueva dos meses tarde no paga dos meses que no
+  tuvo.
+- `LICENCIA_ALTA` no cambia nunca: es la antigüedad del cliente, no el periodo en curso.
+
+Todo el cálculo va en **días de calendario y en la zona horaria del contrato** (`TZ`, de
+`cliente.mjs`), no en diferencias de marcas de tiempo ni en la hora del servidor. Un contrato no
+puede vencer a una hora distinta según dónde esté alojado, y un contador que baja a media tarde
+porque han pasado 24 horas exactas es un contador que miente.
+
+### Dónde nace, y los tres llamadores de `guardar_clave()`
+
+`arrancar_licencia()` es idempotente y se llama **sólo desde los dos sitios en que el restaurante
+pone su primera contraseña**: la configuración inicial y la salida del modo demo. No va dentro de
+`guardar_clave()`, que tiene un **tercer** llamador —el restablecimiento por el superadministrador—
+y ése es un rescate, no un alta: un cliente que pierde su contraseña no estrena contrato.
+
+Y por eso mismo es un fichero propio y no la fecha de `clave.php`: devolver un cliente a modo demo
+borrando `clave.php` no puede reiniciar su año.
+
+Si no se pudiera escribir, **el alta no se bloquea**: la contraseña ya está guardada, y dejar al
+restaurante fuera por el contador sería el peor cambio posible. Queda el rastro en `accesos.log` y
+el propietario lo arregla con «Iniciar contrato».
+
+### Multicliente, sin una sola excepción escrita
+
+Datos al estado del cliente (`licencia.php`), comportamiento al motor (los 370 días, los umbrales,
+la aritmética). Tinge y Guaza ya tenían `clave.php` desde antes de que esto existiera, así que
+**nacen sin licencia y salen «no facturables» solos**: molde y demo. Es el mismo criterio que ya se
+había diseñado para la consola del propietario, y sale gratis.
+
+### Lo que queda fuera, a propósito
+
+El **aviso automático** al vencer y la **consola del propietario**. Las dos leen esta misma fecha,
+así que esto es su cimiento. Una página que hay que abrir no es una alarma: el aviso sigue
+haciendo falta.
+
+### `generado/` se vacía en cada build
+
+Apareció al probar lo anterior, y es el mismo defecto visto desde el otro lado. `gen.mjs` escribe
+sus derivados en `generado/` y luego copia **la carpeta entera** a `2-subir`. Nadie la vaciaba
+nunca, así que lo que un build **ya no escribe** pero sigue estando ahí se publicaba igual.
+
+`admin/superadmin.php` y `admin/activacion.php` sólo se escriben si el build tiene su Secret en el
+entorno. Compilar una vez con el Secret y otra sin él dejaba **la llave vieja en la salida**:
+quitar el Secret no quitaba la llave. En CI no ocurre —cada run es un checkout limpio—, de modo
+que era un fallo que sólo existía en la máquina de quien compila, que es justo donde nadie lo
+busca.
+
+Ahora la carpeta se borra entera antes de escribir nada, con la misma guarda de enlace simbólico
+que ya usaban los derivados legacy. Es seguro por contrato: `entorno.mjs` ya declaraba que es
+local y regenerable y que «borrarla entera sólo cuesta un build», e `importar.mjs` no escribe ahí.
+`MC-58` lo vigila compilando con el Secret y después sin él.

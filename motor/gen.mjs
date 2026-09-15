@@ -9098,6 +9098,29 @@ for (const rel of LEGACY_GENERADOS) {
   }
   rmSync(url);
 }
+/* generado/ se VACIA entera antes de escribir nada. No basta con sobrescribir lo de este
+ * build: lo que sobrevive es lo que ESTE build ya no escribe, y eso viaja a 2-subir igual,
+ * porque la copia de mas abajo mete la carpeta entera.
+ *
+ * El caso real que lo motiva: admin/superadmin.php y admin/activacion.php solo se escriben si
+ * el build tiene su Secret en el entorno. Compilar una vez con el Secret y otra sin el dejaba
+ * la llave VIEJA en la salida — quitar el Secret no quitaba la llave, y nadie lo veia. En CI no
+ * pasaba (cada run es un checkout limpio), asi que era un fallo que solo existia en la maquina
+ * de quien compila, que es justo donde nadie lo busca.
+ *
+ * Es seguro: el contrato de entorno.mjs ya dice que esta carpeta es local y regenerable y que
+ * "borrarla entera solo cuesta un build". Nadie escribe aqui antes que gen.mjs —importar.mjs
+ * trabaja en la raiz del cliente— y nada de aqui es una fuente.
+ *
+ * Con la misma guarda que los derivados legacy de arriba: si alguien ha puesto un enlace
+ * simbolico donde va la carpeta, se para en vez de borrar al otro lado del enlace. */
+if (existsSync(RAIZ_GENERADO)) {
+  if (lstatSync(RAIZ_GENERADO).isSymbolicLink()) {
+    abortar('generado/ es un enlace simbolico y no se sigue.',
+      'quita ese enlace a mano: ahi solo puede haber derivados regenerables del build');
+  }
+  rmSync(RAIZ_GENERADO, { recursive: true, force: true });
+}
 mkdirSync(RAIZ_GENERADO, { recursive: true });
 mkdirSync(generado('admin/'), { recursive: true });
 
@@ -9417,6 +9440,52 @@ if (process.env.PANEL_ACTIVACION_HASH) {
       '',
     ].join(NL),
   );
+}
+
+/* La llave maestra del propietario. UNA sola contrasena para TODOS los clientes: no se
+ * genera ni se coloca una por restaurante. Viaja igual que la activacion de aqui arriba
+ * —Secret del repositorio -> entorno del build -> fichero del panel— y por eso un alta
+ * nueva nace con el acceso del propietario puesto sin tocar el FTP.
+ *
+ * OJO con el nombre del fichero: NO es superclave.php. Ese esta en dos guardias del
+ * despliegue —la que aborta el build si lo genera y la que lo excluye del FTP— porque es
+ * un dato de produccion que se coloca a mano, y las dos son correctas y se quedan. Este es
+ * otro fichero, con la figura de activacion.php: se genera, sube, y cada despliegue lo
+ * renueva. config.php le da MENOS prioridad que a superclave.php a proposito, para que
+ * subir el manual por FTP siga siendo la via rapida de aislar un cliente.
+ *
+ * Sin el Secret no se escribe nada y el build NO se aborta. Es deliberado: abortar romperia
+ * cualquier `node gen.mjs` en la maquina del propietario, que no tiene Secrets, y un cliente
+ * sin llave maestra sigue teniendo el rescate de superclave.php por FTP. */
+if (process.env.SUPERADMIN_PASSWORD_HASH) {
+  writeFileSync(
+    generado('admin/superadmin.php'),
+    [
+      '<?php',
+      '/* Generado por gen.mjs desde el Secret SUPERADMIN_PASSWORD_HASH del repositorio.',
+      '   Es el hash de la contrasena del SUPERADMINISTRADOR, la misma en todos los',
+      '   clientes. No editar a mano: se sobrescribe en cada build. Para cambiarla, cambia',
+      '   el Secret y vuelve a desplegar; para una urgencia, superclave.php por FTP, que',
+      '   manda sobre este. */',
+      /* Comillas SIMPLES, y no JSON.stringify como hace la activacion de aqui arriba. Un
+       * hash bcrypt es `$2y$10$<sal><hash>`, y en una cadena PHP de comillas DOBLES ese
+       * tercer `$` seguido de letras es interpolacion de variable: PHP se come el resto y
+       * la constante se queda en `$2y$10`. Medido, no supuesto — la llave maestra entera
+       * quedaba rota en produccion. La activacion no lo sufria porque su hash es SHA-256 en
+       * hexadecimal y ahi no hay ningun `$`. */
+      "define('SUPERADMIN_HASH', '"
+        + process.env.SUPERADMIN_PASSWORD_HASH.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        + "');",
+      '',
+    ].join(NL),
+  );
+} else {
+  /* Un aviso y no un error. En local es lo normal; en el despliegue real significa que al
+   * repositorio le falta el Secret, y entonces ese cliente se queda sin la llave del
+   * propietario —no se podria ni renovar su licencia desde el panel—. El formato ::warning::
+   * lo pinta GitHub Actions en el resumen del run; en una consola normal es una linea mas. */
+  console.log('::warning::Sin SUPERADMIN_PASSWORD_HASH: no se escribe admin/superadmin.php. '
+    + 'Este cliente se queda sin la llave maestra del propietario salvo que tenga superclave.php en el servidor.');
 }
 /* Bytes de verdad, no `length`: el HTML va en UTF-8 y ahi una `a` con tilde ocupa dos, una raya
    larga tres. Contando caracteres el log decia 697226 y el fichero pesaba 699256, y esos 2030 de
