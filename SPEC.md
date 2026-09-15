@@ -8368,6 +8368,28 @@ la línea de etiquetas vacía. `CAR-40` vigila el precio en la fila con bolsa y 
 se **bloquean** si la fixtura no pinta el caso que falla, en vez de pasar sin haber mirado; por eso
 la fixtura marca ahora un tercer plato, el que lleva bolsa y no lleva foto.
 
+### La trampa de medir el precio por su caja
+
+`CAR-40` nació midiendo `getBoundingClientRect()` de `.price` contra el del nombre, y daba **−1,75
+px** con un CSS que está bien. La caja de `.price` **incluye el `padding-top`**, que es justo lo
+que empuja al texto: su centro se mueve la **mitad** de lo que se mueve lo que se ve. Comparar esa
+caja contra el nombre mide la compensación, no el resultado.
+
+Medido en la fila que fallaba, a 390 px:
+
+| `padding-top` | centro del **texto** | centro de la **caja** |
+|---|---|---|
+| 4,5 px (el que hay) | **0,00** | −1,75 |
+| 8 px | +3,50 | 0,00 |
+
+Es decir: hacer que las cajas coincidan habría metido un defecto visible de 3,5 px para callar una
+prueba que estaba mirando mal. Ahora se mide el texto con un `Range`, y la **primera línea** de
+cada uno: un nombre que envuelve a dos líneas baja su centro medio renglón y la diferencia deja de
+significar nada.
+
+La lección no es el `Range`: es que una prueba que pide cambiar un CSS **hay que comprobarla a
+ella primero**, sobre todo cuando lo que pide empeora lo que se ve.
+
 Motor 1.3.3 -> 1.3.4.
 
 ## El cron que avisa del vencimiento (15 Sep 2026)

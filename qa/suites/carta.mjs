@@ -664,8 +664,26 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
          nombre mide 22 y un círculo de 32 lo estira: por eso existe el desplazamiento de
          4,5 px que llevaba `.abre`. Pero `.abre` la pone la FOTO, y un plato puede ir para
          llevar sin tenerla — esa fila estira igual y no llevaba la clase. Se lee de
-         data-llevar. Sin esto el precio queda 4,5 px alto justo en las filas nuevas. */
+         data-llevar. Sin esto el precio queda 4,5 px alto justo en las filas nuevas.
+
+         Se mide el TEXTO con un Range, no `getBoundingClientRect()` del elemento. La caja de
+         `.price` incluye el `padding-top` que es justamente lo que empuja al texto, así que su
+         centro se mueve la MITAD de lo que se mueve lo que se ve: comparar esa caja contra el
+         nombre mide la compensación, no el resultado. Medido el 15 sep 2026 en esta misma
+         fila: con los 4,5 px correctos el texto queda a 0,00 del centro del nombre mientras
+         las cajas se separan 1,75; y forzando que las cajas coincidan —8 px— el texto se va
+         3,5 px abajo, que es el defecto que esta prueba tendría que cazar. La primera pasada
+         de esta comprobación medía las cajas y pedía cambiar un CSS que estaba bien.
+
+         Y la PRIMERA línea de cada uno, no el rectángulo entero: un nombre que envuelve a dos
+         líneas baja su centro medio renglón y la diferencia deja de significar nada. El precio
+         se alinea con la primera línea del nombre, que es lo que se ve. */
       const precios = await pagina.evaluate(async () => {
+        const primeraLinea = (el) => {
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          return [...r.getClientRects()].filter((c) => c.height > 0)[0] || null;
+        };
         const filas = [...document.querySelectorAll('.single-menu-items[data-llevar="1"]')]
           .filter((f) => !f.classList.contains('abre'));
         const salida = [];
@@ -675,8 +693,9 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
           const nombre = fila.querySelector('.dish-name');
           const precio = fila.querySelector('.price');
           if (!nombre || !precio) continue;
-          const a = nombre.getBoundingClientRect();
-          const b = precio.getBoundingClientRect();
+          const a = primeraLinea(nombre);
+          const b = primeraLinea(precio);
+          if (!a || !b) continue;
           salida.push({
             k: fila.dataset.key,
             centros: Math.round(((b.top + b.bottom) / 2 - (a.top + a.bottom) / 2) * 100) / 100,
