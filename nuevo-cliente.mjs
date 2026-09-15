@@ -632,7 +632,7 @@ function comandoDetectar() {
   const hallazgos = [];
 
   // i18n.*.mjs, por nombre de patron (no esta en RUTAS_EN_PROYECTO porque es un glob)
-  const candidatos = readdirSync(raiz).filter((f) => /^i18n..*.mjs$/.test(f));
+  const candidatos = readdirSync(raiz).filter((f) => /^i18n\..*\.mjs$/.test(f));
   const ficherosCliente = [
     ...RUTAS_EN_PROYECTO.flatMap((r) => {
       const p = path.join(raiz, r);
