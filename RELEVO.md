@@ -25,7 +25,8 @@ Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se
 >
 > `DESPLIEGUE_REAL` del banco de pruebas en **`false`**, leído de GitHub después de desplegar.
 > **Una sola rama**, `main`, local y remota en el mismo commit: ni una de trabajo sin borrar.
-> Árbol limpio salvo `.ai/`, que es basura del 12 sep de un trabajo ya cerrado y se puede borrar.
+> **Árbol limpio del todo**: `git status` no devuelve ni una línea. `.ai/` —basura del 12 sep de
+> un trabajo ya cerrado— borrada.
 >
 > **Guaza no se tocó hoy**: su fila es la del relevo anterior y su `DESPLIEGUE_REAL` no se ha
 > vuelto a leer. No darlo por sabido.
