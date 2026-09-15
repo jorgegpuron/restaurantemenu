@@ -22,6 +22,22 @@ on:
     # ejecutarse.
     - cron: '23 6 * * *'
   workflow_dispatch:
+    # Un simulacro. Una alarma que no se puede ensayar es una alarma que nadie sabe si suena:
+    # aqui el aviso solo salta por debajo de 7 dias, asi que sin esto habria que esperar a 2027
+    # -- o falsear el contrato de un cliente real, que no se hace -- para ver si de verdad
+    # llega el correo.
+    #
+    # Solo existe en el disparo A MANO. El cron diario no pasa ningun input, asi que la
+    # ejecucion automatica no puede simular nada ni por accidente.
+    #
+    # El endpoint SE SIGUE CONSULTANDO igual: lo que se sustituye es UNICAMENTE el numero de
+    # dias con el que se decide. Un simulacro que no llame al servidor no prueba la mitad que
+    # mas se rompe.
+    inputs:
+      simular_dias:
+        description: 'Simulacro: dias restantes con los que decidir (vacio = los de verdad)'
+        required: false
+        default: ''
 
 # Escribir issues es todo lo que necesita. No lee el codigo, no compila y no despliega: sin
 # contents:write no puede tocar el repositorio aunque quisiera.
@@ -42,6 +58,7 @@ jobs:
         env:
           URL: ${{ vars.LICENCIA_URL }}
           TOKEN: ${{ secrets.LICENCIA_TOKEN }}
+          SIMULAR: ${{ inputs.simular_dias }}
         run: |
           set -euo pipefail
           if [ -z "${URL:-}" ] || [ -z "${TOKEN:-}" ]; then
@@ -62,8 +79,22 @@ jobs:
           # porque una alarma tiene que mirar el numero del que depende, no un rotulo.
           dias=$(echo "$cuerpo" | jq -r 'if (.dias | type) == "number" then .dias else "null" end')
           vence=$(echo "$cuerpo" | jq -r 'if (.dias | type) == "number" then .vence else "" end')
-          echo "dias=$dias"   >> "$GITHUB_OUTPUT"
-          echo "vence=$vence" >> "$GITHUB_OUTPUT"
+          # El simulacro entra AQUI y solo aqui: la peticion al endpoint ya se ha hecho y se ha
+          # leido de verdad, asi que un fallo del servidor o del token sigue rompiendo el run
+          # aunque se este ensayando. Lo unico que cambia es el numero con el que se decide.
+          if [ -n "${SIMULAR:-}" ]; then
+            case "$SIMULAR" in
+              ''|*[!0-9-]*) echo "::error::simular_dias tiene que ser un numero entero."; exit 1 ;;
+            esac
+            echo "::warning::SIMULACRO: se decide con $SIMULAR dias en vez de los $dias reales."
+            dias="$SIMULAR"
+            simulacro=1
+          else
+            simulacro=0
+          fi
+          echo "dias=$dias"           >> "$GITHUB_OUTPUT"
+          echo "vence=$vence"         >> "$GITHUB_OUTPUT"
+          echo "simulacro=$simulacro" >> "$GITHUB_OUTPUT"
 
       - name: Abrir el aviso si toca
         if: steps.estado.outputs.dias != 'null'
@@ -72,6 +103,7 @@ jobs:
           REPO: ${{ github.repository }}
           DIAS: ${{ steps.estado.outputs.dias }}
           VENCE: ${{ steps.estado.outputs.vence }}
+          SIMULACRO: ${{ steps.estado.outputs.simulacro }}
         run: |
           set -euo pipefail
           # El mismo umbral que el panel. Si un dia cambia alli, tiene que cambiar aqui: son la
@@ -88,6 +120,13 @@ jobs:
           # para poder buscarlo: al renovar cambia el vencimiento, cambia el titulo, y el aviso
           # del periodo siguiente si es un issue nuevo.
           TITULO="Licencia: vence el $VENCE"
+          # Un simulacro lleva su propio titulo, y no es cosmetica: el aviso de verdad se
+          # de-duplica buscando el titulo entre los issues ABIERTOS. Un ensayo con el mismo
+          # titulo que el real taparia el aviso de verdad si a alguien se le olvida cerrarlo --
+          # justo el dia que hay que enterarse. Asi no pueden chocar aunque convivan.
+          if [ "$SIMULACRO" = "1" ]; then
+            TITULO="[SIMULACRO] $TITULO"
+          fi
           ABIERTO=$(gh issue list --repo "$REPO" --state open --search "$TITULO in:title" --json number --jq 'length')
           if [ "$ABIERTO" != "0" ]; then
             echo "::notice::Ya hay un issue abierto para el vencimiento $VENCE. No se abre otro."
@@ -110,6 +149,19 @@ jobs:
           quedaban: se suman al vencimiento actual."
           fi
 
+          # Y el cuerpo lo dice tambien, no solo el titulo: quien recibe el correo ve el asunto
+          # en la bandeja pero lee el cuerpo, y un aviso de vencimiento que resulta ser un
+          # ensayo tiene que desactivarse en la primera linea. Se dice ademas con que numero se
+          # ensayo, para que el correo valga como prueba de que la alarma llega.
+          if [ "$SIMULACRO" = "1" ]; then
+            CUERPO="> **Esto es un SIMULACRO.** No hay ningún vencimiento cerca: se ha
+          disparado el aviso a mano con \`simular_dias=$DIAS\` para comprobar que la alarma
+          llega. La licencia real vence el $VENCE. Se puede cerrar este issue.
+
+          ---
+
+          $CUERPO"
+          fi
           gh issue create --repo "$REPO" --title "$TITULO" --body "$CUERPO"
           echo "::warning::Abierto el aviso de licencia: $TITULO"
 
