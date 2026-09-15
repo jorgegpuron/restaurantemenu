@@ -428,8 +428,14 @@ const FECHA_BUILD = new Intl.DateTimeFormat('es-ES', {
    vivo el 12 Sep 2026 sirviendo un icono de hace dos semanas) debe dejar de servir el
    anterior, ni un día antes ni un día después. */
 const RUTA_ICONO_PESTANA = cliente('assets/titleIcon-accent.svg');
-const ICONO_PESTANA_V = existsSync(RUTA_ICONO_PESTANA)
-  ? createHash('sha256').update(readFileSync(RUTA_ICONO_PESTANA)).digest('hex').slice(0, 10)
+/* El del cliente si lo trae; si no, el del motor -- que desde hoy es la marca de SocialCard y
+   no un dibujo distinto por cliente. Antes este caso valia 'motor' fijo, y eso significaba que
+   el dia que la marca de fabrica cambiara, Cloudflare seguiria sirviendo la anterior treinta
+   dias: la URL no cambiaba. Hasheando el fichero que de verdad se publica, cambia sola. */
+const RUTA_MARCA_MOTOR = motor('iconos/marca-socialcard.svg');
+const FUENTE_ICONO_PESTANA = existsSync(RUTA_ICONO_PESTANA) ? RUTA_ICONO_PESTANA : RUTA_MARCA_MOTOR;
+const ICONO_PESTANA_V = existsSync(FUENTE_ICONO_PESTANA)
+  ? createHash('sha256').update(readFileSync(FUENTE_ICONO_PESTANA)).digest('hex').slice(0, 10)
   : 'motor';
 
 /* El idioma base es el texto del documento; los extras viajan en data-<code>. Las banderas
@@ -9604,17 +9610,28 @@ for (const [desde, destino] of CARPETAS) {
 const ICONO_PESTANA = 'assets/titleIcon-accent.svg';
 const iconoPestanaUrl = new URL(ICONO_PESTANA, SUBIR);
 if (!existsSync(iconoPestanaUrl)) {
-  /* Una tarjeta de carta con tres renglones: trazo del Primario del cliente sobre fondo
-     transparente, igual de sobrio que cualquier icono de pestana a 16 px. */
-  const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">',
-    '<rect x="3.25" y="1.75" width="13.5" height="16.5" rx="2.5" stroke="' + COLOR_PRINCIPAL + '" stroke-width="1.5"/>',
-    '<path d="M6.75 6.5h6.5M6.75 10h6.5M6.75 13.5h4" stroke="' + COLOR_PRINCIPAL + '" stroke-width="1.5" stroke-linecap="round"/>',
-    '</svg>',
-    '',
-  ].join(NL);
+  /* LA MARCA DE SOCIALCARD, y no un dibujo.
+   *
+   * Antes aqui se dibujaba una tarjeta de carta con tres renglones, en el Primario del
+   * cliente. Era correcta y era anonima: la carta de un restaurante que no sube su icono
+   * salia con un generico que no dice de quien es el producto. El banco de pruebas SI tenia
+   * marca -- se la habian puesto a mano en su assets/ -- y por eso nadie lo noto hasta que
+   * salio la primera copia de verdad y llego con la tarjeta.
+   *
+   * La marca de SocialCard es dato del PRODUCTO, igual que SOCIALCARD_WA: vive en el motor,
+   * no en cliente.mjs, y viaja con el a cada copia. Se queda VERDE a proposito -- es la
+   * marca de SocialCard, no la del restaurante -- y no se tinta con el Primario del cliente.
+   *
+   * Sigue siendo un RESPALDO: el cliente que ponga su propio titleIcon-accent.svg en su
+   * assets/ ni se entera de que esto existe. */
+  const marca = motor('iconos/marca-socialcard.svg');
+  if (!existsSync(marca)) {
+    abortar('Falta motor/iconos/marca-socialcard.svg: sin el, un cliente sin icono propio'
+      + ' publicaria un 404 en cada visita de cada pagina.',
+      'restauralo desde git; es parte del motor y esta firmado en motor.lock');
+  }
   mkdirSync(new URL('./', iconoPestanaUrl), { recursive: true });
-  writeFileSync(iconoPestanaUrl, svg);
+  writeFileSync(iconoPestanaUrl, readFileSync(marca));
   copiados++;
 }
 

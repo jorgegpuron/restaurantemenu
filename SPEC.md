@@ -7928,3 +7928,43 @@ citas reales.
 **Limpieza:** 50 citas del cliente semilla fuera del motor y de `server/`, conservando el porqué
 de cada comentario y quitando el restaurante. Y `gen.mjs` deja de titular «faltan N fichero(s)»
 cuando lo que falla es un contrato y no falta ningún fichero.
+
+---
+
+## El icono de pestaña de una copia: la marca de SocialCard, no un dibujo anónimo
+
+El `assets/` de un cliente nuevo **nace vacío a propósito** -- nunca se hereda la marca de otro
+restaurante -- así que `gen.mjs` lleva un respaldo para que las tres páginas públicas no pidan
+un `titleIcon-accent.svg` que no existe y se lleven un 404 en cada visita.
+
+Ese respaldo **dibujaba** una tarjeta de carta con tres renglones, en el Primario del cliente.
+Correcta, y anónima: la copia salía con un genérico que no dice de quién es el producto. No se
+vio antes porque el banco de pruebas **sí** tenía marca -- se la habían puesto a mano en su
+`assets/` hace tiempo, y es exactamente el `favicon.svg` verde de SocialCard -- así que el
+respaldo no se disparaba nunca. Se vio el día que salió la primera copia de verdad y llegó con
+la tarjeta.
+
+**Lo que se corrige:** la marca de SocialCard es dato del PRODUCTO, igual que `SOCIALCARD_WA`.
+Vive en el motor (`motor/iconos/marca-socialcard.svg`, los bytes exactos que ya servía el banco
+de pruebas) y viaja con él a cada copia. El respaldo la copia; ya no dibuja nada.
+
+**Por qué en `motor/iconos/` y no en `motor/assets/`:** `contrato-salida.mjs` exige como salida
+todo `assets/` del lock que no sea una bandera, para cualquier cliente con juego. Un SVG puesto
+ahí se habría exigido publicado, `gen.mjs` no lo copia como fichero suelto, y el build habría
+fallado. `motor/iconos/` es lo que ya usan los alérgenos y los indicadores: **fuente que el
+build LEE**, no arte que publique.
+
+**Se queda VERDE.** Es la marca de SocialCard, no la del restaurante, y no se tiñe con el
+Primario del cliente. Sigue siendo un respaldo: quien ponga su propio `titleIcon-accent.svg` en
+su `assets/` ni se entera de que esto existe.
+
+**De paso, un fallo de caché que nadie había pagado todavía.** `ICONO_PESTANA_V` -- el `?v=` que
+cuelga de la URL del icono -- valía `'motor'`, una constante, cuando el cliente no traía icono
+propio. Con Cloudflare guardando el icono 30 días, el día que la marca de fábrica cambiara la
+URL no habría cambiado y el borde habría seguido sirviendo la anterior un mes. Ahora se hashea
+**el fichero que de verdad se publica**, sea el del cliente o el del motor, así que la URL
+cambia sola el día que cambie la marca -- ni un día antes ni uno después.
+
+**Medido:** el banco de pruebas no cambia ni un byte. Su `?v=` sigue siendo `ec6cc7192f`, el
+mismo que sirve producción, y su `index.html` compilado sólo difiere del anterior en el sello
+de build. El respaldo no se dispara donde ya hay marca.
