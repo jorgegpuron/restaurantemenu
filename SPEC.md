@@ -8369,3 +8369,72 @@ se **bloquean** si la fixtura no pinta el caso que falla, en vez de pasar sin ha
 la fixtura marca ahora un tercer plato, el que lleva bolsa y no lleva foto.
 
 Motor 1.3.3 -> 1.3.4.
+
+## El cron que avisa del vencimiento (15 Sep 2026)
+
+Hasta ahora la fecha de vencimiento sólo se veía **entrando al panel**, y una página que hay que
+abrir no avisa de nada. El contador y el banner sirven al restaurante, que entra todos los días;
+al propietario no le sirven, porque él no entra en el panel de cada cliente.
+
+Esto es lo que convierte el contrato en una **alarma que busca al propietario** en vez de esperar
+a que mire.
+
+### Por qué un issue de GitHub y no un correo
+
+GitHub ya manda correo al abrir un issue. Cero credenciales SMTP, cero proveedores externos, cero
+piezas nuevas que se puedan romper en silencio. Y si el cron falla, el run sale **en rojo**: falla
+ruidosamente, que es lo único que se le pide a una alarma.
+
+Se descartó el pie de la carta pública —«SocialCard (licencia vencida)»— por tres motivos: lo ve
+el comensal, y eso es ropa sucia del restaurante delante de sus clientes por una discusión
+comercial ajena a ellos; no avisa a nadie, hay que ir a mirarlo; y la carta es estática y está en
+caché de borde, así que cambiar un pie por fecha no es barato.
+
+### El endpoint: `admin/licencia-estado.php`
+
+Lo escribe `gen.mjs` desde el Secret `LICENCIA_TOKEN`, mismo patrón que la llave maestra.
+Devuelve el mínimo —`vence`, `alta`, `dias`— y **nada del restaurante**: ni nombre, ni carta, ni
+precios, ni un dato de sus comensales. Quien consiga el token se entera de cuándo vence un
+contrato y de nada más. `MC-62` lo vigila.
+
+Tres decisiones que no son cosméticas:
+
+- **El token va en una cabecera, no en la URL.** Una query acaba escrita en el log de accesos del
+  servidor, en el historial del navegador y en cualquier proxy por el que pase.
+- **Sin token responde 404, no 403.** Un 403 confirma que el endpoint existe y por tanto que ahí
+  hay algo que forzar.
+- **`hash_equals` y no `==`.** Comparar cadenas con `==` permite adivinar el token byte a byte
+  midiendo cuánto tarda en contestar, y aquí el token es corto y el ataque es viable.
+- **El token entra en el PHP entre comillas SIMPLES y escapado**, igual que la llave maestra y
+  por el mismo motivo ya medido: en una cadena de comillas dobles un `$` seguido de letras es
+  interpolación de variable y PHP se come el resto. Un token es una cadena al azar y puede
+  llevar `$` perfectamente; escrito con `JSON.stringify` quedaría truncado en el fichero, el
+  endpoint devolvería **404 siempre** y el cron saldría en rojo a diario sin ninguna pista de
+  por qué. Falla cerrado, que es lo menos malo, pero no tiene por qué fallar. Comprobado
+  compilando con un token que lleva `$`, `'` y `\` dentro y leyendo el PHP de vuelta.
+
+Sin el Secret no se escribe el endpoint, y el cron **falla en rojo** al no encontrarlo. Es
+deliberado: una alarma que no puede mirar tiene que decirlo, no callarse.
+
+### El workflow: un issue por VENCIMIENTO, no por día
+
+Un cron diario que abre un issue abre **ocho issues** en los siete días de aviso, y el octavo ya
+no lo lee nadie. El título lleva la fecha de vencimiento precisamente para poder buscarlo: si ya
+hay uno abierto para esa fecha, no se abre otro. Al renovar cambia el vencimiento, cambia el
+título, y el aviso del periodo siguiente sí es un issue nuevo.
+
+`--fail-with-body` en el `curl`: un 404 —token mal, o endpoint no desplegado— tiene que **romper
+el run**, no pasar como «no hay aviso».
+
+El umbral de 7 días está escrito **dos veces**: en `config.php` y en el workflow. Es la misma
+decisión comercial contada en dos sitios, y no hay forma de compartirla entre PHP y un workflow
+sin inventar un tercer lugar donde viva la verdad. Queda anotado: si cambia uno, cambia el otro.
+
+### Lo que NO se puede copiar tal cual a un cliente
+
+**El repositorio del banco de pruebas es público**, así que estos issues los ve cualquiera. Aquí
+da igual —no hay cliente real detrás—, pero en un cliente de verdad el issue tiene que abrirse en
+**su** repositorio privado. Y `nuevo-cliente.mjs` sólo copia `deploy.yml`, así que este workflow
+no viaja solo a un alta nueva.
+
+Motor 1.3.4 -> 1.4.0: el motor gana una superficie pública nueva, no sólo un arreglo.

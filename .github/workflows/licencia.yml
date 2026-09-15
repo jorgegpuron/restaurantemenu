@@ -1,0 +1,111 @@
+# Vigilancia de la licencia. NO despliega, NO compila y NO toca produccion: solo hace una
+# peticion de lectura al endpoint de este cliente y, si el contrato esta a punto de vencer o ya
+# vencio, abre un issue.
+#
+# Por que existe: hasta ahora la fecha de vencimiento solo se veia ENTRANDO al panel, y una
+# pagina que hay que abrir no avisa de nada. Esto es lo que convierte el contrato en una alarma
+# que busca al propietario en vez de esperar a que mire.
+#
+# Por que un issue y no un correo: GitHub ya manda correo al abrir un issue. Cero credenciales
+# SMTP, cero proveedores externos, cero cosas nuevas que se puedan romper en silencio. Y si algo
+# falla aqui, el run sale EN ROJO, que es lo que se le pide a una alarma.
+#
+# OJO -- ESTE REPOSITORIO ES PUBLICO, asi que estos issues los ve cualquiera. En el banco de
+# pruebas da igual: no hay cliente real detras. Este workflow NO se puede copiar tal cual a un
+# cliente de verdad; alli el issue tiene que abrirse en su repositorio privado.
+name: Licencia
+
+on:
+  schedule:
+    # A diario, 06:23 UTC. Minuto raro a proposito: en punto se juntan miles de workflows y
+    # GitHub retrasa los que puede. Una alarma diaria no necesita puntualidad, pero si necesita
+    # ejecutarse.
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+# Escribir issues es todo lo que necesita. No lee el codigo, no compila y no despliega: sin
+# contents:write no puede tocar el repositorio aunque quisiera.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: licencia
+  cancel-in-progress: false
+
+jobs:
+  mirar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preguntar al cliente cuanto le queda
+        id: estado
+        env:
+          URL: ${{ vars.LICENCIA_URL }}
+          TOKEN: ${{ secrets.LICENCIA_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${URL:-}" ] || [ -z "${TOKEN:-}" ]; then
+            echo "::error::Falta la variable LICENCIA_URL o el Secret LICENCIA_TOKEN."
+            exit 1
+          fi
+          # --fail-with-body: un 404 (token mal, o endpoint no desplegado) tiene que ROMPER el
+          # run, no pasar como "no hay aviso". Una alarma que se calla cuando no puede mirar es
+          # peor que no tener alarma.
+          cuerpo=$(curl -sS --fail-with-body --max-time 20 -H "X-Licencia-Token: $TOKEN" "$URL")
+          echo "respuesta: $cuerpo"
+          dias=$(echo "$cuerpo" | jq -r 'if .licencia == null then "null" else .dias end')
+          vence=$(echo "$cuerpo" | jq -r 'if .licencia == null then "" else .vence end')
+          echo "dias=$dias"   >> "$GITHUB_OUTPUT"
+          echo "vence=$vence" >> "$GITHUB_OUTPUT"
+
+      - name: Abrir el aviso si toca
+        if: steps.estado.outputs.dias != 'null'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DIAS: ${{ steps.estado.outputs.dias }}
+          VENCE: ${{ steps.estado.outputs.vence }}
+        run: |
+          set -euo pipefail
+          # El mismo umbral que el panel. Si un dia cambia alli, tiene que cambiar aqui: son la
+          # misma decision comercial contada dos veces, y no hay forma de compartirla entre PHP
+          # y un workflow sin inventar un tercer sitio donde vive la verdad.
+          AVISO_DIAS=7
+          if [ "$DIAS" -gt "$AVISO_DIAS" ]; then
+            echo "::notice::Quedan $DIAS dias (vence $VENCE). Nada que avisar."
+            exit 0
+          fi
+
+          # UN issue por VENCIMIENTO, no por dia. Sin esto, un cron diario abre ocho issues en la
+          # semana de aviso y el octavo ya no lo lee nadie. El titulo lleva la fecha justamente
+          # para poder buscarlo: al renovar cambia el vencimiento, cambia el titulo, y el aviso
+          # del periodo siguiente si es un issue nuevo.
+          TITULO="Licencia: vence el $VENCE"
+          ABIERTO=$(gh issue list --repo "$REPO" --state open --search "$TITULO in:title" --json number --jq 'length')
+          if [ "$ABIERTO" != "0" ]; then
+            echo "::notice::Ya hay un issue abierto para el vencimiento $VENCE. No se abre otro."
+            exit 0
+          fi
+
+          if [ "$DIAS" -lt 0 ]; then
+            CUERPO="La licencia venció el $VENCE, hace $(( -DIAS )) día(s).
+
+          La carta y el panel **siguen funcionando**: la licencia no corta nada. Retirar el
+          servicio es una decisión manual.
+
+          Para renovar: entra al panel con la contraseña de superadministrador y pulsa
+          Ajustes › Licencia › Renovar."
+          else
+            CUERPO="La licencia vence el $VENCE. Quedan $DIAS día(s).
+
+          Para renovar: entra al panel con la contraseña de superadministrador y pulsa
+          Ajustes › Licencia › Renovar. Renovar antes de que venza NO pierde los días que
+          quedaban: se suman al vencimiento actual."
+          fi
+
+          gh issue create --repo "$REPO" --title "$TITULO" --body "$CUERPO"
+          echo "::warning::Abierto el aviso de licencia: $TITULO"
+
+      - name: Sin contrato, nada que vigilar
+        if: steps.estado.outputs.dias == 'null'
+        run: echo "::notice::Este cliente no tiene licencia escrita (molde o demo). No se factura y no se avisa."

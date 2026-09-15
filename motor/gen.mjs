@@ -9482,6 +9482,79 @@ if (process.env.PANEL_ACTIVACION_HASH) {
   );
 }
 
+/* El endpoint de licencia. Existe para UNA cosa: que un cron externo pueda preguntar cuantos
+ * dias le quedan a este cliente sin abrir su panel. Es la pieza que convierte el contrato en una
+ * alarma — hasta ahora la fecha solo se veia entrando al panel, y una pagina que hay que abrir
+ * no avisa de nada.
+ *
+ * Devuelve el MINIMO: vencimiento y dias. Ni el nombre del restaurante, ni su carta, ni sus
+ * precios, ni un solo dato de sus comensales. Quien consiga el token se entera de cuando vence
+ * un contrato y de nada mas.
+ *
+ * El token va en una CABECERA y no en la URL. Un token en la query acaba escrito en el log de
+ * accesos del servidor, en el historial del navegador y en cualquier proxy por el que pase; una
+ * cabecera no. Y sin token responde 404 en vez de 403: un 403 confirma que el endpoint existe.
+ *
+ * Solo se escribe si el build tiene el Secret. Sin el, este cliente sencillamente no tiene
+ * endpoint y el cron lo dira en voz alta al no encontrarlo. */
+if (process.env.LICENCIA_TOKEN) {
+  writeFileSync(
+    generado('admin/licencia-estado.php'),
+    [
+      '<?php',
+      '/* Generado por gen.mjs desde el Secret LICENCIA_TOKEN del repositorio.',
+      '   No editar a mano: se sobrescribe en cada build. */',
+      "declare(strict_types=1);",
+      '',
+      "require __DIR__ . '/config.php';",
+      '',
+      '/* hash_equals y no ==: comparar cadenas con == permite adivinar el token byte a byte',
+      '   midiendo cuanto tarda en contestar. Aqui el token es corto y el ataque es viable. */',
+      "$__t = (string) ($_SERVER['HTTP_X_LICENCIA_TOKEN'] ?? '');",
+      /* Comillas SIMPLES y escapadas, igual que la llave maestra de aqui abajo y por el mismo
+       * motivo medido: en una cadena PHP de comillas DOBLES un `$` seguido de letras es
+       * interpolacion de variable, y PHP se come el resto. Un token es una cadena que el
+       * propietario genera al azar y puede llevar `$` perfectamente; con JSON.stringify ese
+       * token quedaria truncado en el fichero y el endpoint devolveria 404 SIEMPRE, con el cron
+       * en rojo a diario y sin ninguna pista de por que. Falla cerrado, que es lo menos malo,
+       * pero no tiene por que fallar. */
+      "if ($__t === '' || !hash_equals('"
+        + process.env.LICENCIA_TOKEN.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        + "', $__t)) {",
+      "  http_response_code(404);",
+      "  exit;",
+      '}',
+      '',
+      "header('Content-Type: application/json; charset=utf-8');",
+      "header('Cache-Control: no-store');",
+      "header('X-Robots-Tag: noindex, nofollow');",
+      '',
+      '/* Sin contrato NO se inventa uno: null es «este cliente no es facturable» —un molde, una',
+      '   demo— y el cron tiene que poder distinguirlo de «le quedan cero dias». */',
+      "if (!defined('LICENCIA_VENCE') || LICENCIA_VENCE === '') {",
+      "  echo json_encode(['licencia' => null], JSON_UNESCAPED_UNICODE);",
+      '  exit;',
+      '}',
+      '',
+      '/* Dias de CALENDARIO en la zona del contrato, igual que el panel: las dos cuentas tienen',
+      '   que dar lo mismo o el aviso y el contador se contradicen. */',
+      "try { $__tz = new DateTimeZone(TZ); } catch (Exception $e) { $__tz = new DateTimeZone('UTC'); }",
+      "$__hoy = (new DateTimeImmutable('now', $__tz))->setTime(0, 0, 0);",
+      "$__v = DateTimeImmutable::createFromFormat('!Y-m-d', LICENCIA_VENCE, $__tz);",
+      "if (!$__v || $__v->format('Y-m-d') !== LICENCIA_VENCE) {",
+      "  echo json_encode(['licencia' => null, 'error' => 'fecha ilegible'], JSON_UNESCAPED_UNICODE);",
+      '  exit;',
+      '}',
+      "echo json_encode([",
+      "  'vence' => LICENCIA_VENCE,",
+      "  'alta'  => defined('LICENCIA_ALTA') ? LICENCIA_ALTA : null,",
+      "  'dias'  => (int) $__hoy->diff($__v)->format('%r%a'),",
+      "], JSON_UNESCAPED_UNICODE);",
+      '',
+    ].join(NL),
+  );
+}
+
 /* La llave maestra del propietario. UNA sola contrasena para TODOS los clientes: no se
  * genera ni se coloca una por restaurante. Viaja igual que la activacion de aqui arriba
  * —Secret del repositorio -> entorno del build -> fichero del panel— y por eso un alta

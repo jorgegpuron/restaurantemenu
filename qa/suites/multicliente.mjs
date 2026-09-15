@@ -516,6 +516,32 @@ export async function pruebasMulticliente(informe, { proyectoSemilla, navegador,
       exclude.filter((l) => /licencia|super/.test(l)).join(' | ') || `(${exclude.length} patrones leidos)`);
     informe.comprueba('MC-56', 'el Secret llega al paso que compila', /SUPERADMIN_PASSWORD_HASH:\s*\$\{\{\s*secrets\.SUPERADMIN_PASSWORD_HASH\s*\}\}/.test(wf));
 
+    /* El endpoint de licencia, que es lo que convierte el contrato en una alarma. Tiene que
+       comportarse como superadmin.php: solo con Secret, y SUBIENDO por FTP (el cron lo llama
+       desde fuera, asi que excluirlo lo dejaria inservible). */
+    const fEnd = path.join(completo.salida, 'admin', 'licencia-estado.php');
+    const g3 = correr(NODE, ['gen.mjs'], { cwd: completo.proyecto, env: { ...sinSecret, LICENCIA_TOKEN: 'tok-qa-0123456789' } });
+    informe.comprueba('MC-59', 'con el Secret se genera el endpoint de licencia, y sin el no existe',
+      g3.ok && existsSync(fEnd), existsSync(fEnd) ? 'generado' : 'NO se genero');
+    const codigoEnd = existsSync(fEnd) ? readFileSync(fEnd, 'utf8') : '';
+    informe.comprueba('MC-60', 'el endpoint compara el token con hash_equals y lee la CABECERA, no la URL',
+      /hash_equals\(/.test(codigoEnd) && /HTTP_X_LICENCIA_TOKEN/.test(codigoEnd)
+      && !/\$_GET/.test(codigoEnd),
+      'un token en la query acaba en el log del servidor; y == permite adivinarlo por tiempos');
+    informe.comprueba('MC-61', 'sin token responde 404 y no 403: un 403 confirmaria que el endpoint existe',
+      /http_response_code\(404\)/.test(codigoEnd) && !/http_response_code\(403\)/.test(codigoEnd));
+    informe.comprueba('MC-62', 'el endpoint no publica nada del restaurante: ni nombre, ni carta, ni precios',
+      !/CLIENTE_NOMBRE|CLIENTE_SLUG|platos|precio/i.test(codigoEnd),
+      'solo vencimiento, alta y dias');
+    const g4 = correr(NODE, ['gen.mjs'], { cwd: completo.proyecto, env: sinSecret });
+    informe.comprueba('MC-63', 'quitar el Secret quita el endpoint de la salida',
+      g4.ok && !existsSync(fEnd), existsSync(fEnd) ? 'el endpoint VIEJO sigue publicado' : 'ya no esta');
+    informe.comprueba('MC-64', 'el FTP SUBE el endpoint: excluirlo lo dejaria inservible para el cron',
+      !exclude.includes('admin/licencia-estado.php'),
+      exclude.filter((l) => /licencia/.test(l)).join(' | ') || 'no excluido');
+    informe.comprueba('MC-65', 'el Secret del endpoint llega al paso que compila',
+      /LICENCIA_TOKEN:\s*\$\{\{\s*secrets\.LICENCIA_TOKEN\s*\}\}/.test(wf));
+
     const gi = readFileSync(path.join(CLIENTE, '.gitignore'), 'utf8').split('\n').map((l) => l.trim());
     informe.comprueba('MC-57', 'el repositorio ignora el contrato y la llave maestra: ni un secreto compartido versionado',
       gi.includes('server/admin/licencia.php') && gi.includes('server/admin/superadmin.php'),

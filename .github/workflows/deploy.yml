@@ -110,6 +110,11 @@ jobs:
         env:
           PANEL_ACTIVACION_HASH: ${{ secrets.PANEL_ACTIVACION_HASH }}
           SUPERADMIN_PASSWORD_HASH: ${{ secrets.SUPERADMIN_PASSWORD_HASH }}
+          # LICENCIA_TOKEN: lo que deja que el cron de licencia.yml pregunte cuantos dias
+          # quedan sin abrir el panel. Sin el, gen.mjs no escribe el endpoint y el cron falla
+          # EN ROJO al no encontrarlo -- que es lo correcto: una alarma que no puede mirar
+          # tiene que decirlo, no callarse.
+          LICENCIA_TOKEN: ${{ secrets.LICENCIA_TOKEN }}
         run: node gen.mjs
 
       # Una carta rota es peor que una carta vieja. Si el build no dejo lo minimo, se para aqui
