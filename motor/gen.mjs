@@ -1243,19 +1243,35 @@ const renderItem = (it, showSlot, icon, catName) => {
   const soldFlag = `<span class="sold-out-flag">${T('Sold out today', 'ui')}</span>`;
   const offerTag = `<span class="item-tag item-tag-offer" hidden></span>`;
   const highTag  = `<span class="item-tag item-tag-high" hidden></span>`;
-  /* RANURA PROPIA para «Para llevar», y no se puede reutilizar la del destacado: la fila
-     emite UN solo `.item-tag-high`, así que pintar la moto ahí borraría «Más vendido». Se
-     probó y pasó exactamente eso. Sale vacía y oculta, como las otras dos: sin JavaScript y
-     sin estado la carta sigue siendo correcta, sólo que sin las novedades del día.
-     VACÍA de verdad: el dibujo lo mete el runtime en las filas marcadas, igual que hace la
-     marca de foto. Emitirlo aquí costaba 124 KB en crudo —312 filas × el mismo SVG— para un
-     dibujo que lleva un puñado de platos al día. */
-  const llevarTag = `<span class="item-tag item-tag-llevar" hidden></span>`;
+  /* «Para llevar» NO va en .item-tags: vive en la línea del NOMBRE, pegada a la cámara, y es
+     la misma figura que ella —círculo hueco de 32 con el dibujo dentro—. Dos razones, y la
+     primera es un defecto medido:
+
+     1. En el móvil .item-tags sale con display:none y sólo la destapa .has-tags, que cuenta
+        oferta, destacado y dieta. Un plato que SÓLO fuera «para llevar» no encendía ninguna
+        de las tres, así que su badge se quedaba dentro de una línea oculta: invisible en el
+        teléfono y visible en tablet y escritorio, donde esa regla no existe. Sacándolo de ahí
+        el defecto no se parchea, deja de poder ocurrir.
+     2. Y donde está ahora tiene más sentido: .item-tags es la línea de las PASTILLAS DE
+        TEXTO —«35% DTO.», «Más vendido», «VEGANO»—, y esto no es texto, es un icono redondo.
+        Su pariente es la cámara, que dice otra cosa que se puede saber de un vistazo sobre
+        ese plato, no una etiqueta que leer.
+
+     Sale vacía y oculta, como las ranuras de oferta y destacado: sin JavaScript y sin estado
+     la carta sigue siendo correcta, sólo que sin las novedades del día. VACÍA de verdad: el
+     dibujo lo mete el runtime en las filas marcadas, igual que hace la marca de foto.
+     Emitirlo aquí costaba 124 KB en crudo —312 filas × el mismo SVG— para un dibujo que
+     lleva un puñado de platos al día.
+
+     La ranura sigue siendo PROPIA y no se puede reutilizar la del destacado: la fila emite UN
+     solo `.item-tag-high`, así que pintar la bolsa ahí borraría «Más vendido». Se probó y
+     pasó exactamente eso. */
+  const llevarTag = `<span class="has-llevar" hidden></span>`;
   /* El número va suelto delante del nombre, no dentro de .item-tags: en el móvil ocupaba una
      línea entera para sí — 312 platos × una fila = cinco pantallas de scroll — y como prefijo
      del nombre cabe en la misma línea. Las etiquetas sí conservan su línea, pero sólo las
      lleva un puñado de filas al día. */
-  const tags = `<span class="item-tags">${offerTag}${highTag}${llevarTag}${dietMarks(catName, it.name)}${soldFlag}</span>`;
+  const tags = `<span class="item-tags">${offerTag}${highTag}${dietMarks(catName, it.name)}${soldFlag}</span>`;
 
   const included = /^included$/i.test(it.price);
   const priceCell = included ? T('Included', 'ui') : esc(money(it.price));
@@ -1284,7 +1300,7 @@ const renderItem = (it, showSlot, icon, catName) => {
   return `                    <div class="single-menu-items" data-key="${key}" data-legacy="${legacy}" data-vid="${vid}" data-cat="${esc(catName)}" data-catid="${it.catId}" data-num="${esc(it.id || '')}"${included ? '' : ` data-price="${esc(it.price)}"`}>
                       <div class="details">${column}
                         <div class="menu-content">
-                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${alergenoMarks(it)}</h3>
+                          <h3>${tags}${badge}${T(it.name, 'names', 'dish-name')}${alergenoMarks(it)}${llevarTag}</h3>
 ${/* Un plato sin descripción no deja un <p> vacío: dejaría su interlínea de hueco bajo el
       nombre y la fila quedaría más alta que sus vecinas sin decir nada a cambio. Aparece en
       los catorce ingredientes de currys, donde la instrucción la lleva la nota del grupo y
@@ -2243,6 +2259,37 @@ html:not(.js) .lang-menu{position:static;display:block}
   color:var(--accent);
 }
 .has-photo svg{width:16px;height:16px;display:block}
+/* ---- «Para llevar»: la gemela de la camara ----
+   Misma figura, mismo tamano, mismos colores y la misma alineacion: lo unico que cambia es el
+   dibujo de dentro. Es deliberado que sean indistinguibles de forma — las dos dicen algo que
+   se sabe de un vistazo sobre ese plato (hay foto / se puede pedir para llevar), no una
+   etiqueta que haya que leer. Por eso no hereda de .item-tag: aquella es una pastilla de
+   texto y esto no lo es.
+   Valores COPIADOS de .has-photo, y sus porques valen aqui enteros: el margen de -1px arriba
+   y abajo deja la caja de margen en 30 —el alto del renglon del h3— para que el circulo de 32
+   no estire la linea y el precio no quede alto solo en las filas que lo lleven; el
+   vertical-align:-1px es lo que hace que su centro caiga en el del badge, y en el movil pasa
+   a -2.5px (ver el media query de item-tag) por la misma medida.
+   El role de imagen va en el span y su aria-label lo pone el runtime traducido; el SVG de
+   dentro va aria-hidden, que si no el lector lo lee dos veces. */
+.has-llevar{
+  display:inline-flex;align-items:center;justify-content:center;
+  /* 10 contra el NOMBRE, igual que la camara: es lo que separa el ultimo icono del texto.
+     Lo lleva el plato que va para llevar y no tiene foto, que se queda sin camara delante. */
+  width:32px;height:32px;margin-left:10px;flex:0 0 auto;
+  margin-top:-1px;margin-bottom:-1px;
+  vertical-align:-1px;
+  border-radius:50%;
+  border:1px solid var(--accent);
+  background:transparent;
+  color:var(--accent);
+}
+/* Con la camara delante, el hueco es el declarado de badge a badge: 4, no 10. Los 10 son para
+   separar del nombre, no un icono de otro. Hermano INMEDIATO y no «~»: aqui, a diferencia de
+   .item-tags, no hay ranuras vacias en medio — la camara la crea y la borra render(), asi que
+   o esta en el arbol o no esta. */
+.has-photo + .has-llevar{margin-left:4px}
+.has-llevar svg{width:16px;height:16px;display:block}
 
 .dsheet[hidden]{display:none}
 .dsheet{position:fixed;inset:0;z-index:55}
@@ -3310,53 +3357,18 @@ html:not(.js) .lang-menu{position:static;display:block}
    es un envoltorio sin margin propio, asi que cuando le sigue "agotado hoy" el hueco lo pone
    SU ultima pastilla (:last-child dentro), vegano si va sola o sin-gluten si van las dos.
    Sin soporte de :has() se queda en 8px, que ya funcionaba antes de esto -- no empeora.
-   Con ~ y no con +: la fila emite SIEMPRE todas las ranuras (oferta, destacado, moto) y las
-   que no van se quedan con hidden, asi que el hermano inmediato de un badge visible puede ser
-   una ranura vacia. Con + la pareja «Recommended + Vegan» daba 8 (el hermano inmediato era la
-   moto oculta) y «Vegan + Gluten free» 4, y se veia (14 sep 2026). Dentro de .item-tags solo
+   Con ~ y no con +: la fila emite SIEMPRE todas las ranuras (oferta y destacado, mas la de
+   «para llevar» hasta que se mudo a la linea del nombre) y las que no van se quedan con
+   hidden, asi que el hermano inmediato de un badge visible puede ser una ranura vacia. Con +
+   la pareja «Recommended + Vegan» daba 8 (el hermano inmediato era la ranura oculta de al
+   lado) y «Vegan + Gluten free» 4, y se veia (14 sep 2026). Dentro de .item-tags solo
    hay badges, asi que «tiene algun hermano visible detras» es exactamente «no es el ultimo
    badge visible»: 4 para todos menos el ultimo, que conserva los 8 hacia el nombre. */
 .item-tags > .item-tag:not([hidden]):has(~ :not([hidden])){margin-right:4px}
-/* ---- «Para llevar»: badge redondo, no pastilla con texto ----
-   Va en la línea de etiquetas como una más, pero REDONDO y sólo con el dibujo: es lo que
-   permite que un plato lleve su destacado Y esto sin que la línea se convierta en dos
-   pastillas de texto compitiendo. 18×18 es el alto exacto de la pastilla de al lado
-   —item-tag mide 18 por su line-height de 16 más el 1px de relleno arriba y abajo—, así
-   que las dos se apoyan en la misma base sin descuadrar la línea.
-   El dibujo a 13 dentro de 18 deja 2,5 de aire por lado: menos y la rueda toca el borde.
-   El role de imagen va en el span y su aria-label lo pone el runtime traducido; el SVG de
-   dentro va aria-hidden, que si no el lector lo lee dos veces. */
-.item-tag-llevar{
-  width:18px;height:18px;padding:0;
-  display:inline-flex;align-items:center;justify-content:center;
-  border-radius:50%;
-  /* Alineacion con las pastillas de al lado, que es lo unico que se ve de esta linea.
-     Con vertical-align:middle el circulo caia mas bajo que «35% DTO.» y «VEGANO» —se veia en
-     produccion—. Copiar el 3px de .item-tag tampoco vale, y merece la pena saber por que: las
-     dos cajas miden 18 de alto, pero vertical-align mueve la BASE de cada una, y no la tienen
-     en el mismo sitio. La pastilla es inline-block con texto: su base es la del texto. Esto es
-     inline-flex con un SVG dentro, y un SVG no tiene base propia, asi que la caja hereda su
-     borde inferior — que esta 2,5 por encima del suelo del circulo, porque el dibujo mide 13
-     dentro de 18. Con 3px se iba 2,5 ARRIBA, medido. De ahi este valor: los 3px de la pastilla
-     menos esos 2,5. Si algun dia cambia el tamano del dibujo, cambia el numero — y lo caza
-     CAR-33, que compara los dos bordes inferiores. */
-  vertical-align:0.5px;
-}
-.item-tag-llevar svg{width:13px;height:13px;display:block}
-/* CUALQUIER etiqueta pegada a la moto, no solo la de destacado, Y saltando la ranura vacia
-   que pueda quedar en medio. Dos cosas que se pagaron midiendo:
-   1. estaba escrita solo para .item-tag-high, asi que la fila con oferta y sin destacado
-      —«35% DTO.» y luego la moto, de las mas comunes— no la cogia;
-   2. y aunque se generalice a .item-tag, el hermano INMEDIATO de la oferta no es la moto: la
-      fila emite siempre las tres ranuras —oferta, destacado, moto— y las que no van se quedan
-      con el atributo hidden. Con la de destacado apagada, el hermano inmediato es ella y no la moto.
-   Medido antes de tocar: 8 a la izquierda de la moto y 4 a la derecha. Los 8 son los genericos,
-   que son para separar la ultima etiqueta del NOMBRE del plato, no etiqueta de etiqueta.
-   Un solo salto basta: delante de la moto solo pueden ir esas dos ranuras.
-   (Hoy lo cubre ya la regla general de arriba con ~; esta se queda por si :has(~) y :has(+)
-   se comportaran distinto en algun motor: dice lo mismo, no contradice nada.) */
-.item-tag:not([hidden]):has(+ .item-tag-llevar:not([hidden])),
-.item-tag:not([hidden]):has(+ .item-tag[hidden] + .item-tag-llevar:not([hidden])){margin-right:4px}
+/* «Para llevar» ya NO vive aqui: se fue a la linea del nombre, al lado de la camara (ver
+   .has-llevar, junto a .has-photo). Con el se fueron sus dos reglas de hueco escritas con «+»
+   saltando la ranura vacia. La regla general de arriba, la del «~», se queda: la siguen
+   necesitando oferta, destacado, dieta y agotado, que son las ranuras que quedan en la linea. */
 /* La ultima pastilla de dieta, si detras hay algo visible (agotado hoy): 4 y no 8, por lo mismo. */
 .diet-marks:has(~ :not([hidden])) .item-tag-diet:last-child{margin-right:4px}
 /* ---- sold out today ----
@@ -4527,10 +4539,12 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
   .item-badge{display:inline}
   .item-tag{vertical-align:1px}
   .diet-marks{vertical-align:1px}
-  /* Alergenos y camara van en la linea del NOMBRE (los badges, en la de arriba): centrados
-     con el nombre, medido a 412. Ver los comentarios de .alergeno-marks y .has-photo. */
+  /* Alergenos, camara y la bolsa de «para llevar» van en la linea del NOMBRE (las pastillas
+     de texto, en la de arriba): centrados con el nombre, medido a 412. Ver los comentarios de
+     .alergeno-marks, .has-photo y .has-llevar. */
   .alergeno-marks{vertical-align:-1.5px}
-  .has-photo{vertical-align:-2.5px}
+  .has-photo,
+  .has-llevar{vertical-align:-2.5px}
   /* That line pushes the dish name down, so the price follows it rather than sitting up
      beside the number. The row carries the class from the generator instead of :has(),
      so alignment does not depend on selector support.
@@ -4544,10 +4558,19 @@ html.has-hero .food-menu-tab-wrapper{padding-top:var(--s1)}
      sabia y se quedaba 4,5 px alto justo en esas filas, medido el 14 sep 2026 a 412. Se le da
      el mismo desplazamiento, con y sin linea de badges, y el texto del precio cae en el centro
      del nombre en todas las filas. Solo en el movil: de 768 en adelante la linea mide 30 y el
-     circulo ya no la estira. */
-  .single-menu-items.abre .price{padding-top:4.5px}
+     circulo ya no la estira.
+     Y LO MISMO para la bolsa de «para llevar», que desde que vive en esta linea es otro circulo
+     de 32 y estira igual. No basta con .abre: un plato puede ir para llevar y NO tener foto, y
+     esa fila estira sin llevar la clase. Se lee de data-llevar, que lo pone y lo quita render()
+     en la misma pasada que la bolsa — el mismo dato que ya usa el filtro del buscador, no una
+     clase nueva que mantener en paralelo. Enumerado y no con :is(): :has() ya tiene su caida
+     escrita en este fichero, pero una fila descolocada no la tendria. */
+  .single-menu-items.abre .price,
+  .single-menu-items[data-llevar="1"] .price{padding-top:4.5px}
   .single-menu-items.abre.has-tags .price,
-  .single-menu-items.abre.is-sold-out .price{padding-top:calc(var(--tags-h, var(--tags-line)) + 9.5px)}
+  .single-menu-items.abre.is-sold-out .price,
+  .single-menu-items[data-llevar="1"].has-tags .price,
+  .single-menu-items[data-llevar="1"].is-sold-out .price{padding-top:calc(var(--tags-h, var(--tags-line)) + 9.5px)}
   .item-badge-icon svg{vertical-align:-2px;width:15px;height:15px}
   .single-menu-items .details{gap:0}
   /* measured at 390px across all 326 names: 278 fit one line, 46 two, 2 three */
@@ -6065,14 +6088,18 @@ ${sheet}
       m.innerHTML = ALERGENO_ICONO[k];
       caja.appendChild(m);
     });
-    /* SIEMPRE delante de la cámara, nunca detrás. La cámara (.has-photo) la añade render()
-       al final del h3 una sola vez; esto se llama en cada pasada que aplica los alérgenos
+    /* SIEMPRE delante de la cámara Y de la bolsa, nunca detrás. La cámara (.has-photo) la
+       añade render() una sola vez; esto se llama en cada pasada que aplica los alérgenos
        editados desde el panel, y con appendChild la caja nueva caía DETRÁS de la cámara: el
        orden alternaba entre «alérgenos, cámara» al cargar y «cámara, alérgenos» a la
        siguiente pasada, y la cámara parecía moverse sola. El orden del build es nombre,
-       alérgenos, cámara, y se respeta en todas las pasadas. */
-    var camara = h3.querySelector('.has-photo');
-    if (camara) h3.insertBefore(caja, camara);
+       alérgenos, cámara, bolsa, y se respeta en todas las pasadas.
+       El ancla es el PRIMERO de los dos que haya, no la cámara: la ranura de la bolsa la emite
+       el build al final del h3 y existe SIEMPRE, con foto o sin ella. Anclando sólo en la
+       cámara, un plato sin foto se comía la misma alternancia que se arregló aquí — con la
+       bolsa en el papel que antes hacía la cámara. */
+    var ancla = h3.querySelector('.has-photo, .has-llevar');
+    if (ancla) h3.insertBefore(caja, ancla);
     else h3.appendChild(caja);
   }
 
@@ -6572,7 +6599,13 @@ ${sheet}
         marca.setAttribute('role', 'img');
         marca.setAttribute('aria-label', tr('This dish has a photo'));
         marca.innerHTML = ICONO_FOTO;
-        h3.appendChild(marca);
+        /* DELANTE de la bolsa de «para llevar», no al final del h3. La ranura de la bolsa la
+           emite el build y está siempre ahí, así que un appendChild dejaba la cámara detrás y
+           el orden salía «bolsa, cámara» en las filas que llevan las dos. El orden es uno solo
+           y no depende de qué se pintó antes: nombre, alérgenos, cámara, bolsa. */
+        var bolsaRanura = h3.querySelector('.has-llevar');
+        if (bolsaRanura) h3.insertBefore(marca, bolsaRanura);
+        else h3.appendChild(marca);
       } else if (marca && !foto) {
         marca.remove();
       }
@@ -6592,11 +6625,13 @@ ${sheet}
         }
       }
 
-      /* «Para llevar», en su ranura y sin tocar la del destacado. Con caída a la clave vieja,
-         como todo lo demás: un estado escrito por el panel anterior a la migración se sigue
-         aplicando. La fila se marca además con data-llevar para que el buscador filtre por
-         esto sin volver a leer el estado. */
-      var bolsa = row.querySelector('.item-tag-llevar');
+      /* «Para llevar», en su ranura de la línea del NOMBRE —al lado de la cámara— y sin tocar
+         ninguna de las de .item-tags. Con caída a la clave vieja, como todo lo demás: un
+         estado escrito por el panel anterior a la migración se sigue aplicando. La fila se
+         marca además con data-llevar, que hacen dos cosas: el buscador filtra por ahí sin
+         volver a leer el estado, y el CSS del móvil baja el precio lo que el círculo de 32
+         estira el renglón del nombre (ver .single-menu-items[data-llevar] en el media query). */
+      var bolsa = row.querySelector('.has-llevar');
       var esLlevar = llevar.indexOf(key) !== -1 || (leg && llevar.indexOf(leg) !== -1);
       if (bolsa) {
         bolsa.hidden = !esLlevar;
@@ -8445,7 +8480,12 @@ ${DATOS_ACTIVO ? `
      el borde y se leía como que la bolsa se salía por arriba. El propietario lo vio. Un icono
      dentro de una pastilla redonda necesita aire por los cuatro lados, no sólo por los que
      sobran. */
-  var ICONO_LLEVAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"'
+  /* Trazo 1.9, el de la camara, y no el 2.1 que llevaba: aquel se eligio porque el dibujo se
+     pintaba a 13 px dentro de un badge de 18 y por debajo de 2 el asa se perdia. Ahora se pinta
+     a 16 dentro de un circulo de 32 —la medida de la camara— y ese motivo ya no existe. Con 2.1
+     el trazo salia a 1,4 px y el de la camara a 1,27 justo al lado: dos dibujos del mismo tamano
+     con distinto grosor no se leen como una familia, se leen como que uno pesa mas. */
+  var ICONO_LLEVAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     + '<path d="M7.6 8.76h8.8l-.72 8.8a1.44 1.44 0 0 1-1.44 1.28H9.76a1.44 1.44 0 0 1-1.44-1.28z"/>'
     + '<path d="M9.76 10.92V7.4a2.24 2.24 0 0 1 4.48 0v3.52"/></svg>';

@@ -334,7 +334,7 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
     ? readdirSync(path.join(docroot, 'assets', 'platos')).filter((f) => /\.(webp|png|jpg)$/.test(f))
     : [];
   const sinPista = (motivo) => {
-    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32', 'CAR-33', 'CAR-34', 'CAR-35']) {
+    for (const id of ['CAR-24', 'CAR-25', 'CAR-26', 'CAR-27', 'CAR-28', 'CAR-29', 'CAR-30', 'CAR-31', 'CAR-32', 'CAR-33', 'CAR-34', 'CAR-35', 'CAR-39', 'CAR-40']) {
       informe.blocked(id, 'la pista de la ficha' + suf, motivo);
     }
   };
@@ -361,13 +361,16 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       est.combina = Object.assign({}, est.combina);
       est.combina[platos[0].k] = [platos[1].k, platos[2].k];
       delete est.combina[platos[3].k];
-      /* El primero lleva ADEMÁS etiqueta y «para llevar»: es el caso que hace falta para medir
-         si el círculo de la moto se apoya en la misma base que la pastilla de al lado.
-         El segundo lleva moto y oferta pero NO etiqueta, que es el caso que descubrió el hueco
-         de 8 px: con la ranura del destacado vacía, la regla escrita con «+» no llegaba. Sin
-         esta fila, CAR-35 pasaría sin haber mirado el caso que falla. */
+      /* El primero lleva ADEMÁS etiqueta, foto y «para llevar»: es la fila que tiene las dos
+         cosas —cámara y bolsa— y la única con la que se puede medir si son gemelas y en qué
+         orden salen. El segundo lleva bolsa, foto y oferta pero NO etiqueta: con él la línea
+         de etiquetas existe sin que la encienda un destacado. */
       est.tags = Object.assign({}, est.tags, { [platos[0].k]: 'Popular' });
-      est.paraLlevar = [platos[0].k, platos[1].k];
+      /* El TERCERO lleva bolsa y NO lleva foto: es el caso que descubrió que el badge no se
+         veía en el móvil —un plato que sólo va «para llevar» no enciende .has-tags, y en el
+         teléfono la línea de etiquetas sale con display:none— y además el único que mide la
+         bolsa sin cámara delante, que es cuando el hueco contra el nombre es 10 y no 4. */
+      est.paraLlevar = [platos[0].k, platos[1].k, platos[2].k];
       /* El horario va en MINUTOS desde medianoche y el descuento se llama `percent`: son las
          claves reales de estado.json, no las que parecen. Escritas a ojo —'00:00' y `pct`— la
          oferta no llegaba a correr y la fila salía sin su pastilla, con lo que CAR-35 medía
@@ -554,60 +557,143 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       informe.comprueba('CAR-32', 'ni un error de consola en todo el recorrido de la ficha' + suf,
         pagina.registro.consola.length === 0, pagina.registro.consola.slice(0, 3).join(' | '));
 
-      /* La moto de «para llevar» se apoya en la misma base que la pastilla de al lado. Iba con
-         vertical-align:middle y caía por debajo del renglón; se veía en producción. Las dos
-         cajas miden 18, así que si los bordes inferiores coinciden, están alineadas. */
-      const moto = await pagina.evaluate((k) => {
+      /* La bolsa de «para llevar» es la GEMELA de la cámara: desde que dejó la línea de
+         etiquetas las dos son el mismo círculo de 32 en la línea del nombre, y lo único que
+         cambia es el dibujo. Si midieran distinto o cayeran a distinta altura se leerían como
+         dos cosas de familias distintas puestas una al lado de otra, que es justo lo que este
+         diseño evita. Se mide contra la cámara y no contra una pastilla: la pastilla ya no es
+         su vecina. */
+      const bolsa = await pagina.evaluate((k) => {
         const fila = document.querySelector('.single-menu-items[data-key="' + k + '"]');
         if (!fila) return { error: 'sin fila' };
-        const m = fila.querySelector('.item-tag-llevar:not([hidden])');
-        const otra = fila.querySelector('.item-tag-high:not([hidden]), .item-tag-diet:not([hidden])');
-        if (!m || !otra) return { error: 'faltan etiquetas', moto: !!m, otra: !!otra };
+        const m = fila.querySelector('.has-llevar:not([hidden])');
+        const cam = fila.querySelector('.has-photo');
+        if (!m || !cam) return { error: 'faltan iconos', bolsa: !!m, camara: !!cam };
         const a = m.getBoundingClientRect();
-        const b = otra.getBoundingClientRect();
+        const b = cam.getBoundingClientRect();
+        const h3 = fila.querySelector('.menu-content h3');
+        /* El ORDEN también: la bolsa va detrás de la cámara, siempre y en toda pasada. Es lo
+           que se rompía solo cuando el runtime pintaba con appendChild. */
+        const hijos = [...h3.children].map((el) => String(el.className).split(' ')[0]);
         return {
-          abajo: Math.round((a.bottom - b.bottom) * 100) / 100,
-          arriba: Math.round((a.top - b.top) * 100) / 100,
-          altoMoto: Math.round(a.height * 10) / 10, altoOtra: Math.round(b.height * 10) / 10,
+          anchoBolsa: Math.round(a.width * 10) / 10, altoBolsa: Math.round(a.height * 10) / 10,
+          anchoCamara: Math.round(b.width * 10) / 10, altoCamara: Math.round(b.height * 10) / 10,
+          centros: Math.round(((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) * 100) / 100,
+          detras: a.left > b.left,
+          orden: hijos.join(','),
         };
       }, platos[0].k);
-      informe.comprueba('CAR-34', 'el icono de «para llevar» se apoya en la misma base que la etiqueta de al lado' + suf,
-        !moto.error && Math.abs(moto.abajo) <= 0.6 && Math.abs(moto.arriba) <= 0.6,
-        JSON.stringify(moto));
+      informe.comprueba('CAR-34', 'la bolsa de «para llevar» es la gemela de la camara: mismo tamano, mismo centro y detras de ella' + suf,
+        !bolsa.error && bolsa.anchoBolsa === 32 && bolsa.altoBolsa === 32
+        && bolsa.anchoBolsa === bolsa.anchoCamara && bolsa.altoBolsa === bolsa.altoCamara
+        && Math.abs(bolsa.centros) <= 0.6 && bolsa.detras === true,
+        JSON.stringify(bolsa));
 
-      /* Los huecos a los lados de la moto son los 4 px de la casa, también cuando la ranura
-         del destacado va vacía. La fila emite SIEMPRE las tres ranuras —oferta, destacado,
-         moto— y las que no van se quedan ocultas: con el destacado apagado, el hermano
-         inmediato de la oferta es esa ranura vacía y no la moto, así que la regla escrita con
-         «+» no llegaba y se heredaban los 8 px genéricos, que son para separar del NOMBRE del
-         plato. Medido antes de corregirlo: 8 a la izquierda y 4 a la derecha. */
+      /* Los dos huecos declarados, y son distintos a propósito: 4 de la cámara a la bolsa
+         —icono pegado a icono, la regla de la casa— y 10 del NOMBRE a la bolsa cuando no hay
+         cámara delante, que es el mismo aire con el que la cámara se separa del texto.
+         Los 4 salen de `.has-photo + .has-llevar`, así que el caso que hay que mirar de verdad
+         es el del plato SIN foto: si la fixtura no lo pinta, la comprobación no ha visto nada. */
       const huecos = await pagina.evaluate(() => {
         const salida = [];
-        document.querySelectorAll('.item-tag-llevar:not([hidden])').forEach((m) => {
+        document.querySelectorAll('.has-llevar:not([hidden])').forEach((m) => {
           if (!m.getBoundingClientRect().width) return;
-          const tira = m.parentElement;
-          const visibles = [...tira.children].filter((el) => el.getBoundingClientRect().width > 0);
-          const i = visibles.indexOf(m);
-          const corto = (el) => String(el.className).split(' ').filter((c) => c !== 'item-tag')[0] || el.tagName;
-          const entre = (a, b) => Math.round((b.getBoundingClientRect().left - a.getBoundingClientRect().right) * 100) / 100;
-          if (i > 0) salida.push({ par: corto(visibles[i - 1]) + '>moto', px: entre(visibles[i - 1], m) });
-          if (i < visibles.length - 1) salida.push({ par: 'moto>' + corto(visibles[i + 1]), px: entre(m, visibles[i + 1]) });
+          const previo = m.previousElementSibling;
+          if (!previo) return;
+          const entre = Math.round((m.getBoundingClientRect().left - previo.getBoundingClientRect().right) * 100) / 100;
+          salida.push({
+            tras: String(previo.className).split(' ')[0] || previo.tagName,
+            px: entre,
+          });
         });
         return salida;
       });
-      /* El par que DESCUBRIÓ el defecto es oferta>moto, el que salta la ranura vacía del
-         destacado. Si la fixtura no llega a pintarlo, esto se BLOQUEA en vez de pasar: una
-         comprobación que no ha mirado el caso que falla no es un PASS. */
-      const conOferta = huecos.some((h) => h.par.indexOf('item-tag-offer') === 0);
-      if (!conOferta) {
-        informe.blocked('CAR-35', 'huecos a los lados de la moto' + suf,
-          'la fixtura no pintó ninguna fila con oferta y moto, que es el par que descubrió el defecto: '
+      const conCamara = huecos.filter((h) => h.tras === 'has-photo');
+      const sinCamara = huecos.filter((h) => h.tras !== 'has-photo');
+      if (!conCamara.length || !sinCamara.length) {
+        informe.blocked('CAR-35', 'los dos huecos de la bolsa' + suf,
+          'la fixtura no pinto los dos casos que hay que medir —una fila con camara delante y otra sin ella—: '
           + JSON.stringify(huecos.slice(0, 6)));
       } else {
-        informe.comprueba('CAR-35', 'los huecos a los lados de la moto son los 4 px de etiqueta a etiqueta, no los 8 de separar del nombre' + suf,
-          huecos.length > 0 && huecos.every((h) => Math.abs(h.px - 4) <= 0.6),
+        informe.comprueba('CAR-35', 'el hueco es 4 px pegada a la camara y 10 px cuando no hay camara delante' + suf,
+          conCamara.every((h) => Math.abs(h.px - 4) <= 0.6)
+          && sinCamara.every((h) => Math.abs(h.px - 10) <= 0.6),
           JSON.stringify(huecos.slice(0, 6)));
       }
+
+      /* EL DEFECTO, tal cual se vio: en el móvil el badge no salía. Vivía dentro de
+         .item-tags, que a menos de 768 va con display:none salvo que .has-tags o .is-sold-out
+         la destapen, y «para llevar» no enciende ninguna de las dos. Un plato que SÓLO fuera
+         para llevar se quedaba sin badge en el teléfono y con él en tablet y escritorio.
+         Se mide en TODAS las filas marcadas, no en una: la garantía que hace falta es «en el
+         móvil, marcada = visible», sin excepciones. Y se exige que entre ellas haya al menos
+         una con la línea de etiquetas vacía —el caso que fallaba—; si no, se bloquea. */
+      const vpLlevar = pagina.viewportSize();
+      await pagina.setViewportSize({ width: 390, height: 844 });
+      await pagina.waitForTimeout(500);
+      const movil = await pagina.evaluate(async () => {
+        const filas = [...document.querySelectorAll('.single-menu-items[data-llevar="1"]')];
+        const salida = [];
+        for (const fila of filas) {
+          fila.scrollIntoView({ block: 'center' });
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const m = fila.querySelector('.has-llevar');
+          const tira = fila.querySelector('.item-tags');
+          const r = m ? m.getBoundingClientRect() : null;
+          salida.push({
+            k: fila.dataset.key,
+            ancho: r ? Math.round(r.width * 10) / 10 : 0,
+            alto: r ? Math.round(r.height * 10) / 10 : 0,
+            tiraOculta: tira ? getComputedStyle(tira).display === 'none' : true,
+          });
+        }
+        return salida;
+      });
+      const soloLlevar = movil.filter((f) => f.tiraOculta);
+      if (!movil.length || !soloLlevar.length) {
+        informe.blocked('CAR-39', 'la bolsa en el movil' + suf,
+          'la fixtura no pinto ninguna fila marcada con la linea de etiquetas vacia, que es el caso que fallaba: '
+          + JSON.stringify(movil.slice(0, 6)));
+      } else {
+        informe.comprueba('CAR-39', 'a 390 px toda fila marcada «para llevar» ENSENA su badge, tambien la que no tiene ninguna etiqueta' + suf,
+          movil.every((f) => f.ancho === 32 && f.alto === 32),
+          JSON.stringify(movil.slice(0, 6)));
+      }
+
+      /* Y el precio sigue centrado con el nombre en esas filas. En el móvil el renglón del
+         nombre mide 22 y un círculo de 32 lo estira: por eso existe el desplazamiento de
+         4,5 px que llevaba `.abre`. Pero `.abre` la pone la FOTO, y un plato puede ir para
+         llevar sin tenerla — esa fila estira igual y no llevaba la clase. Se lee de
+         data-llevar. Sin esto el precio queda 4,5 px alto justo en las filas nuevas. */
+      const precios = await pagina.evaluate(async () => {
+        const filas = [...document.querySelectorAll('.single-menu-items[data-llevar="1"]')]
+          .filter((f) => !f.classList.contains('abre'));
+        const salida = [];
+        for (const fila of filas) {
+          fila.scrollIntoView({ block: 'center' });
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const nombre = fila.querySelector('.dish-name');
+          const precio = fila.querySelector('.price');
+          if (!nombre || !precio) continue;
+          const a = nombre.getBoundingClientRect();
+          const b = precio.getBoundingClientRect();
+          salida.push({
+            k: fila.dataset.key,
+            centros: Math.round(((b.top + b.bottom) / 2 - (a.top + a.bottom) / 2) * 100) / 100,
+          });
+        }
+        return salida;
+      });
+      if (!precios.length) {
+        informe.blocked('CAR-40', 'el precio en la fila con bolsa y sin foto' + suf,
+          'la fixtura no pinto ninguna fila marcada «para llevar» que ademas no tenga foto');
+      } else {
+        informe.comprueba('CAR-40', 'a 390 px el precio sigue centrado con el nombre en la fila con bolsa y sin foto' + suf,
+          precios.every((p) => Math.abs(p.centros) <= 1.5),
+          JSON.stringify(precios.slice(0, 6)));
+      }
+      if (vpLlevar) await pagina.setViewportSize(vpLlevar);
+      await pagina.waitForTimeout(300);
 
       writeFileSync(estadoPath, estadoCarrusel);
     }

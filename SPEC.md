@@ -8294,3 +8294,78 @@ previa dio por hecho que «va en `admin/`, que el `.htaccess` no sirve». Ese `.
 protección sin comprobarla — y la comprobación costaba un `curl`.
 
 Motor 1.3.2 -> 1.3.3.
+
+## La bolsa de «Para llevar» se muda a la línea del nombre (15 Sep 2026)
+
+El badge vivía dentro de `.item-tags`, la línea de las pastillas de texto. Ahora vive en la línea
+del **nombre**, pegado a la cámara, y es la misma figura que ella: círculo hueco de 32 con el
+dibujo dentro. Lo único que cambia entre las dos es el dibujo.
+
+### El defecto que lo obligó: en el móvil no se veía
+
+Por debajo de 768 px `.item-tags` sale con `display:none` y sólo la destapan `.has-tags` o
+`.is-sold-out`. `.has-tags` cuenta oferta, destacado y dieta — «para llevar» no enciende ninguna
+de las tres. Un plato marcado **sólo** «para llevar» se quedaba con su badge dentro de una línea
+oculta: invisible en el teléfono, visible en tablet y escritorio, donde esa regla no existe.
+
+Se podía parchear añadiendo «para llevar» a lo que enciende `.has-tags`. Sacándolo de ahí el
+defecto **deja de poder ocurrir**, que no es lo mismo.
+
+### Y donde está ahora tiene más sentido
+
+`.item-tags` es la línea de las pastillas de **texto** —«35% DTO.», «Más vendido», «VEGANO»—.
+Esto no es texto, es un icono redondo. Su pariente es la cámara: las dos dicen de un vistazo algo
+que se puede saber de ese plato, no son una etiqueta que haya que leer. Que sean indistinguibles
+de forma es deliberado, y por eso `.has-llevar` **no hereda de `.item-tag`**: copia los valores de
+`.has-photo`, con sus porqués enteros —el margen de −1 px arriba y abajo que deja la caja en los
+30 del renglón, y el `vertical-align` de −1 px que le pone el centro en el del badge, −2,5 px en
+el móvil—.
+
+### Los dos huecos, que son distintos a propósito
+
+- **4 px** de la cámara a la bolsa (`.has-photo + .has-llevar`): icono pegado a icono, la regla de
+  la casa.
+- **10 px** del nombre a la bolsa cuando no hay cámara delante: es el mismo aire con el que la
+  cámara se separa del texto.
+
+Hermano inmediato (`+`) y no `~`: aquí, a diferencia de `.item-tags`, no hay ranuras vacías en
+medio — la cámara la crea y la borra `render()`, así que o está en el árbol o no está.
+
+### El orden, que se rompía solo
+
+El `h3` se pinta en tres momentos distintos —el build, `render()` y la pasada de alérgenos
+editados— y cada uno añadía al final. El orden es **uno solo**: nombre, alérgenos, cámara, bolsa.
+
+- Los alérgenos se anclan al **primero** de cámara o bolsa, no a la cámara: la ranura de la bolsa
+  la emite el build y existe siempre, con foto o sin ella. Anclando sólo en la cámara, un plato
+  sin foto repetía la alternancia que ya se arregló el 14 sep, con la bolsa en el papel que hacía
+  la cámara.
+- La cámara se inserta **delante** de la ranura de la bolsa en vez de con `appendChild`, o las
+  filas con las dos cosas salían «bolsa, cámara».
+
+### El precio, otra vez
+
+En el móvil el renglón del nombre mide 22 y un círculo de 32 lo estira; por eso existía el
+desplazamiento de 4,5 px que llevaba `.abre`. Pero `.abre` la pone la **foto**, y un plato puede
+ir para llevar sin tenerla: esa fila estira igual y no llevaba la clase, así que el precio le
+quedaba 4,5 px alto. Se lee de `data-llevar` —el mismo dato que ya usa el filtro del buscador, no
+una clase nueva que mantener en paralelo—. Enumerado y no con `:is()`: `:has()` ya tiene su caída
+escrita en este fichero, pero una fila descolocada no la tendría.
+
+### El trazo del dibujo: 1,9 y no 2,1
+
+El 2,1 se eligió cuando el dibujo se pintaba a 13 px dentro de un badge de 18 y por debajo de 2 el
+asa se perdía. Ahora se pinta a 16 dentro de un círculo de 32 y ese motivo ya no existe. Con 2,1
+el trazo salía a 1,4 px y el de la cámara a 1,27 justo al lado: dos dibujos del mismo tamaño con
+distinto grosor no se leen como una familia, se leen como que uno pesa más.
+
+### Lo que se llevó por delante
+
+`CAR-34` y `CAR-35` medían contra la pastilla vecina, que ya no es su vecina: ahora miden contra
+la **cámara** —mismo tamaño, mismo centro, y la bolsa detrás— y los dos huecos, 4 y 10. `CAR-39`
+es el defecto tal cual se vio: a 390 px, toda fila marcada enseña su badge, también la que tiene
+la línea de etiquetas vacía. `CAR-40` vigila el precio en la fila con bolsa y sin foto. Los cuatro
+se **bloquean** si la fixtura no pinta el caso que falla, en vez de pasar sin haber mirado; por eso
+la fixtura marca ahora un tercer plato, el que lleva bolsa y no lleva foto.
+
+Motor 1.3.3 -> 1.3.4.
