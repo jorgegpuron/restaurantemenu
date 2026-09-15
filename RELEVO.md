@@ -5,125 +5,123 @@ el estado de AHORA. No es un registro: el registro es `git log` y las decisiones
 
 Se **reescribe entero** al terminar cada sesión. Si empieza a crecer, es que se está usando mal.
 
-> Última actualización: **14 sep 2026, cierre.** `main` = `origin/main` = **`d8a7cb4`**, una sola
-> rama aquí y en GitHub, árbol limpio salvo `.ai/`. **Producción sirve `1789420518285`** (run
-> `34897728610`, `DESPLIEGUE_REAL` devuelta a `false`). **La portada estática está en producción
-> y activa**: el propietario abrió el panel, los seis `assets/hero/portada-*.webp` responden 200
-> con `s-maxage=60`, y `estado.heroPortada` = `hero[0]`. Nada a medias.
+> ### Lo primero: esto NO es un cliente
 >
-> **Lo que dio, medido:** en Chrome real con red lenta la foto se pide a los 0,4 s (antes, al
-> llegar `estado.json`, 1,5–2,7 s) y el LCP es la diapositiva estática a 1,6 s. Lighthouse
-> desde aquí: 95 (estrangulado real) y 96 (simulado), LCP 2,3–2,4 s. **PageSpeed desde Google
-> sigue en 85–89**: su PoP de Cloudflare está frío para los ficheros de TTL corto (`estado.json`
-> 20 s, `portada-*` 60 s) y sirve el alias desde el origen (~1 s), y su simulador no empieza a
-> pedir la foto hasta que baja el HTML entero (98 KB). Lo que queda por probar, y es de
-> Cloudflare, no de código: **Smart Tiered Cache** (gratis; un PoP frío pide al nivel superior
-> y no al origen) y, si el propietario abre un token de purga, purgar `portada-*` al cambiar la
-> foto para poder subir su TTL de borde.
+> `tinge_of_turmeric/` es el **banco de pruebas** del producto, y tiene que estar vivo y
+> desplegado porque ahí es donde el propietario prueba cada cambio en condiciones reales. Lo que
+> funciona aquí y le convence **viaja dentro del motor** a las copias. Confirmado por él el 15
+> sep 2026. El `CLAUDE.md` del workspace todavía lo lista en una tabla de «clientes»: no lo es.
 >
-> **Lo siguiente, en este orden:** (1) el podio del juego a cero desde el panel, que el juego
-> nuevo ya está en producción con marcas viejas; (2) el nombre «Bar / Restaurante Guaza» en la
-> carta de Tinge, desde Admin → Marca; (3) el alta del restaurante nuevo (`/nuevo-cliente`, fotos
-> en `socialcard_claudecode/0-altas/`); (4) si se quiere el móvil estable en PageSpeed, la
-> «portada estática» (última entrada de caché en `SPEC.md`), que es cambio de motor con diseño.
+> **El cliente de verdad es `bar-restaurante-guaza/`**, en su propio repositorio, con su propia
+> carta viva y sus propios comensales.
 >
+> Consecuencia práctica: el orden natural de una mejora es **banco de pruebas primero, cliente
+> después**. Nunca al revés. Y su marca dice «Bar / Restaurante Guaza» y su podio tiene marcas
+> viejas: son **residuos de pruebas**, no incidencias.
+
+> ### Estado, 15 sep 2026, cierre
+>
+> | | Repo | `main` = remoto | Producción sirve |
+> |---|---|---|---|
+> | Banco de pruebas | `jorgegpuron/restaurantemenu` | **`7c8fc72`** | `1789464561800` |
+> | Bar Restaurante Guaza | `jorgegpuron/bar-restaurante-guaza` | **`47ba07e`** | `1789464755724` |
+>
+> `DESPLIEGUE_REAL` en **`false`** en los dos, leído de GitHub después de desplegar. Árboles
+> limpios salvo `.ai/`. Una sola rama en cada repo. `motor.lock` **1.2.1**, 101 ficheros del
+> motor + 2 envoltorios, **byte a byte iguales en los dos**. Nada a medias.
 
 ---
 
-## Lo que se publicó hoy (cuatro despliegues: `3dcde48`, `cc6bf42`, `6e28642` y sus docs)
+## Lo que se publicó hoy (cinco cosas, en los dos repos)
 
-El propietario pasó PageSpeed y quería recuperar **Accesibilidad, Buenas prácticas y SEO en
-100** y mejorar el rendimiento si se podía. Medido con la API de PageSpeed (clave en
-`socialcard_claudecode/apligoogle.txt`) sobre producción: 95/97/96/100 en móvil y
-99/97/100/100 en escritorio. La entrada nueva de `SPEC.md` («PageSpeed: los tres 100…») tiene
-las medidas y las razones; esto es el resumen:
+1. **El móvil de SocialCard del pie: 617798557 → 647744457.** Estaba escrito dos veces a pelo;
+   ahora es `SOCIALCARD_WA`, una constante del motor. No es el teléfono del restaurante —ése lo
+   pone él en la pestaña Marca— es el único dato de SocialCard que la carta publica.
 
-- **Accesibilidad 97 → 100.** Eran las **dos excepciones de contraste pedidas el 4 sep**:
-  crema sobre el naranja de fábrica en los badges (`--badge-ink`) y el precio rebajado en
-  naranja plano. Las dos a 2,45:1; axe las marcaba en cuatro sitios. **Se retiran las dos**:
-  `--badge-ink` = `--accent-ink` para todo color (badges con texto OSCURO sobre naranja,
-  6,97:1; la pastilla de dieta vuelve a fondo oscuro con naranja encima), y el precio rebajado
-  vuelve a la pastilla de antes del 4 sep. Cambiado en las cuatro capas (temas.mjs, runtime de
-  gen.mjs, PHP del panel, contrato de tintas). **La excepción de «Rush» en el juego se queda.**
-  **Duró unas horas: el propietario lo vio en producción y pidió los badges claros de vuelta
-  (rama `fix/marca-badges-claros`, arriba). Prefiere la marca a esos tres puntos.**
-- **Buenas prácticas 96 → 100 (móvil).** La bandera del círculo que pliega la barra se
-  estiraba de 4:3 a un cuadrado: `object-fit:cover`.
-- **SEO:** ya estaba en 100 en producción. Nada que hacer.
-- **Rendimiento (CLS 0,084 en móvil).** La barra de la portada se pliega ya en el primer
-  pintado por CSS (`html.js`), el botón del círculo **ya no lleva `hidden` en el HTML** y trae
-  la bandera del idioma base; y el hueco de la banda de oferta se reserva antes de montarla
-  (memoria en `localStorage` como `has-hero`, más `estado.json` cuando llega). Medido con
-  Chrome real: CLS de 0,107 a 0,005. **Lighthouse con perfil limpio seguirá viendo el salto de
-  la banda (0,059)** mientras `estado.json` llegue del origen después del primer pintado: eso
-  sólo lo arregla una Cache Rule de Cloudflare para `estado.json` (infra del propietario, no
-  se ha tocado). Lo demás del rendimiento es el origen (TTFB de 1 s con la regla caducada) y
-  el beacon de Cloudflare: fuera del código.
+2. **El buscador ya no levanta el teclado en el móvil.** El foco entra siempre en la hoja —es un
+   diálogo con `aria-modal`— pero cae en el campo **sólo con puntero fino**. Una sola puerta,
+   dentro de `openSheet()`, reusando el `esTactil()` que ya existía.
 
-Ficheros tocados: `motor/temas.mjs`, `motor/gen.mjs`, `motor/server/admin/index.php`,
-`motor/tests/contrato-tintas.mjs`, `motor.lock`, `SPEC.md`, este `RELEVO.md`. `2-subir/`
-rehecha por el build (fuera del repo). Nada más.
+3. **El motor deja de nombrar a ningún restaurante, y el build lo vigila.**
+   `motor/tests/contrato-multicliente.mjs`, enganchado en `verificar-build.mjs`: si el motor cita
+   el rótulo, el slug, la ruta o el `vocabulario` del cliente desde el que se compila, **el build
+   se para**. Se limpiaron 50 citas. `--detectar` reescrito: revisa `motor/` y `server/` sin
+   exención de hash, saca los términos del propio `cliente.mjs`, e informa fichero:LÍNEA.
+
+4. **Una copia nueva nace con la marca de SocialCard**, no con un dibujo anónimo.
+   `motor/iconos/marca-socialcard.svg`. Y el `?v=` del icono pasa a hashear el fichero que de
+   verdad se publica: antes valía `'motor'` fijo y Cloudflare habría servido la marca vieja 30
+   días.
+
+5. **El paginado de la ficha deja de moverse.** El hueco de la foto va siempre —sin foto, el
+   marco 4/5 con la cámara— así que todas las diapositivas miden lo mismo, y los puntos se fijan
+   a `--s3` por arriba y por abajo. `colocarPuntos()` desaparece entera, 45 líneas.
 
 ## Lo comprobado
 
-- `fast` 37 PASS · `smoke` 17 PASS · contrato de tintas pasa en las cuatro capas.
-- `full`: 762 PASS · 18 FAIL. **17 son del panel y ya fallaban** (ver el punto de abajo sobre
-  la comparación con `main`); el 18.º, `FULL-92`, es porque `SPEC.md` se editó mientras la
-  batería corría: no es del producto.
-- Réplica local de producción (build + `estado.json` real + fotos reales, `php -S`):
-  Lighthouse 13.4.1 da **Accesibilidad 100 y Buenas prácticas 100** en móvil y escritorio.
-  SEO 92 en local es el `robots.txt` que `php -S` sirve como `index.html`; en producción es 100.
-- Sin JavaScript: barra entera y sin círculo. Escritorio: sin círculo. Memoria «oferta» con
-  estado «sin oferta»: la reserva se deshace y la memoria se corrige a `0`.
-- **El 100 real en producción sólo se confirma con PageSpeed después de desplegar.**
+- `qa full` **766 PASS · 16 FAIL** · `qa fast` 37/0 · `qa smoke` 17/0 · `FULL-92` PASS.
+- **De los 16 FAIL, 15 son los del panel**, anteriores y de tareas ajenas (OSC-01..03, E2E-DS-06,
+  E2E-RH-SEM-01, E2E-REJ-01, E2E-MOV-01-320, E2E-OFR-02/04, E2E-SEC-06, E2E-SU-01). El 16.º fue
+  `FAST-13` y es la trampa 29 de abajo, no un defecto.
+- **Medido contra las dos producciones**, no sólo en local: pie con el número nuevo, el teclado
+  que no sube con el dedo, las cuatro diapositivas a 469 px con aire 21/21,3, y la cámara de
+  83 px en el plato sin foto. Consola limpia en las dos.
+- `E4` **cerrado** (`--detectar` ya revisa `server/`): la batería lo cantó sola como
+  `UNEXPECTED PASS`. La comprobación se queda como guardia.
 
-## Hallazgo colateral, NO tocado: la carta de Tinge lleva el nombre de Guaza
+## Lo que sigue esperando una decisión del propietario
 
-El `estado.json` público de Tinge tiene `marca.nombreVisible = "Bar / Restaurante Guaza"` y
-`rotuloVisible = "Comida casaera canaria"`. **La carta de Tinge en producción muestra el
-nombre de otro restaurante** (se ve en la captura de PageSpeed). Se corrige desde Admin →
-Marca de Tinge, y es cosa del propietario decidir cuándo. No se ha tocado producción.
-
-## Lo que sigue esperando una decisión del propietario (de sesiones anteriores)
-
-- **`NO_SON_DEL_BUILD`** (`motor/contrato-salida.mjs:44`): export sin consumidor.
+- **En el panel de producción del banco de pruebas:** el podio del juego a cero, y el nombre de
+  marca, que dice «Bar / Restaurante Guaza». Residuos de pruebas; se limpian cuando estorben.
+- **`cliente.mjs` de Guaza no declara `vocabulario`.** Es opcional y la puerta le protege igual
+  con nombre, slug y ruta. Conviene ponérselo.
+- **`NO_SON_DEL_BUILD`** (`motor/contrato-salida.mjs`): export sin consumidor.
 - **`fuentes.html`**: se genera, se publica, el `.htaccess` lo deniega y nadie lo lee.
-- **`qa/manifiesto-build.json` se mantiene A MANO** y su `como_se_regenera` cita un script
-  que no existe.
+- **`qa/manifiesto-build.json` se mantiene A MANO** y su `como_se_regenera` cita un script que no
+  existe.
 - **`TINGE_CLIENTE.md:125`** describe un premio del juego que ya no existe.
-- **El podio del juego sigue con las marcas del juego viejo** (59 anónima, 49 JORGE, 39 Abel)
-  y el juego nuevo YA está en producción: el propietario ordenó desplegar sin pasar antes por el
-  panel. Ponerlo a cero desde la pestaña Juego cuanto antes (combo: techo 161; `RECORD_MAX` =
-  300).
-- **La puerta de Tinge** sigue con la imagen genérica hasta que alguien quite `acceso.jpg`
-  por FTP (`deploy.yml` lo excluye).
+- **La puerta del banco de pruebas** sigue con la imagen genérica hasta que alguien quite
+  `acceso.jpg` por FTP (`deploy.yml` lo excluye).
+- **En el servidor de Guaza, `admin/superclave.php` lleva el texto de ejemplo dentro.** No es un
+  agujero —ese valor no valida ninguna contraseña— sólo enseña la puerta de superadministrador
+  sin que se pueda cruzar. El propietario lo descartó: va a cambiar el mecanismo.
+- **CI cuenta 62 ficheros en `2-subir` y aquí salen 63.** Anterior a todo esto.
 
 ## Riesgos vivos
 
-- **Producción está al día** (`1789413900535` = `main`). Publicar sigue exigiendo
-  `workflow_dispatch` Y `DESPLIEGUE_REAL=true`; la variable está en `false`.
-- **Las seis fotos del cliente nuevo** están sueltas en `socialcard_claudecode/0-altas/`, sin
-  subcarpeta, hasta que haya nombre.
+- **Las dos producciones están al día.** Publicar sigue exigiendo `workflow_dispatch` Y
+  `DESPLIEGUE_REAL=true`, y la variable está en `false` en los dos repos.
 - **El arrastre de categorías sigue sin probarse en un teléfono real.**
-- Los FAIL del panel en `full` (RSP-320, OSC-01..03, E2E-DS-06, E2E-RH-SEM-01, E2E-REJ-01,
-  E2E-MOV-01-320, E2E-OFR-02/04, E2E-SEC-06, E2E-SU-01) son anteriores a hoy y de tareas
-  ajenas; `E2E-OFR-02` está caducada (techos calculados antes del 13 sep).
 
 ## Trampas pagadas (las de hoy, arriba; las de siempre, debajo)
 
-0. **El `[hidden]` global de la carta lleva `!important`.** Ninguna regla de CSS puede
-   destapar un elemento con `hidden`: o se quita el atributo desde JavaScript, o el elemento
-   no lo lleva y lo esconde una clase. Costó dos vueltas de medir.
-0. **En Lighthouse el CLS se OBSERVA, no se simula**, y se observa con perfil limpio y red sin
-   estrangular: una reserva que dependa de `estado.json` llega después del primer pintado si
-   el estado tarda más que el HTML. Medir con Playwright y red lenta da otro número, y los dos
-   son verdad para escenarios distintos.
-0. **Los heredocs con comillas simples dentro del texto revientan en la herramienta de
-   Bash de esta sesión.** Escribir el script a fichero y ejecutarlo.
-0. **`gen.mjs` es CRLF; `temas.mjs`, `index.php` y los tests son LF.** Un reemplazo de texto
-   con `\n` no casa en `gen.mjs`; normalizar al leer y devolver al escribir.
-0. **`qa full` marca `FULL-92` si se edita cualquier fichero del producto mientras corre**,
-   `SPEC.md` incluido. No escribir en el repo durante la batería.
+29. **Un cambio del MOTOR pide `qa full` ANTES de desplegar, no sólo `fast` y `smoke`.** El 15 sep
+    el cambio del favicon subió a las dos producciones con `fast` y `smoke` en verde: `MC-13` y
+    `MC-14` llevaban rotas y nadie lo supo hasta correr `full`, que tarda 22 minutos. No hubo
+    defecto en producción, pero la batería estuvo roja a ciegas.
+29. **No lanzar `qa full` recién salido de `gen.mjs`.** Su foto inicial de `2-subir` puede pillarla
+    a medio escribir —OneDrive sincroniza esa carpeta— y `FAST-13` sale FAIL con
+    `cambiados: (ninguno)` y una lista de «nuevos». Sobre el árbol quieto pasa. Dejar respirar.
+29. **`qa full` marca `FULL-92` si se edita CUALQUIER fichero del producto mientras corre**,
+    `SPEC.md` incluido. Redactar fuera del repo y pegarlo al terminar.
+29. **El clasificador del modo automático corta `gh variable set DESPLIEGUE_REAL`** con
+    `[Production Deploy]`, aunque la regla esté en la allowlist de `settings.local.json`. Va por
+    encima de la allowlist: hay que pedírselo al propietario o salir del modo automático.
+29. **`--detectar` apuntado contra el propio banco de pruebas encuentra su nombre en su casa** y
+    da ocho «restos» que son el dato correcto. Desde hoy se niega a ejecutarse así.
+29. **Una suposición puede ser verdad en una puerta y mentira en otra.** «Aquí no se abre ninguna
+    ficha sin foto» era cierto para `abrirFicha()`, que exige `data-foto`, y falso llegando por
+    «Combina con». Ahí vivía el bug del paginado.
+29. **Los heredocs de `bash` se comen las barras invertidas de un regex.** `/^i18n\..*\.mjs$/`
+    salió como `/^i18n..*.mjs$/` y ni `node --check` ni la batería lo vieron: seguía funcionando,
+    sólo que aceptando de más. Lo cazó leer el diff antes de integrar. Para parches con escapes,
+    la herramienta de edición, no un script por heredoc.
+0. **El `[hidden]` global de la carta lleva `!important`.** Ninguna regla de CSS puede destapar un
+   elemento con `hidden`: o se quita el atributo desde JavaScript, o el elemento no lo lleva y lo
+   esconde una clase.
+0. **En Lighthouse el CLS se OBSERVA, no se simula**, y con perfil limpio y red sin estrangular.
+0. **`gen.mjs` es CRLF; `temas.mjs`, `index.php` y los tests son LF.** Un reemplazo con `\n` no
+   casa en `gen.mjs`; normalizar al leer y devolver al escribir.
 1. **Un `*/` dentro del texto de un comentario CSS** cierra el comentario antes de tiempo.
 2. **Un `var()` que apunta a un token declarado en un DESCENDIENTE no resuelve.**
 3. **Contar reglas no dice si una regla pinta algo.** Medir con coverage de navegador.
@@ -141,8 +139,7 @@ Marca de Tinge, y es cosa del propietario decidir cuándo. No se ha tocado produ
 15. **`offsetParent` NO sirve para saber si algo se puede enfocar.**
 16. **Optimizar bytes SIN COMPRIMIR es optimizar un número que nadie paga.**
 17. **Un halo táctil no puede salir de un scroller horizontal.**
-18. **`s-maxage` no hace cacheable el HTML en Cloudflare.** Hace falta la Cache Rule; hoy se
-    midió `EXPIRED` con 1 s de primer byte: la regla vive, pero 60 s se agotan rápido.
+18. **`s-maxage` no hace cacheable el HTML en Cloudflare.** Hace falta la Cache Rule.
 19. **El mensaje de `E2E-RS-TACTIL-44` sólo enseña cuatro entradas.**
 20. **Levantar una regla RE-DECLARANDO `display` pisa composiciones de un `@container`.**
 21. **Un `<button>` puede pertenecer a un formulario que NO lo contiene**, con `form="id"`.
@@ -151,29 +148,42 @@ Marca de Tinge, y es cosa del propietario decidir cuándo. No se ha tocado produ
 24. **Enumerar ramas NO es enumerar trabajo sin confirmar.** Mirar `git stash list` también.
 25. **Los rangos de cobertura de V8 están ANIDADOS.**
 26. **El panel tiene TRES navegaciones con los mismos `data-tab`.**
-27. **NUNCA abrir el juego con un navegador automatizado contra PRODUCCIÓN.** Un navegador
-    con ventana pasa el filtro de `record.php` y deja marcas reales. Medir contra copia local.
+27. **NUNCA abrir el juego con un navegador automatizado contra PRODUCCIÓN.** Un navegador con
+    ventana pasa el filtro de `record.php` y deja marcas reales. Medir contra copia local.
 28. **`RECORD_MAX` = 300** y el techo del juego nuevo es **161**.
 
 ## Servidor de revisión
 
 No vive en el repositorio. Copiar `2-subir` al temporal, `define('DEMO_SIN_CLAVE', true)` en
 `admin/config.php` **de la copia** y servir con `php -S`. **Nunca servir `2-subir`
-directamente.** Para medir como producción: copiar además el `estado.json` público y las
-fotos de `assets/hero/` de producción (son públicas) en la copia; con eso Lighthouse local
-reproduce lo que ve PageSpeed salvo la red. La batería (`qa/lib/clientes.mjs`,
-`qa/lib/servidor.mjs`, `qa/lib/fixtura-lh.mjs`) ya hace la copia y arranca PHP con `gd` y
-`mbstring`.
+directamente.** Para medir como producción: copiar además el `estado.json` público y las fotos
+de `assets/hero/` y `assets/platos/` de producción (son públicas) en la copia. **Sin las fotos
+de platos no se puede abrir ninguna ficha**: `abrirFicha()` exige `data-foto`, y ahí viven los
+fallos del carrusel. La batería (`qa/lib/clientes.mjs`, `qa/lib/servidor.mjs`,
+`qa/lib/fixtura-lh.mjs`) ya hace la copia y arranca PHP con `gd` y `mbstring`.
+
+## Propagar el motor a un cliente
+
+Desde DENTRO del cliente, nunca de servidor a servidor y nunca una copia suelta por fuera:
+
+```
+cd <cliente>/1-proyecto
+node motor/actualizar.mjs --desde <ruta del banco de pruebas>/1-proyecto
+node importar.mjs && node gen.mjs      (o --build-local si el panel pide activación)
+```
+
+Es transaccional: exige git limpio, comprueba los dos locks y hace rollback si algo falla antes
+del commit. Después, comprobar que los 101 ficheros del motor quedan byte a byte iguales — a
+mano, no fiándose del lock. **Lo que NO es motor no viaja**: `server/**` y `.gitignore` son del
+cliente y hay que corregirlos en su sitio.
 
 ## Herramientas
 
 `stitch` (MCP de Google, HTTP) en ámbito local de este workspace. `gh` conectado como
-`jorgegpuron`. **Clave de la API de PageSpeed** en `socialcard_claudecode/apligoogle.txt`
-(raíz del workspace, dentro de OneDrive: es una clave de API de Google restringible desde su
-consola; conviene restringirla a la API de PageSpeed si no lo está). Aviso por voz:
-`SAPI.SpVoice` con «Microsoft Helena Desktop». `.claude/launch.json` del workspace lleva
-entradas de vista previa a copias temporales: si no existen, se recrean o se borran.
-**`.claude/settings.local.json` del workspace lleva desde hoy reglas de permiso** para `git switch`,
-`git merge --ff-only`, `git push origin main`, `gh variable set/get`, `gh workflow run` y `gh run
-*`: el modo automático bloqueaba merge y despliegue y el propietario las autorizó. La regla del
-protocolo no cambia: cada uno sigue exigiendo su orden expresa.
+`jorgegpuron`. **Clave de la API de PageSpeed** en `socialcard_claudecode/apligoogle.txt`.
+Aviso por voz: `SAPI.SpVoice` con «Microsoft Helena Desktop». `.claude/launch.json` del workspace
+lleva entradas de vista previa a copias temporales: si no existen, se recrean o se borran.
+`.claude/settings.local.json` del workspace lleva reglas de permiso para `git switch`,
+`git merge --ff-only`, `git push origin main`, `gh variable set/get`, `gh workflow run` y
+`gh run *` — pero ver la trampa 29 sobre el clasificador. La regla del protocolo no cambia:
+commit, push, merge y despliegue exigen cada uno su orden expresa.
