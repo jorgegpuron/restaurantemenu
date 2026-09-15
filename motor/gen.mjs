@@ -9751,9 +9751,28 @@ const politicaHtaccess = (nombre, bloque, ancla) => {
    normal ni la guardia que impide reutilizar un token. Sus vecinos (clave.php, intentos.json,
    accesos.log) ya estaban denegados; esta se quedaba fuera solo porque su extension no entraba
    en ningun FilesMatch. Va al final: el orden de los FilesMatch no cambia el resultado. */
+/* Y los dos .php que el BUILD hornea con un secreto dentro: superadmin.php (el hash de la
+   llave maestra, la misma en todos los clientes) y activacion.php (el hash del token de alta).
+   Se quedaron fuera del FilesMatch de clave.php y superclave.php por no existir cuando se
+   escribio aquella regla.
+   El argumento para denegarlos es EL MISMO que el propietario dejo escrito alli —«al ser PHP no
+   se serviria su contenido aunque se pidiera, pero se deniega igual: dos cierres valen mas que
+   uno»— y aqui pesa mas, no menos: si un dia PHP dejara de ejecutarse en esta carpeta (cambio de
+   hosting, un handler mal puesto), clave.php seguiria protegido por su regla y estos dos se
+   servirian en texto plano. Y el de superadmin.php no es el secreto de UN cliente: es el de
+   todos a la vez.
+   Medido en produccion antes de arreglarlo: /admin/superadmin.php devolvia 200 con 0 bytes
+   —PHP lo ejecutaba y no imprime nada— mientras /admin/clave.php devolvia 403. */
 politicaHtaccess('admin/.htaccess', [
   '# activacion.consumida es estado interno del panel. PHP la lee del disco; por HTTP, no.',
   '<FilesMatch "^activacion\\.consumida$">',
+  '  Require all denied',
+  '</FilesMatch>',
+  '',
+  '# superadmin.php y activacion.php los escribe el build con un hash dentro. Mismo doble',
+  '# cierre que clave.php y superclave.php: PHP no serviria su contenido, pero no se confia',
+  '# solo en eso. PHP los lee con require() del disco, que no pasa por Apache.',
+  '<FilesMatch "^(superadmin|activacion)\\.php$">',
   '  Require all denied',
   '</FilesMatch>',
 ]);

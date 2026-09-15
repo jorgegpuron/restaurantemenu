@@ -8205,3 +8205,25 @@ Ahora la carpeta se borra entera antes de escribir nada, con la misma guarda de 
 que ya usaban los derivados legacy. Es seguro por contrato: `entorno.mjs` ya declaraba que es
 local y regenerable y que «borrarla entera sólo cuesta un build», e `importar.mjs` no escribe ahí.
 `MC-58` lo vigila compilando con el Secret y después sin él.
+
+### El segundo cierre que le faltaba a la llave maestra (15 Sep 2026)
+
+Encontrado en el humo de producción del despliegue anterior, no en local: `/admin/superadmin.php`
+devolvía **200** y `/admin/clave.php` devolvía **403**.
+
+No filtraba nada: PHP lo ejecutaba y el fichero sólo define una constante, así que la respuesta
+eran **0 bytes**. Pero el `.htaccess` deniega `clave|superclave|config|cliente` con un argumento
+escrito allí mismo: «al ser PHP no se serviría su contenido aunque se pidiera, pero se deniega
+igual: **dos cierres valen más que uno**».
+
+El fichero que lleva la llave maestra **de todos los clientes a la vez** se había quedado con un
+solo cierre, y `activacion.php` con él. Si un día PHP dejara de ejecutarse en esa carpeta —un
+cambio de hosting, un handler mal puesto— `clave.php` seguiría protegido y estos dos se servirían
+en texto plano.
+
+La regla la escribe `gen.mjs` en el bloque de política del motor, así que llega sola a todos los
+clientes. Denegarlos por HTTP no rompe nada: el panel los lee con `require()` del disco, que no
+pasa por Apache. Comprobado ejecutando el `require` contra un build real y verificando la
+contraseña contra la constante resultante, no razonándolo.
+
+Motor 1.3.0 → 1.3.1.
