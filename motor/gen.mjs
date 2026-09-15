@@ -427,6 +427,14 @@ const FECHA_BUILD = new Intl.DateTimeFormat('es-ES', {
    sustituya el icono -- que es exactamente cuando Cloudflare (30 días de caché, medido en
    vivo el 12 Sep 2026 sirviendo un icono de hace dos semanas) debe dejar de servir el
    anterior, ni un día antes ni un día después. */
+/* El icono de camara, UNA vez. Lo emite el build en el molde de la ficha (la marca de un
+   plato sin foto) y lo lee tambien el runtime para marcar las filas de la carta. Escrito dos
+   veces serian dos camaras distintas el dia que alguien retoque una. */
+const SVG_CAMARA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
+  + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'
+  + '<circle cx="12" cy="12.5" r="3.2"/></svg>';
+
 const RUTA_ICONO_PESTANA = cliente('assets/titleIcon-accent.svg');
 /* El del cliente si lo trae; si no, el del motor -- que desde hoy es la marca de SocialCard y
    no un dibujo distinto por cliente. Antes este caso valia 'motor' fijo, y eso significaba que
@@ -2302,8 +2310,18 @@ html:not(.js) .lang-menu{position:static;display:block}
   background:var(--ink);
   overflow:hidden;
 }
-.dsheet-foto[hidden]{display:none}
 .dsheet-foto img{width:100%;height:100%;object-fit:cover;display:block}
+/* La marca de ausencia. El mismo icono que lleva la fila de la carta, en el acento del
+   cliente y al 22% del ancho del marco: a 375 son 82 px, que a esa distancia se lee como
+   "aqui iria una foto" y no como un boton. Va detras de la imagen en el marcado, asi que
+   cuando hay foto queda tapada por ella -- y ademas se apaga, para no pintar de balde. */
+.dsheet-sinfoto{
+  position:absolute;inset:0;display:none;
+  align-items:center;justify-content:center;
+  color:color-mix(in srgb,var(--accent) 62%,transparent);
+}
+.dsheet-carta.sin-foto .dsheet-sinfoto{display:flex}
+.dsheet-sinfoto svg{width:22%;height:auto;max-width:96px}
 /* El texto, en el pie de la foto. El degradado va en el propio bloque de texto y no en una capa
    de altura fija: así crece con lo que haya escrito y nunca deja una línea sin fondo debajo.
    Es lo único que hace legible un nombre blanco sobre una foto que puede ser clara.
@@ -2320,12 +2338,6 @@ html:not(.js) .lang-menu{position:static;display:block}
     color-mix(in srgb,var(--ink) 55%,transparent) 62%,
     transparent 100%);
   color:#fff;
-}
-/* Sin foto no hay escaparate que valga: la ficha vuelve a ser papel con su texto en tinta. Hoy
-   no se abre ninguna sin foto, pero el día que se abra no puede salir blanco sobre crema. */
-.dsheet-foto[hidden] + .dsheet-cuerpo{
-  position:static;background:none;color:var(--ink);
-  padding:var(--s4) var(--s3) calc(var(--s4) + env(safe-area-inset-bottom));
 }
 /* width:fit-content + margin:auto y no text-align:center en el padre: el padre (.dsheet-cuerpo)
    sigue alineado a la izquierda para el nombre y la línea de precio -- sólo esta pastilla, y el
@@ -2368,13 +2380,8 @@ html:not(.js) .lang-menu{position:static;display:block}
    vez de empujar el precio fuera. */
 .dsheet-desc{margin:0;min-width:0;font-size:16px;line-height:1.45;color:rgba(255,255,255,.88)}
 /* Sobre el papel, los colores de siempre. */
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre,
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{text-shadow:none}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-precio{color:var(--ink)}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-desc{color:var(--muted)}
 /* Sobre el papel el nombre respira un punto más: sin la foto detrás no hay degradado que
    separe, y el aire lo tiene que poner el espaciado. */
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre{margin-bottom:var(--s2)}
 /* El texto entra un pelo después que la hoja: primero se ve la foto, y encima aparece lo que
    dice. Al revés, el nombre llega antes que aquello que nombra.
    Los dos objetivos siguen la estructura nueva: primero el nombre, que ahora va suelto, y
@@ -2397,7 +2404,6 @@ html:not(.js) .lang-menu{position:static;display:block}
   margin:10px 0 0;min-width:0;
   font-size:15px;line-height:1.45;color:rgba(255,255,255,.88);
 }
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-combina{color:var(--muted)}
 .dsheet-combina[hidden]{display:none}
 .dsheet-combina b{font-weight:600}
 .dsheet-combina .dsheet-ir{
@@ -2442,37 +2448,42 @@ html:not(.js) .lang-menu{position:static;display:block}
    El hueco entre puntos NO intercepta el toque: la caja va sin eventos y sólo los puntos los
    reciben, o una franja invisible de lado a lado se comería el arrastre para cerrar justo en
    el borde de abajo, que es por donde se empieza. */
-/* Van CENTRADOS en el espacio que queda entre la última línea del plato y el suelo de la
-   ficha: se mide ese hueco y se pone la tira en su mitad. Colgados de un valor fijo quedaban
-   pegados al borde de abajo; puestos en el renglón del texto, se cruzaban con él. El hueco lo
-   reserva el cuerpo con su relleno de abajo, y el valor de --puntos-suelo lo escribe el
-   runtime en píxeles desde ese suelo. El de reserva es sólo para el primer fotograma.
+/* POSICION FIJA, y esa es la regla: --s3 de aire por debajo del dibujo hasta el suelo de la
+   ficha, y --s3 por encima hasta la ultima linea de texto. La banda entera mide
+   --s3 + 8 + --s3, y el cuerpo la reserva con su relleno de abajo.
+
+   Antes iban CENTRADOS en el hueco que quedara: una posicion calculada a partir del
+   contenido, asi que se movia con el contenido. Entre dos platos con foto ya bailaba 6 px, y
+   al llegar a uno sin foto -- que mide solo su texto -- se iba 141 px hacia arriba, medido en
+   la copia local con los datos de produccion. Lo que de verdad lo arregla es que todas las
+   diapositivas midan lo mismo (ver el hueco de la foto, arriba); con eso, la posicion se
+   puede fijar aqui y deja de haber nada que recalcular.
+
+   El punto DIBUJA 8 px (el ::before) dentro de una caja tocable de 26: por eso el bottom
+   descuenta la diferencia, que si no el aire de abajo saldria 9 px mas corto que el de
+   arriba. Lo que se contrata es lo que se VE, no la caja del dedo.
 
    Y el DIBUJO es el del hero, literalmente la misma clase: activo estirado en píldora y los
    demás redondos, con su sombra para que se vean sobre cualquier foto. No es una copia de
    estilo — es el mismo, así que si un día cambia el del hero cambia también aquí. */
 .dsheet-puntos{
+  --punto-dibujo:8px;
+  --punto-caja:26px;
   position:absolute;z-index:2;left:0;right:0;
-  bottom:var(--puntos-suelo,10px);
+  bottom:calc(var(--s3) - (var(--punto-caja) - var(--punto-dibujo)) / 2);
   display:flex;align-items:center;justify-content:center;gap:2px;
   pointer-events:none;
 }
 .dsheet-puntos[hidden]{display:none}
-/* El hueco donde van. 22 px son los 8 del punto más el aire de los dos lados: sin esto, la
-   última línea del plato y los puntos se pelearían por el mismo renglón. */
-.dsheet-panel.tiene-via .dsheet-cuerpo{padding-bottom:calc(var(--s3) + 22px)}
+/* El hueco que reserva el texto: los dos aires de --s3 mas el dibujo del punto. Es la misma
+   cuenta que el bottom de .dsheet-puntos, escrita desde el otro lado -- si una cambia, la otra
+   tambien. Sin esto, la ultima linea del plato y los puntos se pelearian por el mismo renglon. */
+.dsheet-panel.tiene-via .dsheet-cuerpo{
+  padding-bottom:calc(var(--s3) + 8px + var(--s3) + env(safe-area-inset-bottom));
+}
 /* El área de dedo la da el botón del hero (24×32) y no cabe entera en el hueco, así que aquí
    se ajusta a lo que hay. El dibujo no cambia: sigue siendo el ::before de 8 px. */
 .dsheet-puntos .hero-dot{height:26px;pointer-events:auto}
-/* Sobre papel —el plato al que se llega no tiene foto— el punto crema del hero desaparece:
-   ahí mandan los colores de la carta. Se decide con la diapositiva activa y no con una clase
-   que haya que mantener desde el JavaScript: la verdad ya está en el DOM. */
-.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-puntos .hero-dot::before{
-  background:var(--ink);box-shadow:none;
-}
-.dsheet-panel:has(.dsheet-carta.es-activa > .dsheet-foto[hidden]) .dsheet-puntos .hero-dot[aria-current="true"]::before{
-  background:var(--accent);
-}
 /* ---- las flechas ----
    Sólo con ratón. En el móvil el gesto es el dedo y dos botones sobre la foto serían dos
    trozos de plato tapados. Quien las esconde en el móvil es el atributo hidden que pone el
@@ -2507,8 +2518,6 @@ html:not(.js) .lang-menu{position:static;display:block}
    degradado oscuro. Mismo tratamiento que .dsheet-desc: blanco atenuado, no el gris de la carta. */
 .dsheet-nombre .alergeno-marks .alergeno,
 .dsheet-alergenos .alergeno-marks .alergeno{color:rgba(255,255,255,.75)}
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-nombre .alergeno-marks .alergeno,
-.dsheet-foto[hidden] + .dsheet-cuerpo .dsheet-alergenos .alergeno-marks .alergeno{color:var(--muted)}
 @media (min-width:768px){
   .dsheet-panel{
     left:50%;right:auto;bottom:auto;top:50%;
@@ -5083,8 +5092,13 @@ ${!CLIENTE.funciones.publicidad ? '' : `          <!-- Publicidad: un hueco que 
   </div>
   <template id="dsheet-molde">
     <article class="dsheet-carta">
-      <div class="dsheet-foto" hidden>
-        <img alt="" decoding="async">
+      <!-- El hueco de la foto va SIEMPRE, tenga foto el plato o no. Una diapositiva sin foto
+           medía sólo su texto, la ventana quedaba con el alto de la anterior y el paginado se
+           iba al centro del vacío: 141 px de salto, medidos. Sin foto se ve el marco con la
+           camara, que es el mismo icono que marca las filas de la carta. -->
+      <div class="dsheet-foto">
+        <img alt="" decoding="async" hidden>
+        <span class="dsheet-sinfoto" aria-hidden="true">${SVG_CAMARA}</span>
       </div>
       <div class="dsheet-cuerpo">
         <p class="dsheet-flag" hidden></p>
@@ -8435,10 +8449,7 @@ ${DATOS_ACTIVO ? `
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     + '<path d="M7.6 8.76h8.8l-.72 8.8a1.44 1.44 0 0 1-1.44 1.28H9.76a1.44 1.44 0 0 1-1.44-1.28z"/>'
     + '<path d="M9.76 10.92V7.4a2.24 2.24 0 0 1 4.48 0v3.52"/></svg>';
-  var ICONO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
-    + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M5 7h2l1.5 -2h7l1.5 2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2"/>'
-    + '<circle cx="12" cy="12.5" r="3.2"/></svg>';
+  var ICONO_FOTO = ${JSON.stringify(SVG_CAMARA)};
 
   var ficha       = document.getElementById('dish-sheet');
   var fichaPanel  = document.getElementById('dsheet-panel');
@@ -8581,11 +8592,15 @@ ${DATOS_ACTIVO ? `
        un restaurante lleno, que es justo lo que esta ficha lleva evitando desde el principio. */
     var foto = row.dataset.foto || '';
     carta.dataset.foto = foto;
+    /* Lo que se esconde es la IMAGEN, nunca el hueco: el marco 4/5 es lo que hace que todas
+       las diapositivas midan lo mismo, y de ahi que el paginado no se mueva. La marca de
+       ausencia la dibuja el CSS sobre el propio hueco. */
+    carta.classList.toggle('sin-foto', !foto);
     if (foto) {
       fichaImg.alt = fichaNombre.textContent;
-      fichaFoto.hidden = false;
+      fichaImg.hidden = false;
     } else {
-      fichaFoto.hidden = true;
+      fichaImg.hidden = true;
       fichaImg.removeAttribute('src');
       fichaImg.alt = '';
     }
@@ -8657,51 +8672,6 @@ ${DATOS_ACTIVO ? `
     }
   }
 
-  /* Los puntos se ponen en el renglón de la última línea del plato, no colgados del borde.
-     La línea es «Combina con» cuando la hay y, si no, la de descripción y precio. Y es la
-     ÚLTIMA línea del bloque, no el bloque: «Combina con» puede partirse en dos y lo que hay
-     que acompañar es el renglón de abajo. El Range es lo único que da las líneas de verdad;
-     el rectángulo del párrafo da el bloque entero, que con dos líneas cae en medio. */
-  function colocarPuntos() {
-    if (!fichaPuntos || fichaPuntos.hidden || ficha.hidden) return;
-    var activa = cartas()[fichaPuesto];
-    if (!activa) return;
-    var combina = activa.querySelector('.dsheet-combina');
-    var ancla = combina && !combina.hidden ? combina : activa.querySelector('.dsheet-linea');
-    if (!ancla) return;
-    /* La ÚLTIMA línea del bloque, no el bloque entero: «Combina con» puede partirse en dos y
-       el hueco empieza donde acaba el último renglón. El Range es lo único que da las líneas
-       de verdad; el rectángulo del párrafo da el bloque, que con dos líneas empieza arriba. */
-    var linea = null;
-    try {
-      var rango = document.createRange();
-      rango.selectNodeContents(ancla);
-      var rects = rango.getClientRects();
-      linea = rects.length ? rects[rects.length - 1] : null;
-    } catch (e) { linea = null; }
-    if (!linea || !linea.height) linea = ancla.getBoundingClientRect();
-    if (!linea.height) return;
-    /* El hueco: de donde acaba la última línea al suelo de la ficha. Los puntos van en su
-       MITAD, que es lo que se pidió y lo que hace que no toquen ni el texto ni el borde. */
-    var suelo = fichaPanel.getBoundingClientRect().bottom;
-    var hueco = suelo - linea.bottom;
-    if (hueco <= 0) return;
-    var alto = fichaPuntos.offsetHeight || 8;
-    var desde = hueco / 2 - alto / 2;
-    fichaPuntos.style.setProperty('--puntos-suelo', (Math.max(0, desde)).toFixed(2) + 'px');
-    /* Y una segunda pasada que corrige lo que quede. La cuenta parte de la caja del panel, que
-       en escritorio va con translate(-50%,-50%) y puede caer en medio píxel: sin corregir
-       quedaba algo más de un píxel fuera de sitio, medido. Aquí se mide el punto YA colocado
-       contra el centro real del hueco, que es lo único que no depende de dónde caiga la caja. */
-    var ps = fichaPuntos.children;
-    if (ps.length) {
-      var puesto = ps[0].getBoundingClientRect();
-      var resto = (puesto.top + puesto.bottom) / 2 - (linea.bottom + suelo) / 2;
-      if (Math.abs(resto) > 0.08) {
-        fichaPuntos.style.setProperty('--puntos-suelo', (Math.max(0, desde + resto)).toFixed(2) + 'px');
-      }
-    }
-  }
 
   /* El alto lo lleva la ventana y sale del plato que se ve. Sin esto manda el más alto de
      todos y pasar a un plato sin foto dejaría media ficha vacía. */
@@ -8734,7 +8704,6 @@ ${DATOS_ACTIVO ? `
     pintarMandos();
     colocarAlergenosFicha();
     ajustarAlto();
-    colocarPuntos();
 ${DATOS_ACTIVO ? `    if (filaAbierta) contarVista(filaAbierta);
 ` : ''}  }
 
@@ -8912,12 +8881,13 @@ ${DATOS_ACTIVO ? `    if (filaAbierta) contarVista(filaAbierta);
       asentarPuesto();
     });
     /* Al girar el móvil o cambiar el ancho cambian dos cosas: si hay flechas y cuánto mide de
-       alto el plato que se ve. Las dos se recalculan, nunca se adivinan. */
+       alto el plato que se ve. Las dos se recalculan, nunca se adivinan. Los puntos NO entran
+       aquí desde que su sitio lo fija el CSS: una posición que no se calcula no se desajusta
+       al girar. */
     window.addEventListener('resize', function () {
       if (ficha.hidden) return;
       pintarMandos();
       ajustarAlto();
-      colocarPuntos();
     });
 
     /* ---- el dedo: dos gestos y UN manejador ----

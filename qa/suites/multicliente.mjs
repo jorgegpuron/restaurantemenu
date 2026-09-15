@@ -114,13 +114,42 @@ export async function pruebasMulticliente(informe, { proyectoSemilla, navegador,
     informe.comprueba(id, `build del cliente ${nombre}`, b.ok, b.texto.trim().split('\n').filter(Boolean).pop());
   }
 
-  for (const [id, cliente, nombre, color] of [
-    ['MC-13', vacio, 'vacio', '#3F8F5B'], ['MC-14', completo, 'completo', '#7A4FD0']]) {
+  /* El icono de pestana de un cliente que NO trae el suyo.
+   *
+   * Hasta el 15 sep 2026 esto contrataba que el respaldo llevara el color de marca DEL
+   * CLIENTE: el motor dibujaba una tarjeta de carta con tres renglones en su Primario.
+   * Correcta, y anonima -- una copia salia con un generico que no dice de quien es el
+   * producto. El propietario lo vio en la primera copia real y pidio lo contrario: que las
+   * copias nazcan con la marca de SocialCard.
+   *
+   * Asi que ahora se contrata la IDENTIDAD, no el color: byte a byte el mismo fichero que el
+   * motor lleva dentro. Comparar bytes y no buscar un color es lo que hace que esto siga
+   * valiendo el dia que la marca cambie de dibujo. */
+  const marcaDelMotor = readFileSync(path.join(proyectoSemilla, 'motor', 'iconos', 'marca-socialcard.svg'));
+  for (const [id, cliente, nombre] of [['MC-13', vacio, 'vacio'], ['MC-14', completo, 'completo']]) {
     const icono = path.join(cliente.salida, 'assets', 'titleIcon-accent.svg');
     const existe = existsSync(icono);
-    const texto = existe ? readFileSync(icono, 'utf8') : '';
-    informe.comprueba(id, `el cliente ${nombre} tiene icono de pestana con SU color`,
-      existe && texto.includes(color), existe ? `${texto.length} bytes` : 'no existe');
+    const bytes = existe ? readFileSync(icono) : Buffer.alloc(0);
+    informe.comprueba(id, `el cliente ${nombre}, que no trae icono propio, nace con la marca de SocialCard`,
+      existe && bytes.equals(marcaDelMotor),
+      existe ? `${bytes.length} bytes · identico al del motor: ${bytes.equals(marcaDelMotor)}` : 'no existe');
+  }
+
+  /* La otra mitad, que no miraba nadie: un cliente que SI trae el suyo se queda con el suyo.
+     Sin esto, un respaldo que pisara el icono del restaurante pasaria las dos de arriba y
+     nadie se enteraria hasta verlo en la pestana del navegador. */
+  {
+    const propio = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+      + '<rect width="16" height="16" fill="#123456"/></svg>\n';
+    const destinoAssets = path.join(completo.proyecto, 'assets');
+    mkdirSync(destinoAssets, { recursive: true });
+    writeFileSync(path.join(destinoAssets, 'titleIcon-accent.svg'), propio);
+    const b = buildLocal(proyectoSemilla, completo.destino);
+    const icono = path.join(completo.salida, 'assets', 'titleIcon-accent.svg');
+    const servido = existsSync(icono) ? readFileSync(icono, 'utf8') : '';
+    informe.comprueba('MC-13b', 'un cliente que trae su propio icono conserva el suyo, no el del motor',
+      b.ok && servido === propio,
+      `build ${b.ok ? 'ok' : 'falla'} · ${servido.length} bytes · propio: ${servido === propio}`);
   }
 
   const vb = verificarBuild(completo.proyecto);

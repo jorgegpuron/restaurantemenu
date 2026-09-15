@@ -1877,10 +1877,10 @@
     },
     {
       "id": "E4",
-      "titulo": "--detectar no revisa server/**",
+      "titulo": "--detectar revisa server/ y motor/ (cerrado el 15 sep 2026)",
       "prueba": "conocidos.mjs::e4",
-      "sigue_abierto_si": "RUTAS_EN_PROYECTO no incluye server y quedan menciones a la carpeta de Tinge en comentarios",
-      "estado": "known open"
+      "sigue_abierto_si": "nunca: cerrado. La comprobacion se queda como guardia — RUTAS_EN_PROYECTO tiene que seguir incluyendo server y motor",
+      "estado": "cerrado"
     },
     {
       "id": "E5",

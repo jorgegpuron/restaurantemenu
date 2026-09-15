@@ -7968,3 +7968,110 @@ cambia sola el día que cambie la marca -- ni un día antes ni uno después.
 **Medido:** el banco de pruebas no cambia ni un byte. Su `?v=` sigue siendo `ec6cc7192f`, el
 mismo que sirve producción, y su `index.html` compilado sólo difiere del anterior en el sello
 de build. El respaldo no se dispara donde ya hay marca.
+
+---
+
+## El paginado de la ficha deja de moverse, y un plato sin foto deja de encoger la ventana
+
+El propietario lo vio en su teléfono: al pasar a un plato de «Combina con» que no tiene foto,
+los puntos del carrusel se despegaban y se iban hacia arriba, lejos del sitio donde estaban un
+momento antes.
+
+### Lo medido, antes de tocar nada
+
+Copia local de `2-subir` con el `estado.json` y las fotos reales de producción, a 375×812.
+«Spicy Papadum», que combina con tres:
+
+| diapositiva | alto de la carta | puntos sobre el suelo |
+|---|---|---|
+| Spicy Papadum · foto | 469 px | 22 px |
+| Chicken Soup · foto | 469 px | 28 px |
+| Masala Fries · foto | 469 px | 28 px |
+| **Tomato Soup · SIN foto** | **199 px** | **163 px** |
+
+Llegando por el enlace de «Combina con», los puntos saltan de 22 a 163 y se quedan ahí. **141
+píxeles.** Y entre dos platos CON foto ya bailaban 6.
+
+### Dos causas que se sumaban
+
+1. **`colocarPuntos()` calculaba la posición desde el contenido.** Ponía los puntos en la mitad
+   del hueco que quedara entre la última línea de texto y el suelo de la ficha. Era deliberado
+   —colgados de un valor fijo quedaban pegados al borde; puestos en el renglón, se cruzaban con
+   el texto— pero una posición que se calcula desde el contenido se mueve con el contenido.
+
+2. **Una diapositiva sin foto medía sólo su texto.** `.dsheet-foto` llevaba `[hidden]` cuando el
+   plato no tenía foto, así que la carta pasaba de 469 a 199 mientras la ficha seguía midiendo
+   lo mismo: 270 px de vacío debajo, y los puntos al centro de ese vacío.
+
+   El comentario del motor decía «hoy no se abre ninguna sin foto». Cierto para `abrirFicha()`,
+   que exige `data-foto` — y **falso** llegando por «Combina con», que es justo el camino por el
+   que el propietario lo encontró. Una suposición que era verdad en una puerta y mentira en la
+   otra.
+
+### Lo que se hace
+
+**El hueco de la foto va siempre.** `.dsheet-foto` deja de esconderse: sin foto se ve el mismo
+marco 4/5 con el fondo `--ink` y la cámara centrada — `SVG_CAMARA`, literalmente el mismo icono
+que marca las filas de la carta, ahora definido **una sola vez** en el build y leído también por
+el runtime. Con eso todas las diapositivas miden lo mismo y el texto acaba siempre a la misma
+altura.
+
+**Y entonces la posición se puede fijar.** Con la escala del SPEC:
+
+```
+── suelo de la ficha ──
+      --s3   (21 px)
+  ●  ●  ●    el dibujo del punto, 8 px
+      --s3   (21 px)
+── donde acaba el texto ──
+```
+
+El `bottom` de `.dsheet-puntos` descuenta la diferencia entre la caja tocable (26 px) y el
+dibujo (8): lo que se contrata es **lo que se ve**, no el área del dedo, que es más alta a
+propósito. Y el `padding-bottom` del cuerpo reserva la misma cuenta escrita desde el otro lado,
+`--s3 + 8 + --s3`.
+
+**`colocarPuntos()` desaparece entera**: 45 líneas, las dos pasadas de medida, la corrección de
+medio píxel de la caja centrada en escritorio, y el recálculo al girar la pantalla. Una posición
+que no se calcula no se puede desajustar. El cambio es neto **negativo en líneas de código**.
+
+**Y se va el CSS muerto.** Con la foto siempre presente, las ocho reglas de
+`.dsheet-foto[hidden]` —la variante «papel con tinta» de una ficha sin foto, incluidos los
+puntos en tinta sobre papel— quedaban inalcanzables. Se quitan en el mismo cambio: CSS muerto
+que contradice el comportamiento nuevo es de donde sale el bug siguiente.
+
+### Medido después, en el mismo laboratorio
+
+| | 375×812 | 1024×820 |
+|---|---|---|
+| Aire por abajo, las cuatro diapositivas | 21,0 px | 21,0 px |
+| Aire por arriba, las cuatro | 21,3 px | 21,0 px |
+| Alto de la carta, con y sin foto | 469 px | 650 px |
+| La cámara, en la que no tiene foto | 83×83 px | sí |
+
+Las cuatro diapositivas miden lo mismo, el aire es el mismo por arriba y por abajo, y no cambia
+al pasar de una a otra ni al girar. Sin errores de consola.
+
+### Dos pruebas de la batería contrataban lo contrario
+
+`CAR-28` decía «la ventana mide lo que mide el plato que se ve» y exigía que la diapositiva sin
+foto fuera **más baja**. `CAR-33` decía que los puntos van «centrados en el hueco». Las dos
+describían exactamente el defecto, así que las dos se reescriben al contrato nuevo: misma altura
+con y sin foto —y la cámara dibujada de verdad, con tamaño, no un `<span>` vacío que pasaría sin
+pintar nada— y aire fijo e igual arriba y abajo, medido contra `--s3` leído del propio CSS y no
+contra un 21 escrito a mano en la prueba.
+
+### Y dos pruebas más, que el mismo día pidieron cambiar de bando
+
+La batería completa sacó dos fallos **que no eran de este arreglo**: `MC-13` y `MC-14`
+contrataban que el icono de pestaña de un cliente nuevo llevara **el color de marca de ese
+cliente**, y el cambio del favicon del mismo día lo convirtió en la marca de SocialCard. Pasan a
+contratar la **identidad** —byte a byte el fichero que el motor lleva dentro— y no un color:
+comparar bytes es lo que hace que la prueba siga valiendo el día que la marca cambie de dibujo.
+Se añade `MC-13b`, la mitad que no miraba nadie: **un cliente que sí trae su propio icono se
+queda con el suyo.**
+
+Y un defecto conocido se cierra: `E4` («`--detectar` no revisa `server/**`»). La reescritura de
+`--detectar` lo cerró y la batería lo cantó sola como `UNEXPECTED PASS`. La comprobación se
+queda, cambiando de papel: deja de decir «esto sigue roto» y pasa a decir «esto no se puede
+volver a romper».

@@ -405,6 +405,17 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
           altoVia: Math.round(via.getBoundingClientRect().height),
           altoActiva: activa ? Math.round(activa.getBoundingClientRect().height) : 0,
           fotosPedidas: cartas.filter((c) => !!c.querySelector('.dsheet-foto img').getAttribute('src')).length,
+          /* Cuántas diapositivas van sin foto, y si la que se ve enseña la cámara de verdad
+             —dibujada, con tamaño— y no un <span> vacío que pasaría la comprobación sin pintar
+             nada. */
+          sinFoto: cartas.filter((c) => c.classList.contains('sin-foto')).length,
+          camara: (() => {
+            if (!activa || !activa.classList.contains('sin-foto')) return null;
+            const svg = activa.querySelector('.dsheet-sinfoto svg');
+            if (!svg) return false;
+            const r = svg.getBoundingClientRect();
+            return r.width > 24 && r.height > 24;
+          })(),
         };
       });
 
@@ -436,11 +447,17 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       informe.comprueba('CAR-27', 'solo la diapositiva que se ve esta activa: las demas inertes y un unico rotulo' + suf,
         saltado.inertes === saltado.diapositivas - 1 && saltado.rotulos === 1,
         JSON.stringify({ inertes: saltado.inertes, rotulos: saltado.rotulos }));
-      /* El tercer plato no tiene foto: su diapositiva es sólo texto y la ventana tiene que
-         encoger hasta ahí. Sin esto mandaría la más alta y la ficha se quedaría medio vacía. */
-      informe.comprueba('CAR-28', 'la ventana mide lo que mide el plato que se ve, no el mas alto de la pista' + suf,
-        saltado.altoVia === saltado.altoActiva && saltado.altoVia < abierta.altoVia,
-        JSON.stringify({ conFoto: abierta.altoVia, sinFoto: saltado.altoVia }));
+      /* El tercer plato NO tiene foto, y aun así su diapositiva mide lo mismo que las otras:
+         el hueco 4/5 va siempre y, cuando no hay foto, enseña la cámara. Esto se contrataba al
+         revés hasta el 15 sep 2026 —«la ventana encoge hasta el plato que se ve»— y era la
+         causa del salto del paginado: con una diapositiva de 199 px dentro de una ficha que
+         seguía midiendo 469, los puntos se iban 141 px hacia arriba. Medido con los datos de
+         producción antes de tocar nada. Si un día alguien vuelve a hacer que encoja, esto lo
+         para. */
+      informe.comprueba('CAR-28', 'una diapositiva sin foto mide lo mismo que una con foto, y enseña la camara' + suf,
+        saltado.altoVia === saltado.altoActiva && saltado.altoVia === abierta.altoVia
+        && saltado.sinFoto === 1 && saltado.camara === true,
+        JSON.stringify({ conFoto: abierta.altoVia, sinFoto: saltado.altoVia, camara: saltado.camara }));
 
       /* Las flechas son el mando de escritorio, y se apagan en los extremos. */
       await pagina.evaluate(() => document.querySelector('.dsheet-flecha.es-izq').click());
@@ -473,28 +490,33 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
         const d = puntos.getBoundingClientRect();
         /* La ÚLTIMA línea de «Combina con», medida con un Range: el rectángulo del párrafo da
            el bloque entero y con dos líneas empieza demasiado arriba. */
-        const combina = carta.querySelector('.dsheet-combina');
-        let renglon = null;
-        if (combina && !combina.hidden) {
-          const r = document.createRange();
-          r.selectNodeContents(combina);
-          const rs = r.getClientRects();
-          renglon = rs.length ? rs[rs.length - 1] : null;
-        }
         const punto = document.querySelector('.dsheet-punto');
         const activo = document.querySelector('.dsheet-punto[aria-current="true"]');
+        /* Se mide el DIBUJO (el ::before de 8 px), no la caja tocable de 26: lo que el
+           propietario ve y pidió es el punto, y la caja del dedo es más alta a propósito. */
+        const alto8 = punto ? parseFloat(getComputedStyle(punto, '::before').height) : 0;
         const pb = punto ? punto.getBoundingClientRect() : null;
+        const centro = pb ? (pb.top + pb.bottom) / 2 : null;
+        /* Donde acaba el TEXTO: el suelo de la caja de contenido del cuerpo. Es lo que la
+           reserva de padding-bottom separa de los puntos, y no depende de cuántas líneas
+           tenga el plato ni de si trae «Combina con». */
+        const cuerpo = carta.querySelector('.dsheet-cuerpo');
+        const finTexto = cuerpo
+          ? cuerpo.getBoundingClientRect().bottom - parseFloat(getComputedStyle(cuerpo).paddingBottom)
+          : null;
         return {
           arriba: Math.round((f.top - p.top) * 10) / 10,
           abajo: Math.round((p.bottom - f.bottom) * 10) / 10,
           fondoPuntos: getComputedStyle(puntos).backgroundColor,
           altoPuntos: Math.round(d.height * 10) / 10,
           puntosDentro: d.height > 0 && d.bottom <= f.bottom + 1 && d.top >= f.top,
-          hueco: renglon ? Math.round((p.bottom - renglon.bottom) * 10) / 10 : null,
-          /* Lo que se contrata: el centro de los puntos cae en la MITAD del hueco que queda
-             entre la última línea y el suelo de la ficha. */
-          desfase: renglon && pb
-            ? Math.round((((pb.top + pb.bottom) / 2) - ((renglon.bottom + p.bottom) / 2)) * 100) / 100
+          /* Lo que se contrata desde el 15 sep 2026: aire FIJO e IGUAL por arriba y por abajo,
+             el de la escala (--s3). Antes iban centrados en el hueco que quedara, que es una
+             posición calculada desde el contenido y por eso se movía con él. */
+          s3: Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--s3'))),
+          aireAbajo: centro !== null ? Math.round((p.bottom - (centro + alto8 / 2)) * 10) / 10 : null,
+          aireArriba: centro !== null && finTexto !== null
+            ? Math.round(((centro - alto8 / 2) - finTexto) * 10) / 10
             : null,
           /* Y el dibujo es el del hero: el activo estirado en píldora, los demás redondos. */
           esDelHero: !!(activo && activo.classList.contains('hero-dot')),
@@ -503,15 +525,19 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
             ? getComputedStyle(punto, '::before').width : null,
         };
       });
-      /* Tres cosas en una: que la tarjeta sea la foto, que los puntos queden CENTRADOS en el
-         hueco entre la última línea del plato y el suelo —colgados de un valor fijo quedaban
-         pegados al borde; puestos en el renglón del texto, se cruzaban con él— y que el dibujo
-         sea el mismo del hero y no una copia parecida. */
-      informe.comprueba('CAR-33', 'la ficha es la foto, y los puntos van centrados en el hueco entre la última línea y el suelo, con el dibujo del hero' + suf,
+      /* Tres cosas en una: que la tarjeta sea la foto, que los puntos tengan el MISMO aire fijo
+         por arriba y por abajo —el --s3 de la escala— y que el dibujo sea el mismo del hero y
+         no una copia parecida.
+         Hasta el 15 sep 2026 esto contrataba lo contrario: los puntos CENTRADOS en el hueco que
+         quedara. Era una posición calculada desde el contenido, así que bailaba 6 px entre dos
+         platos con foto y saltaba 141 al llegar a uno sin ella. Lo que se contrata ahora no se
+         calcula: lo fija el CSS, y por eso no se puede desajustar. */
+      informe.comprueba('CAR-33', 'la ficha es la foto, y los puntos llevan el mismo aire fijo (--s3) por arriba y por abajo, con el dibujo del hero' + suf,
         Math.abs(sinBanda.arriba) <= 1 && Math.abs(sinBanda.abajo) <= 1
         && /rgba\(0, 0, 0, 0\)|transparent/.test(sinBanda.fondoPuntos) && sinBanda.puntosDentro
-        && sinBanda.hueco !== null && sinBanda.hueco > 8
-        && sinBanda.desfase !== null && Math.abs(sinBanda.desfase) <= 1
+        && sinBanda.aireAbajo !== null && Math.abs(sinBanda.aireAbajo - sinBanda.s3) <= 1
+        && sinBanda.aireArriba !== null && Math.abs(sinBanda.aireArriba - sinBanda.s3) <= 1
+        && Math.abs(sinBanda.aireArriba - sinBanda.aireAbajo) <= 1
         && sinBanda.esDelHero && sinBanda.pildora === '21px',
         JSON.stringify(sinBanda));
 

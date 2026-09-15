@@ -29,16 +29,20 @@ export function pruebasConocidos(informe, { clienteNuevo, docroot, pagina, servi
     informe.blocked('E3', 'version del motor.lock de un cliente nuevo', 'no se creo ningun cliente en esta pasada');
   }
 
-  /* E4 — --detectar no revisa server/**, y ahi quedan menciones a la carpeta del cliente semilla. */
+  /* E4 — CERRADO el 15 sep 2026: --detectar ya revisa server/** y motor/**.
+     Era un defecto abierto y la batería lo marcaba como tal; la reescritura de --detectar de
+     ese día lo cerró, y la propia batería lo cantó como UNEXPECTED PASS. La comprobación se
+     queda, pero cambia de papel: deja de decir «esto sigue roto» y pasa a decir «esto no se
+     puede volver a romper». Era el agujero por el que el alta de un cliente se llevó la ruta
+     de la carta semilla escrita en los comentarios de su .htaccess, con --detectar diciendo
+     «limpio». */
   const herramienta = readFileSync(path.join(CLIENTE, 'nuevo-cliente.mjs'), 'utf8');
   const rutas = /const RUTAS_EN_PROYECTO = \[([^\]]*)\]/.exec(herramienta);
   const miraServer = rutas ? /['"]server['"]/.test(rutas[1]) : false;
-  if (!miraServer) {
-    informe.known('E4', '--detectar no incluye server/** entre las rutas que revisa',
-      rutas ? rutas[1].replace(/\s+/g, ' ').trim() : '(no se pudo leer la lista)');
-  } else {
-    informe.unexpected('E4', '--detectar ya revisa server/**: revisar y retirar de la lista');
-  }
+  const miraMotor = rutas ? /['"]motor['"]/.test(rutas[1]) : false;
+  informe.comprueba('E4', '--detectar revisa server/ y motor/, que es por donde se cuelan los restos del semilla',
+    miraServer && miraMotor,
+    rutas ? rutas[1].replace(/\s+/g, ' ').trim() : '(no se pudo leer la lista)');
 
   /* E5 — un porcentaje imposible se guarda si la oferta esta apagada. Se comprueba leyendo la
      guarda en el codigo: reproducirlo escribiendo un 950 en el estado seria dejar el defecto
