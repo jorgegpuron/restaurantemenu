@@ -557,77 +557,116 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       informe.comprueba('CAR-32', 'ni un error de consola en todo el recorrido de la ficha' + suf,
         pagina.registro.consola.length === 0, pagina.registro.consola.slice(0, 3).join(' | '));
 
-      /* La bolsa de «para llevar» es la GEMELA de la cámara: desde que dejó la línea de
-         etiquetas las dos son el mismo círculo de 32 en la línea del nombre, y lo único que
-         cambia es el dibujo. Si midieran distinto o cayeran a distinta altura se leerían como
-         dos cosas de familias distintas puestas una al lado de otra, que es justo lo que este
-         diseño evita. Se mide contra la cámara y no contra una pastilla: la pastilla ya no es
-         su vecina. */
+      /* «Para llevar» es una pastilla de TEXTO en la línea de etiquetas, delante de vegano y
+         sin gluten (15 sep 2026: el icono redondo se probó en producción y el propietario lo
+         descartó). Lo que hay que garantizar son tres cosas y las tres se miden aquí:
+
+         1. Va RELLENA en --solid con texto --solid-ink. No es un capricho de color: son el
+            único par de la paleta con 4,5:1 garantizado por verificarPaleta() y los únicos que
+            no se derivan de colorPrincipal, así que este badge es idéntico en todos los
+            clientes. Se mide el CONTRASTE de verdad, no que el CSS diga los nombres: un token
+            mal cableado daría los dos iguales y la prueba pasaría igual mirando nombres.
+         2. Va DELANTE de las dietas. El orden es el del propietario y además es el mismo que
+            en la ficha (CAR-41): dos órdenes distintos para las mismas etiquetas se leen como
+            dos cosas distintas.
+         3. Tiene TEXTO. La ranura se emite vacía y la rellena el runtime con tr('Takeaway');
+            si esa línea se pierde, el badge queda como una pastilla negra muda y ninguna
+            medida de color lo notaría. */
+      const lum = (rgb) => {
+        const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map((n) => {
+          const c = Number(n) / 255;
+          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
       const bolsa = await pagina.evaluate((k) => {
         const fila = document.querySelector('.single-menu-items[data-key="' + k + '"]');
         if (!fila) return { error: 'sin fila' };
-        const m = fila.querySelector('.has-llevar:not([hidden])');
-        const cam = fila.querySelector('.has-photo');
-        if (!m || !cam) return { error: 'faltan iconos', bolsa: !!m, camara: !!cam };
-        const a = m.getBoundingClientRect();
-        const b = cam.getBoundingClientRect();
-        const h3 = fila.querySelector('.menu-content h3');
-        /* El ORDEN también: la bolsa va detrás de la cámara, siempre y en toda pasada. Es lo
-           que se rompía solo cuando el runtime pintaba con appendChild. */
-        const hijos = [...h3.children].map((el) => String(el.className).split(' ')[0]);
+        const m = fila.querySelector('.item-tag-llevar:not([hidden])');
+        const tira = fila.querySelector('.item-tags');
+        if (!m || !tira) return { error: 'sin badge', badge: !!m };
+        const cs = getComputedStyle(m);
+        const raiz = getComputedStyle(document.documentElement);
+        const dietas = fila.querySelector('.diet-marks');
+        const visibles = [...tira.children].filter((el) => el.getBoundingClientRect().width > 0);
         return {
-          anchoBolsa: Math.round(a.width * 10) / 10, altoBolsa: Math.round(a.height * 10) / 10,
-          anchoCamara: Math.round(b.width * 10) / 10, altoCamara: Math.round(b.height * 10) / 10,
-          centros: Math.round(((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) * 100) / 100,
-          detras: a.left > b.left,
-          orden: hijos.join(','),
+          texto: m.textContent.trim(),
+          fondo: cs.backgroundColor,
+          tinta: cs.color,
+          /* Y que sean LOS TOKENS, no dos colores parecidos escritos a mano. */
+          tokenFondo: raiz.getPropertyValue('--solid').trim(),
+          tokenTinta: raiz.getPropertyValue('--solid-ink').trim(),
+          delanteDeDietas: dietas
+            ? (m.compareDocumentPosition(dietas) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+            : null,
+          orden: visibles.map((el) => String(el.className).split(' ').filter((c) => c !== 'item-tag')[0] || el.tagName).join(','),
         };
       }, platos[0].k);
-      informe.comprueba('CAR-34', 'la bolsa de «para llevar» es la gemela de la camara: mismo tamano, mismo centro y detras de ella' + suf,
-        !bolsa.error && bolsa.anchoBolsa === 32 && bolsa.altoBolsa === 32
-        && bolsa.anchoBolsa === bolsa.anchoCamara && bolsa.altoBolsa === bolsa.altoCamara
-        && Math.abs(bolsa.centros) <= 0.6 && bolsa.detras === true,
-        JSON.stringify(bolsa));
+      const contraste = bolsa.error ? 0 : (() => {
+        const a = lum(bolsa.fondo), b = lum(bolsa.tinta);
+        return Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100;
+      })();
+      informe.comprueba('CAR-34', 'el badge de «para llevar» es una pastilla de texto rellena, delante de las dietas, y su texto se lee sobre su fondo' + suf,
+        !bolsa.error && bolsa.texto.length > 0 && bolsa.delanteDeDietas === true && contraste >= 4.5,
+        JSON.stringify(Object.assign({ contraste }, bolsa)));
 
-      /* Los dos huecos declarados, y son distintos a propósito: 4 de la cámara a la bolsa
-         —icono pegado a icono, la regla de la casa— y 10 del NOMBRE a la bolsa cuando no hay
-         cámara delante, que es el mismo aire con el que la cámara se separa del texto.
-         Los 4 salen de `.has-photo + .has-llevar`, así que el caso que hay que mirar de verdad
-         es el del plato SIN foto: si la fixtura no lo pinta, la comprobación no ha visto nada. */
+      /* El hueco: lo que hay que garantizar es que este badge NO tenga regla propia — que se
+         separe exactamente igual que cualquier otra pastilla de su misma línea. Por eso se
+         compara contra sus VECINAS de la misma fila en vez de contra un número escrito aquí:
+         un número fijo obliga a tocar esta prueba cada vez que cambie el espaciado de la
+         carta, y además puede quedarse mintiendo si lo que cambia es la regla general.
+
+         Medido el 15 sep 2026, y conviene saberlo porque el comentario del motor dice otra
+         cosa: la regla `.item-tag:not([hidden]):has(~ :not([hidden]))` da 4 px SIEMPRE, también
+         a la última pastilla visible. El motivo es que `.sold-out-flag` va detrás de todas y la
+         esconde el CSS con display:none, no el atributo `hidden`, así que el `~ :not([hidden])`
+         la encuentra igual. Los «8 del último contra el nombre» que promete el comentario no
+         llegan a ocurrir con el marcado de hoy. */
       const huecos = await pagina.evaluate(() => {
         const salida = [];
-        document.querySelectorAll('.has-llevar:not([hidden])').forEach((m) => {
+        /* Acotado a las FILAS y no a todo el documento: desde que el badge también se clona en
+           la ficha —y la ficha está abierta a estas alturas de la suite— un selector suelto
+           cogía también aquél, que no vive dentro de ninguna .single-menu-items. El closest()
+           devolvía null y la excepción tiraba la pasada entera, no sólo esta comprobación. */
+        document.querySelectorAll('.single-menu-items .item-tag-llevar:not([hidden])').forEach((m) => {
           if (!m.getBoundingClientRect().width) return;
-          const previo = m.previousElementSibling;
-          if (!previo) return;
-          const entre = Math.round((m.getBoundingClientRect().left - previo.getBoundingClientRect().right) * 100) / 100;
+          const tira = m.parentElement;
+          const visibles = [...tira.children].filter((el) => el.getBoundingClientRect().width > 0);
+          const i = visibles.indexOf(m);
+          const otras = visibles.filter((el) => el !== m && el.classList.contains('item-tag'))
+            .map((el) => Math.round(parseFloat(getComputedStyle(el).marginRight) * 100) / 100);
           salida.push({
-            tras: String(previo.className).split(' ')[0] || previo.tagName,
-            px: entre,
+            k: m.closest('.single-menu-items').dataset.key,
+            px: Math.round(parseFloat(getComputedStyle(m).marginRight) * 100) / 100,
+            izquierdo: Math.round(parseFloat(getComputedStyle(m).marginLeft) * 100) / 100,
+            vecinas: otras,
+            ultimo: i === visibles.length - 1,
           });
         });
         return salida;
       });
-      const conCamara = huecos.filter((h) => h.tras === 'has-photo');
-      const sinCamara = huecos.filter((h) => h.tras !== 'has-photo');
-      if (!conCamara.length || !sinCamara.length) {
-        informe.blocked('CAR-35', 'los dos huecos de la bolsa' + suf,
-          'la fixtura no pinto los dos casos que hay que medir —una fila con camara delante y otra sin ella—: '
+      const conVecinas = huecos.filter((h) => h.vecinas.length);
+      if (!conVecinas.length) {
+        informe.blocked('CAR-35', 'el hueco del badge de «para llevar»' + suf,
+          'la fixtura no pinto ninguna fila con el badge Y otra pastilla al lado, que es contra lo que hay que compararlo: '
           + JSON.stringify(huecos.slice(0, 6)));
       } else {
-        informe.comprueba('CAR-35', 'el hueco es 4 px pegada a la camara y 10 px cuando no hay camara delante' + suf,
-          conCamara.every((h) => Math.abs(h.px - 4) <= 0.6)
-          && sinCamara.every((h) => Math.abs(h.px - 10) <= 0.6),
+        informe.comprueba('CAR-35', 'el badge se separa como cualquier otra pastilla de su linea: ni margen propio ni margen izquierdo' + suf,
+          conVecinas.every((h) => h.vecinas.every((v) => Math.abs(v - h.px) <= 0.6))
+          && huecos.every((h) => Math.abs(h.izquierdo) <= 0.6),
           JSON.stringify(huecos.slice(0, 6)));
       }
 
-      /* EL DEFECTO, tal cual se vio: en el móvil el badge no salía. Vivía dentro de
-         .item-tags, que a menos de 768 va con display:none salvo que .has-tags o .is-sold-out
-         la destapen, y «para llevar» no enciende ninguna de las dos. Un plato que SÓLO fuera
-         para llevar se quedaba sin badge en el teléfono y con él en tablet y escritorio.
-         Se mide en TODAS las filas marcadas, no en una: la garantía que hace falta es «en el
-         móvil, marcada = visible», sin excepciones. Y se exige que entre ellas haya al menos
-         una con la línea de etiquetas vacía —el caso que fallaba—; si no, se bloquea. */
+      /* EL DEFECTO QUE VUELVE SI ALGUIEN SE DESPISTA, y es la prueba que más importa de este
+         bloque. .item-tags va con display:none por debajo de 768 salvo que .has-tags o
+         .is-sold-out la destapen, y .has-tags la enciende el runtime contando destacado,
+         oferta, dietas —y «para llevar», que es la línea que se añadió al devolver el badge a
+         esta línea el 15 sep 2026—. Sin esa línea, un plato marcado SÓLO para llevar se queda
+         con su badge dentro de una línea oculta: invisible en el teléfono y visible en tablet
+         y escritorio. Ya ocurrió una vez y por eso el badge se había mudado a la línea del
+         nombre; al traerlo de vuelta, esta prueba es lo único que impide que vuelva el fallo.
+         Se mide en TODAS las filas marcadas, no en una, y se EXIGE que entre ellas haya alguna
+         cuya única etiqueta sea ésta —el caso que fallaba—; si no, BLOCKED. */
       const vpLlevar = pagina.viewportSize();
       await pagina.setViewportSize({ width: 390, height: 844 });
       await pagina.waitForTimeout(500);
@@ -637,34 +676,42 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
         for (const fila of filas) {
           fila.scrollIntoView({ block: 'center' });
           await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-          const m = fila.querySelector('.has-llevar');
+          const m = fila.querySelector('.item-tag-llevar');
           const tira = fila.querySelector('.item-tags');
           const r = m ? m.getBoundingClientRect() : null;
+          /* Las OTRAS etiquetas visibles de la fila: si no hay ninguna, ésta es la única que
+             puede estar encendiendo .has-tags, y es exactamente el caso que fallaba. */
+          const otras = tira
+            ? [...tira.children].filter((el) => el !== m && el.getBoundingClientRect().width > 0).length
+            : 0;
           salida.push({
             k: fila.dataset.key,
             ancho: r ? Math.round(r.width * 10) / 10 : 0,
             alto: r ? Math.round(r.height * 10) / 10 : 0,
+            visible: !!(r && r.width > 0 && r.height > 0),
             tiraOculta: tira ? getComputedStyle(tira).display === 'none' : true,
+            soloEsta: otras === 0,
           });
         }
         return salida;
       });
-      const soloLlevar = movil.filter((f) => f.tiraOculta);
+      const soloLlevar = movil.filter((f) => f.soloEsta);
       if (!movil.length || !soloLlevar.length) {
-        informe.blocked('CAR-39', 'la bolsa en el movil' + suf,
-          'la fixtura no pinto ninguna fila marcada con la linea de etiquetas vacia, que es el caso que fallaba: '
+        informe.blocked('CAR-39', 'el badge de «para llevar» en el movil' + suf,
+          'la fixtura no pinto ninguna fila cuya UNICA etiqueta sea esta, que es el caso que fallaba: '
           + JSON.stringify(movil.slice(0, 6)));
       } else {
-        informe.comprueba('CAR-39', 'a 390 px toda fila marcada «para llevar» ENSENA su badge, tambien la que no tiene ninguna etiqueta' + suf,
-          movil.every((f) => f.ancho === 32 && f.alto === 32),
+        informe.comprueba('CAR-39', 'a 390 px toda fila marcada «para llevar» ENSENA su badge, tambien aquella en la que es la unica etiqueta' + suf,
+          movil.every((f) => f.visible && !f.tiraOculta && f.alto >= 16),
           JSON.stringify(movil.slice(0, 6)));
       }
 
-      /* Y el precio sigue centrado con el nombre en esas filas. En el móvil el renglón del
-         nombre mide 22 y un círculo de 32 lo estira: por eso existe el desplazamiento de
-         4,5 px que llevaba `.abre`. Pero `.abre` la pone la FOTO, y un plato puede ir para
-         llevar sin tenerla — esa fila estira igual y no llevaba la clase. Se lee de
-         data-llevar. Sin esto el precio queda 4,5 px alto justo en las filas nuevas.
+      /* Y el precio sigue centrado con el nombre en esas filas. El badge ya no estira el
+         renglón del nombre —no está en esa línea—, pero SÍ enciende .has-tags, y eso desplaza
+         el precio el alto de la línea de etiquetas (--tags-h + 5). La fila que hay que mirar es
+         justo la del caso de CAR-39: marcada, sin foto, y con esta etiqueta como única. Si el
+         desplazamiento y la línea dejaran de cuadrar, el precio saldría montado sobre su propio
+         badge, que es como se vio el 14 sep en las filas con oferta.
 
          Se mide el TEXTO con un Range, no `getBoundingClientRect()` del elemento. La caja de
          `.price` incluye el `padding-top` que es justamente lo que empuja al texto, así que su
@@ -713,6 +760,51 @@ export async function pruebasCarta(informe, { pagina, servidor, docroot, etiquet
       }
       if (vpLlevar) await pagina.setViewportSize(vpLlevar);
       await pagina.waitForTimeout(300);
+
+      /* Y el badge también en la FICHA, que es lo que se pidió el 15 sep 2026: quien abre la
+         foto de un plato tiene que ver ahí que se puede pedir para llevar, sin volver a la
+         fila. Tres cosas, y las tres se rompen por caminos distintos:
+         - que ESTÉ, con su texto — se clona de la fila, así que una fila sin texto da una
+           ficha sin texto y ninguna medida de color lo notaría;
+         - que vaya DELANTE de las dietas, el mismo orden que en la fila;
+         - que el NÚMERO de badges de la pista sea el de platos marcados, ni uno más. La ranura
+           existe en los 312 platos y clonarla sin mirar su `hidden` metería un badge en todas
+           las fichas; y como la ficha reutiliza las mismas tarjetas al pasar de plato, uno que
+           no se limpie se queda pegado del plato anterior. Las dos averías se ven contando. */
+      await pagina.evaluate((k) => document.querySelector(`.single-menu-items[data-key="${k}"]`).click(), platos[0].k);
+      await pagina.waitForTimeout(800);
+      const enFicha = await pagina.evaluate(() => {
+        const cartas = [...document.querySelectorAll('#dsheet-tira > *')];
+        const activa = cartas.find((c) => c.classList.contains('es-activa')) || cartas[0];
+        const h2 = activa ? activa.querySelector('.dsheet-nombre') : null;
+        const b = h2 ? h2.querySelector('.item-tag-llevar') : null;
+        const d = h2 ? h2.querySelector('.diet-marks') : null;
+        return {
+          diapositivas: cartas.length,
+          /* Cuántas de las diapositivas corresponden a un plato marcado, leído de la LISTA y no
+             de la propia ficha: si se leyera de la ficha, la cuenta y lo contado serían lo
+             mismo y no compararían nada. */
+          marcadas: cartas.filter((c) => {
+            const nom = c.querySelector('.dsheet-nombre');
+            const fila = [...document.querySelectorAll('.single-menu-items[data-llevar="1"] .dish-name')]
+              .some((n) => nom && nom.textContent.indexOf(n.textContent.trim()) === 0);
+            return fila;
+          }).length,
+          badges: cartas.filter((c) => !!c.querySelector('.dsheet-nombre .item-tag-llevar')).length,
+          hay: !!b,
+          texto: b ? b.textContent.trim() : '',
+          delanteDeDietas: b && d
+            ? (b.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+            : null,
+        };
+      });
+      informe.comprueba('CAR-41', 'el badge de «para llevar» sale en la ficha, con su texto, delante de las dietas, y solo en los platos marcados' + suf,
+        enFicha.hay === true && enFicha.texto.length > 0
+        && enFicha.delanteDeDietas !== false
+        && enFicha.badges === enFicha.marcadas,
+        JSON.stringify(enFicha));
+      await pagina.keyboard.press('Escape');
+      await pagina.waitForTimeout(400);
 
       writeFileSync(estadoPath, estadoCarrusel);
     }

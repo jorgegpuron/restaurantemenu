@@ -8501,3 +8501,87 @@ Y una pieza que sólo se puede probar de verdad disparándola contra producción
 —una vez, a mano, mirando el log— antes de darla por buena.
 
 Motor 1.4.0 -> 1.4.1.
+
+## «Para llevar» vuelve a ser una etiqueta con su nombre (15 Sep 2026, tarde)
+
+El icono redondo que se publicó esta misma mañana **no convenció al verlo en producción**, y la
+decisión del propietario es volver a una pastilla de **texto**. No es un cambio de opinión
+gratuito: un dibujo obliga a adivinar, y esto tiene nombre. La cámara puede permitirse ser sólo
+un icono porque lo que dice —«hay foto»— se comprueba tocándola; «se puede pedir para llevar» no
+se comprueba con nada.
+
+### Dónde va y de qué color
+
+Vuelve a `.item-tags`, en su ranura propia y **delante de las dietas**:
+
+```
+oferta · destacado · PARA LLEVAR · vegano / sin gluten · agotado hoy
+```
+
+Ese orden lo pidió el propietario y además se lee solo: primero lo que puedes hacer con el plato,
+después de qué está hecho.
+
+Rellena, con **`--solid` de fondo y `--solid-ink` de texto**. Los dos son literalmente «el relleno
+de un chip sólido y su texto» en la paleta, el único par con **4,5:1 garantizado** —lo comprueba
+`verificarPaleta()` en cada build— y los únicos que **no se derivan de `colorPrincipal`**: este
+badge se ve exactamente igual en todos los clientes, que es lo que se le pide a una etiqueta que
+dice un hecho del servicio y no un rasgo de la marca.
+
+Negro y no el acento porque el acento ya lo llevan la oferta (relleno) y las dietas (contorno).
+Un tercer naranja en la misma línea convierte tres cosas distintas en una mancha.
+
+### El texto lo pone el runtime, y eso ahorra 25 KB
+
+Se probaron las dos formas y la diferencia se midió:
+
+| | HTML de la carta |
+|---|---|
+| Texto horneado en el build, con sus `data-<idioma>` | 1 009 714 B |
+| Ranura vacía + `tr('Takeaway')` en `render()` | **984 940 B** |
+
+Son 312 filas repitiendo la misma palabra en tres idiomas. La ranura vacía es además lo que ya
+hacen sus dos vecinas —oferta y destacado— y por el mismo motivo: lo que va dentro depende del
+**estado del día**, no del plato. Las dietas sí se hornean, porque ésas sí son del plato.
+
+La clave `'Takeaway'` ya existía y ya estaba traducida: la usa el filtro de la cabecera.
+
+### Lo que NO se puede olvidar al traerlo de vuelta
+
+`.item-tags` va con `display:none` por debajo de 768 px salvo que la destapen `.has-tags` o
+`.is-sold-out`. **«Para llevar» tiene que contar en `.has-tags`**, o vuelve exactamente el defecto
+que esta misma mañana obligó a sacarlo de esta línea: un plato marcado sólo para llevar se queda
+con su badge dentro de una línea oculta, visible en tablet y escritorio y no en el teléfono.
+
+Es una línea en `render()` y `CAR-39` es lo único que impide que se pierda.
+
+### La letra pequeña del hueco, que el comentario del motor contaba mal
+
+La regla de separación entre badges dice «4 px mientras tenga algún hermano visible detrás, 8 el
+último contra el nombre». Medido: da **4 a todos, también al último**. Detrás de todos va
+`.sold-out-flag`, que la esconde el CSS con `display:none` y **no** con el atributo `hidden`, así
+que el `~ :not([hidden])` la encuentra siempre.
+
+Se deja como está y se corrige el comentario, no la regla: 4 es lo que se ve, es lo que el
+propietario ha aprobado mirando la carta, y cambiarlo ahora movería **todas** las líneas de
+etiquetas. `CAR-35` se escribió en consecuencia — mide que este badge reciba **lo mismo que sus
+vecinas**, sea cual sea ese número, en vez de clavar un 4 que mañana mentiría.
+
+### En la ficha
+
+Se pidió que saliera también en el modal de la foto, y sale: `rellenarFicha()` lo **clona de la
+fila**, delante de las dietas, igual que ya hacía con ellas. Clonar y no componer tiene un motivo
+— llega con el texto que `render()` acaba de poner en el idioma de ahora, así que aquí no hay un
+segundo sitio donde traducir. Sólo se clona si la fila lo tiene **visible**: la ranura existe en
+los 312 platos. `CAR-41` cuenta los badges de la pista y exige que sean exactamente los platos
+marcados, que es como se ven las dos averías posibles — clonar sin mirar, y no limpiar al pasar
+de plato.
+
+### Lo que se retira
+
+El círculo `.has-llevar` y sus dos reglas de hueco, el desplazamiento de precio por
+`[data-llevar]` en el móvil, el anclaje de alérgenos y cámara a la bolsa, y la constante
+`ICONO_LLEVAR`. Con ellos se van los porqués de esta mañana: ya no hay un círculo de 32 en la
+línea del nombre que la estire, así que el precio no necesita compensación y la cámara vuelve a
+su `appendChild` de siempre.
+
+Motor 1.4.1 -> 1.4.2.
